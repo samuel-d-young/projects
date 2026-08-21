@@ -47,3 +47,60 @@ Phase 1 research: how Assist timer state is actually exposed in HA 2026.8, and w
 a separate ESPHome device can subscribe to it. That answer determines the whole design,
 so it gets verified against primary sources and then adversarially re-checked before
 anything is built on it.
+
+---
+
+## 2026-08-21 — Phase 1 research complete
+
+Full ledger: [docs/PHASE-1-RESEARCH.md](docs/PHASE-1-RESEARCH.md). Headlines:
+
+**The crux question has a clean answer, and it is not the obvious one.** Assist timers really are a
+closed subsystem — no entities, no bus events, dispatch hard-keyed to the `device_id` of the device
+that set the timer, and the ESP32 firmware itself refuses a second subscriber. A separate ESP32
+cannot listen. That part is verified at HA Core tag 2026.8.2 and is final.
+
+But the right move is to **never let the timer enter `TimerManager`**. `intent_script:` can override
+`HassStartTimer`, routing a spoken timer into a real `timer.*` helper entity — real state, real bus
+events, an absolute `finishes_at`, and **no firmware change on the Voice PE**, so it keeps its OTA
+updates. Verified by source; **not yet bench-tested**.
+
+**Process note worth remembering:** the first three research passes all concluded "closed, therefore
+reflash the Voice PE", and all three explicitly warned away from the `timer` helper as a dead end.
+Three independent agents, same wrong answer — because they all grepped the same way and missed the
+same file. Only the adversarial pass, told to *refute* rather than confirm, opened
+`intent/__init__.py` and found `/api/intent/handle` and the override mechanism. Convergence is not
+confirmation. Keep the refutation step in later phases.
+
+### Decisions taken (subject to Sam's sign-off)
+
+- **Timer path:** `intent_script` override → `timer.<area>` helper → ESPHome `text_sensor` importing
+  `attribute: finishes_at`, counted down locally. Fallbacks ranked in the ledger.
+  *Revert:* delete the `HassStartTimer:` block from `intent_script:` and HA's built-in handler
+  re-registers on restart. Nothing else to undo.
+- **Base project:** port `markusressel/ESPHome-Analog-Clock` (CC0, 60-LED, real CI compile) from
+  ESP8266/neopixelbus to ESP32/`esp32_rmt_led_strip`. Steal the timer arc from the Voice PE firmware.
+- **LED component:** `esp32_rmt_led_strip`. Not a preference — `neopixelbus` and `fastled` *fail
+  config validation* under the default `esp-idf` framework.
+
+### Corrections to the brief
+
+- **3.6 A is a worst case, not a spec.** The original WS2812B datasheet has no current figure at all;
+  the current V5 part specifies 36 mA/LED. Realistic full white on 60 LEDs is ~2.4 A. Still size for
+  60 mA/LED, because sellers don't state the revision.
+- **`api: password:` removal in ESPHome 2026.1.0 — confirmed correct.**
+- **Level shifter: yes, buy one.** ESP32 guarantees `VOH` = 2.64 V; the original WS2812B wants 3.5 V
+  and even the relaxed V5 wants 2.7 V. Out of spec against both. It usually works on the bench and
+  that is exactly the failure mode to avoid in a wall-mounted device.
+
+### Landmine flagged
+
+Draft PR `home-assistant/core#174847` adds a `timer_list` entity domain with real triggers and
+websocket APIs — the three things missing today. Still Draft, not shipped. It **will require devices
+to have a `timer_list` entity to support voice timers**. Building on `timer.*` helpers now is the
+cleanest thing to swap over later.
+
+### Next
+
+Blocked on Sam: which WLED matrix he owns (16x16 has *exactly* 60 perimeter pixels and could make
+this free), whether the Voice PE must stay stock (the override silences its own ring and chime), and
+whether he has spare WS2812B strip from the xLights rig. Then Phase 2 BOM. **Nothing bought yet.**
