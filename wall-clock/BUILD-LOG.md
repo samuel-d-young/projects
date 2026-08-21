@@ -169,3 +169,85 @@ instead** — it's technically preferable and free.
 
 **Stop. Waiting on Sam to approve the BOM before anything is ordered.** Then Phase 3 firmware —
 which can start on a strip offcut before the ring arrives.
+
+---
+
+## 2026-08-21 — Phase 3: firmware written and bench-tested (not yet flashed)
+
+Firmware: [esphome/wall-clock.yaml](esphome/wall-clock.yaml). Test rig:
+[esphome/test/run.sh](esphome/test/run.sh).
+
+Sam confirmed the ring is **one piece**, and that he has **smaller LED circles to test with** —
+which shaped the design more than anything else this session.
+
+### The single most important line in the file
+
+`api: reboot_timeout: 0s`
+
+The ESPHome default is **15 minutes**: the device reboots itself if no API client connects for that
+long. That default would have quietly destroyed priority #1. During an HA outage the clock would
+reboot, and because a bare ESP32 has no battery-backed RTC, a **power-on reset loses the time
+entirely** — so the clock would go dark at precisely the moment we most want it working. `wifi:` has
+the same default and the same fix.
+
+Nothing about this is obvious from the symptom. Worth remembering.
+
+### Graceful degradation, as actually verified
+
+- **HA unreachable → clock keeps perfect time.** Verified by reading `homeassistant_time.cpp`:
+  `update()` just asks the API server, and with no clients there is no request and *no error path*.
+  Time only ever moves on a real sync. An outage does not disturb the display at all.
+- **DST still works during an outage.** HA pushes a POSIX TZ string *plus pre-parsed DST rules*
+  alongside the epoch, and the device stores them — so the transition happens on-device. This is why
+  `timezone:` is deliberately **omitted** on the `homeassistant` time platform: setting one would
+  stop HA pushing updates, which is the opposite of what was asked for.
+- **Power-on reset is the one real gap** — the ESP32 RTC does not survive it. SNTP is added as a
+  second time source to recover from that without HA. Its `timezone:` is the only hand-set value in
+  the file and applies only to a cold boot while HA is down; HA overrides it on first sync.
+- If the time is genuinely unknown, the ring shows a deliberate crawling amber dot rather than a
+  plausible-looking wrong time. **A confidently wrong clock is worse than an obviously broken one.**
+
+### Design notes worth keeping
+
+- **The render adapts to the actual ring.** `N` comes from `it.size()`, not the substitution, and
+  every position is computed as a *fraction of the circle*. So the same firmware draws a correct
+  (coarser) face on a 12, 16, 24 or 60 LED ring. Develop on the small rings, change `num_leds`, flash.
+- **Brightness is applied exactly once**, on write-out from an off-screen buffer. Layers composite at
+  full range and get scaled in one place. This matters because ESPHome's `max_power` **cannot** cap
+  an addressable strip (float-outputs only), so the cap is hand-rolled — and a hand-rolled cap that
+  is scattered across five layers is a cap you cannot audit.
+- `gamma_correct: 1.0` on purpose, so 50% means 50% of current and the brightness number doubles as
+  the power story. Revert to 2.8 for a smoother curve, but then stop reasoning about amps from it.
+- **The raw light is `internal: true`.** Exposing both it and the brightness number invites a state
+  fight between HA's slider and the cap, with no way to tell which one won.
+- Timer arc clamps `ratio` at 1.0 — "add five minutes" grows the denominator mid-timer and the arc
+  would otherwise jump backwards past full.
+
+### Testing done, and its limits
+
+This container cannot reach HA and has no ESPHome toolchain, so `esphome config` has **not** been
+run. Instead the render lambda is extracted, the ESPHome types it touches are stubbed from
+`color.h` / `esp_color_view.h` at tag 2026.8.0, and it is compiled with `g++ -Wall -Wextra`.
+`esphome/test/run.sh` reproduces it in one command.
+
+That found two real defects before any hardware existed:
+
+1. A malformed `std::min` (three-argument call from a misplaced paren) that would not have compiled.
+2. **A silent half-render.** `N` was originally a compile-time constant from the substitution, with a
+   `it.size() < N` guard. Connect a 60-LED ring while `num_leds` still said 24 and it renders the
+   first 24 pixels and leaves 36 dark — no error, no warning. Fixed by taking `N` from `it.size()`.
+   This is exactly the bug that would have been blamed on wiring for an hour.
+
+Current state: clean compile, zero warnings, and hand positions assert correct at 12/24/60 LEDs
+(03:00 → pixel 15 of 60, pixel 6 of 24, pixel 3 of 12) with alert covering every pixel at every size.
+
+**Still unverified, and only real hardware settles it:** the YAML schema itself (`esphome config`),
+`channel_colors` vs `rgb_order` on the real 2026.8.0 build, the `sntp` + `homeassistant` time
+coexistence, and whether `ota:`'s schema is unchanged. Run `esphome config wall-clock.yaml` first.
+
+### Next
+
+Phase 4 — the HA package. It has to publish `sensor.wall_clock_timer_finish_epoch` (absolute unix
+epoch, static while running) rather than the timer's own `remaining`, because **`remaining` does not
+tick down** and `duration`/`remaining` are `H:MM:SS` *strings* the numeric sensor platform cannot
+import at all.
