@@ -104,3 +104,68 @@ cleanest thing to swap over later.
 Blocked on Sam: which WLED matrix he owns (16x16 has *exactly* 60 perimeter pixels and could make
 this free), whether the Voice PE must stay stock (the override silences its own ring and chime), and
 whether he has spare WS2812B strip from the xLights rig. Then Phase 2 BOM. **Nothing bought yet.**
+
+---
+
+## 2026-08-21 — Decisions locked, Phase 2 BOM ready
+
+Full BOM: [docs/PHASE-2-BOM.md](docs/PHASE-2-BOM.md). **Nothing ordered — waiting on approval.**
+
+### Sam's answers
+
+- **Ring size:** initially 258 mm from 74 LEDs/m strip; **then changed to a one-piece 60-LED
+  WS2812B ring, 172 mm OD.** The ring supersedes the strip plan.
+- **Voice PE:** accept the `intent_script` override and let the Voice PE's own ring and chime go
+  dark. The wall clock is the visual; `assist_satellite.announce` covers audio. Voice PE stays stock
+  and keeps OTA.
+- **Printers:** P1S and X2D.
+- **WLED matrix:** size unknown — dropped from the plan. A strip offcut will be the bench rig instead.
+
+### Why the ring beat the strip, in hindsight
+
+The strip plan was sound but the ring is simply better here. Recording the analysis because it was
+non-obvious and shouldn't be re-derived:
+
+Flat WS2812B strip **cannot bend sideways in its own plane** — it only curls perpendicular to the
+PCB. So a viewer-facing flat circle needs the strip cut into pieces. Cutting all 60 into singles is
+60 joints / 180 wire ends. But approximating the circle as a **12-sided polygon of 5-LED segments**
+costs only 12 joints and lands every LED within **0.118° of the ideal 6° dial grid** — 1.2 seconds of
+dial, invisible. That was going to be the plan.
+
+The ring removes it entirely: no cuts, no joints, LEDs already facing the viewer, and at 172 mm the
+enclosure body (~196 mm) **prints in one piece** on a 256 mm bed instead of four arcs. Smaller clock,
+far less risk.
+
+*(Kept for reference: the 12-segment maths is reusable if a bigger clock is ever wanted. Diameter is
+locked to strip density — 60/m → 320 mm, 74/m → 261 mm, 96/m → 200 mm, 144/m → 133 mm — because the
+LED pitch must subtend 6°, which fixes the radius-to-pitch ratio.)*
+
+### Two findings that changed the plan
+
+**The Glowforge Aura cannot cut the diffuser.** It is a ~5 W **diode** laser, not CO₂, and clear,
+white and translucent acrylic are largely transparent to its wavelength. Glowforge's own Aura material
+set is opaque acrylic only. Since a diffuser is white/translucent *by definition*, the split becomes:
+**Aura → 3 mm plywood** for the face and engraved markers; **Bambu → white PLA** for the diffuser,
+printed thin with 60 individual light wells. That's a better diffuser than flat acrylic anyway.
+*(Sam's PVC/chlorine warning stands and is correct — nothing in the BOM is PVC.)*
+
+**The MCU recommendation inverted on availability, not merit.** Plain ESP32 is the *better* RMT host
+(8 TX channels / 512 symbols vs the S3's 4 / 192). But Core Electronics no longer stocks a cheap
+WROOM-32 devkit, so plain ESP32 is now effectively AliExpress-only in AU. The S3 Mini (`WS-27070`,
+$9.85, in stock) wins on availability alone. **If there's a spare ESP32 in the xLights box, use that
+instead** — it's technically preferable and free.
+
+### Corrections carried forward
+
+- **`max_power` cannot cap an addressable strip in ESPHome** — float-outputs-only. The brightness cap
+  must be enforced inside the lambda. Phase 3 must not assume otherwise.
+- **A 4 A supply covers the absolute worst case (3.78 A)**, which makes the brightness cap a comfort
+  setting rather than a safety mechanism. That is the right way round — a firmware bug should not
+  become an electrical problem.
+- **GC9A01 rejected:** 11.9 mm digits are legible to ~1.4 m; a kitchen glance is 3–5 m. Also costs a
+  ~100 ms main-loop stall every second, which would visibly stutter the ring.
+
+### Next
+
+**Stop. Waiting on Sam to approve the BOM before anything is ordered.** Then Phase 3 firmware —
+which can start on a strip offcut before the ring arrives.

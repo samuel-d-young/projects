@@ -21,4 +21,4 @@ Priority order when something has to give: **reliable clock > timers > status.**
 
 ## Status
 
-Phase 1 (research) in progress. Nothing bought, nothing cut.
+Phase 2 (BOM) awaiting approval. Nothing bought, nothing cut.
