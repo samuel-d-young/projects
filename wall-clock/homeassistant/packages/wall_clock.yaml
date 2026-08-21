@@ -1,0 +1,444 @@
+# =============================================================================
+# wall_clock.yaml — Home Assistant side of the LED ring wall clock
+# =============================================================================
+# Install to /config/packages/wall_clock.yaml (picked up by the existing
+#   homeassistant:
+#     packages: !include_dir_named packages
+#
+# WHAT THIS DOES
+#   1. Overrides the built-in Assist timer intents so a spoken timer lands in a
+#      REAL timer.<area> helper entity instead of Assist's internal, invisible
+#      TimerManager. This is the crux of the whole project — see below.
+#   2. Publishes a small, stable set of wall_clock_* entities that the ESP32
+#      subscribes to. That indirection is deliberate: the firmware never has to
+#      know about Frigate entity names, area ids, or how many timers exist.
+#
+# ---------------------------------------------------------------------------
+# FIRST INSTALL NEEDS A FULL RESTART. AFTER THAT, RELOAD IS ENOUGH.
+# ---------------------------------------------------------------------------
+# `homeassistant.reload_all` only calls `reload` on domains that are ALREADY
+# set up — it cannot bootstrap a new one. This file introduces `timer:` and
+# `intent_script:`, neither of which is part of default_config. So:
+#
+#     FIRST TIME:   ha core check   &&   ha core restart
+#     EVERY EDIT AFTER:   Developer Tools > Actions > homeassistant.reload_all
+#
+# (reload_all runs a config check first and reloads NOTHING if it fails, so it
+# is safe to fire. `ha core check` is still worth running — it is the more
+# comprehensive check.)
+#
+# ---------------------------------------------------------------------------
+# !! BEFORE YOU RESTART: fill in the WIRING section below. !!
+# ---------------------------------------------------------------------------
+# Several entity ids cannot be guessed from here and MUST be looked up on your
+# system. In HA 2026.8 the default entity_id format is area + device + entity,
+# so any integration-discovered id depends on your area assignments. Paste this
+# into Developer Tools > Template to dump the real ones:
+#
+#   AREAS (these decide the timer entity names):
+#     {{ areas() | map('area_id') | list }}
+#
+#   FRIGATE face sensors:
+#     {{ states.sensor | selectattr('entity_id','search','face') 
+#        | map(attribute='entity_id') | list }}
+#
+#   FRIGATE occupancy:
+#     {{ states.binary_sensor | selectattr('entity_id','search','occupancy')
+#        | map(attribute='entity_id') | list }}
+#
+#   GARAGE:
+#     {{ states.cover | map(attribute='entity_id') | list }}
+#
+#   VOICE SATELLITES (once the Voice PE units arrive):
+#     {{ states.assist_satellite | map(attribute='entity_id') | list }}
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# TIMER HELPERS — one per area
+# -----------------------------------------------------------------------------
+# CRITICAL: each entity id must be timer.<area_id>, matching your area ids
+# EXACTLY. The intent override routes by `preferred_area_id`, which is the area
+# of the Voice PE device that heard the command. If the area is "Living Room"
+# its area_id is "living_room" and the timer must be timer.living_room.
+# Run the areas() template above and correct these names before restarting.
+#
+# `restore: true` means a running timer survives an HA restart — without it, a
+# restart silently eats an in-flight timer.
+#
+# KNOWN LIMITATION: one timer per area. Saying "set a second timer" in the same
+# room replaces the first. Multi-timer needs a pool of helpers per area and a
+# free-slot search in the intent script; deliberately not built yet.
+timer:
+  kitchen:
+    name: Kitchen timer
+    restore: true
+    duration: "00:00:00"
+  living_room:
+    name: Living room timer
+    restore: true
+    duration: "00:00:00"
+  bedroom:
+    name: Bedroom timer
+    restore: true
+    duration: "00:00:00"
+  garage:
+    name: Garage timer
+    restore: true
+    duration: "00:00:00"
+
+
+input_boolean:
+  # Latched by the automation below when a timer fires, cleared after 60s.
+  # The ring reads this (via the template binary_sensor) to enter ALERT mode.
+  wall_clock_timer_alert:
+    name: Wall clock timer alert
+    icon: mdi:bell-ring
+
+
+# -----------------------------------------------------------------------------
+# INTENT OVERRIDE — the crux
+# -----------------------------------------------------------------------------
+# Assist timers are structurally unreadable from outside the device that set
+# them: no entities, no bus events, and dispatch is hard-keyed to the
+# originating device_id (verified in intent/timers.py @ HA 2026.8.2). A second
+# ESP32 cannot subscribe. So instead of trying to read them, we stop the timer
+# entering TimerManager at all.
+#
+# intent.async_register() OVERWRITES an existing handler with only a log
+# warning, and intent_script calls exactly that. Declaring HassStartTimer here
+# replaces HA's built-in StartTimerIntentHandler while KEEPING the built-in
+# sentence grammar — you still say "set a timer for 5 minutes" and all the
+# phrasings HA ships. Only the handler changes.
+#
+# You WILL see this in the log on every restart. It is expected, not an error:
+#     Intent HassStartTimer is being overwritten by <ScriptIntentHandler>
+#
+# ACCEPTED COST (Sam's decision): Home Assistant no longer sends
+# VoiceAssistantTimerEventResponse to the Voice PE, so the satellite's own LED
+# ring animation and chime go dark. The wall clock is the visual; the announce
+# automation below restores the audio. The Voice PE firmware is NOT modified,
+# so it keeps its official OTA updates.
+#
+# REVERT: delete this whole intent_script: block and restart. HA re-registers
+# its built-in handlers on startup and Assist timers work exactly as before.
+# Nothing else needs undoing.
+#
+# NOTE ON TEMPLATE VARIABLES: intent_script's slot schema is declared with
+# extra=vol.ALLOW_EXTRA (helpers/intent.py:850), so slots the schema does not
+# name — hours, minutes, seconds, name — still reach the template. Verified at
+# tag 2026.8.2. `preferred_area_id` IS in the schema (intent_script:162).
+intent_script:
+
+  HassStartTimer:
+    async_action: false
+    action:
+      - variables:
+          area: "{{ preferred_area_id | default('') | lower | replace(' ', '_') }}"
+          target: "{{ 'timer.' ~ area if area else 'none' }}"
+          total: >-
+            {{ (hours   | default(0) | int) * 3600
+             + (minutes | default(0) | int) * 60
+             + (seconds | default(0) | int) }}
+          hhmmss: >-
+            {% set t = (hours | default(0) | int) * 3600
+                     + (minutes | default(0) | int) * 60
+                     + (seconds | default(0) | int) %}
+            {{ '%02d:%02d:%02d' | format(t // 3600, (t % 3600) // 60, t % 60) }}
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ target != 'none' and states(target) not in ['unknown', 'unavailable'] }}"
+            sequence:
+              - action: timer.start
+                target:
+                  entity_id: "{{ target }}"
+                data:
+                  duration: "{{ hhmmss }}"
+    speech:
+      text: >-
+        {% set area = preferred_area_id | default('') | lower | replace(' ', '_') %}
+        {% set target = 'timer.' ~ area if area else 'none' %}
+        {% if target == 'none' or states(target) in ['unknown', 'unavailable'] %}
+          I don't have a timer set up for this room yet.
+        {% else %}
+          {% set t = (hours | default(0) | int) * 3600
+                   + (minutes | default(0) | int) * 60
+                   + (seconds | default(0) | int) %}
+          {% set h = t // 3600 %}{% set m = (t % 3600) // 60 %}{% set s = t % 60 %}
+          Timer set for
+          {%- if h %} {{ h }} hour{{ 's' if h != 1 }}{% endif %}
+          {%- if m %} {{ m }} minute{{ 's' if m != 1 }}{% endif %}
+          {%- if s %} {{ s }} second{{ 's' if s != 1 }}{% endif %}.
+        {% endif %}
+
+  HassCancelTimer:
+    async_action: false
+    action:
+      - variables:
+          target: "{{ 'timer.' ~ (preferred_area_id | default('') | lower | replace(' ', '_')) }}"
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ states(target) in ['active', 'paused'] }}"
+            sequence:
+              - action: timer.cancel
+                target:
+                  entity_id: "{{ target }}"
+    speech:
+      text: >-
+        {% set target = 'timer.' ~ (preferred_area_id | default('') | lower | replace(' ', '_')) %}
+        {% if states(target) in ['active', 'paused'] %}Timer cancelled.
+        {% else %}There's no timer running in here.{% endif %}
+
+  HassPauseTimer:
+    async_action: false
+    action:
+      - variables:
+          target: "{{ 'timer.' ~ (preferred_area_id | default('') | lower | replace(' ', '_')) }}"
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ states(target) == 'active' }}"
+            sequence:
+              - action: timer.pause
+                target:
+                  entity_id: "{{ target }}"
+    speech:
+      text: >-
+        {% set target = 'timer.' ~ (preferred_area_id | default('') | lower | replace(' ', '_')) %}
+        {% if states(target) == 'active' %}Paused.{% else %}There's no timer running in here.{% endif %}
+
+  HassUnpauseTimer:
+    async_action: false
+    action:
+      - variables:
+          target: "{{ 'timer.' ~ (preferred_area_id | default('') | lower | replace(' ', '_')) }}"
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ states(target) == 'paused' }}"
+            sequence:
+              # timer.start with no duration resumes a paused timer from where
+              # it stopped. There is no separate "unpause" action.
+              - action: timer.start
+                target:
+                  entity_id: "{{ target }}"
+    speech:
+      text: >-
+        {% set target = 'timer.' ~ (preferred_area_id | default('') | lower | replace(' ', '_')) %}
+        {% if states(target) == 'paused' %}Resumed.{% else %}There's no paused timer in here.{% endif %}
+
+  HassTimerStatus:
+    async_action: false
+    speech:
+      text: >-
+        {% set target = 'timer.' ~ (preferred_area_id | default('') | lower | replace(' ', '_')) %}
+        {% if states(target) == 'active' %}
+          {% set left = (state_attr(target, 'finishes_at') | as_timestamp - as_timestamp(now())) | round(0) | int %}
+          {% set m = left // 60 %}{% set s = left % 60 %}
+          {% if m > 0 %}{{ m }} minute{{ 's' if m != 1 }}{% if s %} and {{ s }} second{{ 's' if s != 1 }}{% endif %} left.
+          {% else %}{{ s }} second{{ 's' if s != 1 }} left.{% endif %}
+        {% elif states(target) == 'paused' %}The timer is paused.
+        {% else %}There's no timer running in here.{% endif %}
+
+
+# -----------------------------------------------------------------------------
+# THE CONTRACT WITH THE ESP32
+# -----------------------------------------------------------------------------
+# Everything the firmware subscribes to is named wall_clock_*. The firmware
+# knows nothing about Frigate, area ids, or how many timers exist — change any
+# of that here and the ESP32 needs no reflash.
+template:
+
+  # --- Timer state, collapsed to one active timer ----------------------------
+  # Trigger-based, not state-based, for two reasons: no rate limiting, and it
+  # updates at exactly the moments that matter.
+  #
+  # WHY AN ABSOLUTE EPOCH AND NOT "seconds remaining":
+  # HA's timer entity has a `remaining` attribute, but it does NOT tick down
+  # while running — it is written once at start and only recomputed on
+  # pause/change. And `duration`/`remaining` are "H:MM:SS" STRINGS, which
+  # ESPHome's numeric sensor platform cannot import at all. So we publish the
+  # absolute finish time, which is genuinely static while the timer runs, and
+  # let the ESP32 count down against its own clock. No drift, no polling.
+  - triggers:
+      - trigger: state
+        entity_id:
+          - timer.kitchen
+          - timer.living_room
+          - timer.bedroom
+          - timer.garage
+      - trigger: homeassistant
+        event: start
+    sensor:
+      - name: "Wall clock timer finish epoch"
+        unique_id: wall_clock_timer_finish_epoch
+        state: >-
+          {% set ns = namespace(best = 0) %}
+          {% for e in ['timer.kitchen', 'timer.living_room', 'timer.bedroom', 'timer.garage'] %}
+            {% if states(e) == 'active' and state_attr(e, 'finishes_at') %}
+              {% set t = state_attr(e, 'finishes_at') | as_timestamp %}
+              {% if ns.best == 0 or t < ns.best %}{% set ns.best = t %}{% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.best | round(0) | int }}
+        # 0 means "no timer running" — the firmware checks for > 0.
+
+      - name: "Wall clock timer total"
+        unique_id: wall_clock_timer_total
+        unit_of_measurement: "s"
+        state: >-
+          {% set ns = namespace(best = 0, dur = '0:00:00') %}
+          {% for e in ['timer.kitchen', 'timer.living_room', 'timer.bedroom', 'timer.garage'] %}
+            {% if states(e) == 'active' and state_attr(e, 'finishes_at') %}
+              {% set t = state_attr(e, 'finishes_at') | as_timestamp %}
+              {% if ns.best == 0 or t < ns.best %}
+                {% set ns.best = t %}
+                {% set ns.dur = state_attr(e, 'duration') %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {# duration is an "H:MM:SS" string, so split rather than parse #}
+          {% set p = ns.dur.split(':') | map('int') | list %}
+          {{ p[0] * 3600 + p[1] * 60 + p[2] }}
+
+  # --- Everything else -------------------------------------------------------
+  - binary_sensor:
+
+      # Mirrors the input_boolean. The extra hop exists so the firmware has a
+      # stable wall_clock_* contract — later you can suppress alerts overnight
+      # here without touching (or reflashing) the ESP32.
+      - name: "Wall clock timer alert"
+        unique_id: wall_clock_timer_alert
+        state: "{{ is_state('input_boolean.wall_clock_timer_alert', 'on') }}"
+
+      # ---- Bin night ----
+      # !! ASSUMPTION — VERIFY THIS ONE. !!
+      # sensor.next_bin has a `next_bin_night` attribute, but its FORMAT was
+      # never confirmed. This handles a date or datetime and lights up when it
+      # is today or tomorrow. Check the real value in Developer Tools > States
+      # and adjust. If it is a weekday NAME instead of a date, replace the body
+      # with:   {{ state_attr('sensor.next_bin','next_bin_night') | lower
+      #             == now().strftime('%A') | lower }}
+      - name: "Wall clock bin night"
+        unique_id: wall_clock_bin_night
+        state: >-
+          {% set n = state_attr('sensor.next_bin', 'next_bin_night') %}
+          {% if n is not none %}
+            {% set d = (n | as_datetime) %}
+            {% if d is not none %}
+              {{ 0 <= (d.date() - now().date()).days <= 1 }}
+            {% else %}false{% endif %}
+          {% else %}false{% endif %}
+
+      # ---- Garage ----
+      # !! FILL IN your real cover entity. `is_state` returns false rather than
+      # erroring if the entity does not exist, so a wrong id fails quiet — which
+      # is why it is called out here. Note the cover DEVICE CLASS for a garage
+      # door is `garage`, not `garage_door` (that string belongs to
+      # binary_sensor). Cover states are open/opening/closed/closing.
+      - name: "Wall clock garage open"
+        unique_id: wall_clock_garage_open
+        state: "{{ is_state('cover.garage_door', 'open') or is_state('cover.garage_door', 'opening') }}"
+
+      # ---- Unrecognised face on the driveway ----
+      # !! FILL IN both entity ids, and VERIFY the behaviour on hardware. !!
+      # Frigate 0.17 publishes a per-camera "Last Recognized Face" sensor. Two
+      # traps found in its source that this logic has to survive:
+      #   1. A null name renders as the literal string "None" — the SAME string
+      #      the 60-second timeout writes. Templates cannot tell those apart.
+      #   2. In frigate/events, `sub_label` is a two-element ARRAY [name, score]
+      #      in 0.17, not a string. Anything treating it as a string breaks.
+      # So this deliberately uses "person present AND last face is not a known
+      # name" rather than trying to detect the null directly.
+      - name: "Wall clock driveway unknown"
+        unique_id: wall_clock_driveway_unknown
+        state: >-
+          {% set known = ['Sam', 'Laura', 'Amanda', 'Zac'] %}
+          {% set face = states('sensor.driveway_last_recognized_face') %}
+          {{ is_state('binary_sensor.driveway_person_occupancy', 'on')
+             and face not in known }}
+
+      # ---- Who's home ----
+      # Uses person entities directly. Note `zone.home`'s STATE is an integer
+      # count of people home and is the documented way to count presence — but
+      # we need per-person here, so person.* it is. Deliberately NOT
+      # `states.person | selectattr(...)`: iterating a whole domain triggers
+      # HA's 1-update-per-second rate limit, whereas naming entities does not.
+      - name: "Wall clock home sam"
+        unique_id: wall_clock_home_sam
+        state: "{{ is_state('person.sam', 'home') }}"
+      - name: "Wall clock home laura"
+        unique_id: wall_clock_home_laura
+        state: "{{ is_state('person.laura', 'home') }}"
+      - name: "Wall clock home amanda"
+        unique_id: wall_clock_home_amanda
+        state: "{{ is_state('person.amanda', 'home') }}"
+      - name: "Wall clock home zac"
+        unique_id: wall_clock_home_zac
+        state: "{{ is_state('person.zac', 'home') }}"
+
+
+# -----------------------------------------------------------------------------
+# AUTOMATIONS
+# -----------------------------------------------------------------------------
+automation:
+
+  # Latch the alert when any timer fires. The ring pulses while this is on.
+  - id: wall_clock_timer_alert_on
+    alias: "Wall clock: timer finished -> alert"
+    mode: restart          # a second timer finishing restarts the 60s window
+    triggers:
+      - trigger: event
+        event_type: timer.finished
+        event_data: {}
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ trigger.event.data.entity_id in
+             ['timer.kitchen', 'timer.living_room', 'timer.bedroom', 'timer.garage'] }}
+    actions:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.wall_clock_timer_alert
+
+      # Speak on the satellite in the room the timer belonged to. This replaces
+      # the Voice PE's own chime, which the intent override silences.
+      # The condition guards against the entity not existing yet — the Voice PE
+      # units are on order, and states() returns 'unknown' for a missing entity.
+      - variables:
+          satellite: >-
+            assist_satellite.{{ trigger.event.data.entity_id.split('.')[1] }}_assist_satellite
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ states(satellite) not in ['unknown', 'unavailable'] }}"
+            sequence:
+              - action: assist_satellite.announce
+                target:
+                  entity_id: "{{ satellite }}"
+                data:
+                  message: "Your timer has finished."
+      # !! Once the Voice PE units arrive, run the assist_satellite template
+      # query from the header and correct the entity pattern above. The naming
+      # guess here is the one thing in this file most likely to be wrong.
+
+      - delay: "00:01:00"
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.wall_clock_timer_alert
+
+  # Cancelling a timer should silence a pulsing ring immediately.
+  - id: wall_clock_timer_alert_off
+    alias: "Wall clock: timer cancelled -> clear alert"
+    mode: single
+    triggers:
+      - trigger: event
+        event_type: timer.cancelled
+      - trigger: event
+        event_type: timer.started
+    actions:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.wall_clock_timer_alert

@@ -251,3 +251,98 @@ Phase 4 — the HA package. It has to publish `sensor.wall_clock_timer_finish_ep
 epoch, static while running) rather than the timer's own `remaining`, because **`remaining` does not
 tick down** and `duration`/`remaining` are `H:MM:SS` *strings* the numeric sensor platform cannot
 import at all.
+
+---
+
+## 2026-08-21 — Phase 4: Home Assistant package
+
+Package: [homeassistant/packages/wall_clock.yaml](homeassistant/packages/wall_clock.yaml).
+Install steps: [homeassistant/INSTALL.md](homeassistant/INSTALL.md).
+Offline checks: [homeassistant/test/check.py](homeassistant/test/check.py).
+
+### The intent override, now verified rather than assumed
+
+Phase 1 called this "verified by source, not bench-tested". Two things were
+checked properly this session before writing a line of it:
+
+- **`preferred_area_id` is real.** It is in `intent_script`'s slot schema at
+  `components/intent_script/__init__.py:162`, and slots become the template
+  variables via `action.async_run(slots, ...)` at line 252. So routing by the
+  area of the Voice PE that heard the command is a supported mechanism, not a
+  trick. Corroborated by a working reference implementation
+  (`djelibeybi/voice-assistant-persistent-timers`).
+- **Unlisted slots survive validation.** The slot schema does *not* name
+  `hours`/`minutes`/`seconds`, which looked like it would silently zero every
+  timer. It does not: `_slot_schema` is built with `extra=vol.ALLOW_EXTRA`
+  (`helpers/intent.py:850`), so they pass through to the template. Worth having
+  checked — the failure mode would have been every timer lasting zero seconds.
+
+### Correction to the brief
+
+The instruction was "don't restart HA if `homeassistant.reload_all` will do".
+For this package, **it won't — the first time.**
+
+`reload_all` only calls `reload` on domains that already have a reload service
+registered (`components/homeassistant/__init__.py`, `async_handle_reload_all`).
+It cannot bootstrap a domain that was never set up, and this package introduces
+`timer:` and `intent_script:`, neither of which is in `default_config`.
+
+So: **one restart on first install, reloads forever after.** After the domains
+exist, a reload *does* pick up brand-new package files, because the reload path
+re-reads `configuration.yaml` and re-merges packages every time. `reload_all`
+also runs a config check first and reloads nothing if it fails, so it is safe
+to fire blind.
+
+### Design decisions
+
+- **The package publishes an absolute unix epoch, not "seconds remaining".**
+  HA's `remaining` attribute does not tick down while running, and both
+  `duration` and `remaining` are `H:MM:SS` *strings* that ESPHome's numeric
+  sensor platform cannot import at all. The epoch is genuinely static while the
+  timer runs, so the ESP32 counts down against its own clock — no drift, no
+  polling, no string parsing on the device.
+- **Trigger-based template sensors, not state-based.** State-based templates
+  that iterate a whole domain are rate-limited by HA to one update per second
+  (whole-system: one per minute). Naming entities explicitly avoids the limit
+  entirely, and a state trigger fires on attribute changes too.
+- **Everything the firmware reads is namespaced `wall_clock_*`.** The ESP32
+  knows nothing about Frigate, area ids, or how many timers exist. All of that
+  can change here without reflashing.
+
+### Things deliberately left as FILL-IN rather than guessed
+
+HA 2026.8's default entity_id format is *area + device + entity*, so any
+integration-discovered id depends on Sam's area assignments and cannot be
+derived from here. `INSTALL.md` has the Developer Tools queries to dump the
+real ones. Guessing them would have produced a package that looks right,
+passes a config check, and silently never fires.
+
+Two Frigate 0.17 traps are noted in the file where the logic has to survive them:
+`sub_label` in `frigate/events` is a two-element **array** `[name, score]`, not
+a string; and a null face name renders as the literal string `"None"` — the
+same string the 60-second timeout writes, so templates cannot tell them apart.
+The unknown-face sensor is written as "person present AND face not in known
+list" to sidestep both.
+
+### Known limitation
+
+**One timer per area.** Saying "set a second timer" in the same room replaces
+the first. Multi-timer needs a pool of helpers per area plus a free-slot search
+in the intent script — deliberately not built until the single-timer path is
+proven on hardware.
+
+### Testing done
+
+`homeassistant/test/check.py`: YAML parses, all **35 Jinja templates**
+syntax-check clean, and all **10** `wall_clock_*` entities the firmware
+subscribes to are produced by the package. That last check is the useful one —
+rename either side and it fails loudly instead of leaving a dark ring.
+
+Still unverified: `ha core check` has not been run (no route to 192.168.1.79
+from here), the override has never actually fired, and the
+`assist_satellite.*` entity naming is a guess because the Voice PE units have
+not arrived. That naming is the single thing in the file most likely to be wrong.
+
+### Next
+
+Phase 5 enclosure, sized to the real ring once it is measured. Phase 6 test plan.
