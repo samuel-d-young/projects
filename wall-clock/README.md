@@ -17,8 +17,10 @@ Priority order when something has to give: **reliable clock > timers > status.**
 | `docs/` | Research ledger, BOM, test plan |
 | `esphome/` | Device firmware YAML |
 | `homeassistant/` | The `packages/wall_clock.yaml` package |
-| `enclosure/` | Bambu (FDM) and Glowforge (laser) source files |
+| `enclosure/` | Bambu (FDM) and Glowforge (laser) sources — parametric, see its README |
+| `docs/PHASE-6-TEST-PLAN.md` | The runnable checklist. Start here when parts arrive. |
 
 ## Status
 
-Phase 2 (BOM) awaiting approval. Nothing bought, nothing cut.
+All six phases drafted. Nothing bought, nothing cut, nothing flashed —
+see BUILD-LOG.md for exactly what is verified vs assumed.

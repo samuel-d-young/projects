@@ -346,3 +346,100 @@ not arrived. That naming is the single thing in the file most likely to be wrong
 ### Next
 
 Phase 5 enclosure, sized to the real ring once it is measured. Phase 6 test plan.
+
+---
+
+## 2026-08-21 — Phases 5 and 6: enclosure and test plan
+
+Enclosure: [enclosure/](enclosure/) — parametric, driven entirely by
+`params.py`. Test plan: [docs/PHASE-6-TEST-PLAN.md](docs/PHASE-6-TEST-PLAN.md).
+
+### The laser question has a specific answer, and it isn't a preference
+
+The brief said "cast acrylic or plywood only, tell me which and why".
+
+**Plywood — because the Aura is a ~5 W *diode* laser and physically cannot cut
+clear, white or translucent acrylic.** Those are largely transparent to its
+wavelength; Glowforge's own Aura material set is *opaque* acrylic only. Since a
+diffuser is white by definition, **the diffuser cannot be lasered on this
+machine at any setting.**
+
+So the split is: **Aura → 3 mm plywood** for the face and engraved markers,
+**Bambu → white PLA** for the diffuser. That turns out better, not worse: a
+printed diffuser gives each of the 60 pixels its own cell with a baffle between
+it and its neighbour, which is what makes a 60-point dial read as 60 discrete
+points instead of a smeared glow. A flat acrylic sheet could never do that.
+
+Sam's PVC/chlorine warning stands and is correct. Nothing in the build is PVC.
+`MATERIALS.md` also flags the related trap: unlabelled "acrylic-look" sheet
+from marketplace sellers should not go in the machine at all.
+
+### Design organised around one requirement
+
+*"Wall mounting that doesn't need me to take it down to change anything."*
+
+The cleat stays on the wall. The face screws on **from the front**; behind it
+the diffuser lifts out and the ring is right there, and the ESP32 sits in the
+middle bay — inside the ring's own 156 mm hole — with its USB port facing
+forward. Four M3 screws and everything is serviceable with the clock still
+hanging. Fixings sit at 45°, between hour markers rather than on one.
+
+### Geometry checks caught two collisions before any material was cut
+
+`generate.py` asserts the parts fit each other and the machines, not just that
+the file was written. On the first run it failed two checks:
+
+1. M3 heads at r=92 fell outside the 190 mm face edge.
+2. Hour ticks at r=89–98 overflowed a 95 mm face radius.
+
+Both came from designing the markers for a face I had then shrunk. The fix was
+better than a bigger bezel: **move the ticks onto the centre disc, pointing
+inward.** The disc is 154 mm of otherwise-dead plywood, and using it keeps the
+bezel slim instead of forcing a ~210 mm face. Rendered the SVG to PNG and
+looked at it to confirm — numbers passing is not the same as it looking right.
+
+### Single source of truth
+
+`params.py` generates both `face.svg` (Glowforge) and `params.scad` (which the
+`.scad` parts include). Measure the real ring, change three numbers, re-run,
+re-export STLs. `params.scad` and `face.svg` are generated — hand edits get
+overwritten, and both files say so at the top.
+
+### Glowforge gotcha worth recording
+
+**No `<text>` elements in the SVG, deliberately.** Glowforge does not embed
+fonts, so a text node renders with whatever gets substituted, or not at all.
+Every mark in `face.svg` is geometry. Numerals, if ever wanted, must be
+converted to paths before upload. Also: cut the outline **last** so the part
+stays supported in the sheet — SVG order is only a hint, set it in the UI.
+
+### Test plan
+
+Ordered so nothing untested ever powers anything expensive, and nothing goes on
+the wall until it has soaked for 24 hours. Bench PSU current limits are given
+per stage so the supply trips instead of something burning.
+
+**Stage 5 is the one that matters** — it is the only place the *reliable clock >
+timers > status* priority is actually tested rather than asserted. It
+specifically requires leaving HA down for **20+ minutes**, because that is what
+proves `reboot_timeout: 0s` took effect; with the 15-minute default the device
+would reboot there and lose the time on a cold boot.
+
+Troubleshooting is written around the failure modes the research turned up, not
+generic advice: RMT exhaustion fails loudly at setup and is *never* the cause of
+flicker; the upstream flicker issue was closed **as stale, not fixed**, so there
+is no software answer to wait for; "only pixel 0 wrong" points at the level
+shifter because the first LED sees the rawest edge of the signal.
+
+### Status
+
+**Nothing bought, cut, printed or flashed.** The `.scad` files have never been
+rendered — no OpenSCAD in this environment — so preview them before committing
+filament. `face.svg` has been generated and visually checked but not cut.
+`esphome config` and `ha core check` have not been run.
+
+### Next
+
+Sam's hands. In order: order the ring, prove the software path on a small test
+circle (Stages 1–2 need no 60-ring at all), then measure the real ring and
+regenerate the enclosure.
