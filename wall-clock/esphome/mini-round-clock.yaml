@@ -1,5 +1,5 @@
 # =============================================================================
-# round-clock-s3.yaml — THE build
+# mini-round-clock.yaml — THE build
 # ESP32-S3-N16R8  +  Mokungi 24-LED WS2812B ring (92/71 mm)  +  360x360 round LCD
 # =============================================================================
 # Analogue time on the ring, digital time and weather on the display in the
@@ -25,8 +25,12 @@
 # =============================================================================
 
 substitutions:
-  device_name: round-clock
-  friendly_name: Round Clock
+  # Must match the device name in ESPHome Device Builder exactly — it sets
+  # the hostname (mini-round-clock.local), the OTA target, and the prefix on
+  # every entity this device creates in Home Assistant.
+  # ESPHome allows lowercase, digits and hyphens, max 24 chars. This is 16.
+  device_name: mini-round-clock
+  friendly_name: Mini Round Clock
 
   # The render reads the real LED count from the strip at runtime, so this
   # only has to be right for the light component itself.

@@ -1,7 +1,7 @@
 # =============================================================================
 # SUPERSEDED — kept for reference only.
 # =============================================================================
-# Sam settled on the ESP32-S3-N16R8 for this build. Use round-clock-s3.yaml.
+# Sam settled on the ESP32-S3-N16R8 for this build. Use mini-round-clock.yaml.
 #
 # This config still works and is a valid ESP8266 port if you ever want the ring
 # on its own. It CANNOT drive the 360x360 display: that needs 253 KB of

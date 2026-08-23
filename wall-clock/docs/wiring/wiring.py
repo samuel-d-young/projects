@@ -180,7 +180,7 @@ def diagram_d1mini(path):
 
 def diagram_s3(path):
     s = SVG(1700, 1270, "S3")
-    s.text(50, 52, "Round clock — ESP32-S3-N16R8 + 24-LED ring + 360x360 ST77916 display",
+    s.text(50, 52, "Mini Round Clock — ESP32-S3-N16R8 + 24-LED ring (92/71mm) + 360x360 display",
            26, INK, "start", "bold")
     s.text(50, 80, "Red = +5V   Orange = +3V3   Black = GND   Yellow = LED data   Blue = display QSPI",
            15, MUTED)

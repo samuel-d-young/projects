@@ -558,3 +558,40 @@ be filled in by hand, and the two post-restart checks — the
 and the `wall_clock_*` entity count.
 
 The `--check-only` flag validates the current config and changes nothing.
+
+---
+
+## 2026-08-23 — Device named `mini-round-clock`
+
+Sam named the device in ESPHome Device Builder. Renamed
+`round-clock-s3.yaml` → **`mini-round-clock.yaml`** to match, since Device
+Builder names the config file after the device, and updated the substitutions.
+
+The device name is not cosmetic — it sets three things:
+
+| | |
+|---|---|
+| Hostname | `mini-round-clock.local` |
+| OTA target | the same, so it must match or OTA finds nothing |
+| Entity prefix | every entity this device creates in HA |
+
+Resulting Home Assistant entities:
+
+- `number.mini_round_clock_brightness`
+- `number.mini_round_clock_night_brightness`
+- `select.mini_round_clock_mode`
+- `switch.mini_round_clock_display`
+- `light.mini_round_clock_backlight`
+
+The LED ring itself stays `internal: true` and is deliberately **not** exposed —
+exposing it alongside the brightness number invites a state fight between HA's
+slider and the cap, with no way to tell which one won.
+
+16 characters, against ESPHome's 24-character limit for `name:`. Fine.
+
+**No change needed on the HA package side.** Everything the firmware subscribes
+to is namespaced `wall_clock_*` and lives in Home Assistant, not on the device,
+so renaming the device does not touch it. That indirection was the point.
+
+Both lambdas re-checked after the rename: clean compile, all assertions pass,
+all four display branches exercised.
