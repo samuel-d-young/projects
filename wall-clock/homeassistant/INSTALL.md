@@ -126,7 +126,7 @@ that is what it is for.
 In Device Builder's **secrets editor** (`/config/esphome/secrets.yaml`):
 
 ```yaml
-wifi_ssid: "..."
+wifi_ssid: "The Youngs"          # quoted — the SSID contains a space
 wifi_password: "..."
 wall_clock_api_key: "..."        # openssl rand -base64 32
 wall_clock_ota_password: "..."
@@ -134,6 +134,11 @@ wall_clock_ap_password: "..."
 ```
 
 API **password** auth was removed in ESPHome 2026.1 — the key is mandatory.
+
+> **Credentials go here, never in the device YAML.** The configs reference them
+> as `!secret`, and `secrets.yaml` stays on the HA box — it is gitignored, so it
+> cannot end up in the repo. That separation is the only reason the configs are
+> safe to push to GitHub.
 
 ## 8. Correct the display pins
 
