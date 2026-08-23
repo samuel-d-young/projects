@@ -443,3 +443,83 @@ filament. `face.svg` has been generated and visually checked but not cut.
 Sam's hands. In order: order the ring, prove the software path on a small test
 circle (Stages 1–2 need no 60-ring at all), then measure the real ring and
 regenerate the enclosure.
+
+---
+
+## 2026-08-23 — Bench rigs: D1 mini, ESP32-S3 + round display, mini enclosure
+
+Sam has a **D1 mini**, a **Mokungi 24-LED WS2812B ring**, and a **spare
+ESP32-S3-N16R8**, and asked for a 360×360 round display in the middle showing
+time over weather.
+
+### The device question has a hard answer
+
+**D1 mini runs the ring fine. It cannot run that display, and neither can a
+plain ESP32.** A 360×360 RGB565 framebuffer is 253 KB against ~30 KB of ESP8266
+heap and ~160 KB on a PSRAM-less ESP32.
+
+It is enforced in code, not just tight: ESPHome's ST77916 model declares
+`requires={"psram"}`, so a config without PSRAM **fails validation**. The
+N16R8's 8 MB octal PSRAM satisfies it exactly — the right board was already in
+the drawer.
+
+**Worth recording:** the ESPHome docs page for `mipi_spi` does *not* list
+ST77916 among its supported models. That listing is stale — `models/st77916.py`
+is present in the source at tag 2026.8.0, exposed as `model: ESP-VOCAT`. Had
+this been taken from the docs it would have concluded "unsupported, buy a
+different panel". Checking the source is the only reason it didn't.
+
+The caveat that matters: that model ships the init sequence **and the pins for
+the ESP-VoCat v1.2 board**, because that is where Espressif's init data came
+from. A generic Waveshare/Guition 1.85" module is wired differently. The GPIOs
+are substitutions at the top of the config and must be corrected first.
+
+### Delivered
+
+- `esphome/test-clock-d1mini.yaml` — ESP8266 port. `neopixelbus` instead of
+  `esp32_rmt_led_strip` (the latter is ESP32-only; the 2026.6 neopixelbus
+  deprecation was ESP32-only, so ESP8266 is unaffected). Render buffer cut from
+  256 to 64 pixels — 256 would be careless on 30 KB of heap. Default brightness
+  30%, not 55%, because 24 LEDs at full white is ~1.44 A and a PC USB port
+  will not supply that.
+- `esphome/test-clock-s3-round.yaml` — S3 + ring + QSPI display + weather.
+- `enclosure/mini/` — body, diffuser and back cover **as STLs**, plus the
+  Glowforge SVG.
+- `docs/wiring/` — both wiring diagrams, generated not drawn.
+- `docs/DEVICE-CHOICE.md` — the framebuffer arithmetic and the source citation.
+
+### STLs without OpenSCAD
+
+No OpenSCAD in this environment, so `enclosure/mini/mesh.py` builds the meshes
+directly: revolve a 2-D profile around Z, add boxes for baffles, write binary
+STL. Every part is validated by computing its signed volume with the divergence
+theorem — a closed, correctly-wound mesh gives a positive volume matching the
+analytic value.
+
+That check earned its keep immediately: the first run produced **negative**
+volumes of exactly the right magnitude, i.e. every part was inside-out. Silent,
+and a slicer would have produced nonsense. Fixed by reversing the winding; the
+tube test now matches the analytic volume to 0.005%.
+
+The baffles overlap the revolved rings rather than being booleaned in. Slicers
+union overlapping closed shells, so this prints, but a mesh checker will call
+it non-manifold. Noted in the mini README rather than left to surprise.
+
+### Both new lambdas were compile-checked
+
+Same harness as the production config. Both compile clean under `-Wall
+-Wextra` and pass the hand-position assertions at 12/24/60 LEDs.
+
+### Deliberate difference: the mini uses a friction fit
+
+The 60-LED body has screw posts with modelled pilot holes because OpenSCAD can
+subtract them. The mesh generator has no CSG, so the mini face drops into a
+3 mm recess retained by a 2 mm proud lip. For a rig that gets opened constantly
+during development that is arguably better anyway.
+
+### Still unverified
+
+`esphome config` has not been run on either new config. The `.stl` files have
+never been sliced. The **Mokungi ring dimensions are assumed** to match the
+standard 66.0 / 51.0 mm — measure before printing. And the display pins are
+reference values, not Sam's panel.
