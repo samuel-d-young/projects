@@ -523,3 +523,38 @@ during development that is arguably better anyway.
 never been sliced. The **Mokungi ring dimensions are assumed** to match the
 standard 66.0 / 51.0 mm — measure before printing. And the display pins are
 reference values, not Sam's panel.
+
+---
+
+## 2026-08-23 — Installer script
+
+Sam asked for the HA side to be installed for him. **Not possible from here, and
+this was tested rather than assumed:** `curl` to `192.168.1.79:8123` and
+`192.168.1.63:5000` both time out, a raw TCP connect gets no route, and this
+container's egress is a public cloud IP (`160.79.106.139`). There is also no
+Home Assistant connector in this session — only GitHub, Google, Railway, Vercel
+and Stripe. There is no path to that LAN.
+
+So the next best thing: [`homeassistant/install.sh`](homeassistant/install.sh),
+a self-contained installer to run from the Terminal & SSH add-on. The package
+YAML is embedded in the script, so nothing has to be transferred.
+
+It is written to be safe to run rather than merely convenient:
+
+1. Refuses to start if the `ha` CLI is missing or `/config/packages` does not exist.
+2. Timestamps a backup of any existing `wall_clock.yaml`.
+3. Writes the package, then runs `ha core check`.
+4. **If the check fails it restores the backup and stops** — it will never leave
+   a broken config behind.
+5. Only then offers a restart, and defaults to *no*.
+
+All four paths were exercised locally against a fake `/config` and a stub `ha`
+binary: missing CLI, missing packages dir, happy path, and a failing config
+check (which correctly rolled back).
+
+It also prints the Developer Tools queries for the entity ids that still have to
+be filled in by hand, and the two post-restart checks — the
+`Intent HassStartTimer is being overwritten` log line being the success signal,
+and the `wall_clock_*` entity count.
+
+The `--check-only` flag validates the current config and changes nothing.
