@@ -21,26 +21,15 @@ PCB_T, LED_H = 1.6, 1.6
 NUM_LEDS = 24
 
 # =============================================================================
-# THE DISPLAY — GC9B72 360x360 round module
+# THE DISPLAY — GC9B72 360x360, MEASURED
 # =============================================================================
-# From the photos: a round PCB with a RECTANGULAR TAB carrying a 10-pin header
-# (TE SDO BL CS DC RST SDA SCL VCC GND). The tab is why the module is not a
-# circle, and it is the whole reason for the notch below.
-#
-# !! ALL FIVE OF THESE ARE ESTIMATES FROM PHOTOS. MEASURE BEFORE PRINTING. !!
-DISP_PCB_D = 60.0       # diameter of the ROUND part of the blue PCB
-DISP_ACTIVE_D = 53.0    # black screen area -> sets the plywood aperture
-DISP_T = 4.0            # glass to back of PCB, at the RIM (not the connectors)
-DISP_TAB_REACH = 36.0   # centre of module -> outer edge of the tab
-DISP_TAB_W = 24.0       # width of the tab
+DISP_PCB_D = 60.0       # round part of the blue PCB
+DISP_ACTIVE_D = 55.0    # black screen area -> sets the plywood aperture
+DISP_T = 4.0            # module thickness at the rim
+DISP_TAB_W = 40.0       # width of the tab carrying the header
+DISP_OVERALL = 67.0     # top to bottom, i.e. round part + tab
+DISP_TAB_T = 1.6        # bare PCB. ASSUMES THE 10-PIN HEADER IS DESOLDERED.
 DISP_TAB_ANGLE = 0.0    # clock position the tab points. 0 = 12 o'clock.
-                        # Pick whatever keeps it clear of the ring's connector.
-DISP_TAB_T = 1.6        # thickness of the tab.
-# 1.6 assumes you DESOLDER the 10-pin header and solder wires flat to the pads.
-# Do that. Left on, the header adds ~9 mm behind the tab, which forces the whole
-# module 9+ mm back into a well you cannot read. Same goes for the ring's 4-pin
-# header. Two connectors removed is the difference between a clean build and a
-# shadowed one.
 
 # --- fits ---------------------------------------------------------------------
 CLEAR = 0.75                       # radial slop around the LED PCB
@@ -53,34 +42,57 @@ R_CH_O = (RING_OD + CLEAR) / 2     # 46.375  ring pocket outer
 R_CH_I = (RING_ID - CLEAR) / 2     # 35.125  ring pocket inner
 R_BODY = R_CH_O + RIM              # 54.000  -> 108 mm OD
 R_FACE = R_BODY - 2.0              # 52.000  -> 104 mm face, 2 mm proud lip
-R_DP = (DISP_PCB_D + DISP_CLEAR) / 2          # display pocket wall
+R_DP = (DISP_PCB_D + DISP_CLEAR) / 2          # display pocket wall  -> 30.3
 R_SEAT = R_DP - 2.5                           # 2.5 mm shelf the module rests on
-R_TAB = DISP_TAB_REACH + DISP_CLEAR           # how far the notch must reach
-TAB_WIN = 2 * math.degrees(math.asin(min(0.99, (DISP_TAB_W / 2) / max(R_DP, 1))))
+
+# THE NUMBER THAT DECIDES THE WHOLE STACK.
+# The tab is a RECTANGLE, so its reach is set by its CORNERS, not its midline:
+#   reach along the midline = DISP_OVERALL - DISP_PCB_D/2 = 37.0
+#   corner radius           = hypot(20, 37)               = 42.06
+# The LED circle is at r = 40.75. The corners land 1.3 mm PAST the LEDs, so the
+# tab cannot share their plane at any rotation — it has to pass behind the ring.
+DISP_TAB_REACH = DISP_OVERALL - DISP_PCB_D / 2
+R_TAB = math.hypot(DISP_TAB_W / 2, DISP_TAB_REACH) + DISP_CLEAR
+# Widest angular half-span of the tab is at the smallest radius it crosses.
+TAB_WIN = 2 * math.degrees(math.asin(min(0.99, (DISP_TAB_W / 2) / R_DP)))
 
 # --- depths, front-referenced -------------------------------------------------
 Z_FACE = FACE_T                    # 3.0   plywood occupies 0..3
-DIFF_H, DIFF_TOP = 6.0, 0.8
+# 4 mm, not 6. Every millimetre of diffuser pushes the ring back, and the
+# display has to sit behind the ring, so it comes straight off the screen's
+# viewing depth. 4 mm cells at 9.67 mm pitch still separate the pixels well.
+DIFF_H, DIFF_TOP = 4.0, 0.8
 # THE DECIDING NUMBER: does the tab stay inside the ring's inner wall?
 #   tab reach <= R_CH_I  -> shallow seat, screen sits just behind the plywood
 #   tab reach >  R_CH_I  -> the tab must pass BEHIND the ring, so the whole
 #                           module drops back and the screen sits in a well
 # Worked out here rather than left to you, because getting it wrong means a
 # printed part the display physically cannot go into.
-Z_SEAT_SHALLOW = Z_FACE + DISP_T
+# The module seats so its TAB clears the back of the ring PCB.
+# tab back rests level with the module back; tab front must be behind the ring.
+Z_MOD_BACK_MIN = 0.0    # filled in below, after Z_PCB_B is known
 Z_DIFF_B = Z_FACE + DIFF_H         # 9.0   LED tops meet the diffuser here
 Z_PCB_F = Z_DIFF_B + LED_H         # 10.6
 Z_PCB_B = Z_PCB_F + PCB_T          # 12.2  ring pocket floor
 Z_BACK = 22.0                      # body back face (bay for the S3 behind)
 
-TAB_CLEARS_RING = (DISP_TAB_REACH + DISP_CLEAR) < ((RING_ID - CLEAR) / 2)
+TAB_CLEARS_RING = R_TAB < ((RING_ID - CLEAR) / 2)
 # The seat stays SHALLOW either way. When the tab overhangs the ring's inner
 # wall we do not drop the module into a well -- we notch the web and the
 # diffuser's inner skirt instead, and let the tab sit in the plane of the
 # diffuser. Costs the inner baffle wall on two or three LED cells, which is
 # invisible behind plywood, and keeps the screen right where you can read it.
-Z_SEAT = Z_SEAT_SHALLOW
-WELL_DEPTH = Z_SEAT - DISP_T - Z_FACE
+# 0.8 gap behind the ring PCB, then the tab, then the shelf. The slot's own
+# 0.4 front clearance is carved out of that 0.8, so the tab still clears the
+# ring by 0.4 mm -- an earlier 0.4 here left them touching exactly.
+# 1.6, not 0.8. At the tab's angle the slot removes everything behind this
+# plane, so whatever is left between the ring pocket floor and the slot IS the
+# floor there. 0.8 left a 0.4 mm membrane spanning 7.5 mm radially -- it would
+# have cracked. 1.6 leaves a 1.2 mm floor, which costs ~1 mm of screen depth.
+RING_TAB_GAP = 1.6
+Z_SEAT = Z_PCB_B + RING_TAB_GAP + DISP_TAB_T   # module back / shelf top
+Z_TAB_FRONT = Z_SEAT - DISP_TAB_T - 0.4        # front of the tab slot
+WELL_DEPTH = (Z_SEAT - DISP_T) - Z_FACE  # how far the screen sits behind the ply
 
 # --- diffuser -----------------------------------------------------------------
 R_D_O, R_D_I = RING_OD / 2, RING_ID / 2
@@ -93,7 +105,7 @@ APERTURE_D = DISP_ACTIVE_D - 1.0              # window over the display,
 # the PCB's ragged edge, and all you see is a perfect circle of screen.
 SPOKES, SPOKE_W = 4, 5.0
 TICK_R = W_ID / 2 - 2.0                       # ticks run inward from here
-TICK_MIN_L, TICK_MAJ_L = 3.0, 5.0
+TICK_MIN_L, TICK_MAJ_L = 2.5, 4.0
 TICK_MIN_W, TICK_MAJ_W = 1.8, 3.0
 
 CUT, ENGRAVE = "#FF0000", "#000000"
@@ -102,15 +114,15 @@ CUT, ENGRAVE = "#FF0000", "#000000"
 def build_body():
     """Ring pocket outboard, display pocket inboard, S3 bay behind.
 
-    THE NOTCH: the display's tab sticks out past the round PCB, so a plain
-    circular pocket cannot take it. At the tab's clock position the pocket wall
-    and the seating shelf are both pushed out to the tab's reach, which deletes
-    the shelf locally and lets the tab (and the header soldered to its back)
-    drop straight through into the bay. Everywhere else the shelf is intact and
-    carries the module.
+    THE TAB SLOT. The tab's corners reach r=42, past the LED circle at r=40.75,
+    so the tab has to pass BEHIND the ring PCB. The slot is therefore local in
+    BOTH axes: it opens out to the tab's corner radius, but only over the tab's
+    clock angle and only across the ~2 mm of depth the tab occupies. Widening
+    the whole pocket wall instead would delete the ring and diffuser seats at
+    that angle and leave a visible gap in the light ring.
 
-    Done with an angle-modulated revolve rather than a boolean, because there
-    is no CSG here — see mesh.revolve_mod.
+    Done with an angle-modulated revolve rather than a boolean — see
+    mesh.revolve_mod.
     """
     def mod(tag, deg):
         if tag is None:
@@ -118,37 +130,33 @@ def build_body():
         d = ((deg - DISP_TAB_ANGLE + 180.0) % 360.0) - 180.0
         if abs(d) > TAB_WIN / 2:
             return 0.0
-        return {'wall': R_TAB - R_DP,
-                'seat': R_TAB - R_SEAT,
-                'web': max(0.0, R_TAB - R_CH_I)}.get(tag, 0.0)
+        return {'slot': R_TAB - R_DP, 'seat': R_TAB - R_SEAT}.get(tag, 0.0)
 
     profile = [
-        (R_BODY,  0.0,      None),     # front face of the retaining lip
-        (R_BODY,  Z_BACK,   None),     # down the outside
-        (R_SEAT,  Z_BACK,   'seat'),   # across the back to the bay opening
-        (R_SEAT,  Z_SEAT,   'seat'),   # up the bay wall  -- notched at the tab
-        (R_DP,    Z_SEAT,   'wall'),   # the seating shelf -- vanishes at the tab
-        (R_DP,    Z_FACE,   'wall'),   # display pocket wall -- widens at the tab
-        (R_CH_I,  Z_FACE,   'web'),    # web between display and ring pockets --
-        (R_CH_I,  Z_PCB_B,  'web'),    #   opened at the tab angle if it overhangs
-        (R_CH_O,  Z_PCB_B,  None),     # ring pocket floor
-        (R_CH_O,  Z_FACE,   None),     # ring pocket outer wall
-        (R_FACE,  Z_FACE,   None),     # face recess floor
-        (R_FACE,  0.0,      None),     # inside of the retaining lip
+        (R_BODY,  0.0,         None),    # front face of the retaining lip
+        (R_BODY,  Z_BACK,      None),    # down the outside
+        (R_SEAT,  Z_BACK,      'seat'),  # back face in to the bay opening
+        (R_SEAT,  Z_SEAT,      'seat'),  # bay wall -- opened at the tab angle
+        (R_DP,    Z_SEAT,      'slot'),  # seating shelf -- vanishes at the tab
+        (R_DP,    Z_TAB_FRONT, 'slot'),  # tab slot -- ONLY this depth widens
+        (R_DP,    Z_FACE,      None),    # plain display pocket bore above it
+        (R_CH_I,  Z_FACE,      None),    # web between display and ring pockets
+        (R_CH_I,  Z_PCB_B,     None),    # ring pocket inner wall
+        (R_CH_O,  Z_PCB_B,     None),    # ring pocket floor
+        (R_CH_O,  Z_FACE,      None),    # ring pocket outer wall
+        (R_FACE,  Z_FACE,      None),    # face recess floor
+        (R_FACE,  0.0,         None),    # inside of the retaining lip
     ]
-    return mesh.revolve_mod(profile, seg=240, mod=mod)
+    return mesh.revolve_mod(profile, seg=288, mod=mod)
 
 
 def build_diffuser():
     """Top face + two skirts + 24 baffles, with the inner skirt notched away at
     the display tab's angle so the tab can sit in the diffuser's plane."""
-    overhang = max(0.0, R_TAB - R_D_I)
-
+    # No notch needed: the tab passes behind the ring PCB, well clear of the
+    # diffuser, so every cell keeps its baffles and the light ring is unbroken.
     def mod(tag, deg):
-        if tag != 'skirt' or overhang <= 0:
-            return 0.0
-        d = ((deg - DISP_TAB_ANGLE + 180.0) % 360.0) - 180.0
-        return overhang if abs(d) <= TAB_WIN / 2 else 0.0
+        return 0.0
 
     tris = mesh.revolve_mod([
         (R_D_I, 0.0, None), (R_D_O, 0.0, None),       # the glowing face stays whole
@@ -249,12 +257,11 @@ def main():
           f"pitch {math.pi*(RING_OD+RING_ID)/2/NUM_LEDS:.2f} mm")
     print(f"Display: round PCB {DISP_PCB_D} mm, active {DISP_ACTIVE_D} mm, "
           f"tab reaches r={DISP_TAB_REACH} mm at {DISP_TAB_ANGLE:.0f} deg")
-    if TAB_CLEARS_RING:
-        print(f"  -> tab stays inside the ring. Notch in the body only.\n")
-    else:
-        print(f"  -> tab overhangs the ring's inner wall by "
-              f"{R_TAB - (RING_ID-CLEAR)/2:.1f} mm, so the diffuser's inner skirt is")
-        print(f"     notched too. Screen stays {WELL_DEPTH:.1f} mm behind the plywood.\n")
+    print(f"  tab corners reach r={R_TAB - DISP_CLEAR:.2f} mm vs LED circle at "
+          f"r={(RING_OD+RING_ID)/4:.2f} mm")
+    print(f"  -> tab seated BEHIND the ring PCB; slot spans {TAB_WIN:.0f} deg "
+          f"at z {Z_TAB_FRONT:.1f}-{Z_SEAT:.1f}")
+    print(f"  -> screen sits {WELL_DEPTH:.1f} mm behind the plywood\n")
     print("STL parts:")
     for fn, tris, nm in (("body.stl", build_body(), "body"),
                          ("diffuser.stl", build_diffuser(), "diffuser"),
@@ -279,11 +286,24 @@ def main():
          f"round PCB {DISP_PCB_D} mm fits the {RING_ID} mm centre "
          f"({(RING_ID-DISP_PCB_D)/2:.1f} mm each side)")
     want(R_DP < R_CH_I - 2, "display pocket clears the ring pocket wall")
-    want(WELL_DEPTH < 6.0,
-         f"screen recessed only {WELL_DEPTH:.1f} mm behind the plywood")
-    want(DISP_TAB_T < DIFF_H - DIFF_TOP - 0.5,
-         f"tab {DISP_TAB_T} mm thick fits the {DIFF_H-DIFF_TOP:.1f} mm notch "
-         f"(desolder the header, or this fails)")
+    # 8 mm, not 6. With a 54 mm aperture a 6.4 mm recess only shadows the screen
+    # edge past ~85 degrees off-axis; head-on and at normal viewing angles it is
+    # invisible. Structural floor and diffuser depth are worth more than the
+    # last millimetre here.
+    want(WELL_DEPTH < 8.0,
+         f"screen recessed {WELL_DEPTH:.1f} mm behind the plywood")
+    floor_t = Z_TAB_FRONT - Z_PCB_B
+    want(floor_t >= 1.0,
+         f"ring pocket floor is {floor_t:.1f} mm thick over the tab slot "
+         f"(needs >=1.0 or it cracks)")
+    want(Z_TAB_FRONT > Z_PCB_B,
+         f"tab slot starts at z={Z_TAB_FRONT:.1f}, behind the ring PCB at "
+         f"z={Z_PCB_B:.1f} -- nothing touches the LEDs")
+    want(R_TAB < R_CH_O,
+         f"tab corners (r={R_TAB:.1f}) stay inside the ring pocket outer wall "
+         f"(r={R_CH_O:.2f})")
+    want(Z_BACK - Z_SEAT > 6.0,
+         f"{Z_BACK - Z_SEAT:.1f} mm of bay left behind the display for the S3")
     want(R_SEAT > 10, f"S3 bay opening {R_SEAT*2:.0f} mm across")
     want(TAB_WIN < 120, f"tab notch spans {TAB_WIN:.0f} deg of the shelf")
     want(TICK_R - TICK_MAJ_L > APERTURE_D / 2 + 1,

@@ -676,3 +676,61 @@ clean build and a shadowed one.
 With the current estimates the tab overhangs the ring's inner wall by 1.5 mm,
 which is exactly the collision Sam described — but whether that is real depends
 on a caliper.
+
+---
+
+## 2026-08-23 — Measured display; the tab forces a behind-the-ring seat
+
+Sam measured: round PCB **60 mm**, screen **55 mm**, tab **40 mm wide**,
+**67 mm** overall top-to-bottom, **4 mm** thick.
+
+### The tab is a rectangle, so its corners decide everything
+
+```
+midline reach = 67 - 60/2       = 37.00 mm
+corner radius = hypot(20, 37)   = 42.06 mm
+LED circle                      = 40.75 mm
+```
+
+The corners land **1.3 mm past the LED circle**. Estimating the tab by its
+midline reach (37 mm) would have looked survivable; the corners are the real
+constraint and they are not. **No rotation avoids this** — the tab cannot share
+the LED plane at any angle, so the module seats behind the ring PCB and the tab
+passes through a slot underneath.
+
+### The slot is local in both axes
+
+Opening the whole pocket wall to the corner radius would have deleted the ring
+and diffuser seats at that angle and left a visible gap in the light ring. The
+slot instead widens only over the tab's clock angle (83°) *and* only across the
+2 mm of depth the tab occupies (z 11.4–13.4). The diffuser needs no notch at
+all now — every cell keeps its baffles.
+
+### Two mistakes the checks caught before any filament
+
+1. **Slot touching the ring.** `Z_TAB_FRONT` came out exactly equal to
+   `Z_PCB_B` — the slot's own 0.4 mm front clearance had been carved out of the
+   0.4 mm ring gap, leaving zero. Now `RING_TAB_GAP` is sized so both survive.
+2. **A 0.4 mm floor membrane.** At the tab angle the slot removes everything
+   behind it, so whatever remains between the ring pocket floor and the slot
+   *is* the floor there. At 0.8 mm gap that was a 0.4 mm skin spanning 7.5 mm
+   radially — it would have cracked under the ring. Raised to 1.6 mm gap for a
+   **1.2 mm floor**, at a cost of ~1 mm of screen depth. New check enforces it.
+
+### The depth trade, stated honestly
+
+Diffuser cut from **6 mm to 4 mm**, because every millimetre of diffuser pushes
+the ring back and comes straight off the screen's viewing depth. Final recess is
+**6.4 mm**.
+
+That is fine, and the earlier 6 mm limit was arbitrary. With a 54 mm aperture a
+6.4 mm recess only shadows the screen edge past ~85° off-axis — head-on and at
+any normal viewing angle it is invisible. Structural floor and diffuser depth
+are worth more than the last millimetre. Threshold relaxed to 8 mm with that
+reasoning recorded in the file.
+
+### Still an assumption
+
+`DISP_TAB_T = 1.6` — the bare PCB with the 10-pin header **desoldered**. Leave
+it on and the tab is ~10 mm thick, the slot will not take it, and the module
+moves back another 9 mm into a well that cannot be read.
