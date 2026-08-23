@@ -734,3 +734,56 @@ reasoning recorded in the file.
 `DISP_TAB_T = 1.6` — the bare PCB with the 10-pin header **desoldered**. Leave
 it on and the tab is ~10 mm thick, the slot will not take it, and the module
 moves back another 9 mm into a well that cannot be read.
+
+---
+
+## 2026-08-23 — A candidate init sequence for the GC9B72
+
+Product listing confirmed the silkscreen: **GC9B72**, **SPI**, 2.1", 360x360,
+made by **Baishun (Baishundianzi)**. (The listing also claims "320x240
+resolution" in one bullet — boilerplate, ignore it; the silkscreen and the
+headline both say 360*360.)
+
+### What exists, and what doesn't
+
+Searched properly for a GC9B72 driver. There isn't one:
+
+- **ESPHome 2026.8.0** — no `gc9b72` model file anywhere in `mipi_spi/models/`
+- **esp-iot-solution** — no `esp_lcd_gc9b72` component
+- **LovyanGFX / Arduino_GFX** — nothing
+- **Espressif's datasheet CDN** — `GC9B72_DataSheet_V1.0.pdf` returns 404
+
+### But the GC9B71 is the same family and the same panel geometry
+
+`espressif/esp-iot-solution/components/display/lcd/esp_lcd_gc9b71` ships a full
+init table, and the GC9B71 datasheet
+(`dl.espressif.com/AE/esp-iot-solution/GC9B71_DataSheet_V1.0.pdf`, 6 MB, fetched
+and read) states **"360 RGB x 360 Resolution"** — the same geometry as the
+GC9B72, same Galaxycore family, same SPI/QSPI interface options. The table opens
+with `0xFE` / `0xEF`, the Galaxycore inter-command unlock pair, so it is the same
+register dialect.
+
+Its 48-entry table is converted to ESPHome `init_sequence:` form in
+[docs/gc9b72-display-block.yaml](docs/gc9b72-display-block.yaml) — 47 entries
+after dropping `0x11` SLPOUT, which mipi_spi appends itself along with DISPON
+and the reset pulse. Parses clean; all bytes in range.
+
+### This is not the same as the GC9A01 substitution warned about earlier
+
+Worth being precise, because it looks like a reversal and isn't:
+
+|  | GC9A01 | GC9B71 |
+|---|---|---|
+| Resolution | 240x240 | **360x360, same as the GC9B72** |
+| Family | GC9A | **GC9B, same as the GC9B72** |
+| Unlock pair | different | **0xFE / 0xEF, same dialect** |
+
+A GC9A01 sequence would have been a different-sized panel from a different
+family. The GC9B71 is the immediate sibling. It is still **not verified** for
+the GC9B72 and is labelled that way in the file.
+
+### If it does not work
+
+Do **not** hand-tune the registers. Get the vendor demo code for this exact
+module from the seller (Baishun, 2.1" 360x360 GC9B72) — ten minutes of asking
+beats an evening of poking gamma tables. The file says so too.
