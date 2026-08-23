@@ -1,4 +1,15 @@
 # =============================================================================
+# SUPERSEDED — kept for reference only.
+# =============================================================================
+# Sam settled on the ESP32-S3-N16R8 for this build. Use round-clock-s3.yaml.
+#
+# This config still works and is a valid ESP8266 port if you ever want the ring
+# on its own. It CANNOT drive the 360x360 display: that needs 253 KB of
+# framebuffer against ~30 KB of ESP8266 heap, and ESPHome's ST77916 model
+# declares requires={"psram"} so it will not even compile here.
+# =============================================================================
+
+# =============================================================================
 # test-clock-d1mini.yaml — bench test clock
 # Wemos D1 mini (ESP8266) + Mokungi 24-LED WS2812B ring
 # =============================================================================
