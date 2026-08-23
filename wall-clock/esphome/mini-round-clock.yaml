@@ -15,6 +15,14 @@
 #   without PSRAM is REFUSED at validation. The N16R8's 8 MB of octal PSRAM is
 #   exactly what satisfies it.
 #
+# !! THE DISPLAY SECTION IS COMMENTED OUT — READ THIS !!
+#   This panel is a GC9B72, not an ST77916, and its header
+#   (TE SDO BL CS DC RST SDA SCL VCC GND) is single 4-wire SPI, not QSPI.
+#   ESPHome 2026.8.0 ships NO GC9B72 model, so it needs `model: CUSTOM` plus
+#   the panel's init sequence, which is not published anywhere verifiable.
+#   The RING config below is complete and works TODAY — flash it, get the clock
+#   running, and re-enable the display once the init sequence is in hand.
+#
 # !! CHECK THE DISPLAY PINS BEFORE FLASHING !!
 #   `model: ESP-VOCAT` ships Espressif's init sequence AND the ESP-VoCat v1.2
 #   board's pin defaults, because that is where the init data came from. Your
@@ -43,15 +51,16 @@ substitutions:
   # the red pixel lands, put the offset here. Positive rotates clockwise.
   twelve_oclock_offset: "0"
 
-  # ---- DISPLAY PINS — correct these against your panel ----------------------
-  lcd_clk: GPIO18
-  lcd_d0: GPIO46
-  lcd_d1: GPIO13
-  lcd_d2: GPIO11
-  lcd_d3: GPIO12
-  lcd_cs: GPIO14
-  lcd_reset: GPIO47           # active HIGH on this panel — see `inverted:`
-  lcd_backlight: GPIO44
+  # ---- DISPLAY PINS — one per header pad, any free GPIO ---------------------
+  # Header reads:  TE  SDO  BL  CS  DC  RST  SDA  SCL  VCC  GND
+  #   SCL -> clk    SDA -> mosi    SDO -> miso (reads only, usually unconnected)
+  #   VCC -> 3V3    GND -> GND     TE  -> optional, leave unconnected
+  lcd_clk: GPIO12             # SCL
+  lcd_mosi: GPIO11            # SDA
+  lcd_cs: GPIO10              # CS
+  lcd_dc: GPIO13              # DC
+  lcd_reset: GPIO14           # RST
+  lcd_backlight: GPIO21       # BL
 
   # ---- overnight dimming, local 24h time -----------------------------------
   # To disable auto-dim entirely, set both to the same number.
@@ -76,7 +85,7 @@ esphome:
         - light.turn_on:
             id: backlight
             brightness: 80%
-        - logger.log: "Boot: ring + display up"
+        - logger.log: "Boot: ring on, backlight on, display pending init sequence"
 
 esp32:
   variant: esp32s3
@@ -165,16 +174,28 @@ time:
     update_interval: 6h
 
 # -----------------------------------------------------------------------------
-# QSPI BUS
+# DISPLAY — DISABLED until the GC9B72 init sequence is in hand
 # -----------------------------------------------------------------------------
-# The ST77916 is a quad-SPI panel: four data lines, not one MOSI.
-spi:
-  - id: qspi
-    type: quad
-    clk_pin: ${lcd_clk}
-    # Quoted: an unquoted ${...} inside a YAML flow sequence is parsed as the
-    # start of a flow mapping and fails before ESPHome ever substitutes.
-    data_pins: ["${lcd_d0}", "${lcd_d1}", "${lcd_d2}", "${lcd_d3}"]
+#   was                      now                      because
+#   -----------------------  -----------------------  --------------------------
+#   spi: type: quad          type: single (default)   header is SDA+SCL+SDO,
+#   data_pins: [4 pins]      clk_pin + mosi_pin       not D0-D3 -> 4-wire SPI
+#   model: ESP-VOCAT         model: CUSTOM            ESP-VOCAT is an ST77916
+#   (init from the model)    init_sequence: REQUIRED  ESPHome ships no GC9B72
+#
+# TO FINISH: the init sequence lives in your module's demo code — a header like
+# LCD_Driver.h / gc9b72_init.h, or an `initcmd[]` array in an Arduino example.
+# Send me that file and I will convert it to ESPHome's `init_sequence:` form.
+# ESPHome appends SLPOUT/DISPON and the reset pulse itself, so those get dropped.
+#
+# Do NOT substitute a GC9A01 sequence. GC9A01 is a 240x240 part; its gamma and
+# power tables will give you a blank or garbled panel that looks exactly like a
+# wiring fault, and you will chase pins for hours.
+#
+# spi:
+#   - id: lcd_bus
+#     clk_pin: ${lcd_clk}
+#     mosi_pin: ${lcd_mosi}
 
 output:
   - platform: ledc
@@ -485,120 +506,121 @@ light:
                             (uint8_t) lroundf(buf[i].g * bri),
                             (uint8_t) lroundf(buf[i].b * bri));
 
+# ==== FONTS + DISPLAY: re-enable these together with the spi: block above ====
 # -----------------------------------------------------------------------------
 # FONTS
 # -----------------------------------------------------------------------------
 # gfonts:// pulls from Google Fonts AT COMPILE TIME, so the machine running
 # ESPHome needs internet for the first build. Restricting `glyphs` keeps flash
 # use small — a full glyph set at size 120 is enormous.
-font:
-  - file: "gfonts://Roboto"
-    id: font_big
-    size: 118
-    bpp: 4                # anti-aliased; 1bpp digits look ragged this large
-    glyphs: "0123456789:"
-  - file: "gfonts://Roboto"
-    id: font_med
-    size: 32
-    bpp: 4
-    glyphs: "0123456789.:-°C% abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-  - file: "gfonts://Roboto"
-    id: font_small
-    size: 22
-    bpp: 4
-    glyphs: "0123456789.:-°C% abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+# font:
+#   - file: "gfonts://Roboto"
+#     id: font_big
+#     size: 118
+#     bpp: 4                # anti-aliased; 1bpp digits look ragged this large
+#     glyphs: "0123456789:"
+#   - file: "gfonts://Roboto"
+#     id: font_med
+#     size: 32
+#     bpp: 4
+#     glyphs: "0123456789.:-°C% abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+#   - file: "gfonts://Roboto"
+#     id: font_small
+#     size: 22
+#     bpp: 4
+#     glyphs: "0123456789.:-°C% abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 # -----------------------------------------------------------------------------
 # THE ROUND DISPLAY
 # -----------------------------------------------------------------------------
-display:
-  - platform: mipi_spi
-    model: ESP-VOCAT         # the only ST77916 model ESPHome ships (360x360)
-    id: face_lcd
-    spi_id: qspi
-    cs_pin: ${lcd_cs}
-    reset_pin:
-      number: ${lcd_reset}
-      inverted: true         # this panel's RST is active HIGH
+# display:
+#   - platform: mipi_spi
+#     model: ESP-VOCAT         # the only ST77916 model ESPHome ships (360x360)
+#     id: face_lcd
+#     spi_id: qspi
+#     cs_pin: ${lcd_cs}
+#     reset_pin:
+#       number: ${lcd_reset}
+#       inverted: true         # this panel's RST is active HIGH
     # 1s because the face shows a running timer to the second. With PSRAM the
     # whole 253 KB buffer is resident, so a full blit at 80 MHz QSPI is a few
     # milliseconds and will not disturb the 50 ms LED render.
-    update_interval: 1s
-    lambda: |-
-      const int CX = 180, CY = 180;
-      const auto now = id(ha_time).now();
+#     update_interval: 1s
+#     lambda: |-
+#       const int CX = 180, CY = 180;
+#       const auto now = id(ha_time).now();
 
-      // ---- background: weather wash ------------------------------------
-      // Kept dark on purpose. This sits inside a lit LED ring; a bright
-      // background would wash the ring out and be unreadable at night.
-      std::string cond = id(weather_condition).state;
-      Color bg = Color(10, 12, 18);
-      if      (cond == "sunny")            bg = Color(46, 34,  6);
-      else if (cond == "clear-night")      bg = Color( 8, 10, 26);
-      else if (cond == "partlycloudy")     bg = Color(28, 30, 38);
-      else if (cond == "cloudy")           bg = Color(22, 24, 28);
-      else if (cond == "fog")              bg = Color(26, 26, 30);
-      else if (cond == "rainy" ||
-               cond == "pouring")          bg = Color( 8, 20, 40);
-      else if (cond == "lightning" ||
-               cond == "lightning-rainy")  bg = Color(38, 24, 46);
-      else if (cond == "snowy")            bg = Color(30, 36, 44);
-      else if (cond == "windy")            bg = Color(16, 30, 30);
+#       // ---- background: weather wash ------------------------------------
+#       // Kept dark on purpose. This sits inside a lit LED ring; a bright
+#       // background would wash the ring out and be unreadable at night.
+#       std::string cond = id(weather_condition).state;
+#       Color bg = Color(10, 12, 18);
+#       if      (cond == "sunny")            bg = Color(46, 34,  6);
+#       else if (cond == "clear-night")      bg = Color( 8, 10, 26);
+#       else if (cond == "partlycloudy")     bg = Color(28, 30, 38);
+#       else if (cond == "cloudy")           bg = Color(22, 24, 28);
+#       else if (cond == "fog")              bg = Color(26, 26, 30);
+#       else if (cond == "rainy" ||
+#                cond == "pouring")          bg = Color( 8, 20, 40);
+#       else if (cond == "lightning" ||
+#                cond == "lightning-rainy")  bg = Color(38, 24, 46);
+#       else if (cond == "snowy")            bg = Color(30, 36, 44);
+#       else if (cond == "windy")            bg = Color(16, 30, 30);
 
-      // ---- work out what this screen should be showing ------------------
-      bool alert = id(timer_alert).state;
-      int  left  = -1;
-      if (!alert && now.is_valid()) {
-        const float fin = id(timer_finish_epoch).state;
-        if (!std::isnan(fin) && fin > 0) {
-          const int rem = (int) lroundf(fin - (float) now.timestamp);
-          if (rem > 0) left = rem;
-        }
-      }
+#       // ---- work out what this screen should be showing ------------------
+#       bool alert = id(timer_alert).state;
+#       int  left  = -1;
+#       if (!alert && now.is_valid()) {
+#         const float fin = id(timer_finish_epoch).state;
+#         if (!std::isnan(fin) && fin > 0) {
+#           const int rem = (int) lroundf(fin - (float) now.timestamp);
+#           if (rem > 0) left = rem;
+#         }
+#       }
 
-      if (alert) {
-        // Timer finished. The whole screen becomes the alert, pulsing in step
-        // with the ring so the two read as one object.
-        const bool on = (now.second % 2) == 0;
-        it.filled_circle(CX, CY, 180, on ? Color(120, 40, 0) : Color(40, 14, 0));
-        it.print(CX, CY - 12, id(font_big), Color(255, 255, 255),
-                 TextAlign::CENTER, "0:00");
-        it.print(CX, CY + 78, id(font_med), Color(255, 220, 190),
-                 TextAlign::CENTER, "timer finished");
-        return;
-      }
+#       if (alert) {
+#         // Timer finished. The whole screen becomes the alert, pulsing in step
+#         // with the ring so the two read as one object.
+#         const bool on = (now.second % 2) == 0;
+#         it.filled_circle(CX, CY, 180, on ? Color(120, 40, 0) : Color(40, 14, 0));
+#         it.print(CX, CY - 12, id(font_big), Color(255, 255, 255),
+#                  TextAlign::CENTER, "0:00");
+#         it.print(CX, CY + 78, id(font_med), Color(255, 220, 190),
+#                  TextAlign::CENTER, "timer finished");
+#         return;
+#       }
 
-      it.filled_circle(CX, CY, 180, bg);
+#       it.filled_circle(CX, CY, 180, bg);
 
-      if (left >= 0) {
-        // A timer is running: it gets the big numerals, the clock drops to a
-        // subtitle. The thing you are waiting on should be the readable one.
-        const int m = left / 60, s = left % 60;
-        it.printf(CX, CY - 22, id(font_big), Color(120, 235, 220),
-                  TextAlign::CENTER, "%d:%02d", m, s);
-        it.strftime(CX, CY + 66, id(font_med), Color(150, 162, 185),
-                    TextAlign::CENTER, "%H:%M", now);
-      } else if (now.is_valid()) {
-        it.strftime(CX, CY - 22, id(font_big), Color(255, 255, 255),
-                    TextAlign::CENTER, "%H:%M", now);
-        if (!std::isnan(id(weather_temp).state))
-          it.printf(CX, CY + 62, id(font_med), Color(210, 220, 240),
-                    TextAlign::CENTER, "%.0f°C", id(weather_temp).state);
-        if (!cond.empty() && cond != "unknown") {
-          // HA conditions are hyphenated slugs; make them readable.
-          std::string pretty = cond;
-          for (auto &ch : pretty) if (ch == '-') ch = ' ';
-          it.printf(CX, CY + 104, id(font_small), Color(140, 152, 175),
-                    TextAlign::CENTER, "%s", pretty.c_str());
-        }
-      } else {
-        // Deliberate "I don't know the time" state, matching the ring's crawl.
-        it.print(CX, CY - 22, id(font_big), Color(90, 70, 30),
-                 TextAlign::CENTER, "--:--");
-        it.print(CX, CY + 62, id(font_small), Color(90, 80, 60),
-                 TextAlign::CENTER, "waiting for time");
-      }
+#       if (left >= 0) {
+#         // A timer is running: it gets the big numerals, the clock drops to a
+#         // subtitle. The thing you are waiting on should be the readable one.
+#         const int m = left / 60, s = left % 60;
+#         it.printf(CX, CY - 22, id(font_big), Color(120, 235, 220),
+#                   TextAlign::CENTER, "%d:%02d", m, s);
+#         it.strftime(CX, CY + 66, id(font_med), Color(150, 162, 185),
+#                     TextAlign::CENTER, "%H:%M", now);
+#       } else if (now.is_valid()) {
+#         it.strftime(CX, CY - 22, id(font_big), Color(255, 255, 255),
+#                     TextAlign::CENTER, "%H:%M", now);
+#         if (!std::isnan(id(weather_temp).state))
+#           it.printf(CX, CY + 62, id(font_med), Color(210, 220, 240),
+#                     TextAlign::CENTER, "%.0f°C", id(weather_temp).state);
+#         if (!cond.empty() && cond != "unknown") {
+#           // HA conditions are hyphenated slugs; make them readable.
+#           std::string pretty = cond;
+#           for (auto &ch : pretty) if (ch == '-') ch = ' ';
+#           it.printf(CX, CY + 104, id(font_small), Color(140, 152, 175),
+#                     TextAlign::CENTER, "%s", pretty.c_str());
+#         }
+#       } else {
+#         // Deliberate "I don't know the time" state, matching the ring's crawl.
+#         it.print(CX, CY - 22, id(font_big), Color(90, 70, 30),
+#                  TextAlign::CENTER, "--:--");
+#         it.print(CX, CY + 62, id(font_small), Color(90, 80, 60),
+#                  TextAlign::CENTER, "waiting for time");
+#       }
 
-      // Stale-status hint, matching the ring's red tint at 6 o'clock.
-      if (!id(ha_connected))
-        it.filled_circle(CX, CY + 140, 4, Color(120, 30, 30));
+#       // Stale-status hint, matching the ring's red tint at 6 o'clock.
+#       if (!id(ha_connected))
+#         it.filled_circle(CX, CY + 140, 4, Color(120, 30, 30));

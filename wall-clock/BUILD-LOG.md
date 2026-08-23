@@ -595,3 +595,84 @@ so renaming the device does not touch it. That indirection was the point.
 
 Both lambdas re-checked after the rename: clean compile, all assertions pass,
 all four display branches exercised.
+
+---
+
+## 2026-08-23 — Real hardware photos: wrong display driver, and the tab problem
+
+Sam sent photos of the actual parts. Two findings, one of which would have cost
+an evening.
+
+### The display is a GC9B72, not an ST77916
+
+Silkscreen: `VER:TFT 2.10 1.0 / Driver IC:GC9B72 / Resolution:360*360`.
+Header: `TE SDO BL CS DC RST SDA SCL VCC GND`.
+
+`SDA` + `SCL` + `SDO` and no `D0-D3` means **single 4-wire SPI**, not QSPI.
+
+The config had `model: ESP-VOCAT` (an ST77916) on a `type: quad` bus. Wrong
+driver *and* wrong bus. It would have failed as a blank or garbled panel — a
+symptom that looks exactly like bad wiring, which is the worst kind of wrong.
+
+**ESPHome 2026.8.0 has no GC9B72 model.** Swept the `mipi_spi/models/`
+directory; there is no `gc9b72.py` and the string appears in no model file
+reachable. `DriverChip("CUSTOM")` exists (`display.py:95`) and
+`CONF_INIT_SEQUENCE` becomes **Required** for it (`display.py:139-143`).
+
+So the path is `model: CUSTOM` + `bus_mode: single` + the panel's own init
+sequence — which is not published anywhere verifiable. The display, fonts and
+spi blocks are **commented out** so the ring config flashes and works today,
+with a banner explaining exactly what is needed to re-enable them.
+
+Recorded in the file, because it is a trap: **do not substitute a GC9A01 init
+sequence.** GC9A01 is a 240x240 part; its gamma and power tables produce a
+blank or garbled panel indistinguishable from a wiring fault.
+
+### The tab problem, and why the answer is the plywood
+
+Sam: *"I want the screen in the middle, but the connectors for the ring are also
+in the middle and the screen isn't perfectly round because of the pins."*
+
+The module is a round PCB with a **rectangular tab** carrying the 10-pin header.
+The ring has its own 4-pin header pointing inward. Both want the centre.
+
+The insight that dissolves most of it: **the PCB does not need to be round — the
+plywood aperture does.** `APERTURE_D` is now `DISP_ACTIVE_D - 1`, i.e. 1 mm
+*inside* the active area, so the plywood covers the tab and the ragged PCB edge
+and all you see is a perfect circle of screen.
+
+That leaves the physical clash, solved with a **notch**:
+
+- `mesh.py` gained `revolve_mod()` — a revolve where tagged profile points have
+  their radius modulated by angle. A point pushed outward over a narrow angular
+  window carves a local pocket, which is how a rotationally-symmetric builder
+  produces a notch **without any boolean geometry**. Validated: a notched test
+  solid comes out watertight with positive volume, and `mod=None` still matches
+  the analytic volume to 0.01%.
+- At the tab's clock angle the pocket wall and the seating shelf both push out
+  to the tab's reach, deleting the shelf locally so the tab drops through into
+  the bay. Everywhere else the shelf carries the module.
+- When the tab overhangs the ring's inner wall, the **diffuser's inner skirt is
+  notched at the same angle** so the tab sits in the diffuser's plane. Costs the
+  inner baffle on two or three cells — invisible behind plywood.
+
+The first attempt instead seated the module deep enough to tuck the tab behind
+the ring, and the geometry check caught that this put the screen **9.6 mm** down
+a well. Rejected: a shadowed screen is a worse outcome than a missing baffle.
+The check now enforces `WELL_DEPTH < 6.0`; the current design is **0.0 mm**.
+
+### Desolder both headers
+
+The single highest-value physical change. `DISP_TAB_T` assumes **1.6 mm** — the
+bare PCB fin with the header removed and wires soldered flat. Left on, the
+header adds ~9 mm behind the tab and forces the deep well back. The ring's 4-pin
+header is the same story. Two connectors removed is the difference between a
+clean build and a shadowed one.
+
+### Still estimated — these gate printing
+
+`DISP_PCB_D` 60, `DISP_ACTIVE_D` 53, `DISP_T` 4, `DISP_TAB_REACH` 36,
+`DISP_TAB_W` 24. All from photos. The ring is measured; the display is not.
+With the current estimates the tab overhangs the ring's inner wall by 1.5 mm,
+which is exactly the collision Sam described — but whether that is real depends
+on a caliper.

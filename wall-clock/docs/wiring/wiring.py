@@ -180,9 +180,9 @@ def diagram_d1mini(path):
 
 def diagram_s3(path):
     s = SVG(1700, 1270, "S3")
-    s.text(50, 52, "Mini Round Clock — ESP32-S3-N16R8 + 24-LED ring (92/71mm) + 360x360 display",
+    s.text(50, 52, "Mini Round Clock — ESP32-S3-N16R8 + 24-LED ring (92/71mm) + GC9B72 360x360",
            26, INK, "start", "bold")
-    s.text(50, 80, "Red = +5V   Orange = +3V3   Black = GND   Yellow = LED data   Blue = display QSPI",
+    s.text(50, 80, "Red = +5V   Orange = +3V3   Black = GND   Yellow = LED data   Blue = display SPI (4-wire, NOT quad)",
            15, MUTED)
 
     RAIL5, RAIL3, RAILG = 150, 208, 820
@@ -214,8 +214,9 @@ def diagram_s3(path):
     s.line([(330, 462), (300, 462), (300, RAIL3)], "#e07a2b", 3); s.dot(300, RAIL3, 5, "#e07a2b")
     s.line([(330, 500), (272, 500), (272, RAILG)], BLK, 3); s.dot(272, RAILG, 5, BLK)
 
-    qspi = [(430, "GPIO18   CLK"), (470, "GPIO46/13/11/12   D0-D3"),
-            (510, "GPIO14   CS"), (550, "GPIO47   RST"), (590, "GPIO44   BL")]
+    qspi = [(420, "GPIO12   SCL  (clk)"), (455, "GPIO11   SDA  (mosi)"),
+            (490, "GPIO10   CS"), (525, "GPIO13   DC"),
+            (560, "GPIO14   RST"), (595, "GPIO21   BL")]
     for py, lbl in qspi:
         s.text(646, py + 5, lbl, 13, INK, "end")
         s.line([(660, py), (790, py)], BLU, 2.5)
@@ -227,9 +228,9 @@ def diagram_s3(path):
     s.circle(960, 452, 96, PAPER, BLU, 2)
     s.circle(960, 452, 84, "#eef3fb", BLU, 1)
     s.text(960, 446, "360 x 360", 18, INK, "middle", "bold")
-    s.text(960, 470, "ST77916 QSPI", 13, MUTED, "middle")
+    s.text(960, 470, "GC9B72  4-wire SPI", 13, MUTED, "middle")
     s.text(945, 604, "1.85\" round LCD", 15, INK, "middle", "bold")
-    s.text(945, 626, "ESPHome model: ESP-VOCAT", 12.5, MUTED, "middle")
+    s.text(945, 626, "ESPHome: model CUSTOM + init_sequence", 12.5, MUTED, "middle")
     s.line([(840, 300), (840, RAIL3)], "#e07a2b", 2.5); s.dot(840, RAIL3, 4, "#e07a2b")
     s.text(852, 292, "3V3", 12, "#e07a2b")
     s.line([(790, 640), (730, 640), (730, RAILG)], BLK, 2.5); s.dot(730, RAILG, 4, BLK)
@@ -252,11 +253,11 @@ def diagram_s3(path):
     capacitor(s, 1560, RAIL5, RAILG, "1000uF")
 
     notes(s, 50, 1030, 1600, "Before you power it", [
-        "1.  THE DISPLAY PINS ABOVE ARE THE ESP-VoCat REFERENCE VALUES, not your panel's. Check your module's pinout and edit the substitutions first.",
+        "1.  Panel is a GC9B72 on 4-wire SPI — SDA/SCL/SDO, NOT quad. ESPHome ships no GC9B72 model, so it needs model: CUSTOM + an init_sequence.",
         "2.  The panel is a 3.3V device — do NOT feed it 5V. The LED ring is the only 5V load here.",
         "3.  Ground first on, last off. Power the ring before the S3. Never USB and the external supply at the same time.",
         "4.  470 ohm at the RING end of the data wire. Add a 74AHCT125 if you see flicker or a wrong first pixel.",
-        "5.  PSRAM is not optional: ESPHome's ST77916 model declares requires={\"psram\"} and will refuse to compile without it.",
+        "5.  Desolder BOTH 10-pin headers (display tab) and the ring's 4-pin header, and solder wires flat. That is what lets the screen sit flush.",
     ])
     s.save(path)
 
