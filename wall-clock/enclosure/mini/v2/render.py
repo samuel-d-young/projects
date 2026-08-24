@@ -88,14 +88,16 @@ def sheet(specs, fn, cols=3, px=680):
 if __name__ == '__main__':
     B = trimesh.load('mini-round-clock-base-v2.stl')
     R = trimesh.load('mini-round-clock-rearhousing-battery.stl')
-    C = trimesh.load('mini-round-clock-battery-cradle.stl')
+    C = trimesh.load('mini-round-clock-battery-shim-x2.stl')
+    K = trimesh.load('mini-round-clock-board-keeper.stl')
     sheet([
         (B,'front','BASE v2 - FRONT (plywood side), 12 up','bone'),
         (B,'rear', 'BASE v2 - REAR: deck + S3 window','bone'),
         (B,'iso_r','BASE v2 - iso from the rear','bone'),
         (R,'rear', 'REAR HOUSING - wall side, keyhole at 12','summer'),
         (R,'iso_f','REAR HOUSING - inside: battery pocket','summer'),
-        (C,'iso_f','BATTERY CRADLE','copper'),
+        (C,'iso_f','BATTERY SHIM (print two)','copper'),
+        (K,'iso_r','BOARD KEEPER - holds the S3 down','copper'),
     ], 'render_v2.png')
     sheet([
         (B,'side', 'BASE v2 - side','bone'),

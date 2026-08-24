@@ -40,8 +40,18 @@ for a_ in SCREW_ANG:
     x, y = SCREW_R*math.cos(math.radians(a_)), SCREW_R*math.sin(math.radians(a_))
     c = cyl(SCREW_PILOT/2 + 0.05, -1, Z_BACK+SCREW_DEPTH+0.05, 48, centre=(x,y))
     pilots = c if pilots is None else pilots + c
+# v5a adds two more pilots for the keeper, and cuts the USB-C bay: a pocket
+# through the wall at 6 o'clock and the channel the plug comes in through.
+for sy in (1, -1):
+    pilots += cyl(KEEP_SCREW_PIL/2 + 0.05, -1, Z_BACK + KEEP_SCREW_DEP + 0.05, 48,
+                  centre=(KEEP_SCREW_X, sy*KEEP_SCREW_Y))
+pilots += box_lwh(USBC_FACE_X - 0.05, WIRE_SLOT_END + 1.05,
+                  -USBC_RAIL_HY - 0.05, USBC_RAIL_HY + 0.05,
+                  Z_BACK - 0.05, USBC_RAIL_H + 0.05)
+pilots += box_lwh(-BIG, USBC_FACE_X + 0.05, -PLUG_CH_W/2 - 0.05, PLUG_CH_W/2 + 0.05,
+                  PLUG_CH_Z0 - 0.05, PLUG_CH_Z0 + PLUG_CH_H + 0.05)
 ck((removed - pilots).volume() < 0.05,
-   'the only material removed above z=0 is the four screw pilots',
+   'the only material removed above z=0 is the pilots and the USB-C bay',
    f'{(removed - pilots).volume():.4f} mm3 outside them')
 
 # everything added must be inside the four board-locating posts, or inside the
@@ -50,11 +60,17 @@ ck((removed - pilots).volume() < 0.05,
 # stopping at the ring pocket floor.
 c2 = BOARD_CLR
 allowed = None
-for sx, sy in [(1,1),(1,-1),(-1,1),(-1,-1)]:
-    px = (BOARD_X1 + c2 - 3.0) if sx > 0 else (BOARD_X0 - c2 + 3.0)
-    py = sy * (BOARD_W/2 + c2 + 1.4)
-    c = cyl(1.60 + 0.05, -1, Z_BACK + POST_H + 0.05, 40, centre=(px, py))
+for sy in (1, -1):
+    c = cyl(1.60 + 0.05, -1, Z_BACK + POST_H + 0.05, 40,
+            centre=(BOARD_X1 - 3.0, sy * (BOARD_W/2 + c2 + 1.4)))
     allowed = c if allowed is None else allowed + c
+# v5a: the beam over the board's USB end, and the USB-C bay's rails and lips
+_y1, _yo = BOARD_W/2 + c2, BEAM_PILLAR_Y + BEAM_PILLAR_W/2
+allowed += box_lwh(-20.0 - BEAM_PILLAR_W/2 - 0.05, -20.0 + BEAM_PILLAR_W/2 + 0.05,
+                   -_yo - 0.05, _yo + 0.05, Z_BACK - 0.05, BEAM_Z1 + 0.05)
+allowed += box_lwh(USBC_FACE_X - 0.05, USBC_BAY_X1 + 0.05,
+                   -USBC_RAIL_HY - 0.05, USBC_RAIL_HY + 0.05,
+                   Z_BACK - 0.05, USBC_RAIL_H + 0.05)
 # the walls' own construction envelope. They deliberately over-reach past the
 # tab window, both radially and angularly, into material that is already solid,
 # so the union has something to merge with instead of butting onto a face.

@@ -201,7 +201,14 @@ if __name__ == '__main__':
         print(f'  {nm}: r = {math.hypot(x,y):.3f}')
 
 # --- board window details ----------------------------------------------------
-LEDGE_END   = 3.00          # ledge depth at the two short ends only
+# 1.50, not 3.00. The board cannot drop straight into a window that has a ledge
+# at BOTH ends -- it has to go in tilted, and the tilt angle it needs is set by
+# how much the ledges narrow the opening. 1.50 mm leaves a 60.19 mm gap for a
+# 62.74 mm board, so it tilts in at 16.6 deg and its high end rises 8.96 mm
+# above the seated plane. Go in +x end UP: there is 11.80 mm of headroom in the
+# tab window at that end (3.6 mm to spare) against 8.60 in the bore at the other.
+# Worst-case bearing is still 1.50 - 0.45 = 1.05 mm of PCB on each ledge.
+LEDGE_END   = 1.50          # ledge depth at the two short ends only
 POST_H      = 3.00          # corner posts above the deck
 
 # --- battery pocket ----------------------------------------------------------
@@ -303,3 +310,150 @@ DIFF_LINE_RO  = DIFF_LINE_R + DIFF_LINE_W / 2    # 42.00
 # the whole face inboard of the line is one continuous 2 mm shelf. White PLA at
 # 0.20 mm glows; at 2.00 mm it does not.
 DIFF_OPAQUE_T = 2.00
+
+# --- v5: radial ticks, and the hours written on the face ----------------------
+# Sam: "the line needs to be perpendicular to the screen, like the lines are.
+#       I want the LEDs to look more like the echo wall clock LEDs."
+# So each cell's aperture turns 90 degrees: a radial tick pointing at the
+# centre, like an hour mark, instead of an arc lying along the circle.
+TICK_W       = 2.00         # tangential width
+TICK_RI      = 38.75        # a 5050 spans r 38.25..43.25, so the tick sits
+TICK_RO      = 42.75        # inside the LED, centred on it, and is evenly lit
+                            # end to end with 0.50 mm of LED beyond either end
+TICK_END_R   = 0.85         # radiused ends
+FACE_T       = 2.00         # the face either side of a tick. 0.20 glows, 2.00 does not.
+
+# --- and the hours, written on the face ---------------------------------------
+# Debossed, not thinned: the Echo's markings are printed on a white face and its
+# LEDs are what lights up. Set MARK_DEPTH to 0 and cut them to 0.20 instead if
+# you would rather they lit.
+# Everything here lives in r 35.2..38.7, which is the band between the plywood
+# window's inner edge (35.0) and where the ticks start. It is 3.5 mm, which is
+# what decides the text size.
+MARK_RI, MARK_RO = 35.60, 38.20      # the 8 plain hour marks
+MARK_W           = 1.00
+MARK_RI_MAJ, MARK_RO_MAJ = 35.30, 38.50
+MARK_W_MAJ       = 1.60
+MARK_DEPTH       = 0.50
+NUM_R            = 37.00             # numerals at 12, 3, 6 and 9
+NUM_H            = 3.40
+NUM_DEPTH        = 0.50
+NUMERALS         = {0: '3', 90: '12', 180: '9', 270: '6'}   # angle -> what to write
+
+# --- v5b: the LED band is REBUILT, not patched --------------------------------
+# Sam's diffuser carries 183 non-manifold edges, and every one of them is in the
+# band r 35.5..46.0, z 0.8..4.0: his two annular ribs are notched at each of the
+# 24 cell-wall angles, and those notches are modelled with faces that do not
+# pair up. Inside r=35.0 the mesh is perfect -- 0 bad edges, watertight.
+#
+# The band is exactly the part v5 replaces anyway (2 mm opaque face, radial
+# slits), so rather than union new geometry onto broken geometry, keep his mesh
+# only inside BAND_CUT_R and rebuild the band parametrically. Every number below
+# is measured off his file by measure_uploaded.py / the probe in csg.py:
+#   inner rib   r 35.4996 .. 36.6996, z 0..4.000
+#   outer rib   r 44.7995 .. 46.0000, z 0..4.000
+#   24 walls    1.000 mm thick (constant, not wedges), centres 7.5 + 15k deg
+#               to within 0.0003 deg, r 36.70 .. 44.80, z 0..4.000
+# Result: 0 bad edges, watertight, one body, volume agrees to 0.000%.
+BAND_CUT_R    = 35.00       # Sam's mesh kept only inside this
+BAND_FACE_RI  = 34.50       # new face starts 0.5 mm inside the cut, so the seam
+                            # is an overlap inside solid material, not a butt
+BAND_TOP      = 4.00        # rib and wall tops
+RIB_I_RI, RIB_I_RO = 35.50, 36.70
+RIB_O_RI      = 44.80       # outer rib now runs out to DIFF_OUTER_NEW
+CELL_N        = 24
+CELL_WALL_A0  = 7.50        # wall centres, degrees
+CELL_WALL_T   = 1.00
+CELL_WALL_RI  = 35.90       # 0.4 mm inside the inner rib -- ends buried, so no
+CELL_WALL_RO  = 45.40       # razor sliver where a chord meets a 144-gon
+
+
+# =============================================================================
+# v5a — hold the S3 down, and bring a USB-C inlet out through the wall
+# =============================================================================
+# Sam: "make sure that the ESP32 S3 is held in properly and that the USB
+#       connector can be connected externally from the outside of the wall.
+#       I may or may not use a USB battery or USB power supply."
+
+# --- 1. the beam over the USB end --------------------------------------------
+# The ledges stop the board falling out the back. Nothing stopped it lifting
+# INTO the clock -- 4.60 mm of float. A beam over the board's -x end fixes that.
+# It sits ABOVE everything on the board (BOARD_TALL = 3.20 -> parts top out at
+# z 4.00), so it cannot foul a connector or a soldered header whatever the
+# board's exact layout: it only ever touches the board if the board lifts.
+BEAM_X       = BOARD_X0          # -24.00, centred on the board's -x end
+BEAM_W       = 3.00              # how much of x it covers
+BEAM_Z0      = 4.20              # 0.20 mm above the tallest part on the board
+BEAM_Z1      = 5.80
+BEAM_PILLAR_Y = 15.50            # pillars stand on solid deck, outside the window
+BEAM_PILLAR_W = 3.00
+
+# --- 2. the keeper, over the far end -----------------------------------------
+# The beam alone lets the board pivot about it. A tongue over the +x end takes
+# that out -- but a fixed tongue there would block the tilt-in, so the tongue is
+# on a separate printed part that goes on AFTER the board.
+# ASSUMPTION, and it is one caliper glance to check: the last 2.00 mm of the
+# board's +x end is bare PCB. On the DevKitC-1 the two 22-pin rows are 53.34 mm
+# long on a 62.74 mm board, which leaves 4.70 mm clear at each end -- but if
+# your board puts something there, raise KEEP_TONGUE_Z0 to 4.20 and it clamps
+# over the top of it instead, with 0.20 mm of float.
+KEEP_TONGUE_X1 = BOARD_X1        # 38.74, the board's +x end
+KEEP_TONGUE_L  = 2.00
+KEEP_TONGUE_HY = 9.00            # +/-9.00: inboard of the pad rows either side
+KEEP_TONGUE_Z0 = 1.00            # board top is 0.80 -> 0.20 mm of float
+KEEP_TONGUE_Z1 = 2.60
+KEEP_PLATE_T   = 2.00            # plate against the deck's rear face
+KEEP_SCREW_X   = 42.50
+KEEP_SCREW_Y   = 19.50           # r = 46.72. 41.00/16.00 put it at r = 44.02,
+                                 # which left 0.11 mm of wall between the pilot
+                                 # and the tab window's outer edge at 42.66 --
+                                 # the print checker found it. 46.72 is outside
+                                 # the ring pocket (46.35) as well, so the pilot
+                                 # runs in solid base for its whole depth.
+KEEP_PLATE_X1  = 47.00
+KEEP_PLATE_HY  = 23.00
+KEEP_PLATE_R   = 50.40           # plate clipped to this, so it cannot touch the
+                                 # housing's pocket wall at R_INNER = 50.99
+KEEP_SCREW_D   = 3.30            # M3 clearance in the keeper
+KEEP_SCREW_PIL = 2.50            # pilot in the base
+KEEP_SCREW_DEP = 6.00
+WINDOW_X1_EXT  = 42.00           # window carried past the board so the keeper's
+                                 # riser has somewhere to pass
+
+# --- 3. the USB-C inlet -------------------------------------------------------
+# The board's own connector cannot reach the outside: from a board edge at
+# x = -24 the plug ends up 30 mm short of the rim, and Espressif's own v1.1
+# guide calls both ports Micro-USB while the clones sold as "DevKitC-1" have
+# Type-C -- so nothing that depends on which connector the board carries is
+# safe. The inlet is therefore its own USB-C socket, wired to the board's 5V and
+# GND pins, which is how README section 2 already says to power it.
+#
+# VERIFIED PART: Adafruit ADA4090 "USB C Breakout Board - Downstream
+# Connection", 20.4 x 14.2 x 5.0 mm, two 5.1 kohm resistors on CC1 so a charger
+# or power bank actually turns 5 V on. A$5.40 inc GST at Core Electronics
+# (backorder at the time of writing). NOT ORDERED.
+USBC_PCB_L, USBC_PCB_W, USBC_PCB_H = 20.40, 14.20, 5.00
+USBC_CLR      = 0.30
+USBC_FACE_X   = -47.00           # where the socket's mouth sits: 7 mm inside the
+                                 # rim, so the plug's overmold stands ~13 mm
+                                 # proud and there is something to grip
+# The PCB is lifted 0.60 mm off the deck on a shelf, purely so the plug channel
+# clears the deck: the socket's mouth then centres on z 3.90 and a 7.20 mm
+# channel around it starts at z 0.30, which is above the deck's top face.
+USBC_Z        = 0.60             # underside of the breakout PCB
+USBC_SHELF_HY = 5.00             # the shelf it rests on, inboard of the rails
+USBC_RAIL_H   = 6.00             # rails: connector top is at 0.60 + 5.00 = 5.60
+USBC_RAIL_HY  = 9.40
+USBC_LIP_Z0   = 2.50             # PCB top is 2.20 -> 0.30 mm of float
+USBC_LIP_Z1   = 4.00             # 1.50 thick: 0.80 was under the 1.20 minimum
+USBC_LIP_HY   = 5.50             # clear of the 8.94 mm connector shell by 1.03
+USBC_PORT_Z   = USBC_Z + 1.60 + (USBC_PCB_H - 1.60) / 2      # 3.90, the mouth
+# The plug channel. USB-IF caps a Type-C plug's overmold at 12.35 x 6.50 mm;
+# 0.65 / 0.70 of clearance on that, and the channel is deliberately NARROWER
+# than the 14.20 mm PCB, so the breakout cannot be dragged out through it when
+# the plug is pulled -- the PCB's own edge is the stop.
+PLUG_W, PLUG_H = 12.35, 6.50
+PLUG_CH_W, PLUG_CH_H = PLUG_W + 0.65, PLUG_H + 0.70      # 13.00 x 7.20
+PLUG_CH_Z0   = USBC_PORT_Z - PLUG_CH_H / 2               # 0.30
+USBC_BAY_X1  = -26.00            # +x end of the bay; the S3 window starts -24.45
+WIRE_PORT    = (-38.0, -30.0, 10.0, 13.0)   # battery lead, beside the bay

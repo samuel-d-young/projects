@@ -54,6 +54,7 @@ PARTS = [
     ('mini-round-clock-rearhousing-slim.stl',    'rear plate down', MIN_WALL),
     ('mini-round-clock-rearhousing-battery.stl', 'rear plate down', MIN_WALL),
     ('mini-round-clock-battery-shim-x2.stl',     'flat',            MIN_WALL),
+    ('mini-round-clock-board-keeper.stl',        'plate down',      MIN_WALL),
     ('mini-round-clock-diffuser-v3.stl',         'membrane face down', 0.18),
 ]
 
@@ -146,7 +147,12 @@ for fn, orient, min_wall in PARTS:
 
     # --- first layer ---------------------------------------------------------
     first = (n[:,2] < -0.999) & (np.abs(zc - zmin) < 1e-3)
-    ck(ar[first].sum() > 400.0, 'first layer has a generous footprint', f'{ar[first].sum():.0f} mm2')
+    # 400 mm2 absolute, OR 40% of the part's own footprint -- a 1 g keeper is
+    # well seated on 206 mm2 and would fail a flat threshold written for a
+    # 108 mm disc. Both mean the same thing: it will not come off the plate.
+    foot, bbox = ar[first].sum(), m.extents[0] * m.extents[1]
+    ck(foot > 400.0 or foot > 0.40 * bbox, 'first layer has a generous footprint',
+       f'{foot:.0f} mm2 ({100*foot/bbox:.0f}% of its own footprint)')
 
     # --- sloped overhangs: cannot be bridged, judged by angle ----------------
     slope = above & (n[:,2] < -1e-6) & (n[:,2] > -0.999) \

@@ -34,16 +34,24 @@ superseded.
 | `v2/mini-round-clock-rearhousing-battery` | **PETG** if a cell goes in | **Rear plate down.** No supports. |
 | *or* `v2/mini-round-clock-rearhousing-slim` | PETG or PLA | Rear plate down. No supports. Mains only, and 11 mm shallower. |
 | `v2/mini-round-clock-battery-shim-x2` | anything | Flat. **Print two.** |
-| `v2/mini-round-clock-diffuser-v3` | **White PLA** | Diffusing face **down**. **0.20 mm layers.** 0% infill, no supports. |
+| `v2/mini-round-clock-board-keeper` | anything | Plate down. No supports. 1 g. Holds the S3 in. |
+| `v2/mini-round-clock-diffuser-v3` | **White PLA** | Face **down**. **0.20 mm layers.** 0% infill, no supports. |
 
-Prefer the **`.3mf`** of each over the `.stl` — STL stores coordinates as 32-bit
-floats and that round trip is what makes slicers ask to repair things.
+Either `.3mf` or `.stl` — for these files they carry identical geometry, because
+the generator quantises to float32 and heals the mesh *before* writing, so the
+STL round trip has already happened. The 3MF just carries units and metadata
+Bambu Studio likes.
 
-**Slice the diffuser at 0.20 mm layer height.** The membrane over the LEDs is
-now 0.20 mm of geometry — one layer — so any other layer height does not land on
-a whole number of layers. It prints membrane-side down, so that layer goes
-straight onto the plate and there is nothing to bridge. White PLA specifically —
-natural pipes light along the layer lines and bleeds between cells.
+**Slice the diffuser at 0.20 mm layer height.** Each LED's aperture is a radial
+tick thinned to 0.20 mm of geometry — one layer — so any other layer height does
+not land on a whole number of layers. It prints face-side down, so that layer
+goes straight onto the plate and there is nothing to bridge. White PLA
+specifically — natural pipes light along the layer lines and bleeds between
+cells.
+
+**The hours are on the diffuser now**, debossed 0.50 mm: 12, 3, 6 and 9 as
+numerals and the other eight as marks. Nothing to do about it at the slicer, but
+it is why the diffuser takes ~5 minutes longer than it did.
 
 **The diffuser is now a press fit** (0.10 mm on diameter). If it will not go in,
 set `DIFF_FIT = 0.00` in `v2/params.py` and rebuild.
@@ -144,19 +152,39 @@ Fill in your real entity IDs **before** restarting — the queries are in
 
 ## Assembly, once the parts are off the plate
 
-1. Display and ring into the base from the front, as before.
-2. **S3 in from the rear**, pushed up into the deck window until its rim meets
-   the ledges at the two short ends. Nothing screws it down — hanging on a wall,
-   gravity acts in the board's own plane. If your board has male headers pointing
-   down, snip them; there is 1.6 mm under the PCB for solder joints, not pins.
-3. Solder ring and display leads to the board. Power it at the **5V and GND
-   pins**, not the USB-C port — see `v2/README.md` §2 for why.
-4. Battery in the housing, a shim either side; its output lead up through the
-   deck port beside the board's USB-C end.
-5. Mains lead in through the cable exit at 6 o'clock, to the battery input.
-6. Housing on: 4 × M3 self-tapping. **M3 × 30** for the slim housing, **M3 × 40**
+**Order matters at steps 1 and 3.** The breakout cannot go in after the S3, and
+the S3 cannot go in after the keeper.
+
+1. **USB-C breakout into its bay first.** Reach in through the rear bore, slide
+   it −x along the rails and under the lips until its PCB edge butts the
+   shoulder at x = −47. It is then trapped: the channel through the wall is
+   13.00 mm and the PCB is 14.20, so pulling on a plug cannot drag it out.
+2. Display and ring into the base from the front, as before.
+3. **S3 in from the rear, tilted +x end up** — about 18°. Put the raised end up
+   into the display-tab window, swing it flat, and let it settle onto the two
+   1.50 mm ledges. It will not go in flat and it will not go in −x end up; the
+   bore only opens to 8.60 mm at that end. If your board has male headers
+   pointing down, snip them; there is 1.6 mm under the PCB for solder joints,
+   not pins.
+4. **Keeper on**, tongue over the board's +x end, 2 × **M3 × 12** self-tapping.
+   That is what stops the board floating into the clock — 0.20 mm of movement
+   left, from 4.60.
+5. Solder ring and display leads to the board. Power it at the **5V and GND
+   pins**, not the board's own USB port — see `v2/README.md` §2 for why. Run the
+   breakout's VBUS and GND to those same pins.
+6. Battery, if you are fitting one: in the housing with a shim either side, its
+   output lead up through the deck port at 6 o'clock (the slot at y +10…+13),
+   and its input from the USB-C inlet.
+7. Housing on: 4 × M3 self-tapping. **M3 × 30** for the slim housing, **M3 × 40**
    for the battery one.
-7. One screw in the wall — 4 mm shank, head no wider than 8 mm. Hang it.
+8. One screw in the wall — 4 mm shank, head no wider than 8 mm. Hang it.
+9. Plug a USB-C cable into the inlet at the bottom of the clock. About 13 mm of
+   the plug's overmold stands proud, so there is something to get hold of.
+
+**One part to buy for this:** Adafruit **ADA4090** USB-C breakout, A$5.40 inc GST
+at Core Electronics, 20.4 × 14.2 × 5.0 mm, with the 5.1 kΩ CC resistors on it.
+Those resistors are not optional — without them a USB-C supply never turns 5 V
+on. **Not ordered.**
 
 ---
 
@@ -166,7 +194,7 @@ Fill in your real entity IDs **before** restarting — the queries are in
 cd enclosure/mini/v2
 python3 measure_uploaded.py    # re-derive every number from your STLs
 python3 build_v2.py            # regenerate the parts
-./runchecks.sh                 # three verification passes
+./runchecks.sh                 # five verification passes
 ```
 
 If you send new STLs, run `measure_uploaded.py` first and diff it against

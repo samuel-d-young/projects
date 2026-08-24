@@ -37,8 +37,16 @@ but removes all the fabrication risk, and it makes the enclosure a single print 
 | 8 | 3 mm plywood, ~250 × 250 mm, for the face | local / Glowforge | — | ~$10–20 | unverified |
 | 9 | White PLA for the diffuser | **already owned** | — | $0 | — |
 | 10 | Hookup wire, heatshrink, solder | **already owned** | — | $0 | — |
+| 11 | USB-C breakout, downstream, 5.1 kΩ CC resistors — **the external power inlet** | Core Electronics | `ADA4090` | **$5.40** | verified — backorder, dispatch 2–7 Sep. **Not ordered.** |
 
-**Core Electronics subtotal: $52.78** + shipping ($7 standard / $11 express, or free Newcastle pickup)
+Item 11 is new, added when the enclosure grew a USB-C inlet through the wall
+(`enclosure/mini/v2/README.md` §2). 20.4 × 14.2 × 5.0 mm, which is what the bay in
+the base is cut to. The two 5.1 kΩ resistors on CC1 are the reason to buy this
+rather than a bare socket: without them a USB-C charger or power bank never turns
+5 V on. It is the only part needed to power the clock from a USB supply *or* a
+USB power bank without opening it up.
+
+**Core Electronics subtotal: $52.78** (+$5.40 with item 11) + shipping ($7 standard / $11 express, or free Newcastle pickup)
 **Estimated total: $80–110** depending on the ring and the plywood.
 
 ### Check the shed before ordering

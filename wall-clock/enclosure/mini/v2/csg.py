@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Manifold-backed CSG helpers. Every primitive is built watertight by construction."""
 import numpy as np, trimesh, math
-from manifold3d import Manifold, Mesh, CrossSection
+from manifold3d import Manifold, Mesh, CrossSection, FillRule
 
 # ---------------------------------------------------------------- conversion
 def to_manifold(m: trimesh.Trimesh) -> Manifold:
@@ -83,6 +83,15 @@ def _signed_area(p):
     x, y = p[:,0], p[:,1]
     return 0.5*np.sum(x*np.roll(y,-1) - np.roll(x,-1)*y)
 
+def rot_rect(cx, cy, dx, dy, angle_deg, r=0.0, n=10):
+    """A rounded rectangle centred on (cx, cy) and rotated -- for radial ticks."""
+    a = math.radians(angle_deg)
+    ca, sa = math.cos(a), math.sin(a)
+    pts = rounded_rect(dx, dy, r, n) if r > 0 else [
+        (-dx/2, -dy/2), (dx/2, -dy/2), (dx/2, dy/2), (-dx/2, dy/2)]
+    return [(x*ca - y*sa + cx, x*sa + y*ca + cy) for x, y in pts]
+
+
 def rounded_rect(dx, dy, r, n=16):
     """CCW point list for a rectangle with radiused corners, centred on origin."""
     r = min(r, dx/2-1e-6, dy/2-1e-6)
@@ -99,6 +108,38 @@ def slab_chamfer(dx, dy, z0, z1, chamfer, centre=(0,0)):
     lo = prism(rounded_rect(dx, dy, 0.01), z0, z0+1e-3)
     hi = prism(rounded_rect(dx-2*chamfer, dy-2*chamfer, 0.01), z1-1e-3, z1)
     return (lo + hi).hull().translate([centre[0], centre[1], 0])
+
+# ---------------------------------------------------------------- text
+def text_polys(txt, height, family='DejaVu Sans', weight='bold'):
+    """Glyph outlines for `txt`, scaled to `height` and centred on the origin.
+
+    Returns a list of contours; the counters in 6, 9 and 0 come back as their
+    own contours, so extrude them with an even-odd fill rule or they fill in.
+    """
+    from matplotlib.textpath import TextPath
+    from matplotlib.font_manager import FontProperties
+    tp = TextPath((0, 0), txt, size=100.0,
+                  prop=FontProperties(family=family, weight=weight))
+    polys = [np.asarray(p, dtype=np.float64) for p in tp.to_polygons() if len(p) >= 3]
+    if not polys:
+        raise ValueError(f'no outline for {txt!r}')
+    allp = np.concatenate(polys)
+    lo, hi = allp.min(axis=0), allp.max(axis=0)
+    k = height / (hi[1] - lo[1])
+    c = (lo + hi) / 2.0
+    return [(p - c) * k for p in polys]
+
+
+def text_prism(txt, height, centre, z0, z1, angle_deg=0.0, **kw):
+    """Extruded text, centred on `centre`, rotated `angle_deg` about its centre."""
+    a = math.radians(angle_deg)
+    ca, sa = math.cos(a), math.sin(a)
+    cs = CrossSection([[(x*ca - y*sa + centre[0], x*sa + y*ca + centre[1])
+                        for x, y in p]
+                       for p in text_polys(txt, height, **kw)],
+                      fillrule=FillRule.EvenOdd)
+    return Manifold.extrude(cs, z1 - z0).translate([0.0, 0.0, z0])
+
 
 # ---------------------------------------------------------------- checks
 def report(man, name):
@@ -131,8 +172,15 @@ def finalise(man, name, quantise=True, rounds=6, strict=True):
         parts = t.split(only_watertight=False)
         if len(parts) <= 1:
             return t
-        keep = [p for p in parts if abs(p.volume) >= 0.01]
-        gone = [p for p in parts if abs(p.volume) < 0.01]
+        # Two tests, because volume alone is not enough. A shell of 1 or 3 faces
+        # cannot enclose anything, but trimesh's divergence-theorem volume on an
+        # open sliver returns a large number anyway (+-9.02 mm3 was one), so it
+        # survives the volume test and then breaks the concatenated mesh. The
+        # smallest closed shell is a tetrahedron: 4 faces.
+        def debris(p):
+            return abs(p.volume) < 0.01 or len(p.faces) < 4
+        keep = [p for p in parts if not debris(p)]
+        gone = [p for p in parts if debris(p)]
         if gone:
             dropped[0] += sum(abs(p.volume) for p in gone)
             dropped[1] += len(gone)

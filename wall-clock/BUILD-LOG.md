@@ -1606,3 +1606,173 @@ things" was true in general and not true of these files.
 - The plywood face's ring window is still 11.5 mm wide, so ~9 mm of white
   diffuser shows around the line. Left alone deliberately — that is the Echo
   look — but `face.svg` is where to change it.
+
+---
+
+## 2026-08-24 — v5: radial ticks, the hours on the diffuser, and the S3 actually held
+
+Four things Sam asked for, in two messages:
+
+> *"Update the difuser to be more of a line where the LED shows through like the
+> echo wall clock."* … *"the line needs to be perpendicular to the screen, like
+> the lines are. I want the LED's to look more like the echo wall clock led's."*
+> … *"Write the clock times on the difuser too."* … *"make sure that the ESP32 S3
+> is held in properly and that the USB connector can be connected externally from
+> the outside of the wall. I may or may not use a USB battery or USB power
+> supply."*
+
+### The aperture was the right size and the wrong axis
+
+v4 narrowed the lit band from 5.90 mm to a 2.50 mm arc. Sam's follow-up said what
+was still wrong: an arc lies *along* the circle. Each cell's aperture is now a
+**radial tick**, 2.00 mm across × 4.00 mm long with radiused ends, centred on the
+LED circle at r = 40.75 and sitting inside the 5050's own r 38.25–43.25 so it is
+lit evenly end to end.
+
+| | v3 | v4 | v5 |
+|---|---:|---:|---:|
+| lit aperture | 5.90 mm band | 2.50 mm arc | **2.00 × 4.00 tick** |
+| points | — | along the circle | **at the centre** |
+| dark between two LEDs | 0.95 mm | 0.95 mm | **8.67 mm** |
+
+The 8.67 mm of dark is what makes it read like an Echo: 24 separate marks, not a
+segmented ring.
+
+One claim in v4's notes was wrong and is now corrected in `check4`: it said the
+aperture's aspect ratio stops crosstalk. It does not — the **cell wall** does.
+The walls run the full 2.00 mm depth of the cell, from the face to the LED PCB,
+so light from the next LED never enters the cell at all. The aperture's 1.80 ×
+2.00 mm shape decides the viewing angle (±29°), which is a different thing.
+
+### The hours, debossed on the face
+
+12, 3, 6 and 9 as 3.40 mm upright numerals; the other eight as marks, quarters
+heavier. All of it in the 3.5 mm band between the plywood window's inner edge
+(r = 35.0) and where the ticks start (r = 38.75), debossed 0.50 mm with 1.50 mm
+of PLA left under them so they stay opaque. Debossed rather than thinned because
+the Echo's markings are printed on a white face — the LEDs are what lights up.
+`MARK_DEPTH = 0` and a 0.20 mm cut makes them lit instead, if that turns out to
+be the nicer thing.
+
+### The real find: 183 non-manifold edges, and where they were
+
+Adding the ticks broke the build outright — `Error.NotManifold` out of
+`finalise()`. Chasing it was worth the time.
+
+Every construction step was clean in isolation and clean in double precision. It
+only broke after the float32 quantise, where the mesh split into six parts: the
+body, plus three razor shells of ±9.02 mm³ with **1 and 3 faces each**. A shell
+with 3 faces cannot enclose anything, but trimesh's divergence-theorem volume on
+an open sliver returns a large number anyway, so `drop_debris` kept them, and
+concatenating them is what made the mesh non-manifold. `drop_debris` now judges
+by face count as well as volume: under 4 faces, it goes.
+
+That fixed the crash and left a worse problem. The part came out with **160
+non-manifold edges** and its two volume measurements disagreeing by 0.128% —
+against 0.054% for Sam's own file, which is the baseline the checker uses. So I
+went looking for where the damage actually lives, and it is not spread out at
+all:
+
+```
+Sam's diffuser: 183 bad edges, ALL of them in r 35.5-46.0, z 0.8-4.0
+                (his two annular ribs are notched at each of the 24 wall angles,
+                 and the notches are modelled with faces that do not pair up)
+inside r = 35.0: 0 bad edges, watertight, perfect
+```
+
+Every version so far had been unioning new geometry **through** that damage and
+making it worse. So: keep his mesh only inside r = 35.00, and rebuild the band
+from measured numbers — inner rib 35.4996–36.6996, outer rib 44.7995–46.0000, 24
+walls 1.000 mm thick with centres at 7.5 + 15k° to within 0.0003°, all z 0–4.000.
+
+Result: **0 bad edges, watertight, one body, volumes agreeing to 0.000%.** The
+first clean version of this part. The rebuilt ribs are continuous where his were
+notched, which is a better light seal and a stronger press fit as well. The
+diffuser is now held to `strict` in `check1` like every other part.
+
+Two smaller lessons from the same chase, both about coincident surfaces:
+
+- The face fill's top plane at z = 2.00 is coplanar with the skirt top. Five
+  variants were tested; **butting** the skirt gave 0 stray shells and every
+  overlap gave 2–3. Coincident-and-coextensive is fine. Coincident-and-
+  overlapping is what breaks.
+- The 24 cell walls butting the ribs' 144-gon at exactly r = 36.70 gave one razor
+  sliver per wall — a straight chord meeting a faceted arc. Burying the wall ends
+  0.4/0.6 mm inside the ribs gave 0.
+
+### "Held in properly" turned out to mean the old instruction was impossible
+
+The v2 note said *"push it up into the deck window until its rim meets the
+ledges."* That cannot be done. With a 3.00 mm ledge at **both** ends the opening
+is 57.64 mm and the board is 62.74 mm; a rigid board tilts in only if its
+projection fits, and 62.74·cos θ ≤ 57.64 needs θ ≥ 23.4°, at which the raised end
+wants 13.3 mm of headroom against 8.60 in the bore and 11.80 in the tab window.
+It does not go in. Nobody had noticed because nobody had printed it yet.
+
+`LEDGE_END` is now **1.50 mm** — a 60.19 mm gap, 17.9° of tilt, 8.87 mm of rise
+against 11.80 available at the +x end. It has to go in **+x end up**; the bore at
+the other end stops at 8.60. `check5_v5a.py` does not take my word for that: it
+walks the real mesh through the motion in half-degree steps, searching for a
+clear pose at each angle, and fails if any angle has none. Worst-case ledge
+bearing is 1.50 − 0.45 = 1.05 mm of PCB, which is plenty for a shear ledge.
+
+Then the actual retention, and the thing that took the longest to see: **you
+cannot capture a rigid board in a through-window from both sides at the same
+places.** Ledges below and lips above at the same ends make insertion impossible;
+that is geometry, not a detail. So:
+
+- a **beam** across the USB end at z 4.20, integral to the base. 0.20 mm above
+  the tallest thing the board carries, so it cannot foul a connector or a
+  soldered header whatever the board's layout — it only ever touches the board if
+  the board lifts. Its pillars stand at x = −20, not over the board's end at −24,
+  because the bore is r = 27.78 and at x = −24 it is only open to |y| < 13.99
+  against a deck window that already reaches 13.15. 0.84 mm of landing. At −20 it
+  is 19.30, and they get 3 mm.
+- a **keeper**, 1 g, two M3, that goes on *after* the board with a tongue over
+  the far end. Separate because it has to be: fixed at +x it blocks the tilt-in,
+  fixed at −x it lands on the USB connectors.
+
+Float in every direction is now 0.20 mm, from 4.60.
+
+### The USB inlet, and a fact that decided its design
+
+The plan was to bring the board's own connector out to the rim. Two things killed
+that. The plug would end 30 mm short with nothing to grip — and, checking rather
+than assuming: **Espressif's own v1.1 user guide calls both ports Micro-USB**,
+while the boards widely sold as "ESP32-S3-DevKitC-1" carry two Type-C. Which
+connector the board has is not a settled fact, so nothing here depends on it.
+
+The inlet is its own USB-C socket at 6 o'clock wired to the 5V/GND pins, which is
+how `README` §2 already said to power the thing:
+
+```
+plug channel  13.00 x 7.20 mm through the wall   (USB-IF caps a Type-C overmold
+                                                  at 12.35 x 6.50)
+socket mouth  6.99 mm inside the rim -> ~13 mm of a 20 mm overmold stands proud
+breakout bay  20.40 x 14.20 x 5.00 on a shelf, rails and lips either side
+```
+
+The channel is deliberately **narrower than the breakout PCB** — 13.00 against
+14.20 — so the PCB butts a 0.60 mm shoulder each side and pulling the plug cannot
+drag the breakout out through the wall. That is the whole retention scheme, and
+it needs no screw.
+
+Part: **Adafruit ADA4090**, 20.4 × 14.2 × 5.0 mm, two 5.1 kΩ resistors on CC1,
+**A$5.40 inc GST at Core Electronics** (backorder, dispatch 2–7 Sep). Added to
+the BOM as item 11. **Not ordered.** The CC resistors are the reason to buy this
+rather than a bare socket: without them a USB-C source never turns 5 V on.
+
+### What the checkers caught this time
+
+- The keeper's pilots at r = 44.02 left **0.11 mm** of wall between the hole and
+  the tab window's outer edge. Moved to r = 46.76, outside the ring pocket too.
+- The USB-C lips were 0.80 mm thick, under the 1.20 minimum. Now 1.50.
+- The keeper failed the first-layer footprint test at 206 mm² against a 400 mm²
+  floor written for a 108 mm disc. The threshold was wrong, not the part: it now
+  passes on 400 mm² **or** 40% of the part's own footprint. A 1 g part is well
+  seated on 206 mm².
+- `check2`'s "Sam's geometry is untouched" test failed until every new cut and
+  addition was given its own named envelope. That is the test working: it is not
+  a blanket allowance, and it should fail whenever something new appears.
+
+`check5_v5a.py` is new and `runchecks.sh` runs five passes now. All five green.

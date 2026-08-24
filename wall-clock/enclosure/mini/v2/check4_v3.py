@@ -90,58 +90,94 @@ ck(r_out - R_RING_O < 0.15, 'but not so much it cannot be pressed in',
 ck(abs(Dt.bounds[1][2] - (DIFF_COLLAR_H + COLLAR_EXTEND)) < 1e-3,
    'overall height is still set by the collar', f'{Dt.bounds[1][2]:.2f} mm')
 
-print('\n4. One layer over the LEDs, and the cell walls survived it')
-a_gap = DIFF_BAFFLE_A0 + 360.0/DIFF_BAFFLE_N/2          # midway between two walls
-# sampled inside the LINE -- outside it the face is deliberately 2.0 mm now,
-# which section 5b checks
-for r in (DIFF_LINE_RI + 0.3, DIFF_LINE_R, DIFF_LINE_RO - 0.3):
-    x, y = r*math.cos(math.radians(a_gap)), r*math.sin(math.radians(a_gap))
-    t = column_top(DIFF, x, y)
-    ck(t is not None and abs(t - DIFF_MEM_T) < 0.02,
-       f'membrane is one layer at r={r:.0f}, between walls',
-       f'{t:.3f} mm (was 0.800)' if t else 'n/a')
-for r in (40.0, 42.0, 44.0):
-    x, y = r*math.cos(math.radians(DIFF_BAFFLE_A0)), r*math.sin(math.radians(DIFF_BAFFLE_A0))
-    t = column_top(DIFF, x, y, e=0.02)
-    ck(t is not None and t > 3.0, f'the cell wall at r={r:.0f} still reaches full height',
-       f'{t:.2f} mm' if t else 'n/a')
-walls = 0
-for i in range(DIFF_BAFFLE_N):
-    a = DIFF_BAFFLE_A0 + i*(360.0/DIFF_BAFFLE_N)
-    x, y = 42*math.cos(math.radians(a)), 42*math.sin(math.radians(a))
-    if solid_at(DIFF, x, y, 2.0): walls += 1
-ck(walls == DIFF_BAFFLE_N, 'all 24 cell walls survived the thinning', f'{walls} of {DIFF_BAFFLE_N}')
+print('\n4. One layer over the LEDs, in a radial tick, and the cells survived')
+CELL_PITCH = 360.0 / CELL_N
+a_cell = CELL_WALL_A0 + CELL_PITCH / 2                 # midway between two walls
+def at(r, a):
+    return r*math.cos(math.radians(a)), r*math.sin(math.radians(a))
 
-print('\n5b. The lit band is now a line')
-a_gap = DIFF_BAFFLE_A0 + 360.0/DIFF_BAFFLE_N/2
-def thick_at(r):
-    x, y = r*math.cos(math.radians(a_gap)), r*math.sin(math.radians(a_gap))
-    return column_top(DIFF, x, y)
-# inside the line: one layer.  outside it: opaque.
-for r in (DIFF_LINE_RI + 0.3, DIFF_LINE_R, DIFF_LINE_RO - 0.3):
-    t = thick_at(r)
-    ck(t is not None and abs(t - DIFF_MEM_T) < 0.02, f'r={r:.2f} is one layer (inside the line)',
-       f'{t:.3f} mm' if t else 'n/a')
-for r in (DIFF_MEM_RI + 0.2, DIFF_LINE_RI - 0.3, DIFF_LINE_RO + 0.3, DIFF_MEM_RO - 0.3):
-    t = thick_at(r)
-    ck(t is not None and t >= DIFF_OPAQUE_T - 0.02, f'r={r:.2f} is {DIFF_OPAQUE_T} mm (outside the line)',
-       f'{t:.3f} mm' if t else 'n/a')
-# the line has to sit on the LEDs, not beside them
-ck(abs((DIFF_LINE_RI + DIFF_LINE_RO)/2 - DIFF_LINE_R) < 1e-9,
-   'the line is centred on the LED circle', f'r = {DIFF_LINE_R:.2f}')
-led_i, led_o = DIFF_LINE_R - 2.5, DIFF_LINE_R + 2.5      # a 5050 is 5 mm
-ck(led_i < DIFF_LINE_RI and DIFF_LINE_RO < led_o,
-   'and narrower than the 5 mm LED, so it acts as an aperture',
-   f'line {DIFF_LINE_W:.2f} inside LED {led_o-led_i:.2f}')
-# no step where the inner band meets the skirt
-ck(abs(DIFF_OPAQUE_T - 2.0) < 1e-9,
-   'inner band is flush with the skirt, so the face is one shelf', f'both {DIFF_OPAQUE_T:.2f} mm')
-seg = 2*math.pi*DIFF_LINE_R/DIFF_BAFFLE_N - 0.95
-print(f'         one lit LED now shows {DIFF_LINE_W:.2f} x {seg:.2f} mm  '
-      f'({seg/DIFF_LINE_W:.1f}:1), was {DIFF_MEM_RO-DIFF_MEM_RI:.2f} x {seg:.2f} '
-      f'({seg/(DIFF_MEM_RO-DIFF_MEM_RI):.1f}:1)')
-print(f'         the walls leave {100*seg/(2*math.pi*DIFF_LINE_R/DIFF_BAFFLE_N):.0f}% of the '
-      f'circle lit, so adjacent LEDs read as one line')
+# inside the tick: one layer of plastic and nothing else
+for r in (TICK_RI + 0.4, (TICK_RI + TICK_RO)/2, TICK_RO - 0.4):
+    t = column_top(DIFF, *at(r, a_cell))
+    ck(t is not None and abs(t - DIFF_MEM_T) < 0.02,
+       f'r={r:.2f} is one layer, inside the tick', f'{t:.3f} mm (was 0.800)' if t else 'n/a')
+# just outside it, still in the same cell: the full opaque face
+for r in (TICK_RI - 0.6, TICK_RO + 0.6):
+    t = column_top(DIFF, *at(r, a_cell))
+    ck(t is not None and abs(t - FACE_T) < 0.02,
+       f'r={r:.2f} is {FACE_T:.2f} mm, outside the tick', f'{t:.3f} mm' if t else 'n/a')
+# and sideways out of the tick, at the same radius: also opaque
+for dy in (TICK_W/2 + 0.6, -(TICK_W/2 + 0.6)):
+    a = a_cell + math.degrees(dy / ((TICK_RI+TICK_RO)/2))
+    t = column_top(DIFF, *at((TICK_RI+TICK_RO)/2, a))
+    ck(t is not None and abs(t - FACE_T) < 0.02,
+       f'{abs(dy):.2f} mm to the side of the tick is {FACE_T:.2f} mm', f'{t:.3f} mm' if t else 'n/a')
+
+# every cell has exactly one tick, and every wall is full height
+ticks = sum(1 for i in range(CELL_N)
+            if (lambda t: t is not None and t < 0.5)(
+                column_top(DIFF, *at((TICK_RI+TICK_RO)/2, CELL_WALL_A0 + (i+0.5)*CELL_PITCH))))
+ck(ticks == CELL_N, f'all {CELL_N} cells have a tick', f'{ticks} of {CELL_N}')
+walls = sum(1 for i in range(CELL_N)
+            if (lambda t: t is not None and abs(t - BAND_TOP) < 0.02)(
+                column_top(DIFF, *at(41.0, CELL_WALL_A0 + i*CELL_PITCH), e=0.02)))
+ck(walls == CELL_N, f'all {CELL_N} cell walls reach {BAND_TOP:.2f} mm', f'{walls} of {CELL_N}')
+for r in (RIB_I_RI + 0.5, RIB_O_RI + 0.5):
+    t = column_top(DIFF, *at(r, a_cell))
+    ck(t is not None and abs(t - BAND_TOP) < 0.02, f'the rib at r={r:.2f} is continuous',
+       f'{t:.3f} mm (Sam\'s was notched at every wall)' if t else 'n/a')
+
+print('\n5b. The tick is perpendicular to the circle, and sized to the LED')
+ck(TICK_RO - TICK_RI > TICK_W, 'it is radial, not tangential',
+   f'{TICK_RO-TICK_RI:.2f} mm radial x {TICK_W:.2f} mm tangential '
+   f'({(TICK_RO-TICK_RI)/TICK_W:.1f}:1 pointing at the centre)')
+led_i, led_o = DIFF_LINE_R - 2.5, DIFF_LINE_R + 2.5      # a 5050 is 5 mm square
+ck(led_i < TICK_RI and TICK_RO < led_o, 'it sits inside the LED, so it is lit end to end',
+   f'tick {TICK_RI:.2f}..{TICK_RO:.2f} inside LED {led_i:.2f}..{led_o:.2f}')
+ck(abs((TICK_RI+TICK_RO)/2 - DIFF_LINE_R) < 0.01, 'and centred on the LED circle',
+   f'tick centre {(TICK_RI+TICK_RO)/2:.2f} vs LED circle {DIFF_LINE_R:.2f}')
+gap = 2*math.pi*DIFF_LINE_R/CELL_N - TICK_W
+ck(gap > 3*TICK_W, 'the ticks read as separate marks, not a ring',
+   f'{TICK_W:.2f} mm lit, {gap:.2f} mm dark between them')
+# what actually stops crosstalk is the cell wall, not the aperture: the walls
+# run the full depth of the cell, from the face up to the LED PCB, so light
+# from the next LED never enters this cell to begin with.
+ck(BAND_TOP - FACE_T >= 1.5, 'the cell wall runs the full depth of the cell',
+   f'{BAND_TOP-FACE_T:.2f} mm from the face to the PCB, so the neighbouring LED '
+   f'has no path in')
+half = math.degrees(math.atan((TICK_W/2) / (FACE_T - DIFF_MEM_T)))
+ck(half < 60.0, 'and the aperture keeps the tick a mark, not a glow',
+   f'{FACE_T-DIFF_MEM_T:.2f} mm deep x {TICK_W:.2f} mm wide -> lit within '
+   f'+/-{half:.0f} deg of straight on')
+
+print('\n5c. The hours are written on the face')
+def column_bottom(man, x, y, e=0.05):
+    col = man ^ box_lwh(x-e, x+e, y-e, y+e, -50.0, 50.0)
+    if col.volume() < 1e-9: return None
+    return to_trimesh(col).bounds[0][2]
+
+hit = 0
+for h in range(12):
+    a = 90.0 - h*30.0
+    if int(round(a)) % 360 in NUMERALS: continue
+    ri, ro = (MARK_RI_MAJ, MARK_RO_MAJ) if h % 3 == 0 else (MARK_RI, MARK_RO)
+    b = column_bottom(DIFF, *at((ri+ro)/2, a), e=0.02)
+    if b is not None and abs(b - MARK_DEPTH) < 0.02: hit += 1
+ck(hit == 8, 'the 8 plain hour marks are debossed', f'{hit} of 8 at {MARK_DEPTH:.2f} mm deep')
+
+for ang, txt in sorted(NUMERALS.items()):
+    cx, cy = at(NUM_R, ang)
+    w = NUM_H*1.6
+    probe = box_lwh(cx-w, cx+w, cy-NUM_H*0.75, cy+NUM_H*0.75, 0.0, MARK_DEPTH)
+    cut = probe.volume() - (DIFF ^ probe).volume()
+    ck(cut > 0.5, f'"{txt}" is engraved at {ang} deg', f'{cut:.2f} mm3 of plastic removed')
+ck(FACE_T - NUM_DEPTH >= 1.0, 'and the face stays opaque under the engraving',
+   f'{FACE_T-NUM_DEPTH:.2f} mm left under a {NUM_DEPTH:.2f} mm deboss')
+mark_lo = min(MARK_RI, MARK_RI_MAJ, NUM_R - NUM_H/2)
+ck(mark_lo > R_RING_I, 'all of it is inside the plywood window',
+   f'innermost mark r={mark_lo:.2f}, window edge r={R_RING_I:.2f}')
+ck(max(MARK_RO, MARK_RO_MAJ, NUM_R + NUM_H/2) < TICK_RI, 'and clear of the lit ticks',
+   f'outermost mark r={max(MARK_RO, MARK_RO_MAJ, NUM_R+NUM_H/2):.2f}, ticks start {TICK_RI:.2f}')
 
 print('\n5. The collar reaches further in')
 h = column_top(DIFF, 29.0, 0.0)

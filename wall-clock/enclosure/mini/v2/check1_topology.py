@@ -19,9 +19,12 @@ PARTS = [('mini-round-clock-base-v2.stl', True),
          ('mini-round-clock-rearhousing-slim.stl', True),
          ('mini-round-clock-rearhousing-battery.stl', True),
          ('mini-round-clock-battery-shim-x2.stl', True),
-         # inherits 387 non-manifold edges from Sam's uploaded diffuser; the
-         # trim halves them. Held to "manifold3d accepts it", not "watertight".
-         ('mini-round-clock-diffuser-v3.stl', False)]
+         ('mini-round-clock-board-keeper.stl', True),
+         # v5b rebuilds the LED band rather than unioning through Sam's 183
+         # non-manifold edges, so this is now held to the same bar as the rest.
+         # SOURCE_AMBIGUITY is still measured above: it is what this part would
+         # have been stuck with had the band been patched instead of rebuilt.
+         ('mini-round-clock-diffuser-v3.stl', True)]
 
 for name, strict in PARTS:
     print(f'\n{name}' + ('' if strict else '   [derived from Sam\'s mesh - relaxed]')) 
