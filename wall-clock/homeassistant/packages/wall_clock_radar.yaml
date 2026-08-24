@@ -41,10 +41,18 @@
 # =============================================================================
 
 rest:
-  # ~8 minutes of lag is normal for the radar composite, and frames land every
-  # 600 s, so polling faster than this only burns requests.
+  # Frames land every 600 s and cannot be fresher: a weather radar is a dish
+  # that physically sweeps, and a volume scan takes 5-10 minutes of antenna
+  # movement before any processing. Polling faster than the source scans buys
+  # literally nothing — unlike ADS-B, where aircraft broadcast their own
+  # position twice a second and the only limit is how often you ask.
+  #
+  # 180 s rather than 300 s is still well inside that: it does not make the
+  # radar fresher, it just picks each frame up sooner after publication.
+  # Measured lag against the wall clock swung between 2.6 and 8 minutes, which
+  # is exactly what a 600 s cadence looks like sampled at random moments.
   - resource: https://api.rainviewer.com/public/weather-maps.json
-    scan_interval: 300
+    scan_interval: 180
     timeout: 20
     sensor:
       - name: Wall clock radar frame
