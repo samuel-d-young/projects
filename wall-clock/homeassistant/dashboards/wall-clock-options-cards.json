@@ -1,0 +1,114 @@
+[
+  {
+    "type": "entities",
+    "title": "Ring detail",
+    "show_header_toggle": false,
+    "state_color": true,
+    "entities": [
+      {
+        "entity": "select.mini_round_clock_second_hand_style",
+        "name": "Second hand"
+      },
+      {
+        "entity": "switch.mini_round_clock_second_hand",
+        "name": "Show second hand"
+      },
+      {
+        "type": "section",
+        "label": "Hour markers"
+      },
+      {
+        "entity": "select.mini_round_clock_hour_markers",
+        "name": "Markers"
+      },
+      {
+        "entity": "number.mini_round_clock_hour_marker_brightness",
+        "name": "Marker brightness"
+      },
+      {
+        "type": "section",
+        "label": "Timer + status"
+      },
+      {
+        "entity": "select.mini_round_clock_timer_arc_direction",
+        "name": "Arc direction"
+      },
+      {
+        "entity": "switch.mini_round_clock_show_extra_timer_pips",
+        "name": "Extra timer pips"
+      },
+      {
+        "entity": "switch.mini_round_clock_show_status_hints",
+        "name": "Status hints"
+      },
+      {
+        "entity": "number.mini_round_clock_status_pixel_brightness",
+        "name": "Status brightness"
+      }
+    ]
+  },
+  {
+    "type": "entities",
+    "title": "Alert",
+    "show_header_toggle": false,
+    "state_color": true,
+    "entities": [
+      {
+        "entity": "select.mini_round_clock_alert_pattern",
+        "name": "Pattern"
+      },
+      {
+        "entity": "number.mini_round_clock_alert_hue",
+        "name": "Hue"
+      }
+    ]
+  },
+  {
+    "type": "entities",
+    "title": "Screen",
+    "show_header_toggle": false,
+    "state_color": true,
+    "entities": [
+      {
+        "entity": "select.mini_round_clock_face",
+        "name": "Face"
+      },
+      {
+        "entity": "switch.mini_round_clock_24_hour_time",
+        "name": "24 hour time"
+      },
+      {
+        "type": "section",
+        "label": "Subtitle lines"
+      },
+      {
+        "entity": "switch.mini_round_clock_show_date",
+        "name": "Date"
+      },
+      {
+        "entity": "switch.mini_round_clock_show_day_of_week",
+        "name": "Day of week"
+      },
+      {
+        "entity": "switch.mini_round_clock_show_weather",
+        "name": "Weather"
+      },
+      {
+        "type": "section",
+        "label": "Background"
+      },
+      {
+        "entity": "number.mini_round_clock_weather_tint_strength",
+        "name": "Weather tint"
+      },
+      {
+        "type": "section",
+        "label": "Night"
+      },
+      {
+        "entity": "switch.mini_round_clock_blank_screen_at_night",
+        "name": "Blank screen at night"
+      }
+    ]
+  }
+]
