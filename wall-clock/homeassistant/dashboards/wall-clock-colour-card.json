@@ -1,0 +1,82 @@
+[
+  {
+    "type": "markdown",
+    "content": "### Colour\nThe four presets \u2014 **default, warm, cool, mono** \u2014 ignore the sliders below. Set **Theme** to **custom** first, then they take effect immediately, no reflash.\n\n*Intensity* is the ring's brightness for that element, not the screen's. The screen reuses the same hue at its own brightness, because a bare LED and a backlit panel don't want the same value.\n\nThe status **pips** follow the timer arc at 62% and have no separate control. **mono** pins every saturation to zero and is the accessible palette \u2014 custom never leaks into it."
+  },
+  {
+    "type": "entities",
+    "title": "Colour",
+    "show_header_toggle": false,
+    "state_color": true,
+    "entities": [
+      {
+        "entity": "select.mini_round_clock_colour_theme",
+        "name": "Theme"
+      },
+      {
+        "type": "section",
+        "label": "Hour hand"
+      },
+      {
+        "entity": "number.mini_round_clock_hour_hue",
+        "name": "Hue"
+      },
+      {
+        "entity": "number.mini_round_clock_hour_saturation",
+        "name": "Saturation"
+      },
+      {
+        "entity": "number.mini_round_clock_hour_intensity",
+        "name": "Intensity"
+      },
+      {
+        "type": "section",
+        "label": "Minute hand"
+      },
+      {
+        "entity": "number.mini_round_clock_minute_hue",
+        "name": "Hue"
+      },
+      {
+        "entity": "number.mini_round_clock_minute_saturation",
+        "name": "Saturation"
+      },
+      {
+        "entity": "number.mini_round_clock_minute_intensity",
+        "name": "Intensity"
+      },
+      {
+        "type": "section",
+        "label": "Second hand"
+      },
+      {
+        "entity": "number.mini_round_clock_second_hue",
+        "name": "Hue"
+      },
+      {
+        "entity": "number.mini_round_clock_second_saturation",
+        "name": "Saturation"
+      },
+      {
+        "entity": "number.mini_round_clock_second_intensity",
+        "name": "Intensity"
+      },
+      {
+        "type": "section",
+        "label": "Timer arc"
+      },
+      {
+        "entity": "number.mini_round_clock_timer_hue",
+        "name": "Hue"
+      },
+      {
+        "entity": "number.mini_round_clock_timer_saturation",
+        "name": "Saturation"
+      },
+      {
+        "entity": "number.mini_round_clock_timer_intensity",
+        "name": "Intensity"
+      }
+    ]
+  }
+]
