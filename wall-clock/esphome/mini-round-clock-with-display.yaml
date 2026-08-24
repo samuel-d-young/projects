@@ -282,22 +282,19 @@ text_sensor:
     id: timer_label
     entity_id: sensor.wall_clock_timer_label   # name of the next timer, or empty
 
-  # The finished tile URL, built by HA. A new value here means a new frame,
-  # which is exactly when a re-fetch is worth doing.
+  # HA bumps this only AFTER it has written a new frame to /config/www. The
+  # device watches this rather than the RainViewer URL, so it can never chase
+  # a fetch that failed upstream.
   - platform: homeassistant
-    id: radar_url
-    entity_id: sensor.wall_clock_radar_url
+    id: radar_stamp
+    entity_id: input_text.wall_clock_radar_stamp
     on_value:
-      - lambda: |-
-          std::string u = x;
-          // HA templates arrive with the whitespace of their own indentation.
-          while (!u.empty() && isspace((unsigned char) u.front())) u.erase(u.begin());
-          while (!u.empty() && isspace((unsigned char) u.back()))  u.pop_back();
-          if (u.rfind("http", 0) == 0) {
-            id(radar_ready) = false;
-            id(radar_img).set_url(u);
-            id(radar_img).update();   // set_url only STORES it; this fetches.
-          }
+      - if:
+          condition:
+            switch.is_on: show_radar
+          then:
+            - lambda: 'id(radar_ready) = false;'
+            - component.update: radar_img
 
 binary_sensor:
   - platform: homeassistant
@@ -650,6 +647,9 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
+  # This gates BOTH drawing and downloading. In v1 only drawing was gated and
+  # the fetch fired on every URL change, so turning the radar off did not stop
+  # it crash-looping the device. Off now means genuinely off.
   - platform: template
     id: show_radar
     name: "Rain radar"
@@ -657,6 +657,11 @@ switch:
     icon: mdi:radar
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - lambda: 'id(radar_ready) = false;'
+      - component.update: radar_img
+    on_turn_off:
+      - lambda: 'id(radar_ready) = false;'
 
   - platform: template
     id: show_seconds
@@ -711,9 +716,9 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
-  # Set only by the image component's own download callback. Asking the image
-  # how wide it is would not work — `resize:` gives it a size before a single
-  # byte has arrived, so it would claim to be ready while holding nothing.
+  # Set ONLY by the image component's own download callback. Asking the image
+  # its width would not work: it reports a size before a byte has arrived, so
+  # it would claim ready while holding nothing.
   - id: radar_ready
     type: bool
     restore_value: no
@@ -1288,18 +1293,18 @@ display:
       it.filled_circle(CX, CY, 180, bg);
 
       // ---- RAIN RADAR, background layer -------------------------------------
-      // First thing after the ground, so the clock always sits ON the weather.
+      // Straight after the ground, so the clock always sits ON the weather.
       //
-      // Stale radar is worse than none, because it still looks current — a
-      // frame from two hours ago reads as "it is raining now". Anything older
-      // than 45 minutes is simply not drawn. RainViewer runs ~8 minutes behind
-      // real time and publishes every 10, so 45 is several missed frames, not
-      // a hair trigger.
+      // Drawn at native 256 px with no resize — resizing was part of what made
+      // v1 too expensive. The tile centres Melbourne at (0.54, 0.54) rather
+      // than the middle, so the offset is 180 - 0.54*256 = 42, which puts home
+      // dead centre on a 360 px screen.
+      //
+      // Stale radar is worse than none, because it still looks current. A
+      // frame over 45 minutes old is simply not drawn.
       if (id(show_radar).state && id(radar_ready)
           && !std::isnan(id(radar_age).state) && id(radar_age).state <= 45.0f) {
-        // The tile centres Melbourne at (0.54, 0.54), not (0.5, 0.5).
-        // 4% of 360 px is 14 px, so shifting up and left puts home dead centre.
-        it.image(-14, -14, id(radar_img));
+        it.image(42, 42, id(radar_img));
       }
 
       if (left >= 0) {
@@ -1415,51 +1420,43 @@ display:
         it.filled_circle(CX, CY + 140, 4, Color(120, 30, 30));
 
 # =============================================================================
-# RAIN RADAR — RainViewer tile, fetched by the device, addressed by HA
+# RAIN RADAR — the image itself
 # =============================================================================
-# Status tier. Bottom of `reliable clock > timers > status`, and built so it
-# cannot climb: the download is asynchronous, so a slow or dead fetch never
-# stalls the render loop, and every draw is behind a flag that defaults off.
+# Status tier, and built so it cannot climb: nothing is fetched unless the
+# radar switch is on, and every draw sits behind a flag that starts false.
 #
-# The URL is NOT built here. RainViewer's frame path is an opaque hash
-# (/v2/radar/461614397c0b), not the timestamp, so it cannot be derived from the
-# clock — checked against the live API, not assumed. HA polls the index and
-# hands over the finished string; this device parses no JSON.
-#
-# HTTPS direct from the ESP32, rather than proxying through HA, because the
-# alternative needs `allowlist_external_dirs` and a snapshot automation writing
-# into /config/www — more moving parts for the same picture. `verify_ssl` is
-# off: no credentials are involved, it is public weather imagery, and carrying
-# a cert bundle costs flash for nothing here.
+# Plain HTTP to Home Assistant on the LAN, NOT https to RainViewer. HA does the
+# TLS and writes the tile to /config/www, which is served at /local/ with no
+# auth token. That removes the handshake from the device entirely — half of
+# what made v1 block the main loop for two seconds.
 http_request:
   verify_ssl: false
   timeout: 15s
 
-online_image:
-  - id: radar_img
-    # Placeholder only — the real URL arrives from HA at runtime. It has to
-    # parse as a URL at config time, hence a syntactically valid dummy.
-    url: "https://tilecache.rainviewer.com/v2/radar/0/512/7/115/78/2/1_1.png"
+# `image:` with `platform: online_image`, NOT a top-level `online_image:`
+# block. The old form still works in 2026.8.0 but warns that it is REMOVED in
+# ESPHome 2027.1.0.
+image:
+  - platform: online_image
+    id: radar_img
+    # HA rewrites this same path in place, so the URL never changes; the device
+    # is told to re-read it by the stamp text sensor.
+    url: "http://192.168.1.79:8123/local/wall_clock_radar.png"
     format: png
-    # RGBA keeps the alpha channel, which is the whole point: clear sky is
-    # genuinely transparent in these tiles (verified — PNG colour type 6), so
-    # the clock face shows through instead of sitting on a coloured slab.
-    # 360x360x3 = 388 KB plus the alpha mask, nothing against 8 MB of PSRAM.
-    #
-    # NOT `type: RGBA` — that spelling is REMOVED in this ESPHome and fails
-    # with "Image type RGBA is removed". It still appears in the enum the
-    # validator prints, which is purely so it can produce that message.
+    # RGB + alpha_channel, NOT `type: RGBA` — that spelling is REMOVED and
+    # fails with "Image type RGBA is removed", even though the validator still
+    # lists it among valid options so it can print that message.
+    # Alpha matters: clear sky is genuinely transparent in these tiles (PNG
+    # colour type 6, verified), so the clock shows through.
     type: RGB
     transparency: alpha_channel
-    resize: 360x360
-    # Never on a timer. HA publishes a new URL only when a new frame exists,
-    # and that is the only thing worth re-fetching for.
+    # No resize. 256x256 native is ~256 KB decoded against 8 MB of PSRAM.
     update_interval: never
     on_download_finished:
       - globals.set:
           id: radar_ready
           value: 'true'
-      - logger.log: "Radar frame downloaded"
+      - logger.log: "Radar frame ready"
     on_error:
       - globals.set:
           id: radar_ready

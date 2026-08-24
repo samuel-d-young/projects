@@ -1,89 +1,92 @@
 # =============================================================================
-# wall_clock_radar.yaml — RainViewer rain radar for the mini round clock
+# wall_clock_radar.yaml — RainViewer rain radar, v2
 # =============================================================================
-# Drop in /config/packages/ alongside wall_clock.yaml, then RESTART:
-#   ha core restart
+# Install:  drop in /config/packages/ then `ha core restart`
 #
 # A restart, not `reload_all` — checked, not assumed. `rest:` appears in no
-# other package on this system and is not in configuration.yaml, so it is a
-# brand-new domain, and reload_all only reloads domains that are ALREADY set
-# up. Exactly the trap the first install of wall_clock.yaml hit with `timer:`
-# and `intent_script:`. Every edit AFTER this one can use reload_all.
+# other package here and not in configuration.yaml, so it is a brand-new
+# domain, and reload_all only reloads domains already set up. Same trap the
+# first install hit with `timer:` and `intent_script:`. Edits AFTER the first
+# restart can use reload_all.
 #
-# WHY HOME ASSISTANT HAS TO BE IN THIS AT ALL
-# -------------------------------------------
-# The obvious shortcut — have the ESP32 build the tile URL from its own clock —
-# does not work, and this was checked against the live API rather than assumed:
+# -----------------------------------------------------------------------------
+# WHY v2 EXISTS: v1 crash-looped the clock
+# -----------------------------------------------------------------------------
+# v1 had the ESP32 fetch the tile itself over HTTPS at 512 px and resize to
+# 360x360. It worked — 66942 bytes arrived — and then:
+#
+#   [component:421]: api took a long time for an operation (2031 ms), max is 50 ms
+#   *** CRASH DETECTED ON PREVIOUS BOOT ***
+#
+# online_image downloads synchronously on the main loop. Two seconds against a
+# 50 ms budget dropped the API, faulted the device, and on reboot it re-read
+# the URL and did it again. A self-sustaining crash loop.
+#
+# v2 attacks the size of the work rather than hoping:
+#
+#   1. 256 px tile, not 512     download  55896 -> 17718 B   (measured)
+#   2. no `resize:` on device   decoded    1024 -> 256 KB
+#   3. HA fetches it, device pulls from /local/ over PLAIN HTTP on the LAN —
+#      no TLS handshake, which is the other expensive half
+#   4. the fetch is GATED ON THE SWITCH. In v1 the download was triggered by
+#      the URL arriving, so "turn the radar off" did NOT stop it. Now nothing
+#      is ever downloaded that is not going to be drawn, and switching the
+#      radar off is a real off.
+#
+# Together that is ~3x less to transfer and 4x less to decode, with the TLS
+# work removed entirely.
+#
+# -----------------------------------------------------------------------------
+# THE URL CANNOT BE BUILT FROM THE CLOCK
+# -----------------------------------------------------------------------------
+# Checked against the live API rather than assumed:
 #
 #   {"time": 1787578800, "path": "/v2/radar/461614397c0b"}
 #
-# Frames are exactly 600 s apart and `time` IS on a 600 s boundary, so the
-# timestamp is predictable. But the URL does not contain it. `path` carries an
-# OPAQUE HASH that cannot be derived from anything. Miss this and you get a
-# device that 404s forever while looking perfectly correct.
+# Frames are exactly 600 s apart and `time` IS on a 600 s boundary — but the
+# URL carries an OPAQUE HASH, not the timestamp. Anything that derives the URL
+# from the clock 404s forever while looking entirely correct.
 #
-# So HA polls the index and publishes the finished URL as a string. The ESP32
-# imports one text sensor and fetches one PNG. No JSON parsing on the device —
-# which is the failure mode the build log keeps warning about.
-#
-# WHAT THE TILE IS
-# ----------------
-# Web Mercator z/x/y, the same scheme as any map tile. Melbourne's position was
-# solved rather than guessed:
-#
-#   z=6  tile 57/39   -> Melbourne at (0.77, 0.27), badly off-centre
-#   z=7  tile 115/78  -> Melbourne at (0.54, 0.54), 247 x 246 km   <-- this one
-#   z=8  tile 231/157 -> Melbourne at (0.08, 0.09), against a corner
-#
-# z=7 puts you 4% off dead centre in a SINGLE tile, so nothing has to be
-# stitched or composited anywhere. The firmware draws it 14 px up and left to
-# take out that 4%.
-#
-# Verified live: 512x512 PNG, colour type 6 (RGBA, real alpha), ~58 KB, HTTP
-# 200. Alpha is genuine — clear sky is transparent, so the clock shows through.
+# Tile is Web Mercator z/x/y. Melbourne's position was solved, not guessed:
+#   z=6  57/39   -> (0.77, 0.27) badly off-centre
+#   z=7  115/78  -> (0.54, 0.54), 247 x 246 km      <-- this one
+#   z=8  231/157 -> (0.08, 0.09) against a corner
+# One tile, so nothing is composited anywhere. z=7 is also RainViewer's max
+# native zoom — confirmed independently by /config/www/flightdeck.html, which
+# sets `maxNativeZoom: 7` and picked the same colour scheme 2 and `1_1`.
 # =============================================================================
 
 rest:
   # Frames land every 600 s and cannot be fresher: a weather radar is a dish
-  # that physically sweeps, and a volume scan takes 5-10 minutes of antenna
-  # movement before any processing. Polling faster than the source scans buys
-  # literally nothing — unlike ADS-B, where aircraft broadcast their own
-  # position twice a second and the only limit is how often you ask.
-  #
-  # 180 s rather than 300 s is still well inside that: it does not make the
-  # radar fresher, it just picks each frame up sooner after publication.
-  # Measured lag against the wall clock swung between 2.6 and 8 minutes, which
-  # is exactly what a 600 s cadence looks like sampled at random moments.
+  # that physically sweeps, and a volume scan takes 5-10 minutes before any
+  # processing. Polling faster than the source scans buys nothing — unlike
+  # ADS-B, where aircraft broadcast their own position twice a second.
+  # 180 s does not make the radar fresher, it just picks each frame up sooner.
   - resource: https://api.rainviewer.com/public/weather-maps.json
     scan_interval: 180
     timeout: 20
     sensor:
       - name: Wall clock radar frame
         unique_id: wall_clock_radar_frame
-        # The frame time as a RAW UNIX EPOCH, and deliberately NOT
-        # `device_class: timestamp`.
-        #
-        # That device class demands an ISO 8601 string. Given an integer HA
-        # rejects the state as `unknown` — while still populating
-        # json_attributes, so the URL sensor below keeps working perfectly and
-        # everything LOOKS fine. The only visible symptom was the age sensor
-        # falling through to its 999 sentinel, which in turn made the firmware
-        # refuse to draw a radar it had downloaded correctly.
+        # RAW UNIX EPOCH, and deliberately NOT `device_class: timestamp`.
+        # That device class demands ISO 8601; given an integer HA rejects the
+        # state as `unknown` while STILL populating json_attributes — so the
+        # URL sensor keeps working and everything looks fine. The only symptom
+        # is the age sensor falling to its sentinel, which then makes the
+        # firmware refuse to draw a frame it downloaded perfectly. That cost a
+        # debugging cycle; do not re-add it.
         value_template: "{{ value_json.radar.past[-1].time | int(0) }}"
-        # Keep the whole radar block so the URL template can reach `path`.
         json_attributes:
           - host
           - radar
 
 template:
   - sensor:
-      # The finished tile URL. The firmware subscribes to exactly this and does
-      # nothing else clever.
-      #
-      # Colour scheme 2 (Universal Blue) is chosen for a dark clock face —
-      # every scheme carries the SAME alpha channel, so the choice is purely
-      # about how the rain reads, not how much of the face it covers.
-      # Options `1_1` are smoothed, with snow shown separately.
+      # The finished tile URL. 256 px — see the v2 note above.
+      # Colour scheme 2 (Universal Blue) reads well on a dark face. Every
+      # scheme carries the SAME alpha channel (measured: 27.9% fully
+      # transparent, 70.6% solid on a wet night), so the choice is about how
+      # the rain looks, never how much of the clock it covers.
       - name: Wall clock radar url
         unique_id: wall_clock_radar_url
         icon: mdi:radar
@@ -91,12 +94,13 @@ template:
           {% set h = state_attr('sensor.wall_clock_radar_frame', 'host') %}
           {% set r = state_attr('sensor.wall_clock_radar_frame', 'radar') %}
           {% if h and r and r.past %}
-            {{ h }}{{ r.past[-1].path }}/512/7/115/78/2/1_1.png
+            {{ h }}{{ r.past[-1].path }}/256/7/115/78/2/1_1.png
           {% endif %}
 
-      # How old the frame is, in minutes. The clock uses this to stop drawing
-      # stale rain: a radar picture from two hours ago is worse than none,
-      # because it looks current.
+      # Minutes since the frame was made. The firmware refuses to draw
+      # anything older than 45 min: stale radar is worse than none, because it
+      # still looks current. RainViewer runs ~8 min behind and publishes every
+      # 10, so 45 is several missed frames, not a hair trigger.
       - name: Wall clock radar age
         unique_id: wall_clock_radar_age
         unit_of_measurement: min
@@ -108,35 +112,53 @@ template:
             999
           {% endif %}
 
-# =============================================================================
-# PRIOR ART ON THIS BOX: /config/www/flightdeck.html
-# =============================================================================
-# Samuel's Flight Deck page (served at /local/flightdeck.html, embedded in the
-# Flight Watch dashboard) already draws RainViewer over a Leaflet map, and it
-# independently arrived at the same parameters this package uses:
+# HA does the internet-facing half: HTTPS, and writing the file where the
+# device can reach it without auth. /config/www is served at /local/ with no
+# token, which is how flightdeck.html is served on this box already.
 #
-#     L.tileLayer('https://tilecache.rainviewer.com' + f.path
-#                 + '/256/{z}/{x}/{y}/2/1_1.png',
-#                 {opacity: 0, zIndex: 400, maxNativeZoom: 7})
-#
-# Colour scheme 2, options 1_1, and `maxNativeZoom: 7` — which independently
-# confirms z=7 is not merely convenient for centring Melbourne, it is the
-# highest zoom RainViewer actually serves. Above it you get upscaled pixels.
-#
-# It also explains why the radar on that page LOOKS continuously live while
-# this one updates every ten minutes. It is not fetching faster:
-#
-#     frames = [...j.radar.past.slice(-7), ...(j.radar.nowcast || [])];
-#     setInterval(loadRadar, 5*60*1000);   // new data: every 5 minutes
-#     setInterval(showFrame, 600);         // ANIMATION: every 600 ms
-#
-# It caches the last 7 frames and cross-fades between them three times a
-# second. The motion is a loop of already-downloaded frames, not new
-# observations — the underlying data is the same 600 s cadence.
-#
-# Worth stealing later: the clock could hold several frames and animate the
-# same way. At 388 KB per frame that is ~2.7 MB of the 8 MB PSRAM for seven,
-# which fits. Note the page also blends in `nowcast` frames, which are
-# EXTRAPOLATED, not measured — it marks those "(forecast)" in its own UI, and
-# anything doing the same here should distinguish them too.
-# =============================================================================
+# No shell metacharacters, so HA execs curl directly rather than through a
+# shell. The URL is built by the template sensor above from RainViewer's own
+# API response, not from anything user-supplied.
+shell_command:
+  wall_clock_fetch_radar: >-
+    curl -fsS --max-time 20 -o /config/www/wall_clock_radar.png {{ url }}
+
+automation:
+  - id: wall_clock_radar_fetch
+    alias: Wall clock — fetch radar frame
+    description: >-
+      Pulls the current RainViewer tile to /config/www/ for the clock to read.
+      Only ever runs while the radar is actually switched on — v1's download
+      was triggered by the URL arriving regardless, which is why turning the
+      radar off did not stop it crash-looping the device.
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: sensor.wall_clock_radar_url
+      - trigger: state
+        entity_id: switch.mini_round_clock_rain_radar
+        to: "on"
+    conditions:
+      - condition: state
+        entity_id: switch.mini_round_clock_rain_radar
+        state: "on"
+      - condition: template
+        value_template: "{{ states('sensor.wall_clock_radar_url') | trim | length > 40 }}"
+    actions:
+      - action: shell_command.wall_clock_fetch_radar
+        data:
+          url: "{{ states('sensor.wall_clock_radar_url') | trim }}"
+      # Tell the device only once the file is actually on disk. It watches
+      # this, not the RainViewer URL, so it can never chase a fetch that
+      # failed.
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.wall_clock_radar_stamp
+        data:
+          value: "{{ now().timestamp() | int }}"
+
+input_text:
+  wall_clock_radar_stamp:
+    name: Wall clock radar stamp
+    max: 16
+    initial: "0"
