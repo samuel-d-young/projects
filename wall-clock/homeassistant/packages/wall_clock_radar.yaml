@@ -1,11 +1,14 @@
 # =============================================================================
 # wall_clock_radar.yaml — RainViewer rain radar for the mini round clock
 # =============================================================================
-# Drop in /config/packages/ alongside wall_clock.yaml, then reload:
-#   Developer Tools > Actions > homeassistant.reload_all
-# `rest:` and `template:` are both already set up on this system, so this one
-# does NOT need a restart (unlike the first install of wall_clock.yaml, which
-# introduced timer: and intent_script:).
+# Drop in /config/packages/ alongside wall_clock.yaml, then RESTART:
+#   ha core restart
+#
+# A restart, not `reload_all` — checked, not assumed. `rest:` appears in no
+# other package on this system and is not in configuration.yaml, so it is a
+# brand-new domain, and reload_all only reloads domains that are ALREADY set
+# up. Exactly the trap the first install of wall_clock.yaml hit with `timer:`
+# and `intent_script:`. Every edit AFTER this one can use reload_all.
 #
 # WHY HOME ASSISTANT HAS TO BE IN THIS AT ALL
 # -------------------------------------------
@@ -57,9 +60,16 @@ rest:
     sensor:
       - name: Wall clock radar frame
         unique_id: wall_clock_radar_frame
-        # The frame time, which IS meaningful — it drives "how stale is this".
+        # The frame time as a RAW UNIX EPOCH, and deliberately NOT
+        # `device_class: timestamp`.
+        #
+        # That device class demands an ISO 8601 string. Given an integer HA
+        # rejects the state as `unknown` — while still populating
+        # json_attributes, so the URL sensor below keeps working perfectly and
+        # everything LOOKS fine. The only visible symptom was the age sensor
+        # falling through to its 999 sentinel, which in turn made the firmware
+        # refuse to draw a radar it had downloaded correctly.
         value_template: "{{ value_json.radar.past[-1].time | int(0) }}"
-        device_class: timestamp
         # Keep the whole radar block so the URL template can reach `path`.
         json_attributes:
           - host
@@ -91,9 +101,42 @@ template:
         unique_id: wall_clock_radar_age
         unit_of_measurement: min
         state: >
-          {% set t = states('sensor.wall_clock_radar_frame') %}
-          {% if t not in ['unknown', 'unavailable', ''] %}
-            {{ ((now().timestamp() - (t | as_datetime | as_timestamp(0))) / 60) | round(0) }}
+          {% set t = states('sensor.wall_clock_radar_frame') | float(0) %}
+          {% if t > 0 %}
+            {{ ((now().timestamp() - t) / 60) | round(0) }}
           {% else %}
             999
           {% endif %}
+
+# =============================================================================
+# PRIOR ART ON THIS BOX: /config/www/flightdeck.html
+# =============================================================================
+# Samuel's Flight Deck page (served at /local/flightdeck.html, embedded in the
+# Flight Watch dashboard) already draws RainViewer over a Leaflet map, and it
+# independently arrived at the same parameters this package uses:
+#
+#     L.tileLayer('https://tilecache.rainviewer.com' + f.path
+#                 + '/256/{z}/{x}/{y}/2/1_1.png',
+#                 {opacity: 0, zIndex: 400, maxNativeZoom: 7})
+#
+# Colour scheme 2, options 1_1, and `maxNativeZoom: 7` — which independently
+# confirms z=7 is not merely convenient for centring Melbourne, it is the
+# highest zoom RainViewer actually serves. Above it you get upscaled pixels.
+#
+# It also explains why the radar on that page LOOKS continuously live while
+# this one updates every ten minutes. It is not fetching faster:
+#
+#     frames = [...j.radar.past.slice(-7), ...(j.radar.nowcast || [])];
+#     setInterval(loadRadar, 5*60*1000);   // new data: every 5 minutes
+#     setInterval(showFrame, 600);         // ANIMATION: every 600 ms
+#
+# It caches the last 7 frames and cross-fades between them three times a
+# second. The motion is a loop of already-downloaded frames, not new
+# observations — the underlying data is the same 600 s cadence.
+#
+# Worth stealing later: the clock could hold several frames and animate the
+# same way. At 388 KB per frame that is ~2.7 MB of the 8 MB PSRAM for seven,
+# which fits. Note the page also blends in `nowcast` frames, which are
+# EXTRAPOLATED, not measured — it marks those "(forecast)" in its own UI, and
+# anything doing the same here should distinguish them too.
+# =============================================================================
