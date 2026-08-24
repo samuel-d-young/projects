@@ -120,6 +120,19 @@ The shim (`mini-round-clock-battery-shim-x2`) is cut for exactly these
 dimensions. If you buy something else, change `BAT_L`/`BAT_W` in `params.py` and
 reprint the shim — 20 minutes. The pocket itself does not move.
 
+### Which way round it goes
+
+Not a free choice. A 77 mm bank in a 102 mm circle leaves ~25 mm split between
+its ends, and the 6 o'clock end has only **6.51 mm** — no plug fits there. The
+12 o'clock end has 15.2 mm once you step off the centreline the wall screw's
+head sweeps.
+
+**Ports face 12 o'clock, off centre, slim right-angle USB-C plug.** The mains
+lead enters at 6 o'clock and runs up the side of the battery, where there is
+22.8 mm of room. Check where the A1653's ports actually are before you order —
+if its only connector is the fold-out plug and it needs to swing out, measure
+that swing against the 15.2 mm.
+
 ### The one thing that decides whether this works at all
 
 **Many power banks, once flat, will not resume output when mains comes back until

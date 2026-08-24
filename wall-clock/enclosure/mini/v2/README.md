@@ -4,8 +4,10 @@ What this adds to the base and diffuser Sam remodelled: a bay for the ESP32-S3,
 a wall hanger, and a pocket for a USB-C power bank.
 
 Everything here is generated from `build_v2.py`, which reads Sam's uploaded
-`base_in.stl` and adds to it. It never redraws his geometry — his part above
-z = 0 comes through byte-for-byte except for four screw pilot holes.
+`base_in.stl` and adds to it. It never redraws his geometry: above z = 0 the
+only differences are four screw pilot holes bored into it and four posts added
+to locate the board — `check2_fit.py` proves that as a boolean difference, not
+by eye.
 
 ```
 python3 measure_uploaded.py    # re-derive every number in params.py from his STLs
@@ -182,6 +184,24 @@ holes in the base.
 
 - slim housing → **M3 × 30** self-tapping
 - battery housing → **M3 × 40** self-tapping
+
+### Which way round the battery goes, and why it is not a free choice
+
+A 77 mm bank in a 102 mm circle leaves about 25 mm split between its two ends,
+and the 6 o'clock end is spoken for by the wall:
+
+| | clearance |
+|---|---:|
+| 6 o'clock end (where the cable enters) | **6.51 mm** |
+| 12 o'clock end, on the centreline | 18.51 mm — but the wall screw's head sweeps it |
+| 12 o'clock end, at y = 6…18 mm | **15.2 mm** |
+| beside the battery, either side | 22.8 mm |
+| above the battery | 2.61 mm |
+
+So: **put the battery in with its ports facing 12 o'clock, off the centreline,
+and use a slim right-angle USB-C plug.** The mains lead comes in at 6 o'clock,
+runs up the side of the battery — 22.8 mm of room there — and plugs in at the
+top. `check2_fit.py` asserts all of this.
 
 ### Cable exit and vents
 

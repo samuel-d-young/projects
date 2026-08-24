@@ -172,12 +172,32 @@ for W in (36, 38, 40, 45, 50, 55, 60):
     L = xe - lo
     print(f'      {L:5.1f} x {W:4.1f} x {POCKET_BATTERY-1.5:4.1f} mm')
 
-print('\n8. Cable exit takes a USB-C plug')
+print('\n8. Room for the battery\'s own connectors')
+# A 77 mm bank in a 102 mm circle leaves ~25 mm split between its two ends, and
+# the -x end is spoken for. Which way round the battery goes in is therefore not
+# a free choice, and it is the kind of thing that ruins an evening at the bench.
+def wall_x(y): return math.sqrt(max(R_INNER**2 - y**2, 0.0))
+end_neg = wall_x(0) - (BAT_L/2 - BAT_CX)
+end_pos = wall_x(0) - (BAT_CX + BAT_L/2)
+print(f'         -x (6 o\'clock) end: {end_neg:5.2f} mm     +x (12 o\'clock) end: {end_pos:5.2f} mm')
+ck(end_neg < 12.0, 'the 6 o\'clock end has NO room for a plug (so the ports must face 12)',
+   f'{end_neg:.2f} mm')
+# off the screw head's centreline, at y = 6..18, how much is there?
+PLUG_RA = 15.0                      # a slim right-angle USB-C plug, mating face to cable
+worst = min(wall_x(y) - (BAT_CX + BAT_L/2) for y in (6.0, 12.0, 18.0))
+ck(worst >= PLUG_RA, f'a {PLUG_RA:.0f} mm right-angle plug fits at 12 o\'clock, off centre',
+   f'{worst:.2f} mm at y = 6..18')
+side = min(math.sqrt(max(R_INNER**2 - x**2, 0.0)) - BAT_W/2 for x in (-30, -15, 0, 15))
+ck(side >= 12.0, 'room beside the battery to route the mains lead up to it',
+   f'{side:.2f} mm each side')
+ck(POCKET_BATTERY - BAT_T >= 1.4, 'air above the battery', f'{POCKET_BATTERY-BAT_T:.2f} mm')
+
+print('\n9. Cable exit takes a USB-C plug')
 plug = box_lwh(-70, -R_INNER+3.0, -9.0/2, 9.0/2, ZF+2.0, ZF+2.0+4.5)
 ck((mHB ^ plug).volume() < 1e-6, 'a 9.0 x 4.5 mm USB-C plug body passes the exit',
    f'{(mHB ^ plug).volume():.4f} mm3')
 
-print('\n9. Will the hanger hold it?')
+print('\n10. Will the hanger hold it?')
 PLA_RHO, PETG_RHO = 1.24e-3, 1.27e-3          # g/mm3
 parts_g = {
     'base':          to_trimesh(mBASE).volume * PLA_RHO,
@@ -204,7 +224,7 @@ shear = W / (2 * lig * PLATE_T)
 ck(shear < 5.0, 'shear on that ligament', f'{shear:.3f} MPa')
 ck(total < 600, 'total hanging mass is sane for one wall screw', f'{total:.0f} g')
 
-print('\n10. Overall stack')
+print('\n11. Overall stack')
 tb = to_trimesh(mBASE).bounds; hb = to_trimesh(mHB).bounds; hs = to_trimesh(mHS).bounds
 ck(True, 'clock depth, battery variant', f'{tb[1][2]-hb[0][2]:.2f} mm')
 ck(True, 'clock depth, slim variant', f'{tb[1][2]-hs[0][2]:.2f} mm')
