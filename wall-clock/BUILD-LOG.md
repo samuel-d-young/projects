@@ -1264,3 +1264,152 @@ fails tier one. So:
 `online_image:` as a top-level block is **deprecated, removed in ESPHome
 2027.1.0** — it becomes `image: - platform: online_image`. Whatever comes next
 should be written in the new form.
+## 2026-08-24 — v2 rear end: S3 bay, wall hanger, battery pocket
+
+Sam uploaded a reworked `Mini_Wall_Clock_Base.stl` and `Mini_Wall_Clock_Difuser.stl` —
+the LED ring's wires now run straight down, and the diffuser has grown a collar that
+grips the screen. He asked for three additions: somewhere at the rear for the ESP32-S3
+and its wiring, a way to hang it on a wall, and a pocket for a small USB-C battery,
+plus a recommendation on which battery.
+
+Everything new lives in `enclosure/mini/v2/`. `build_v2.py` reads his STL and adds to
+it; it never redraws his geometry.
+
+### Reading his files rather than assuming
+
+His parts are not `build.py` output any more, so the first job was to measure them
+instead of guessing. Probing along rays and bisecting the solid boundary gives
+**(verified — measured off the uploaded mesh)**:
+
+| | |
+|---|---|
+| body OD | r = 53.9926, 144-gon, vertex at 0° |
+| face recess | floor z = 19.0, lip inner r = 51.9807 |
+| ring pocket | r 35.1080 … 46.3516, floor z = 11.8 |
+| display pocket | wall r = 30.2788, seat top z = 8.6, rear bore r = 27.78 |
+| wire slot (new) | \|y\| ≤ 13.003, x −27.78 … −43, open front to back |
+| tab slot | half-angle 41.758°, out to r = 42.6566 |
+| diffuser | 24 baffles at 15° pitch; new collar r 27.916 … 30.108, 8.2 tall |
+
+The wire slot settles the clock's orientation: **−x is 6 o'clock**, so +x is up.
+
+### Three things wrong with the uploaded files
+
+1. **A disconnected 605 mm³ solid in the base.** A crescent at r 35.06–40.90,
+   ±41.9°, z 11.80–15.75, whose faces lie exactly on the body's cut surface, and
+   which arrived as a +2832 / −2227 mm³ shell pair — a boolean that failed to merge.
+   It sits precisely in the window the display tab passes through. Sliced as-is it
+   prints as extra plastic where the display goes. Dropped, and `build_v2.py` says so
+   when it runs. **(verified)**
+
+2. **The diffuser collar over-reaches by 1.8 mm.** Seat at 8.60 + a 4 mm module puts
+   the module's front face at 12.60; the diffuser seats when its baffles meet the LED
+   tops at 15.00, which lands the collar bottom at 10.80. The collar hits the display
+   1.8 mm before the diffuser is down. **(verified arithmetic, on an assumed 4 mm rim
+   thickness — the 4 mm is Sam's measurement of the whole module, not of the rim the
+   collar actually lands on, and that is the number to check first.)**
+   Both fixes are shipped: a trimmed diffuser, or `SEAT_DROP = 1.80` in `params.py`
+   which drops the seat instead and needs no diffuser reprint.
+
+3. **The wire slot is a through-slot** — no material at 180° from z = 0 to 22. Hidden
+   by the plywood, so never visible, but the deck now closes it from behind.
+
+### Where the S3 went, and why it needed nothing built for it
+
+The board is 62.74 × 25.40 mm **(verified — Espressif's own
+`DXF_ESP32-S3-DevKitC-1_V1_20210312CB.pdf`; a web search had claimed 58 × 28, which is
+wrong)**.
+
+The base already has a dog-bone void along the x axis — rear bore, plus the wire slot
+at 6 o'clock, plus the tab window at 12 o'clock — and along \|y\| ≤ 12.7 it is clear
+from x = −43 to +40.7. That is 83.7 mm for a 62.74 mm board. So the deck just gives it
+a floor. The board's parts top out at z = 4.00 with the display seat at 8.60: 4.6 mm of
+air.
+
+Ledges catch it at the two **short** ends only. The DevKitC-1 runs its pad rows down
+both long edges 1.27 mm in, so a ledge there fouls any soldered header.
+
+Nothing screws it down and nothing needs to: hanging on a wall, gravity acts along −x,
+which is in the board's own plane, and the only way out is backwards into the housing
+2 mm behind it.
+
+### Why two printed parts, not one
+
+A single part cannot print without support. Its rear cavities open one way and its
+front pockets the other, so whichever face goes on the plate, the other end needs
+propping. Split at z = −2.4 and each half prints in its natural orientation with a
+near-solid first layer and every void opening upward.
+
+### What the checkers caught
+
+Three passes, `./runchecks.sh`. They were not ceremony — each found real defects:
+
+- **A stepped void that broke the mesh.** Cutting the board window as two overlapping
+  boxes left coincident coplanar faces where they met; in double precision that is
+  fine, but quantised to float32 for the STL it became a 404 mm³ phantom
+  self-intersection. Cutting the window straight through and adding the ledges back as
+  solids gives the same shape and a clean mesh. **The lesson generalises: subtracting
+  a stepped void whose lobes share full side walls is a mesh bug waiting to happen.**
+- **Screws with nothing to bite.** The pilot holes were being subtracted from the deck
+  alone — 2.4 mm of guide, then 8 mm of solid PLA for the screw to find its own way
+  through. Now bored from the assembled part.
+- **The hanger fighting the battery.** Stiffening ribs behind the keyhole reached
+  inward to r = 28 and ate the battery footprint. Running the numbers, they were never
+  needed: at 400 g the shank bears on 4.6 × 3.5 mm of PLA, about 0.25 MPa against a
+  ~50 MPa yield. Removed. Then the same check found the *screw head* — which ends up
+  inside the box once the clock is hung — in the same place, so the keyhole moved out
+  to r = 46, the drop came down to 7.5 mm, and the pocket shifted 7 mm toward
+  6 o'clock.
+- **Slivers in the battery cradle.** A frame clipped to the pocket circle went
+  tangent at its corners and left walls down to 0.03 mm. Replaced with a shim whose
+  outer edge *is* the circle, so it cannot.
+- **A 0.3 mm overhanging ledge round the whole part**, from insetting the deck to
+  avoid coincident cylinders. Matching Sam's 144-segment wall exactly turned out to be
+  clean anyway, and removed 101 mm² of overhang.
+
+Two findings were kept rather than fixed, because they are Sam's geometry and
+unchanged: 409 mm² of 33–40° overhang on the tab-slot ramp, and the feather edges where
+that ramp runs out. `check3` now baselines against the uploaded file at run time rather
+than against hand-drawn boxes, so it can tell his from mine.
+
+### The battery: the answer is "it is a UPS, not a power source"
+
+Power budget from datasheets **(verified, except the display)**:
+
+| | typical | worst |
+|---|---:|---:|
+| ESP32-S3-N16R8 devkit, WiFi up, HA API connected | 60 mA | 140 mA |
+| 24-LED WS2812B ring, clock face at ~25% | 33 mA | 145 mA |
+| 2.1" 360×360 GC9B72 + backlight **(assumed — extrapolated)** | 95 mA | 150 mA |
+| **at 5 V** | **188 mA = 0.94 W** | **435 mA = 2.18 W** |
+
+That is 22.6 Wh a day. A 5,000 mAh bank holds ~18.5 Wh nominal, ~16 Wh after boost
+losses — **under 18 hours**. It does not last a day, and nothing that fits a 108 mm
+disc does better.
+
+Two useful facts fell out of the sweep:
+
+- **The retail market is bifurcated and this clock lands in the gap.** Slim banks are
+  wide (Cygnett 95 × 65, Anker MagGo 104 × 71); banks narrow enough for a 108 mm circle
+  are 25–26 mm thick. That is what takes the clock from 44 mm deep to 55 mm.
+- **Idle cutoff is not the failure mode here** — at 188 mA the clock sits above the
+  usual 50–75 mA threshold. The one that bites is that many banks, once flat, will not
+  resume output when mains returns until someone presses the button. On a clock 2.4 m
+  up a wall, that is fatal, and it is the thing to test on the bench before one goes
+  in.
+
+Also worth acting on: **print the housing in PETG if a cell goes in it.** PLA's Tg is
+55–60 °C; ~1 W in a small closed box on a west-facing Victorian wall can plausibly sit
+at 50–70 °C inside. Vents are in the design; the material change is nearly free.
+
+Both housing depths are shipped so the trade is Sam's: `-slim` (44.4 mm, mains only) or
+`-battery` (55.4 mm, ~17 h).
+
+### Open
+
+- Nothing sliced, nothing printed, nothing bought.
+- The display's 95 mA is the weakest number in the budget and the largest load. Ten
+  minutes with an inline meter settles it and could change the battery decision.
+- The ring's die revision is unknown — V5 vs original is 2× per channel. Power the ring
+  alone, all pixels zero, read the supply: ~14 mA means V5, ~24–36 mA means older.
+- The display module's rim thickness, per finding 2 above.

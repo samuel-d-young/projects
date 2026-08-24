@@ -1,0 +1,145 @@
+#!/usr/bin/env python3
+"""Manifold-backed CSG helpers. Every primitive is built watertight by construction."""
+import numpy as np, trimesh, math
+from manifold3d import Manifold, Mesh, CrossSection
+
+# ---------------------------------------------------------------- conversion
+def to_manifold(m: trimesh.Trimesh) -> Manifold:
+    v = np.asarray(m.vertices, dtype=np.float32)
+    f = np.asarray(m.faces, dtype=np.uint32)
+    man = Manifold(Mesh(vert_properties=v, tri_verts=f))
+    if man.status().name != 'NoError':
+        raise ValueError(f'not a manifold: {man.status()}')
+    return man
+
+def to_trimesh(man: Manifold) -> trimesh.Trimesh:
+    mesh = man.to_mesh()
+    return trimesh.Trimesh(vertices=np.asarray(mesh.vert_properties)[:, :3],
+                           faces=np.asarray(mesh.tri_verts), process=False)
+
+# ---------------------------------------------------------------- primitives
+def box(dx, dy, dz, centre=(0, 0, 0)):
+    """Axis-aligned box, centred on `centre`."""
+    return Manifold.cube([dx, dy, dz], center=True).translate(list(centre))
+
+def box_lwh(x0, x1, y0, y1, z0, z1):
+    """Box from explicit min/max on each axis."""
+    return box(x1-x0, y1-y0, z1-z0, ((x0+x1)/2, (y0+y1)/2, (z0+z1)/2))
+
+def cyl(r, z0, z1, seg=192, centre=(0, 0)):
+    return Manifold.cylinder(z1-z0, r, r, seg, center=False).translate([centre[0], centre[1], z0])
+
+def cone(r0, r1, z0, z1, seg=192, centre=(0, 0)):
+    return Manifold.cylinder(z1-z0, r0, r1, seg, center=False).translate([centre[0], centre[1], z0])
+
+def tube(ri, ro, z0, z1, seg=192):
+    return cyl(ro, z0, z1, seg) - cyl(ri, z0-1, z1+1, seg)
+
+def wedge(r_in, r_out, z0, z1, a0_deg, a1_deg, seg=None):
+    """Angular sector of an annulus as ONE closed polygon.
+
+    Built as a single contour (inner arc reversed + outer arc) rather than a
+    union of prisms: unioning prisms leaves coincident faces at every seam,
+    which survive as zero-area triangles once the STL is written in float32.
+    """
+    a0, a1 = math.radians(a0_deg), math.radians(a1_deg)
+    n = seg if seg else max(4, int(abs(a1_deg - a0_deg) / 2.0) + 2)
+    k = 1.0 / math.cos((a1 - a0) / (2 * n))       # so flats still reach r_out
+    outer = [((r_out*k)*math.cos(a0 + (a1-a0)*i/n), (r_out*k)*math.sin(a0 + (a1-a0)*i/n))
+             for i in range(n + 1)]
+    if r_in <= 1e-9:
+        pts = outer + [(0.0, 0.0)]
+    else:
+        inner = [(r_in*math.cos(a0 + (a1-a0)*i/n), r_in*math.sin(a0 + (a1-a0)*i/n))
+                 for i in range(n, -1, -1)]
+        pts = outer + inner
+    return _ex(pts, z0, z1)
+
+def prism(pts_xy, z0, z1):
+    """Extrude a closed CCW polygon."""
+    return _ex(pts_xy, z0, z1)
+
+def _ex(pts_xy, z0, z1):
+    """Extrude one closed polygon between two z planes, winding fixed for us."""
+    p = np.array(pts_xy, dtype=np.float64)
+    if _signed_area(p) < 0: p = p[::-1]
+    cs = CrossSection([p])
+    return Manifold.extrude(cs, z1 - z0).translate([0.0, 0.0, z0])
+
+def _signed_area(p):
+    x, y = p[:,0], p[:,1]
+    return 0.5*np.sum(x*np.roll(y,-1) - np.roll(x,-1)*y)
+
+def rounded_rect(dx, dy, r, n=16):
+    """CCW point list for a rectangle with radiused corners, centred on origin."""
+    r = min(r, dx/2-1e-6, dy/2-1e-6)
+    hx, hy = dx/2-r, dy/2-r
+    pts = []
+    for cx, cy, a0 in [(hx,hy,0), (-hx,hy,90), (-hx,-hy,180), (hx,-hy,270)]:
+        for i in range(n+1):
+            a = math.radians(a0 + 90*i/n)
+            pts.append((cx+r*math.cos(a), cy+r*math.sin(a)))
+    return pts
+
+def slab_chamfer(dx, dy, z0, z1, chamfer, centre=(0,0)):
+    """A box whose top tapers inward — gives a printable 45-degree roof."""
+    lo = prism(rounded_rect(dx, dy, 0.01), z0, z0+1e-3)
+    hi = prism(rounded_rect(dx-2*chamfer, dy-2*chamfer, 0.01), z1-1e-3, z1)
+    return (lo + hi).hull().translate([centre[0], centre[1], 0])
+
+# ---------------------------------------------------------------- checks
+def report(man, name):
+    t = to_trimesh(man)
+    print(f'  {name:34s} vol={man.volume():10.1f}mm3  tris={len(t.faces):6d}  '
+          f'genus={man.genus():3d}  watertight={t.is_watertight}')
+    return t
+
+
+# ---------------------------------------------------------------- finalise
+def finalise(man, name, quantise=True, rounds=6, strict=True):
+    """Bring a solid through the float32 STL round trip and heal what that breaks.
+
+    STL stores vertices as float32. Two vertices a boolean left 1e-5 apart
+    collapse to the same point, turning the triangle between them into a
+    zero-area face and punching a hole in an otherwise closed mesh. Doing the
+    collapse HERE, then re-healing, means the file on disk is the thing that
+    was checked -- not a cleaner version of it.
+    """
+    def scrub(t):
+        if quantise:
+            t.vertices = np.asarray(t.vertices, dtype=np.float32).astype(np.float64)
+        t.merge_vertices()
+        t.update_faces(t.nondegenerate_faces())
+        t.remove_unreferenced_vertices()
+        if strict:
+            # only safe on a mesh that IS closed; on an inherited-defect mesh
+            # unique_faces() drops one of a coincident pair and fix_normals()
+            # then flips a shell, turning a printable file into a broken one
+            t.update_faces(t.unique_faces())
+            t.fix_normals()
+        return t
+
+    import collections
+
+    def bad_edges(t):
+        c = collections.Counter(map(tuple, t.edges_sorted))
+        return sum(1 for v in c.values() if v != 2)
+
+    t = scrub(to_trimesh(man))
+    for i in range(rounds):
+        manifold_ok = False
+        try:
+            A = to_manifold(t)
+            manifold_ok = abs((A ^ A).volume() - A.volume()) < 0.01
+        except Exception:
+            pass
+        tight = t.is_watertight and t.body_count == 1
+        if manifold_ok and (tight or not strict):
+            be = bad_edges(t)
+            note = 'clean' if tight else f'{be} inherited bad edges (slicers repair these)'
+            print(f'  {name:34s} vol={t.volume:9.1f}  tris={len(t.faces):6d}  '
+                  f'manifold=OK  {note}')
+            return t
+        t = scrub(to_trimesh(to_manifold(t)))
+    raise RuntimeError(f'{name}: no clean float32 mesh after {rounds} rounds '
+                       f'(watertight={t.is_watertight}, bad edges={bad_edges(t)})')
