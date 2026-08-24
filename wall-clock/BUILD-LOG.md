@@ -1171,3 +1171,96 @@ installed, and the switch defaults off even then.
 `packages/wall_clock_radar.yaml` still has to be placed in `/config/packages/`
 by hand — this session has no write path to `/config` (no SSH, no Samba, no
 file-editor add-on), which is recorded above under the installer entry.
+
+---
+
+## 2026-08-25 — Radar works, then crashes the device. Reverted.
+
+The whole chain was built and every link verified. It downloads. It also
+**crash-loops the ESP32**, so it is reverted and the clock is back on the
+colour build.
+
+### What was proven to work
+
+- HA package installed at `/config/packages/wall_clock_radar.yaml` (fetched
+  from the public repo with `curl` inside the **Terminal & SSH add-on** — which
+  *is* installed here, it simply was not in the sidebar; the earlier claim that
+  this box has no write path to `/config` was wrong)
+- `ha core check` -> `Command completed successfully`, exit 0
+- **A restart, not `reload_all`** — checked rather than assumed: `rest:` appears
+  in no other package and not in `configuration.yaml`, so it is a new domain and
+  `reload_all` cannot bootstrap one. Same trap as `timer:`/`intent_script:`.
+- `sensor.wall_clock_radar_url` produced a real tile URL, 77 chars
+- Firmware compiled, flashed, rebooted clean, all entities present
+
+### Two silent defects found by checking rather than assuming
+
+**1. `device_class: timestamp` on a unix epoch.** That device class demands ISO
+8601. Given an integer, HA rejects the state as `unknown` *but still populates
+`json_attributes`* — so the URL sensor kept working perfectly and the whole
+thing looked correct. The only symptom was the age sensor falling through to
+its 999 sentinel, which made the firmware refuse to draw a frame it had
+downloaded fine.
+
+**2. `set_url()` does not fetch.** It stores the URL. With
+`update_interval: never` nothing ever triggered a download, so the device would
+have held a correct URL forever and drawn nothing. Needs an explicit
+`update()`.
+
+Both would have presented as "the radar just doesn't work" with nothing in any
+log.
+
+### The one that actually stops this: the download blocks the main loop
+
+```
+[I][online_image:132]: Downloading image (Size: 66942)
+[W][component:421]: api took a long time for an operation (2031 ms), max is 50 ms
+INFO Processing unexpected disconnect from ESPHome API
+[E][esp32.crash:404]: *** CRASH DETECTED ON PREVIOUS BOOT ***
+    Reason: Fault - Unknown   Crashed core: 1
+[W][safe_mode:085]: Last reset too quick; invoke in 7 restarts
+```
+
+The fetch *succeeds* — 66942 bytes, the right size for the tile. But it runs
+**synchronously in the main loop for ~2 seconds**, forty times ESPHome's 50 ms
+budget. The API drops, the device faults, reboots, re-reads the URL from HA on
+reconnect, downloads again, and faults again. A self-sustaining crash loop,
+and `safe_mode` was counting down towards taking the clock out entirely.
+
+Note the trigger is the **URL arriving**, not the radar switch. The switch only
+gates *drawing*. So "turn the radar off" would not have stopped it — a design
+error worth fixing whatever approach comes next: never fetch what you are not
+going to draw.
+
+### Reverted, deliberately
+
+Priority ordering decides this. Radar is status tier; a crash-looping clock
+fails tier one. So:
+
+- `/config/packages/wall_clock_radar.yaml` -> `/config/wall_clock_radar.yaml.disabled`
+- HA restarted, which removed the URL sensor and **immediately stopped the
+  crash loop** (device then stable, verified by polling port 6053)
+- device reflashed from commit `63eee3f` — the colour build, `online_image`
+  count 0, 1364 lines
+- the crashing config kept at `/config/esphome/mini-round-clock.yaml.radar-crashing`
+
+### What to try next, in order of promise
+
+1. **Fetch a much smaller image.** 360x360 RGB+alpha is ~518 KB decoded from a
+   67 KB PNG. A 128x128 tile would cut both dramatically. The blocking window
+   scales with it.
+2. **Let HA do the work.** `/config/www/` is writable and served at `/local/`
+   without auth (that is how `flightdeck.html` is served), so HA can fetch,
+   downscale and re-encode a small PNG and the ESP32 pulls it over plain HTTP
+   on the LAN — no TLS handshake, less data, no decode of a full-size frame.
+3. **Gate the fetch on the switch**, so the radar cannot destabilise a clock
+   that is not even showing it.
+4. Check whether this ESPHome exposes a non-blocking download for
+   `online_image`; the 50 ms budget warning suggests the component expects to
+   be used with much smaller images.
+
+### Also noted
+
+`online_image:` as a top-level block is **deprecated, removed in ESPHome
+2027.1.0** — it becomes `image: - platform: online_image`. Whatever comes next
+should be written in the new form.
