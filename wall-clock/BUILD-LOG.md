@@ -1606,3 +1606,78 @@ things" was true in general and not true of these files.
 - The plywood face's ring window is still 11.5 mm wide, so ~9 mm of white
   diffuser shows around the line. Left alone deliberately — that is the Echo
   look — but `face.svg` is where to change it.
+
+---
+
+## 2026-08-25 — Radar v2: it downloads without crashing
+
+v1's fetch held the main loop for **2031 ms** and crash-looped the device.
+v2 attacks the size of the work instead of hoping, and the number moved:
+
+```
+v1  [online_image]: Downloading image (Size: 66942)
+    [component:421]: api took a long time for an operation (2031 ms), max is 50 ms
+    *** CRASH DETECTED ON PREVIOUS BOOT ***
+
+v2  [online_image:132]: Downloading image (Size: 14334)
+    [component:421]: online_image.image took a long time for an operation (452 ms), max is 50 ms
+    (no crash; device up continuously since)
+```
+
+**452 ms against 2031 ms, and the device stayed up.** Still over ESPHome's
+50 ms budget, so it still logs a warning — but a warning is not a fault, and
+two minutes of continuous port polling showed zero drops.
+
+### What actually changed
+
+| | v1 | v2 |
+|---|---|---|
+| Tile | 512 px | **256 px** |
+| Download | 55896 B | **17718 B** (measured; 14334 on the wire for this frame) |
+| Device-side resize | 512 -> 360 | **none**, drawn at native 256 |
+| Decoded | ~1024 KB | **~256 KB** |
+| Transport | HTTPS to RainViewer | **plain HTTP to HA on the LAN** |
+| Fetch gated on the switch | no | **yes** |
+
+The last row is the one that matters most for safety. In v1 the download was
+triggered by the URL arriving, so the radar switch only gated *drawing* —
+turning it off did not stop the crash loop. Now nothing is fetched that is not
+going to be drawn, and off is genuinely off.
+
+HA does the internet-facing half: it holds the HTTPS session and writes the
+tile to `/config/www/wall_clock_radar.png`, served at `/local/` with no auth
+token — the same mechanism that already serves `flightdeck.html` on this box.
+The device is told to re-read by an `input_text` stamp that HA bumps *after*
+the file is on disk, so it can never chase a fetch that failed upstream.
+
+### Confirmed end to end
+
+- `/local/wall_clock_radar.png` -> HTTP 200, **14334 bytes**
+- device log -> `Downloading image (Size: 14334)` — exact match
+- `sensor.wall_clock_radar_age` 9 min, inside the 45-minute staleness gate
+- automation fired on switch-on; stamp bumped
+- no `mini_round_clock` entity unavailable
+
+### Two loose ends
+
+**`on_download_finished` did not log.** Neither it nor `on_error` printed,
+which means `radar_ready` may still be false — and that flag gates the draw.
+The download plainly succeeded, so this is about the trigger, not the fetch.
+Needs eyes on the screen to settle whether the radar is actually visible
+before guessing at a fix.
+
+**A harmless 404 race on switch-on.** The switch's `on_turn_on` fetches
+immediately, but HA's automation has not written the file yet, so the first
+attempt 404s and the stamp bump a second later succeeds. Self-healing, but the
+`on_turn_on` fetch could simply be dropped — the stamp alone is enough.
+
+### Also fixed this session
+
+The twelve HSV colour controls were invisible in practice: `entity_category:
+config` hides them from dashboards, and the device page sorts them
+alphabetically, scattering each hue/saturation/intensity trio between "Mode"
+and "Ring LED count". Added a grouped **Colour** card to the Settings view,
+inserted into `/config/.storage/lovelace.wall_clock_build` with `jq` (backup at
+`.bak-preColour`) — the Device Builder's own editors have been unreliable all
+session, whereas fetching from the repo with `curl` in the Terminal & SSH
+add-on and editing with `jq` has been exact every time.
