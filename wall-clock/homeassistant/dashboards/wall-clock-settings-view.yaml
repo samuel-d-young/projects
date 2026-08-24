@@ -1,0 +1,91 @@
+# =============================================================================
+# "Settings" view for the Wall Clock Build dashboard
+# =============================================================================
+# Installed and live on 2026-08-24 at /wall-clock-build/settings.
+#
+# Dashboards live in HA's .storage, not in this repo, so this file is the
+# reproducible copy. To recreate it: open the dashboard, pencil icon, three
+# dots, Raw configuration editor, and paste this block into the `views:` list.
+#
+# ---------------------------------------------------------------------------
+# WHY "Ring LED count" IS THE IMPORTANT ONE
+# ---------------------------------------------------------------------------
+# esp32_rmt_led_strip's own num_leds is COMPILE-TIME — it sizes the RMT buffer
+# and cannot be a runtime value. So the strip is declared at ${max_leds} (60)
+# and this number says how many LEDs are physically present. The render uses
+# the number and leaves the surplus dark.
+#
+# Driving a chain shorter than the declared length is harmless: the surplus
+# bits fall off the end with nothing to latch them. That is what lets one
+# firmware drive any ring up to 60 with no reflash.
+#
+# ---------------------------------------------------------------------------
+# ENTITY IDS WERE READ FROM THE REGISTRY, NOT GUESSED
+# ---------------------------------------------------------------------------
+# ESPHome slugifies "Twelve o'clock offset" to twelve_o_clock_offset, which is
+# not what you would guess. Verified with:
+#
+#   jq -r '.data.entities[] | select(.entity_id|test("mini_round_clock"))
+#          | .entity_id' /config/.storage/core.entity_registry | sort
+#
+# Re-run that if you rename the device — every id below carries the device
+# name as a prefix and they will all change together.
+# =============================================================================
+
+- title: Settings
+  path: settings
+  icon: mdi:tune
+  cards:
+    - type: markdown
+      content: >-
+        ## Adapting this clock to a different LED ring
+
+
+        **Ring LED count** below is a RUNTIME setting - change it and the face
+        redraws immediately, no reflash. The firmware is compiled for up to
+        **60** LEDs; only a ring larger than that needs max_leds raised in
+        mini-round-clock.yaml and a USB re-flash.
+
+
+        After changing the count, set **Mode** to test chase, see where the red
+        pixel sits, then dial **Twelve o clock offset** until it lands at the
+        top.
+
+    - type: entities
+      title: Ring
+      entities:
+        - number.mini_round_clock_ring_led_count
+        - number.mini_round_clock_twelve_o_clock_offset
+        - select.mini_round_clock_mode
+
+    - type: entities
+      title: Look
+      entities:
+        - select.mini_round_clock_face
+        - select.mini_round_clock_colour_theme
+        - switch.mini_round_clock_24_hour_time
+        - switch.mini_round_clock_second_hand
+        - switch.mini_round_clock_show_weather
+        - switch.mini_round_clock_show_status_hints
+        - switch.mini_round_clock_show_extra_timer_pips
+
+    - type: entities
+      title: Brightness
+      entities:
+        - switch.mini_round_clock_display
+        - light.mini_round_clock_backlight
+        - number.mini_round_clock_brightness
+        - number.mini_round_clock_night_brightness
+        - switch.mini_round_clock_auto_dim_at_night
+        - number.mini_round_clock_night_starts
+        - number.mini_round_clock_night_ends
+
+    - type: entities
+      title: Timers
+      entities:
+        - sensor.wall_clock_timer_slots
+        - timer.wall_clock_1
+        - timer.wall_clock_2
+        - timer.wall_clock_3
+        - timer.wall_clock_4
+        - timer.wall_clock_5
