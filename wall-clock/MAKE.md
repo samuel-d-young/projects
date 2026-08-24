@@ -23,18 +23,40 @@ the module has to move back another 9 mm into a well you cannot read.
 
 ## 2. Print — Bambu
 
+Use the **v2** parts in `enclosure/mini/v2/`. They are built on top of the base
+and diffuser you remodelled, and they carry the S3 bay, the wall hanger and the
+battery pocket. `enclosure/mini/body.stl` is the earlier generated body and is
+superseded.
+
 | File | Material | Settings |
 |---|---|---|
-| `enclosure/mini/body.stl` | PETG (PLA fine) | Front face **down**. No supports. 0.2 mm, 3 walls, 15% gyroid. 108 mm dia. |
-| `enclosure/mini/diffuser.stl` | **White PLA** | Diffusing face **down**. **Bottom layers = 2 exactly.** 0% infill, no supports. |
-| `enclosure/mini/backcover.stl` | anything | Flat side down. |
+| `v2/mini-round-clock-base-v2` | PETG (PLA fine) | **Deck face down.** 0.2 mm, 3 walls, 15% gyroid. |
+| `v2/mini-round-clock-rearhousing-battery` | **PETG** if a cell goes in | **Rear plate down.** No supports. |
+| *or* `v2/mini-round-clock-rearhousing-slim` | PETG or PLA | Rear plate down. No supports. Mains only, and 11 mm shallower. |
+| `v2/mini-round-clock-battery-shim-x2` | anything | Flat. **Print two.** |
+| your `Mini_Wall_Clock_Difuser.stl` | **White PLA** | Diffusing face **down**. **Bottom layers = 2 exactly.** 0% infill, no supports. |
+
+Prefer the **`.3mf`** of each over the `.stl` — STL stores coordinates as 32-bit
+floats and that round trip is what makes slicers ask to repair things.
 
 **Bottom layers = 2 on the diffuser** is the single setting that decides whether
 this looks good. More and it stops glowing. White PLA specifically — natural
 pipes light along the layer lines and bleeds between cells.
 
-The body prints a long bridge over the ring pocket. That is normal in this
-orientation and slicers handle it.
+**PETG for the housing if a battery goes in it.** PLA softens at 55–60 °C; about
+1 W in a small closed box on a west-facing wall in a Victorian summer can sit
+well above that. PETG's Tg is ~80 °C. The vents are already in the part.
+
+The base wants a little support inside the display-tab slot — the lead-in ramp
+there runs 33–40° from horizontal. That is your own geometry, unchanged, and the
+slot is open so it picks straight out. Nothing else in any part needs support;
+`v2/runchecks.sh` verifies that.
+
+**Before printing the diffuser, read `v2/README.md` §1.** The screen collar on it
+reaches 1.8 mm past the display's front face on the numbers as measured, which
+would stop the diffuser seating. There are two one-line fixes and it may be a
+non-issue — it turns on the module's thickness at the rim, which is the first
+thing to measure.
 
 ---
 
@@ -111,14 +133,32 @@ Fill in your real entity IDs **before** restarting — the queries are in
 
 ---
 
+## Assembly, once the parts are off the plate
+
+1. Display and ring into the base from the front, as before.
+2. **S3 in from the rear**, pushed up into the deck window until its rim meets
+   the ledges at the two short ends. Nothing screws it down — hanging on a wall,
+   gravity acts in the board's own plane. If your board has male headers pointing
+   down, snip them; there is 1.6 mm under the PCB for solder joints, not pins.
+3. Solder ring and display leads to the board. Power it at the **5V and GND
+   pins**, not the USB-C port — see `v2/README.md` §2 for why.
+4. Battery in the housing, a shim either side; its output lead up through the
+   deck port beside the board's USB-C end.
+5. Mains lead in through the cable exit at 6 o'clock, to the battery input.
+6. Housing on: 4 × M3 self-tapping. **M3 × 30** for the slim housing, **M3 × 40**
+   for the battery one.
+7. One screw in the wall — 4 mm shank, head no wider than 8 mm. Hang it.
+
+---
+
 ## Before you commit filament
 
-Set **`DISP_TAB_ANGLE`** in `enclosure/mini/build.py` to whichever clock
-position keeps the tab clear of where your ring's wires exit. It is 12 o'clock
-now. Then:
-
 ```bash
-cd enclosure/mini && python3 build.py --preview
+cd enclosure/mini/v2
+python3 measure_uploaded.py    # re-derive every number from your STLs
+python3 build_v2.py            # regenerate the parts
+./runchecks.sh                 # three verification passes
 ```
 
-That regenerates all three STLs and the SVG, and re-runs every fit check.
+If you send new STLs, run `measure_uploaded.py` first and diff it against
+`params.py` — everything downstream keys off those numbers.
