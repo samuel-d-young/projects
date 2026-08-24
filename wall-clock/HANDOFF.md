@@ -91,3 +91,32 @@ A Claude session running **on Samuel's own machine** is on the LAN and can.
   values; the ring dimensions are measured, these are not
 - `assist_satellite.*` entity naming in the announce automation — guessed,
   because the Voice PE units had not arrived
+
+## How to resume on Windows (PowerShell)
+
+This conversation ran in a cloud session, so its transcript is **not** in the
+local `~/.claude` history on the Windows box — `claude --continue` and
+`claude --resume` will not find it. The repo is the continuity mechanism:
+`BUILD-LOG.md` carries the *why*, this file carries the *where we stopped*.
+
+```powershell
+# once, if Claude Code isn't installed
+winget install --id Anthropic.ClaudeCode -e
+
+# get the branch
+git clone https://github.com/samuel-d-young/projects.git
+cd projects
+git checkout claude/home-assistant-wall-clock-om42v2
+
+# if already cloned, just fetch
+git fetch origin claude/home-assistant-wall-clock-om42v2
+git checkout claude/home-assistant-wall-clock-om42v2
+git pull origin claude/home-assistant-wall-clock-om42v2
+
+# start on Opus, then type /effort ultracode at the prompt
+claude --model opus "Read wall-clock/HANDOFF.md then wall-clock/BUILD-LOG.md, and pick up where the cloud session stopped. Do not re-derive anything already recorded there."
+```
+
+A local session is on the LAN, so unlike the cloud session it can reach
+192.168.1.79 and actually run the install. The paste-ready install prompt is in
+the section above.
