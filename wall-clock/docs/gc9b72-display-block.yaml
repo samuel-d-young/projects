@@ -1,40 +1,91 @@
 # =============================================================================
-# GC9B72 display block — DROP-IN CANDIDATE, NOT VERIFIED
+# GC9B72 display block — VERIFIED WORKING ON REAL HARDWARE 2026-08-24
 # =============================================================================
-# Paste this over the commented-out display section in mini-round-clock.yaml,
-# uncomment it, and run `esphome config` before flashing.
+# 2.1" 360x360 round TFT, "Driver IC: GC9B72", 10-pin FPC, driven from an
+# ESP32-S3-N16R8 over plain 4-wire SPI. Confirmed lit and rendering correctly.
 #
-# WHERE THIS INIT SEQUENCE CAME FROM, AND WHY IT MIGHT NOT WORK
+# ---------------------------------------------------------------------------
+# WHERE THIS INIT SEQUENCE CAME FROM
+# ---------------------------------------------------------------------------
+# xboot/xstar, xstar/driver/framebuffer/fb-gc9b72.c (MIT, Jianjun Jiang) —
+# the original, and the only known-good public GC9B72 init. Cross-checked
+# byte-for-byte against the independent port in MaliosDark/Arduino_GC9B72
+# (src/Arduino_GC9B72.h), which cites xboot as its source. The two agree
+# exactly, which is why this is a transcription and not a guess.
 #
-# It is Espressif's init table for the **GC9B71**, from
-#   esp-iot-solution/components/display/lcd/esp_lcd_gc9b71/esp_lcd_gc9b71.c
-# not the GC9B72. What makes it a serious candidate rather than a guess:
+# xboot drives the panel as SPI mode 0 at 50 MHz with separate CS / D-C / RST.
+# That is the same wiring as this board, which is what makes the table
+# transferable. 20 MHz is used here as a conservative first pass; the panel
+# tolerates more.
 #
-#   * The GC9B71 datasheet (dl.espressif.com/AE/esp-iot-solution/
-#     GC9B71_DataSheet_V1.0.pdf) states "360 RGB x 360 Resolution" — the same
-#     panel geometry as yours, from the same Galaxycore family.
-#   * Same interface options: SPI and QSPI.
-#   * It opens with 0xFE / 0xEF, the Galaxycore inter-command unlock pair, so
-#     the register map is the same dialect.
+# ---------------------------------------------------------------------------
+# WHAT THE PREVIOUS VERSION OF THIS FILE GOT WRONG
+# ---------------------------------------------------------------------------
+# It shipped Espressif's **GC9B71** table on the reasoning that the GC9B71 is
+# the same family and the same 360x360 geometry. That reasoning was sound and
+# the answer was still wrong. Symptom: the panel lit and accepted data, but a
+# uniform fill came out as stripes. Same family, same geometry, same unlock
+# pair — different register map. Family resemblance is not a substitute for
+# the actual table.
 #
-# What it is NOT: a datasheet-confirmed GC9B72 sequence. No GC9B72 datasheet is
-# published on Espressif's CDN (checked — 404) and no GC9B72 driver exists in
-# ESPHome, esp-iot-solution, LovyanGFX or Arduino_GFX.
+# ---------------------------------------------------------------------------
+# TWO ESPHome BEHAVIOURS THAT WILL WASTE YOUR EVENING IF YOU DON'T KNOW THEM
+# ---------------------------------------------------------------------------
+# Both verified by reading components/mipi/__init__.py at tag 2026.8.0,
+# Model.get_sequence():
 #
-# TRY IT. If the panel comes up correct, you are done. If it comes up blank,
-# garbled, colour-shifted or mirrored, do NOT tune these values by hand —
-# get the vendor demo code for THIS module from the seller (Baishun /
-# Baishundianzi, 2.1" 360x360) and send it to me. Ten minutes of asking beats
-# an evening of poking registers.
+#  1. SLPOUT (0x11) and DISPON (0x29) are appended automatically, with their
+#     delays. Do NOT put them in init_sequence.
 #
-# Two commands were deliberately dropped: 0x11 (SLPOUT) and 0x29 (DISPON).
-# ESPHome's mipi_spi appends both itself, along with the reset pulse.
+#  2. COLMOD (0x3A) is appended automatically from `pixel_mode`, and it is
+#     appended UNCONDITIONALLY — the docstring says it checks whether one is
+#     already present, and the code does not:
+#
+#         sequence.append((PIXFMT, pixel_mode))
+#
+#     So whatever 0x3A you write in init_sequence is overridden by ESPHome's.
+#     `pixel_mode: 16bit` MUST be set to match the 0x3A 0x05 in this table, or
+#     ESPHome silently contradicts it. MADCTL (0x36) is appended the same way.
+#
+# This is why hand-testing COLMOD values from inside init_sequence appears to
+# do nothing: you are not testing the panel, you are testing ESPHome.
+#
+# ---------------------------------------------------------------------------
+# PIN MAPPING as wired here — header reads TE SDO BL CS DC RST SDA SCL VCC GND
+# ---------------------------------------------------------------------------
+#   SCL -> GPIO12 (clk)     SDA -> GPIO11 (mosi)    CS  -> GPIO10
+#   DC  -> GPIO13           RST -> GPIO14           BL  -> GPIO21
+#   VCC -> 3V3              GND -> GND              TE, SDO unconnected
+#
+# The `lambda:` that follows the display block in mini-round-clock.yaml is the
+# clock face itself and is omitted here — this file is the bring-up half.
 # =============================================================================
 
 spi:
   - id: lcd_bus
     clk_pin: ${lcd_clk}       # SCL
     mosi_pin: ${lcd_mosi}     # SDA
+
+font:
+  - file: "gfonts://Roboto"
+    id: font_big
+    size: 118
+    bpp: 4                # anti-aliased; 1bpp digits look ragged this large
+    glyphs: "0123456789:"
+  - file: "gfonts://Roboto"
+    id: font_med
+    size: 32
+    bpp: 4
+    glyphs: "0123456789.:-°% abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  - file: "gfonts://Roboto"
+    id: font_small
+    size: 22
+    bpp: 4
+    glyphs: "0123456789.:-°% abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+# -----------------------------------------------------------------------------
+# THE ROUND DISPLAY
+# -----------------------------------------------------------------------------
 
 display:
   - platform: mipi_spi
@@ -47,55 +98,108 @@ display:
     dimensions:
       width: 360
       height: 360
-    data_rate: 40MHz          # 10MHz is the default and far too slow at 360x360
+    data_rate: 20MHz          # 50MHz is what xboot uses; 20 is a safe first pass
+    pixel_mode: 16bit         # MUST match COLMOD 0x05 in the table above
     invert_colors: false      # flip if the image looks like a photo negative
     update_interval: 1s
     init_sequence:
+      # =====================================================================
+      # GENUINE GC9B72 INIT SEQUENCE
+      # ---------------------------------------------------------------------
+      # Source: xboot/xstar, xstar/driver/framebuffer/fb-gc9b72.c (MIT,
+      # Jianjun Jiang). Cross-checked byte-for-byte against the independent
+      # port in MaliosDark/Arduino_GC9B72 (src/Arduino_GC9B72.h). These are
+      # the only two known-good public GC9B72 inits and they agree exactly.
+      #
+      # This REPLACES the borrowed GC9B71 table that was here before. That
+      # table was a different chip's and produced stripes on a solid fill.
+      #
+      # xboot drives this panel as plain 4-wire SPI, mode 0, at 50 MHz, with
+      # separate CS / D-C / RST — which is exactly how this board is wired.
+      # ---------------------------------------------------------------------
+      # 0x11 SLPOUT and 0x29 DISPON are NOT listed here: mipi_spi appends
+      # both, with the correct delays. Verified in components/mipi/__init__.py
+      # at tag 2026.8.0, Model.get_sequence().
+      #
+      # 0x3A and 0x36 ARE listed, in their original position, because the
+      # vendor sequence sets them mid-table. mipi_spi appends its own copies
+      # afterwards regardless (get_sequence() appends PIXFMT unconditionally,
+      # despite its docstring claiming otherwise) — so `pixel_mode` below MUST
+      # stay 16bit, or ESPHome's trailing 0x3A will contradict this table.
+      # =====================================================================
+
+      # ---- unlock the inner (vendor) register page ------------------------
       - [0xFE]
       - [0xEF]
-      - [0x80, 0x11]
-      - [0x81, 0x70]
+
+      # ---- power / regulator / gate timing --------------------------------
+      - [0x80, 0x19]
       - [0x82, 0x09]
       - [0x83, 0x03]
-      - [0x84, 0x62]
-      - [0x89, 0x18]
+      - [0x88, 0x00]
+      - [0x89, 0x38]
       - [0x8A, 0x40]
       - [0x8B, 0x0A]
-      - [0xEC, 0x07]
-      - [0x74, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00]
+      - [0x8C, 0x00]
+      - [0x81, 0xFF]
+      - [0x84, 0xFF]
+      - [0x85, 0xFF]
+      - [0x86, 0xFF]
+      - [0x87, 0xFF]
+      - [0x8E, 0xFF]
+      - [0x8F, 0xFF]
       - [0x98, 0x3E]
       - [0x99, 0x3E]
-      - [0xA1, 0x01, 0x04]
-      - [0xA2, 0x01, 0x04]
-      - [0xCB, 0x02]
-      - [0x7C, 0xB6, 0x24]
-      - [0xAC, 0x74]
-      - [0xF6, 0x80]
-      - [0xB5, 0x09, 0x09]
-      - [0xEB, 0x01, 0x81]
-      - [0x60, 0x38, 0x06, 0x13, 0x56]
-      - [0x63, 0x38, 0x08, 0x13, 0x56]
-      - [0x61, 0x3B, 0x1B, 0x58, 0x38]
-      - [0x62, 0x3B, 0x1B, 0x58, 0x38]
-      - [0x64, 0x38, 0x0A, 0x73, 0x16, 0x13, 0x56]
-      - [0x66, 0x38, 0x0B, 0x73, 0x17, 0x13, 0x56]
-      - [0x68, 0x00, 0x0B, 0x22, 0x0B, 0x22, 0x1C, 0x1C]
-      - [0x69, 0x00, 0x0B, 0x26, 0x0B, 0x26, 0x1C, 0x1C]
-      - [0x6A, 0x15, 0x00]
-      - [0x6E, 0x08, 0x02, 0x1A, 0x00, 0x12, 0x12, 0x11, 0x11, 0x14, 0x14, 0x13, 0x13, 0x04, 0x19, 0x1E, 0x1D, 0x1D, 0x1E, 0x19, 0x04, 0x0B, 0x0B, 0x0C, 0x0C, 0x09, 0x09, 0x0A, 0x0A, 0x00, 0x1A, 0x01, 0x07]
-      - [0x6C, 0xCC, 0x0C, 0xCC, 0x84, 0xCC, 0x04, 0x50]
       - [0x7D, 0x72]
-      - [0x70, 0x02, 0x03, 0x09, 0x07, 0x09, 0x03, 0x09, 0x07, 0x09, 0x03]
-      - [0x90, 0x06, 0x06, 0x05, 0x06]
-      - [0x93, 0x45, 0xFF, 0x00]
-      - [0xC3, 0x15]
-      - [0xC4, 0x36]
-      - [0xC9, 0x3D]
-      - [0xF0, 0x47, 0x07, 0x0A, 0x0A, 0x00, 0x29]
-      - [0xF2, 0x47, 0x07, 0x0A, 0x0A, 0x00, 0x29]
-      - [0xF1, 0x42, 0x91, 0x10, 0x2D, 0x2F, 0x6F]
-      - [0xF3, 0x42, 0x91, 0x10, 0x2D, 0x2F, 0x6F]
-      - [0xF9, 0x30]
-      - [0xBE, 0x11]
+      - [0x70, 0x02, 0x03, 0x03, 0x06, 0x03, 0x03, 0x09, 0x07, 0x09, 0x03]
+      - [0x90, 0x06, 0x06, 0x01, 0x01]
+      - [0x93, 0x02, 0xFF, 0x00]
+      - [0xCB, 0x02]
       - [0xFB, 0x00, 0x00]
-      # (0x11 SLPOUT dropped — mipi_spi appends it, with its delay)
+      - [0xF6, 0xC0]
+      - [0x6C, 0x00, 0x00, 0x22, 0x00, 0xCC, 0x04, 0x58]
+      - [0xAA, 0x0B, 0x00]
+      - [0xEC, 0x07]
+      - [0xF9, 0x40]
+      - [0xEB, 0x01, 0x67]
+      - [0x74, 0x01, 0x60, 0x00, 0x00, 0x00, 0x00]
+      - [0xB5, 0x14, 0x14, 0x14]
+
+      # ---- gate driver / source mux mapping (32 bytes) ---------------------
+      - [0x6E, 0x0B, 0x0B, 0x09, 0x09, 0x13, 0x13, 0x11, 0x11, 0x16, 0x15, 0x01, 0x04, 0x00, 0x0D, 0x1D, 0x00, 0x00, 0x1D, 0x0D, 0x00, 0x04, 0x08, 0x15, 0x16, 0x12, 0x12, 0x14, 0x14, 0x0A, 0x0A, 0x0C, 0x0C]
+
+      # ---- panel drive waveforms ------------------------------------------
+      - [0x60, 0x38, 0x1C, 0x13, 0x56]
+      - [0x61, 0xF8, 0x0A, 0x13, 0x56]
+      - [0x62, 0xF8, 0x0B, 0x13, 0x56]
+      - [0x63, 0x38, 0x1C, 0x13, 0x56]
+      - [0x64, 0x38, 0x20, 0x72, 0xF8, 0x13, 0x56]
+      - [0x65, 0x78, 0x1A, 0x70, 0x0B, 0x56, 0x13]
+      - [0x66, 0x38, 0x24, 0x72, 0xFC, 0x13, 0x56]
+      - [0x68, 0xB3, 0x08, 0x0E, 0x08, 0x0E, 0x0A, 0x0A]
+      - [0x69, 0xB3, 0x08, 0x0E, 0x08, 0x0E, 0x0A, 0x0A]
+      - [0x6A, 0x00, 0x00]
+
+      # ---- pixel format + memory access ------------------------------------
+      - [0x3A, 0x05]            # COLMOD: 16 bit/px, RGB565
+      - [0x36, 0x00]            # MADCTL: no mirror, no swap, RGB order
+
+      # ---- VCOM / power levels ---------------------------------------------
+      - [0x7C, 0xB6, 0x29]
+      - [0xAC, 0x40]
+      - [0xC3, 0x1A]
+      - [0xC4, 0x24]
+      - [0xC9, 0x2F]
+
+      # ---- gamma (positive/negative, both banks) ---------------------------
+      - [0xF0, 0x11, 0x17, 0x08, 0x06, 0x05, 0x38]
+      - [0xF1, 0x4D, 0x72, 0x72, 0x2D, 0x34, 0x8F]
+      - [0xF2, 0x11, 0x17, 0x08, 0x06, 0x05, 0x38]
+      - [0xF3, 0x4D, 0x72, 0x72, 0x2D, 0x34, 0x8F]
+
+      - [0xB4, 0x0A]
+      - [0x35, 0x00]            # TE line on, mode 0
+
+      # ---- lock the inner register page ------------------------------------
+      - [0xFE]
+      - [0xEE]

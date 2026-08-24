@@ -787,3 +787,94 @@ the GC9B72 and is labelled that way in the file.
 Do **not** hand-tune the registers. Get the vendor demo code for this exact
 module from the seller (Baishun, 2.1" 360x360 GC9B72) — ten minutes of asking
 beats an evening of poking gamma tables. The file says so too.
+
+---
+
+## 2026-08-24 — The display works. The GC9B71 substitution was wrong.
+
+The panel lights and renders the clock face correctly. Flashed 00:20 over OTA,
+ESPHome 2026.8.0, 20 MHz, `pixel_mode: 16bit`.
+
+### The answer was a real GC9B72 table, and it does exist
+
+Yesterday's entry concluded no GC9B72 init sequence was public, having checked
+ESPHome, esp-iot-solution, LovyanGFX and Arduino_GFX. That conclusion was
+wrong, and the reason is worth recording: **those are all library indexes.**
+A plain code search across GitHub for the literal string `GC9B72` finds it
+immediately, in projects that are not display libraries at all.
+
+- `xboot/xstar` — `xstar/driver/framebuffer/fb-gc9b72.c` (MIT). The original.
+  A bare-metal framebuffer driver for an Allwinner V821 board. Nothing about
+  it is discoverable by looking for "display library with GC9B72 support".
+- `MaliosDark/Arduino_GC9B72` — an Arduino_GFX-style port that cites xboot.
+
+Both were fetched and compared by hand. They agree byte-for-byte, including
+the gamma banks and the 32-byte `0x6E` gate-mux table. Two independent copies
+agreeing is what promoted this from "candidate" to "transcription".
+
+xboot drives the panel as SPI mode 0 at 50 MHz with separate CS / D-C / RST —
+the same 4-wire arrangement as this board, which is what makes the table
+transferable at all.
+
+### Why the GC9B71 substitution failed, and why the reasoning still looked good
+
+The GC9B71 is the same Galaxycore family, the same 360x360 geometry, and opens
+with the same `0xFE`/`0xEF` unlock pair. All true, all verified, and all
+insufficient. The register map differs. The panel lit and accepted data — a
+uniform fill came out as stripes — which is the signature of a controller that
+is clocked and addressed correctly but scanning out with the wrong timing.
+
+**Family resemblance is not a substitute for the actual table.** The previous
+entry's own advice ("do not hand-tune the registers, get the vendor code")
+was right; the mistake was spending the evening on substitutes before
+exhausting the search for the real thing.
+
+### Two ESPHome behaviours that made the debugging much harder than it was
+
+Both verified by reading `components/mipi/__init__.py` at tag 2026.8.0,
+`Model.get_sequence()` — not inferred from behaviour:
+
+1. `SLPOUT` (0x11) and `DISPON` (0x29) are appended automatically, with their
+   delays. Correctly documented, and the config already did this.
+
+2. **`COLMOD` (0x3A) is appended unconditionally from `pixel_mode`.** The
+   docstring claims it is added "if not already in the custom sequence". The
+   code does not check:
+
+   ```python
+   sequence.append((PIXFMT, pixel_mode))
+   ```
+
+   So a hand-written `0x3A` inside `init_sequence` is always overridden.
+   `MADCTL` (0x36) is appended the same way.
+
+This invalidated two consecutive experiments. Adding `[0x3A, 0x05]` "changed
+nothing" because ESPHome overwrote it; the follow-up `pixel_mode: 18bit` test
+then sent `0x3A, 0x06` to a panel that wants `0x05`, so it was not testing the
+hypothesis it appeared to test. Both readings were measuring ESPHome, not the
+panel.
+
+The lesson generalises: when a register write appears to have no effect,
+confirm it actually reached the wire before concluding anything about the
+hardware. `pixel_mode: 16bit` is now pinned with a comment saying why.
+
+### What was ruled out along the way, and how
+
+Worth keeping, because each one was cheap and each one narrowed the field:
+
+| Hypothesis | Ruled out by |
+|---|---|
+| Not receiving data at all | Pattern changed horizontal -> vertical purely from changing frame content |
+| Signal integrity / too fast | Identical output at 10 MHz and 40 MHz |
+| Wrong bus width (QSPI vs 1-bit) | Config is `clk_pin` + `mosi_pin`, 4-wire; and 207 ms at 10 MHz is exactly 360x360x2 bytes, so the right volume was going out |
+| Backlight not driven | Panel visibly lit once anything rendered |
+
+### Files
+
+- `docs/gc9b72-display-block.yaml` — rewritten. Was the unverified GC9B71
+  table; is now the verified GC9B72 one, with both ESPHome gotchas documented
+  inline.
+- `esphome/mini-round-clock-with-display.yaml` — the flashed config. Byte
+  identical to `/config/esphome/mini-round-clock.yaml` on the box (32346 B,
+  md5 `af1016fdd8911fd6f45dee4a22c1b20b`).
+- Previous config on the box is backed up as `.pre-gc9b72-bak`.

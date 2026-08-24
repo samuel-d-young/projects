@@ -140,27 +140,38 @@ API **password** auth was removed in ESPHome 2026.1 — the key is mandatory.
 > cannot end up in the repo. That separation is the only reason the configs are
 > safe to push to GitHub.
 
-## 8. Correct the display pins
+## 8. Check the display pins
 
-**This is the step most likely to cost you an evening.**
+**Resolved as of 2026-08-24 — the display is working. Read this only if your
+panel is wired differently to mine.**
 
-`model: ESP-VOCAT` ships Espressif's init sequence *and the ESP-VoCat v1.2
-board's pinout*, because that is where the init data came from. Your panel is
-almost certainly wired differently. The GPIOs are substitutions at the top of
-`mini-round-clock.yaml`:
+The config drives a 2.1" 360x360 round TFT (**GC9B72**, 10-pin FPC) as plain
+4-wire SPI via `model: CUSTOM`, with a verified GC9B72 init sequence. It is
+*not* the quad-SPI `model: ESP-VOCAT` arrangement earlier drafts assumed.
+
+The header reads `TE SDO BL CS DC RST SDA SCL VCC GND`. The GPIOs are
+substitutions at the top of `mini-round-clock.yaml`:
 
 ```yaml
-lcd_clk: GPIO18
-lcd_d0: GPIO46
-lcd_d1: GPIO13
-lcd_d2: GPIO11
-lcd_d3: GPIO12
-lcd_cs: GPIO14
-lcd_reset: GPIO47
-lcd_backlight: GPIO44
+lcd_clk: GPIO12             # SCL
+lcd_mosi: GPIO11            # SDA
+lcd_cs: GPIO10              # CS
+lcd_dc: GPIO13              # DC
+lcd_reset: GPIO14           # RST
+lcd_backlight: GPIO21       # BL
 ```
 
-Get your module's pinout and fix them before flashing.
+`TE` and `SDO` stay unconnected. `VCC` is **3V3**, not 5 V.
+
+If you change `pixel_mode`, you must keep it at `16bit` unless you also change
+the `0x3A` in the init table — ESPHome appends its own COLMOD from
+`pixel_mode` and it overrides whatever the table says. See
+[`../docs/gc9b72-display-block.yaml`](../docs/gc9b72-display-block.yaml) for
+the full explanation and the sequence's provenance.
+
+**Do not substitute a different controller's init sequence**, even a close
+relative. A GC9B71 table on this panel lights it and renders stripes — see the
+2026-08-24 entry in [`../BUILD-LOG.md`](../BUILD-LOG.md).
 
 ## 9. Flash it
 
