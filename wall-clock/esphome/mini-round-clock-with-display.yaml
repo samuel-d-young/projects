@@ -263,10 +263,6 @@ sensor:
     id: t5_fin
     entity_id: sensor.wall_clock_timer_5_finish_epoch
   - platform: homeassistant
-    id: radar_age
-    entity_id: sensor.wall_clock_radar_age     # minutes since the frame was made
-
-  - platform: homeassistant
     id: weather_temp
     entity_id: ${weather_entity}
     attribute: temperature
@@ -281,20 +277,6 @@ text_sensor:
   - platform: homeassistant
     id: timer_label
     entity_id: sensor.wall_clock_timer_label   # name of the next timer, or empty
-
-  # HA bumps this only AFTER it has written a new frame to /config/www. The
-  # device watches this rather than the RainViewer URL, so it can never chase
-  # a fetch that failed upstream.
-  - platform: homeassistant
-    id: radar_stamp
-    entity_id: input_text.wall_clock_radar_stamp
-    on_value:
-      - if:
-          condition:
-            switch.is_on: show_radar
-          then:
-            - lambda: 'id(radar_ready) = false;'
-            - component.update: radar_img
 
 binary_sensor:
   - platform: homeassistant
@@ -441,6 +423,68 @@ number:
   #
   # There is no pip control by design — the status pips track the timer arc at
   # 62%, which is what all four presets already do to within a few percent.
+  # ---------------------------------------------------------------------------
+  # RING DETAIL
+  # ---------------------------------------------------------------------------
+  - platform: template
+    id: marker_bright
+    name: "Hour marker brightness"
+    entity_category: config
+    icon: mdi:circle-slice-8
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 5
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+
+  # Status pixels are the lowest tier on the face. Turning them down is how you
+  # keep the clock readable at a glance without giving up the ambient info.
+  - platform: template
+    id: status_bright
+    name: "Status pixel brightness"
+    entity_category: config
+    icon: mdi:brightness-percent
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 5
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+
+  # Hue only. Saturation and value are pinned full because an alert is a single
+  # state — there is no second alert colour to distinguish it from, so the only
+  # useful axis is which hue catches YOUR eye. Follows mono to greyscale.
+  - platform: template
+    id: alert_hue
+    name: "Alert hue"
+    entity_category: config
+    icon: mdi:bell-alert-outline
+    unit_of_measurement: "°"
+    min_value: 0
+    max_value: 360
+    step: 1
+    initial_value: 20
+    optimistic: true
+    restore_value: true
+
+  # How strongly the weather colours the screen background. 0 leaves the plain
+  # near-black ground; 100 is the full tint.
+  - platform: template
+    id: tint_strength
+    name: "Weather tint strength"
+    entity_category: config
+    icon: mdi:gradient-horizontal
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 5
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+
   - platform: template
     id: hour_hue
     name: "Hour hue"
@@ -610,6 +654,63 @@ select:
     optimistic: true
     restore_value: true
 
+  # A tick moves once a second; a sweep glides between them using the render
+  # frame counter. Sweep costs nothing extra — the lambda already runs at 20fps
+  # for the alert pulse.
+  - platform: template
+    id: sec_style
+    name: "Second hand style"
+    entity_category: config
+    icon: mdi:timer-outline
+    options:
+      - "tick"
+      - "sweep"
+    initial_option: "tick"
+    optimistic: true
+    restore_value: true
+
+  # On a 24-LED ring twelve markers use half the pixels, which can drown the
+  # hands. Quarters keeps the orientation cue at a quarter of the cost.
+  - platform: template
+    id: marker_style
+    name: "Hour markers"
+    entity_category: config
+    icon: mdi:format-list-bulleted
+    options:
+      - "twelve"
+      - "quarters"
+      - "none"
+    initial_option: "twelve"
+    optimistic: true
+    restore_value: true
+
+  # Which way the timer arc drains. Clockwise reads as "time passing"; some
+  # people read a shrinking anticlockwise arc as "time left" instead.
+  - platform: template
+    id: arc_dir
+    name: "Timer arc direction"
+    entity_category: config
+    icon: mdi:rotate-right
+    options:
+      - "clockwise"
+      - "anticlockwise"
+    initial_option: "clockwise"
+    optimistic: true
+    restore_value: true
+
+  - platform: template
+    id: alert_style
+    name: "Alert pattern"
+    entity_category: config
+    icon: mdi:bell-ring-outline
+    options:
+      - "pulse"
+      - "chase"
+      - "solid"
+    initial_option: "pulse"
+    optimistic: true
+    restore_value: true
+
   # Palette for hands and accents. "mono" is the accessible one — it drops all
   # hue coding, so nothing depends on telling red from green.
   #
@@ -647,21 +748,32 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
-  # This gates BOTH drawing and downloading. In v1 only drawing was gated and
-  # the fetch fired on every URL change, so turning the radar off did not stop
-  # it crash-looping the device. Off now means genuinely off.
   - platform: template
-    id: show_radar
-    name: "Rain radar"
+    id: show_date
+    name: "Show date"
     entity_category: config
-    icon: mdi:radar
+    icon: mdi:calendar
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
-    on_turn_on:
-      - lambda: 'id(radar_ready) = false;'
-      - component.update: radar_img
-    on_turn_off:
-      - lambda: 'id(radar_ready) = false;'
+
+  - platform: template
+    id: show_dow
+    name: "Show day of week"
+    entity_category: config
+    icon: mdi:calendar-week
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  # Dimming still leaves a lit panel in a dark hallway. This blanks the SCREEN
+  # only — the ring keeps the time, because the clock is the one thing that
+  # must survive every setting on this page.
+  - platform: template
+    id: night_blank
+    name: "Blank screen at night"
+    entity_category: config
+    icon: mdi:monitor-off
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
 
   - platform: template
     id: show_seconds
@@ -716,13 +828,6 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
-  # Set ONLY by the image component's own download callback. Asking the image
-  # its width would not work: it reports a size before a byte has arrived, so
-  # it would claim ready while holding nothing.
-  - id: radar_ready
-    type: bool
-    restore_value: no
-    initial_value: 'false'
 
   # ---------------------------------------------------------------------------
   # RESOLVED PALETTE — the single place colour is decided
@@ -741,10 +846,11 @@ globals:
   #
   # Initial values are the "default" preset already resolved, so the very first
   # frames are correct in the gap before the resolver's first tick.
+  # 0-2 hour, 3-5 minute, 6-8 second, 9-11 timer, 12-14 pip, 15-17 alert.
   - id: pal_ring
-    type: int[15]
+    type: int[18]
     restore_value: no
-    initial_value: '{255,90,20, 30,120,255, 90,90,90, 0,90,80, 0,60,55}'
+    initial_value: '{255,90,20, 30,120,255, 90,90,90, 0,90,80, 0,60,55, 255,85,0}'
   - id: pal_scr
     type: int[12]
     restore_value: no
@@ -794,12 +900,13 @@ interval:
           // hue, saturation, value for hour, minute, second, timer, pip.
           // The presets are the previous hardcoded RGB triples converted to
           // HSV, so they round-trip to within a unit or two of what they were.
-          float T[5][3] = {
+          float T[6][3] = {
             { 17.9f,  92.2f, 100.0f},   // hour
             {216.0f,  88.2f, 100.0f},   // minute
             {  0.0f,   0.0f,  35.3f},   // second
             {173.3f, 100.0f,  35.3f},   // timer
             {175.0f, 100.0f,  23.5f},   // pip
+            { 20.0f, 100.0f, 100.0f},   // alert — overwritten below
           };
 
           const std::string th = id(colour_theme).current_option().str();
@@ -835,7 +942,16 @@ interval:
             T[4][0]=T[3][0]; T[4][1]=T[3][1]; T[4][2]=T[3][2] * 0.62f;
           }
 
-          for (int e = 0; e < 5; e++)
+          // The alert colour is NOT part of the theme. It is a single state
+          // with nothing to be distinguished from, so the only axis worth
+          // exposing is which hue catches the eye — full saturation and value,
+          // straight from its own number. mono still drops it to grey, because
+          // mono's promise is that nothing on the face depends on hue.
+          T[5][0] = id(alert_hue).state;
+          T[5][1] = (th == "mono") ? 0.0f : 100.0f;
+          T[5][2] = 100.0f;
+
+          for (int e = 0; e < 6; e++)
             hsv(T[e][0], T[e][1], T[e][2], &id(pal_ring)[e * 3]);
 
           // Role values for the screen, in the panel's own hierarchy.
@@ -934,6 +1050,7 @@ light:
             const int *secC   = P_ + 6;
             const int *timerC = P_ + 9;
             const int *pipC   = P_ + 12;
+            const int *alertC = P_ + 15;
 
             // ---- TEST CHASE: wiring, LED count, colour order, index 0 ------
             if (mode == "test chase") {
@@ -949,14 +1066,41 @@ light:
 
             // ---- ALERT (highest priority) ----------------------------------
             else if (id(timer_alert).state && mode != "clock bare") {
-              const float ph = (id(frame) % 20) / 20.0f;      // ~1Hz at 20fps
-              const float k = 0.35f + 0.65f * fabsf(1.0f - 2.0f * ph);
-              for (int i = 0; i < N; i++) add(i, (int)(255*k), (int)(60*k), 0);
+              const std::string astyle = id(alert_style).current_option().str();
+              if (astyle == "solid") {
+                for (int i = 0; i < N; i++)
+                  add(i, alertC[0], alertC[1], alertC[2]);
+              } else if (astyle == "chase") {
+                // A comet with a four-pixel tail. Reads as motion from across
+                // the room even when the whole ring is one colour.
+                const int head = (id(frame) / 2) % N;
+                for (int d = 0; d < 4 && d < N; d++) {
+                  const float k = 1.0f - d * 0.25f;
+                  const int i = ((head - d) % N + N) % N;
+                  add(i, (int)(alertC[0]*k), (int)(alertC[1]*k), (int)(alertC[2]*k));
+                }
+              } else {
+                const float ph = (id(frame) % 20) / 20.0f;    // ~1Hz at 20fps
+                const float k = 0.35f + 0.65f * fabsf(1.0f - 2.0f * ph);
+                for (int i = 0; i < N; i++)
+                  add(i, (int)(alertC[0]*k), (int)(alertC[1]*k), (int)(alertC[2]*k));
+              }
             }
 
             // ---- NORMAL FACE -----------------------------------------------
             else {
-              for (int m = 0; m < 12; m++) add(P(m / 12.0f), 14, 14, 18);
+              // Markers. On a 24-LED ring twelve of them use half the pixels,
+              // so "quarters" exists to keep the orientation cue without the
+              // hands having to fight it.
+              {
+                const std::string ms = id(marker_style).current_option().str();
+                if (ms != "none") {
+                  const float mb = id(marker_bright).state / 100.0f;
+                  const int step = (ms == "quarters") ? 3 : 1;
+                  for (int m = 0; m < 12; m += step)
+                    add(P(m / 12.0f), (int)(14*mb), (int)(14*mb), (int)(18*mb));
+                }
+              }
 
               bool timer_running = false;
               if (mode == "auto" || mode == "clock only") {
@@ -970,8 +1114,13 @@ light:
                     if (ratio > 1.0f) ratio = 1.0f;   // "add 5 minutes" clamp
                     const int lit = (int) ceilf(ratio * N);
                     // Teal by default, so it can never be mistaken for a hand.
+                    // P() normalises negatives, so running the index backwards
+                    // is all "anticlockwise" needs.
+                    const bool acw =
+                      id(arc_dir).current_option().str() == "anticlockwise";
                     for (int i = 0; i < lit; i++)
-                      add(P((float) i / N), timerC[0], timerC[1], timerC[2]);
+                      add(P(acw ? -(float) i / N : (float) i / N),
+                          timerC[0], timerC[1], timerC[2]);
                   }
                 }
 
@@ -1005,19 +1154,23 @@ light:
               }
 
               // ---- AMBIENT: accent pixels only, never anything hand-like ----
-              if (mode == "auto" && !timer_running && id(show_status).state) {
+              if (mode == "auto" && !timer_running && id(show_status).state
+                  && id(status_bright).state > 0.0f) {
+                // One scale for every ambient pixel, so status can be turned
+                // down as a group without touching the hands.
+                const float sb = id(status_bright).state / 100.0f;
                 if (id(bin_night).state) {                 // 12 o'clock breathe
                   const float ph = (id(frame) % 60) / 60.0f;
-                  const float k = 0.4f + 0.6f * fabsf(1.0f - 2.0f * ph);
+                  const float k = (0.4f + 0.6f * fabsf(1.0f - 2.0f * ph)) * sb;
                   if (id(next_bin).state == "Recycling")
                     add(P(0.0f), (int)(160*k), (int)(140*k), 0);   // yellow
                   else
                     add(P(0.0f), 0, (int)(150*k), (int)(30*k));    // green
                 }
                 if (id(garage_open).state)                 // 3 o'clock, amber
-                  add(P(0.25f), 150, 70, 0);
+                  add(P(0.25f), (int)(150*sb), (int)(70*sb), 0);
                 if (id(driveway_unknown).state) {          // 9 o'clock, red
-                  const float k = ((id(frame) / 10) % 2) ? 1.0f : 0.25f;
+                  const float k = (((id(frame) / 10) % 2) ? 1.0f : 0.25f) * sb;
                   add(P(0.75f), (int)(200*k), 0, 0);
                 }
                 const bool who[4] = { id(home_sam).state,    id(home_laura).state,
@@ -1025,7 +1178,8 @@ light:
                 const int rgb[4][3] = { {0,40,90}, {90,0,70}, {0,70,40}, {70,50,0} };
                 for (int w = 0; w < 4; w++)
                   if (who[w])
-                    add(P(0.5f + (w - 1.5f) / N), rgb[w][0], rgb[w][1], rgb[w][2]);
+                    add(P(0.5f + (w - 1.5f) / N),
+                        (int)(rgb[w][0]*sb), (int)(rgb[w][1]*sb), (int)(rgb[w][2]*sb));
               }
 
               // ---- HANDS, drawn last so they sit on top --------------------
@@ -1036,8 +1190,15 @@ light:
               // a 60-LED ring gives a genuinely per-minute face.
               add(P(hf), hourC[0], hourC[1], hourC[2]);
               add(P(now.minute / 60.0f + now.second / 3600.0f), minC[0], minC[1], minC[2]);
-              if (id(show_seconds).state)
-                add(P(now.second / 60.0f), secC[0], secC[1], secC[2]);
+              if (id(show_seconds).state) {
+                // Sweep interpolates between ticks with the render counter,
+                // which is already running at 20fps for the alert pulse — so a
+                // gliding hand costs nothing beyond this line.
+                float sfrac = now.second / 60.0f;
+                if (id(sec_style).current_option().str() == "sweep")
+                  sfrac = (now.second + (id(frame) % 20) / 20.0f) / 60.0f;
+                add(P(sfrac), secC[0], secC[1], secC[2]);
+              }
 
               // HA dropped: tint 6 o'clock so it is visible from the room that
               // STATUS is stale. The time itself is still trustworthy.
@@ -1250,7 +1411,20 @@ display:
                      (uint8_t) lroundf(c.b * k));
       };
 
-      Color bg = Color(10, 12, 18);
+      // Night blanks the SCREEN only. The ring keeps the time, because the
+      // clock is the one thing that must survive every setting on this page.
+      if (id(night_blank).state && id(auto_dim).state && now.is_valid()) {
+        const int h = now.hour;
+        const int ns = (int) lroundf(id(night_start).state);
+        const int ne = (int) lroundf(id(night_end).state);
+        const bool night = (ns == ne) ? false
+                         : (ns > ne)  ? (h >= ns || h < ne)
+                                      : (h >= ns && h < ne);
+        if (night) { it.fill(Color::BLACK); return; }
+      }
+
+      const Color ground = Color(10, 12, 18);
+      Color bg = ground;
       if (id(show_weather).state) {
         if      (cond == "sunny")            bg = Color(46, 34,  6);
         else if (cond == "clear-night")      bg = Color( 8, 10, 26);
@@ -1263,6 +1437,14 @@ display:
                  cond == "lightning-rainy")  bg = Color(38, 24, 46);
         else if (cond == "snowy")            bg = Color(30, 36, 44);
         else if (cond == "windy")            bg = Color(16, 30, 30);
+
+        // Blend the weather colour back towards the plain ground. 0% leaves
+        // the near-black the rest of the face was designed against; 100% is
+        // the full tint.
+        const float ts = id(tint_strength).state / 100.0f;
+        bg = Color((uint8_t) lroundf(ground.r + (bg.r - ground.r) * ts),
+                   (uint8_t) lroundf(ground.g + (bg.g - ground.g) * ts),
+                   (uint8_t) lroundf(ground.b + (bg.b - ground.b) * ts));
       }
 
       // ---- work out what this screen should be showing ------------------
@@ -1291,21 +1473,6 @@ display:
       }
 
       it.filled_circle(CX, CY, 180, bg);
-
-      // ---- RAIN RADAR, background layer -------------------------------------
-      // Straight after the ground, so the clock always sits ON the weather.
-      //
-      // Drawn at native 256 px with no resize — resizing was part of what made
-      // v1 too expensive. The tile centres Melbourne at (0.54, 0.54) rather
-      // than the middle, so the offset is 180 - 0.54*256 = 42, which puts home
-      // dead centre on a 360 px screen.
-      //
-      // Stale radar is worse than none, because it still looks current. A
-      // frame over 45 minutes old is simply not drawn.
-      if (id(show_radar).state && id(radar_ready)
-          && !std::isnan(id(radar_age).state) && id(radar_age).state <= 45.0f) {
-        it.image(42, 42, id(radar_img));
-      }
 
       if (left >= 0) {
         // A timer is running: it gets the big numerals, the clock drops to a
@@ -1389,20 +1556,44 @@ display:
                       TextAlign::CENTER, "%d:%02d", hour12(now.hour), now.minute);
 
           if (face == "digital") {
+            // Subtitle lines stack down a cursor rather than sitting at fixed
+            // offsets, so turning any of them on or off closes the gap instead
+            // of leaving a hole — and nothing can ever land on top of anything
+            // else. The screen is round: past about CY+150 a centred line is
+            // already running out of width, which is why the cursor stops.
+            int y = CY + 62;
+            const int STEP = 40;
+            const int Y_LIMIT = CY + 150;
+
+            const bool d = id(show_date).state, w = id(show_dow).state;
+            const char *dfmt = (d && w) ? "%a %d %b"
+                             : d        ? "%d %b"
+                             : w        ? "%A"
+                                        : nullptr;
+            if (dfmt && y <= Y_LIMIT) {
+              it.strftime(CX, y, id(font_med), Color(196, 206, 226),
+                          TextAlign::CENTER, dfmt, now);
+              y += STEP;
+            }
+
             if (id(show_weather).state) {
-              if (!std::isnan(id(weather_temp).state))
-                it.printf(CX, CY + 62, id(font_med), Color(210, 220, 240),
+              if (!std::isnan(id(weather_temp).state) && y <= Y_LIMIT) {
+                it.printf(CX, y, id(font_med), Color(210, 220, 240),
                           TextAlign::CENTER, "%.0f°C", id(weather_temp).state);
-              if (!cond.empty() && cond != "unknown") {
+                y += STEP;
+              }
+              if (!cond.empty() && cond != "unknown" && y <= Y_LIMIT) {
                 // HA conditions are hyphenated slugs; make them readable.
                 std::string pretty = cond;
                 for (auto &ch : pretty) if (ch == '-') ch = ' ';
-                it.printf(CX, CY + 104, id(font_small), Color(140, 152, 175),
+                it.printf(CX, y, id(font_small), Color(140, 152, 175),
                           TextAlign::CENTER, "%s", pretty.c_str());
+                y += STEP;
               }
             }
-            if (!h24)
-              it.printf(CX, CY + 140, id(font_small), Color(120, 130, 150),
+
+            if (!h24 && y <= Y_LIMIT)
+              it.printf(CX, y, id(font_small), Color(120, 130, 150),
                         TextAlign::CENTER, "%s", now.hour < 12 ? "AM" : "PM");
           }
         }
@@ -1418,47 +1609,3 @@ display:
       // Stale-status hint, matching the ring's red tint at 6 o'clock.
       if (!id(ha_connected))
         it.filled_circle(CX, CY + 140, 4, Color(120, 30, 30));
-
-# =============================================================================
-# RAIN RADAR — the image itself
-# =============================================================================
-# Status tier, and built so it cannot climb: nothing is fetched unless the
-# radar switch is on, and every draw sits behind a flag that starts false.
-#
-# Plain HTTP to Home Assistant on the LAN, NOT https to RainViewer. HA does the
-# TLS and writes the tile to /config/www, which is served at /local/ with no
-# auth token. That removes the handshake from the device entirely — half of
-# what made v1 block the main loop for two seconds.
-http_request:
-  verify_ssl: false
-  timeout: 15s
-
-# `image:` with `platform: online_image`, NOT a top-level `online_image:`
-# block. The old form still works in 2026.8.0 but warns that it is REMOVED in
-# ESPHome 2027.1.0.
-image:
-  - platform: online_image
-    id: radar_img
-    # HA rewrites this same path in place, so the URL never changes; the device
-    # is told to re-read it by the stamp text sensor.
-    url: "http://192.168.1.79:8123/local/wall_clock_radar.png"
-    format: png
-    # RGB + alpha_channel, NOT `type: RGBA` — that spelling is REMOVED and
-    # fails with "Image type RGBA is removed", even though the validator still
-    # lists it among valid options so it can print that message.
-    # Alpha matters: clear sky is genuinely transparent in these tiles (PNG
-    # colour type 6, verified), so the clock shows through.
-    type: RGB
-    transparency: alpha_channel
-    # No resize. 256x256 native is ~256 KB decoded against 8 MB of PSRAM.
-    update_interval: never
-    on_download_finished:
-      - globals.set:
-          id: radar_ready
-          value: 'true'
-      - logger.log: "Radar frame ready"
-    on_error:
-      - globals.set:
-          id: radar_ready
-          value: 'false'
-      - logger.log: "Radar frame download FAILED"
