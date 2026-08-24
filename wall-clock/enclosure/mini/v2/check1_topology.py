@@ -11,6 +11,10 @@ def check(cond, msg, detail=''):
     print(f'  [{tag}] {msg}' + (f'   {detail}' if detail else ''))
     if not cond: FAIL.append(msg)
 
+# how much Sam's own uploaded diffuser disagrees with itself, measured, not assumed
+_src = trimesh.load('diffuser_in.stl', process=False); _src.merge_vertices()
+SOURCE_AMBIGUITY = abs(to_manifold(_src).volume() - _src.volume) / _src.volume * 100
+
 PARTS = [('mini-round-clock-base-v2.stl', True),
          ('mini-round-clock-rearhousing-slim.stl', True),
          ('mini-round-clock-rearhousing-battery.stl', True),
@@ -39,8 +43,16 @@ for name, strict in PARTS:
     try:
         man = to_manifold(m)
         check(man.status().name == 'NoError', 'manifold3d accepts it', str(man.status()))
-        check(abs(man.volume() - m.volume) < 1.0, 'volume agrees with manifold3d',
-              f'{man.volume():.1f} vs {m.volume:.1f}')
+        # Two independent volume calculations over a surface with non-manifold
+        # edges will not agree exactly -- the disagreement IS the ambiguity the
+        # defects introduce. Sam's uploaded diffuser disagrees with itself by
+        # 0.054%; anything derived from it is held to no worse than that, not to
+        # zero, because zero is not achievable from that source.
+        rel = abs(man.volume() - m.volume) / m.volume * 100
+        lim = 1e-4 if strict else SOURCE_AMBIGUITY
+        check(rel < lim, 'volume agrees with manifold3d',
+              f'{man.volume():.1f} vs {m.volume:.1f}  ({rel:.4f}%'
+              + (f', source is {SOURCE_AMBIGUITY:.3f}%)' if not strict else ')'))
     except Exception as e:
         check(False, 'manifold3d accepts it', str(e))
     # self intersection: a clean solid intersected with itself changes nothing

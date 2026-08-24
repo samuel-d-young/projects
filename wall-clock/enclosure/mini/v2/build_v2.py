@@ -280,6 +280,17 @@ def build_diffuser_v3():
         keep = w if keep is None else keep + w
     d -= (cut - keep)
 
+    # --- 2b. and the thin part is only a LINE --------------------------------
+    # Everything is now 0.20 thick. Put 2.00 mm back either side of the LED
+    # circle, so only a 2.50 mm slot over the LEDs still passes light. The
+    # inner band is flush with the skirt (both 2.00), which makes the face
+    # inboard of the line one continuous shelf rather than a step.
+    d += tube(DIFF_MEM_RI - 0.50, DIFF_LINE_RI, 0.0, DIFF_OPAQUE_T, SEG)
+    # overlap well INSIDE the outer wall (44.90..46.40). Stopping at 45.00,
+    # where the thinning cut also ends, put two surfaces at the same radius
+    # and left a 0.01 mm sliver behind.
+    d += tube(DIFF_LINE_RO, DIFF_MEM_RO + 0.60, 0.0, DIFF_OPAQUE_T, SEG)
+
     # --- 3. a taller collar --------------------------------------------------
     if COLLAR_EXTEND > 0:
         # start 1 mm DOWN inside the collar rather than butting onto its top

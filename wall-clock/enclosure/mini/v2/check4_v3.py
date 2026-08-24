@@ -90,9 +90,11 @@ ck(r_out - R_RING_O < 0.15, 'but not so much it cannot be pressed in',
 ck(abs(Dt.bounds[1][2] - (DIFF_COLLAR_H + COLLAR_EXTEND)) < 1e-3,
    'overall height is still set by the collar', f'{Dt.bounds[1][2]:.2f} mm')
 
-print('\n4. One layer over the LEDs')
+print('\n4. One layer over the LEDs, and the cell walls survived it')
 a_gap = DIFF_BAFFLE_A0 + 360.0/DIFF_BAFFLE_N/2          # midway between two walls
-for r in (40.0, 42.0, 44.0):
+# sampled inside the LINE -- outside it the face is deliberately 2.0 mm now,
+# which section 5b checks
+for r in (DIFF_LINE_RI + 0.3, DIFF_LINE_R, DIFF_LINE_RO - 0.3):
     x, y = r*math.cos(math.radians(a_gap)), r*math.sin(math.radians(a_gap))
     t = column_top(DIFF, x, y)
     ck(t is not None and abs(t - DIFF_MEM_T) < 0.02,
@@ -109,6 +111,37 @@ for i in range(DIFF_BAFFLE_N):
     x, y = 42*math.cos(math.radians(a)), 42*math.sin(math.radians(a))
     if solid_at(DIFF, x, y, 2.0): walls += 1
 ck(walls == DIFF_BAFFLE_N, 'all 24 cell walls survived the thinning', f'{walls} of {DIFF_BAFFLE_N}')
+
+print('\n5b. The lit band is now a line')
+a_gap = DIFF_BAFFLE_A0 + 360.0/DIFF_BAFFLE_N/2
+def thick_at(r):
+    x, y = r*math.cos(math.radians(a_gap)), r*math.sin(math.radians(a_gap))
+    return column_top(DIFF, x, y)
+# inside the line: one layer.  outside it: opaque.
+for r in (DIFF_LINE_RI + 0.3, DIFF_LINE_R, DIFF_LINE_RO - 0.3):
+    t = thick_at(r)
+    ck(t is not None and abs(t - DIFF_MEM_T) < 0.02, f'r={r:.2f} is one layer (inside the line)',
+       f'{t:.3f} mm' if t else 'n/a')
+for r in (DIFF_MEM_RI + 0.2, DIFF_LINE_RI - 0.3, DIFF_LINE_RO + 0.3, DIFF_MEM_RO - 0.3):
+    t = thick_at(r)
+    ck(t is not None and t >= DIFF_OPAQUE_T - 0.02, f'r={r:.2f} is {DIFF_OPAQUE_T} mm (outside the line)',
+       f'{t:.3f} mm' if t else 'n/a')
+# the line has to sit on the LEDs, not beside them
+ck(abs((DIFF_LINE_RI + DIFF_LINE_RO)/2 - DIFF_LINE_R) < 1e-9,
+   'the line is centred on the LED circle', f'r = {DIFF_LINE_R:.2f}')
+led_i, led_o = DIFF_LINE_R - 2.5, DIFF_LINE_R + 2.5      # a 5050 is 5 mm
+ck(led_i < DIFF_LINE_RI and DIFF_LINE_RO < led_o,
+   'and narrower than the 5 mm LED, so it acts as an aperture',
+   f'line {DIFF_LINE_W:.2f} inside LED {led_o-led_i:.2f}')
+# no step where the inner band meets the skirt
+ck(abs(DIFF_OPAQUE_T - 2.0) < 1e-9,
+   'inner band is flush with the skirt, so the face is one shelf', f'both {DIFF_OPAQUE_T:.2f} mm')
+seg = 2*math.pi*DIFF_LINE_R/DIFF_BAFFLE_N - 0.95
+print(f'         one lit LED now shows {DIFF_LINE_W:.2f} x {seg:.2f} mm  '
+      f'({seg/DIFF_LINE_W:.1f}:1), was {DIFF_MEM_RO-DIFF_MEM_RI:.2f} x {seg:.2f} '
+      f'({seg/(DIFF_MEM_RO-DIFF_MEM_RI):.1f}:1)')
+print(f'         the walls leave {100*seg/(2*math.pi*DIFF_LINE_R/DIFF_BAFFLE_N):.0f}% of the '
+      f'circle lit, so adjacent LEDs read as one line')
 
 print('\n5. The collar reaches further in')
 h = column_top(DIFF, 29.0, 0.0)

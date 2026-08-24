@@ -118,12 +118,35 @@ def finalise(man, name, quantise=True, rounds=6, strict=True):
     collapse HERE, then re-healing, means the file on disk is the thing that
     was checked -- not a cleaner version of it.
     """
+    dropped = [0.0, 0]
+
+    def drop_debris(t):
+        """Discard zero-volume face fragments, keep everything with substance.
+
+        A boolean between surfaces that land at the same coordinate leaves flat
+        shells behind: no volume, but they count as separate bodies and they
+        make slicers ask to repair the file. Only |volume| < 0.01 mm3 goes --
+        anything real would trip the volume check two lines later.
+        """
+        parts = t.split(only_watertight=False)
+        if len(parts) <= 1:
+            return t
+        keep = [p for p in parts if abs(p.volume) >= 0.01]
+        gone = [p for p in parts if abs(p.volume) < 0.01]
+        if gone:
+            dropped[0] += sum(abs(p.volume) for p in gone)
+            dropped[1] += len(gone)
+        if not keep:
+            return t
+        return trimesh.util.concatenate(keep) if len(keep) > 1 else keep[0]
+
     def scrub(t):
         if quantise:
             t.vertices = np.asarray(t.vertices, dtype=np.float32).astype(np.float64)
         t.merge_vertices()
         t.update_faces(t.nondegenerate_faces())
         t.remove_unreferenced_vertices()
+        t = drop_debris(t)
         if strict:
             # only safe on a mesh that IS closed; on an inherited-defect mesh
             # unique_faces() drops one of a coincident pair and fix_normals()
@@ -150,6 +173,8 @@ def finalise(man, name, quantise=True, rounds=6, strict=True):
         if manifold_ok and (tight or not strict):
             be = bad_edges(t)
             note = 'clean' if tight else f'{be} inherited bad edges (slicers repair these)'
+            if dropped[1]:
+                note += f'; dropped {dropped[1]} zero-volume fragment(s)'
             print(f'  {name:34s} vol={t.volume:9.1f}  tris={len(t.faces):6d}  '
                   f'manifold=OK  {note}')
             return t

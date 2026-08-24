@@ -32,11 +32,13 @@ holds — if he sends new files, run it and diff.
 | `mini-round-clock-rearhousing-battery` | **rear plate down** | none | ~73 g | ~3 h |
 | *or* `mini-round-clock-rearhousing-slim` | rear plate down | none | ~57 g | ~2.5 h |
 | `mini-round-clock-battery-shim-x2` | flat | none | ~11 g each, **print 2** | ~20 min |
-| `mini-round-clock-diffuser-v3` | **membrane face down** | none | ~14 g white PLA | ~45 min |
+| `mini-round-clock-diffuser-v3` | **line face down** | none | ~16 g white PLA | ~50 min |
 
-Both `.stl` and `.3mf` are provided. **Prefer the 3MF** — STL stores coordinates
-as 32-bit floats, and the round trip through that is what generates most
-"needs repair" warnings in slicers.
+Both `.stl` and `.3mf` are provided, and for these files they carry **identical
+geometry** — `finalise()` quantises to float32 before writing, so the STL round
+trip has already happened and been healed by the time either file is saved. Use
+whichever you prefer; the 3MF just carries units and metadata that Bambu Studio
+likes.
 
 **Support note for the base.** The part is designed to need none, and the checker
 confirms it introduces none. But Sam's own geometry carries 409 mm² of shallow
@@ -94,7 +96,7 @@ the S3's USB-C end so the battery lead can still get up to the board.
 
 ---
 
-## 1b. v3 — the four changes after your test fit
+## 1b. v3 — the changes after your test fit
 
 ### The tab slot was the looseness
 
@@ -145,6 +147,45 @@ on nothing — the checker confirms all 24 still reach full height.
 
 A 0.2 mm sheet is fragile in the hand. It is captured between the ring and the
 plywood once assembled, so it only has to survive the bench.
+
+### The lit band is now a line
+
+The diffusing band was **r 39.00 … 44.90 — 5.90 mm wide**, so a lit LED read as a
+5.90 × 9.72 mm rectangle: 1.6:1, a blob. The Echo Wall Clock is a plain white
+face with a thin ring of light on it.
+
+The 0.20 mm skin is now only a **2.50 mm slot centred on the LED circle at
+r = 40.75**, and everything either side of it is **2.00 mm thick**:
+
+| | before | after |
+|---|---:|---:|
+| lit aperture | 5.90 mm wide | **2.50 mm** |
+| one lit LED shows | 5.90 × 9.72 mm | **2.50 × 9.72 mm** |
+| aspect of one segment | 1.6 : 1 | **3.9 : 1** |
+| face either side | 0.80 mm (glows) | **2.00 mm** |
+
+Three things that make it work:
+
+- **Centred on the LEDs, and narrower than they are.** A 5050 is 5 mm wide and
+  spans r 38.25–43.25; the slot is 2.50 mm inside that, so it acts as an
+  aperture rather than a window. That is what makes the edge crisp.
+- **The inner band is flush with the skirt** — both 2.00 mm — so everything
+  inboard of the line is one continuous shelf rather than a step.
+- **The cell walls stay full height.** They leave 91% of the circle open, so
+  adjacent lit LEDs read as one line, but they still keep each LED in its own
+  cell, which is what stops the hands smearing. That matters more than the
+  cosmetics: the priority order for this project is clock > timers > status.
+
+`DIFF_LINE_W` is the width and `DIFF_OPAQUE_T` the surround thickness. If the
+surround still glows, raise it — there is room up to about 3.5 mm before it
+starts eating the cavity the light needs to spread in. **I have not measured
+white PLA's transmission at 2.00 mm**; that number is a judgement, and it is one
+line to change.
+
+One thing left alone: the plywood face's ring window is 11.5 mm wide, so you
+will see about 9 mm of plain white diffuser around the line. That is the Echo
+look — a white face, light only where an LED is on. Narrow the window in
+`face.svg` if you would rather see less of it.
 
 ### The collar reaches 2 mm further in
 

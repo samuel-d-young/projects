@@ -288,3 +288,18 @@ COLLAR_EXTEND = 2.00
 COLLAR_EXT_RI, COLLAR_EXT_RO = 28.05, 29.95     # inset both faces 0.13/0.16 so
                             # the extension does not share a surface with the
                             # collar it grows from
+
+# --- v4: the lit band becomes a LINE ------------------------------------------
+# Sam: "more of a line where the LED shows through like the echo wall clock."
+# The diffusing band was r 39.00 .. 44.90 -- 5.90 mm wide. A lit LED read as a
+# 5.9 x 9.8 mm blob. The Echo shows a thin ring of light on a plain white face,
+# so: keep the 0.20 mm skin only over a narrow slot centred on the LED circle,
+# and thicken the rest until it reads as white rather than glow.
+DIFF_LINE_R   = (RING_OD + RING_ID) / 4          # 40.75 -- the LED circle
+DIFF_LINE_W   = 2.50                             # width of the lit line
+DIFF_LINE_RI  = DIFF_LINE_R - DIFF_LINE_W / 2    # 39.50
+DIFF_LINE_RO  = DIFF_LINE_R + DIFF_LINE_W / 2    # 42.00
+# 2.00 mm of white PLA either side, which is also flush with the inner skirt, so
+# the whole face inboard of the line is one continuous 2 mm shelf. White PLA at
+# 0.20 mm glows; at 2.00 mm it does not.
+DIFF_OPAQUE_T = 2.00

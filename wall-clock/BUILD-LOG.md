@@ -1541,3 +1541,68 @@ over-reporting:
   only thing standing between the collar and an exact clamp.
 - Whether 0.10 mm diametral is the right press. It is a judgement; the number is
   one line.
+
+---
+
+## 2026-08-24 — v4: the lit band becomes a line
+
+Sam: *"Update the diffuser to be more of a line where the LED shows through like
+the echo wall clock."*
+
+The diffusing band was **r 39.00 … 44.90 — 5.90 mm wide**, so a lit LED read as a
+5.90 × 9.72 mm rectangle. That is 1.6:1 — a blob, not a line. The Echo Wall
+Clock is a plain white face with a thin ring of light on it.
+
+The 0.20 mm skin is now only a **2.50 mm slot centred on the LED circle at
+r = 40.75**; everything either side is **2.00 mm** of white PLA.
+
+| | before | after |
+|---|---:|---:|
+| lit aperture | 5.90 mm | **2.50 mm** |
+| one lit LED shows | 5.90 × 9.72 mm | **2.50 × 9.72 mm** |
+| aspect of one segment | 1.6 : 1 | **3.9 : 1** |
+
+Three decisions inside that:
+
+- **The slot is narrower than the LED it sits over.** A 5050 is 5 mm and spans
+  r 38.25–43.25; a 2.50 mm slot inside that acts as an aperture, not a window,
+  which is what makes the lit edge crisp rather than fading out. **(verified —
+  geometry, checked in check4.)**
+- **The inner band is flush with the skirt at 2.00 mm**, so the face inboard of
+  the line is one continuous shelf and not a step.
+- **The cell walls stay at full height.** They leave 91% of the circle open, so
+  adjacent LEDs read as one line, but each LED still gets its own cell. Dropping
+  them would give a smoother line and smear the hands, and the priority order
+  for this project is clock > timers > status. **(assumed — the 2.00 mm
+  surround's opacity is a judgement; white PLA transmission at that thickness
+  has not been measured.)**
+
+### Two mesh problems this surfaced, both worth keeping
+
+- **Zero-volume debris.** Adding the two bands took the diffuser from 1 body to
+  10 — one real solid of 12653 mm³ and nine flat shells with no volume, left
+  where a new surface landed at exactly the same coordinate as an old one. Five
+  of them came from a single mistake: the outer band stopped at r = 45.00, which
+  is exactly where the thinning cut ended, leaving a 0.01 mm sliver. Overlapping
+  further in killed those; `finalise()` now drops the rest, but only shells under
+  0.01 mm³, and it reports how many so the cleanup cannot hide a real break.
+- **The volume check was measuring the wrong thing.** Two independent volume
+  calculations over a surface with non-manifold edges do not agree, and the
+  disagreement *is* the ambiguity those defects introduce. Sam's uploaded
+  diffuser disagrees with itself by **0.054%**; the derived part by **0.043%**,
+  with 160 bad edges against his 387. It is now held to "no worse than the
+  source", because zero is not reachable from that source.
+
+Also corrected a claim in the README: the STL and 3MF carry **identical**
+geometry for these parts, because `finalise()` quantises to float32 before
+writing either. The earlier "prefer the 3MF, the STL round trip is what breaks
+things" was true in general and not true of these files.
+
+### Open
+
+- `DIFF_LINE_W` (2.50) and `DIFF_OPAQUE_T` (2.00) are both judgements. The
+  first is cosmetic; the second decides whether the face reads as white or as a
+  dim glow, and a light meter or a test print settles it.
+- The plywood face's ring window is still 11.5 mm wide, so ~9 mm of white
+  diffuser shows around the line. Left alone deliberately — that is the Echo
+  look — but `face.svg` is where to change it.
