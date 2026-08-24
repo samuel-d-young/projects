@@ -878,3 +878,99 @@ Worth keeping, because each one was cheap and each one narrowed the field:
   identical to `/config/esphome/mini-round-clock.yaml` on the box (32346 B,
   md5 `af1016fdd8911fd6f45dee4a22c1b20b`).
 - Previous config on the box is backed up as `.pre-gc9b72-bak`.
+
+---
+
+## 2026-08-24 — First local session: the timer path runs end to end on real HA
+
+Picked up from `HANDOFF.md` on Samuel's Windows box. The handoff's premise —
+"a local session is on the LAN and can install this" — is confirmed:
+`192.168.1.79:8123` and `192.168.1.63:5000` both answer immediately.
+
+### The handoff's steps 1–5 were already done
+
+Worth stating plainly so nobody re-runs `install.sh` over a working system: a
+later cloud session (commits `c98f9a43`, `8f15ce9b`) had already installed the
+**multi-timer pool** package, and it is live. Verified against the running
+instance rather than assumed:
+
+| Handoff step | State |
+|---|---|
+| 1. Package installed | Done — 10 `sensor.wall_clock_*`, 8 `binary_sensor.wall_clock_*`, `input_boolean.wall_clock_timer_alert` |
+| 2. Entity ids filled in | Done — the file's own header records them as resolved 2026-08-23, and they match the live registry |
+| 3. Restarted | Done — domains came up 18:33 |
+| 4. Override loaded | **Confirmed** — `Intent HassPauseTimer is being overwritten by <ScriptIntentHandler - HassPauseTimer>`, "shows up 8 times" (the eight Echo-parity intents) |
+| 5. Entities exist | Confirmed, unprefixed |
+
+`custom_templates/wall_clock_timer_match.jinja` is installed and importable —
+`spoken(125)` returns `2 minutes and 5 seconds` from Developer Tools. The
+Settings dashboard view from `8f15ce9b` is live at `/wall-clock-build/settings`.
+
+### The thing that had never been tested, tested
+
+Every previous entry flagged the same gap: the override was verified *by source*
+and had never actually fired. It has now, via
+`conversation.process: "set a timer for two minutes"`.
+
+```
+response: "Timer set for 2 minutes."   response_type: action_done
+```
+
+The whole chain, sampled while running:
+
+| | |
+|---|---|
+| `timer.wall_clock_1` | `active`, `finishes_at 2026-08-24T12:16:56+00:00`, `duration 0:02:00` |
+| `sensor.wall_clock_timer_finish_epoch` | `1787573816` |
+| `sensor.wall_clock_timer_total` | `120` |
+| `sensor.wall_clock_timer_count` | `1` |
+| `sensor.wall_clock_timer_slots` | `[{'i': 1, 'entity': 'timer.wall_clock_1', 'st': 'active', 'label': '', 'area': '', 'total': 120, 'fin': 1787573816}]` |
+
+**The central design claim holds on real hardware.** Sampled at 91 s and again
+at 37 s remaining, `finish_epoch` was byte-identical both times. That is the
+whole reason the package publishes an absolute epoch instead of the timer's
+`remaining` — Phase 4 argued it from source, and it is now observed.
+
+At zero: slot released to `idle`, `binary_sensor.wall_clock_timer_alert` **and**
+`input_boolean.wall_clock_timer_alert` both `on`, every sensor reset to `0`/`[]`.
+~60 s later both cleared themselves. Nothing left latched.
+
+**The announce automation did not error.** With `assist_satellite` empty (the
+Voice PE units still are not here), the guessed entity naming that Phase 4
+called "the single thing most likely to be wrong" simply did not fire. It is
+still unverified — but it fails silent, not loud, which is the right way round.
+
+`area` came back `''` because `conversation.process` carries no device context,
+so `preferred_area_id` is absent. That path — a real satellite in a real area —
+is the one thing the timer feature still has untested.
+
+### The device is not on the network at all
+
+All `mini_round_clock` entities are `unavailable`. HA logs
+`Can't connect to ESPHome API for mini-round-clock @ 192.168.1.80`.
+
+A sweep of `6053` across the whole `/24` found **nothing**, so it is not a
+changed DHCP lease — the board is unpowered or not joining wifi.
+
+**A trap worth recording:** `ping 192.168.1.80` reports `0% loss`, which looks
+like the device is up. It is not. The reply is
+`Reply from 192.168.1.32: Destination host unreachable` — an ICMP unreachable
+from a *different* host, which Windows `ping` still counts as a received packet.
+There is no ARP entry for `.80`. Check the port, not the ping.
+
+### Registry leftovers
+
+The real areas are `living_room`, `kitchen`, `bedroom`, `garage`, `front_door`.
+The pre-pool design's per-area helpers still exist in the entity registry as
+`timer.kitchen`, `timer.living_room`, `timer.bedroom`, `timer.garage`,
+`timer.front_door`, all `unavailable` — they are no longer in the YAML. Harmless,
+but they clutter the timer domain and should be deleted from
+Settings > Devices & Services > Entities.
+
+### Next
+
+Hands at the bench. Power the S3 and get it back on wifi — everything on the
+Home Assistant side is installed, loaded and now actually exercised, so the
+ring going live is the next thing that can be observed rather than reasoned
+about. Then the one remaining untested path: a spoken timer from a real
+satellite, which is what finally exercises `preferred_area_id`.
