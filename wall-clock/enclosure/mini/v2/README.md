@@ -253,10 +253,17 @@ A sweep of Officeworks, JB Hi-Fi, Kogan, Amazon AU, Core Electronics, Zaitronics
 PB Tech, Cygnett, Anker AU, Belkin AU, Bunnings and Scorptec found **one** retail
 bank that is both small enough and actually buyable here:
 
-> **Anker Nano Power Bank 22.5W, model A1653, 5,000 mAh — A$49 at Scorptec
-> (Melbourne), in stock.** 76.96 × 36.83 × 24.89 mm, from Anker's own page.
-> Pass-through confirmed in their manual. **~17 hours.**
-> Price and dimensions **verified**; see `docs/BATTERY.md`.
+> **Anker Nano Power Bank, model A1653, 5,000 mAh — about A$49 at Scorptec
+> (Melbourne).** 76.96 × 36.83 × 24.89 mm (verified, Anker's own spec table),
+> so 3.7 mm of spare length in the pocket. Pass-through verified in their
+> manual. **~17 hours.**
+>
+> Two things to settle first: its output is a **fold-out male USB-C plug**, and
+> only 15.2 mm is available at the 12 o'clock end; and nobody documents whether
+> it restarts by itself after being drained. Both are in `docs/BATTERY.md`,
+> with the bench tests. Runner-up if either fails: Baseus Compact Type-C
+> Edition 5000, A$45.99 verified in stock — a plain brick, but it lands
+> exactly on the pocket's limit.
 
 The shim is cut for exactly those dimensions. Buy something else and you change
 two numbers in `params.py` and reprint the shim; the pocket does not move.

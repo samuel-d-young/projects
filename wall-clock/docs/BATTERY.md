@@ -93,16 +93,30 @@ That thickness is what takes the clock from **44 mm deep to 55 mm**.
 
 ## 3. What to buy
 
-### Anker Nano Power Bank 22.5W, model A1653, 5,000 mAh — **A$49**
+### Anker Nano Power Bank, model **A1653**, 5,000 mAh — **about A$49**
 
 | | |
 |---|---|
-| Retailer | **Scorptec** (Melbourne) — **price verified, in stock** |
-| Dimensions | **76.96 × 36.83 × 24.89 mm** — **verified**, from Anker's own product page (3.03 × 1.45 × 0.98 in) |
-| Margin in the pocket | 3.04 mm on length, 1.17 on width, 1.11 on thickness |
-| Connector | built-in USB-C, so no cable stub inside the box |
-| Pass-through charging | **yes — verified from Anker's printed manual** |
-| Auto-restart after depletion | **UNKNOWN — test this before it goes in the wall** |
+| SKU in stock | **A1653H21** (white) at **Scorptec**, Melbourne |
+| Link | https://www.scorptec.com.au/product/power-&-chargers/power-banks/109295-a1653h21 |
+| Price | **A$49.00 — seen on StaticICE AU, dated 24-08-2026.** Scorptec's own page returns HTTP 403 to automated fetch, so the retailer page could not be loaded directly. **Confirm the price on screen before paying.** Anker AU's own RRP is A$59.95 and Anker direct shows Sold Out. |
+| Dimensions | **76.96 × 36.83 × 24.89 mm — verified**, from Anker's US product page spec table (3.03 × 1.45 × 0.98 in). Corroborated by a hands-on review at 77 × 37 × 25 mm, 101 g. |
+| Margin in the pocket | **3.7 mm** on length at its width, 1.2 mm on width, 1.5 mm on thickness |
+| Pass-through | **yes — verified** from the printed Quick Start Guide: *"Simultaneous Charging and Recharging"* |
+| Idle cutoff | **not a problem — verified.** Anker document a 30–90 mA minimum sustaining draw; the clock's 188 mA is 2–6× above it. The A1653 has no trickle mode, so there is nothing to re-arm after a power cut. |
+| Auto-restart after full drain | **UNKNOWN — this is the one that decides it** |
+
+Three traps, all worth knowing before you order:
+
+- **A1259 is a different product.** 10,000 mAh, 103.9 × 52.3 × 25.9 mm. It is 24 mm
+  too long and will not go in. Only **A1653**.
+- **"22.5W" is marketing.** Anker's own manual says 18 W max total output. Irrelevant
+  at 0.94 W, but don't size anything off 22.5.
+- **Ignore Anker's support-page figure of 130 × 100 × 30 mm** — that is the retail carton.
+
+It also looks like it is going end-of-life here: Anker AU shows it sold out, and a
+national price search returns exactly one listing in the country. **If you go this
+way, buy two in the same order.**
 
 Runtime:
 
@@ -116,45 +130,80 @@ usable Wh = 5000 mAh x 3.7 V x 0.88 / 1000 = 16.28 Wh
   16.28 / 2.18 W  =   7.5 hours   worst case
 ```
 
-The shim (`mini-round-clock-battery-shim-x2`) is cut for exactly these
-dimensions. If you buy something else, change `BAT_L`/`BAT_W` in `params.py` and
-reprint the shim — 20 minutes. The pocket itself does not move.
+### The mechanical catch, which is more likely to bite than the size
+
+**The A1653's output is a rigid fold-out MALE USB-C plug on the body. Its single
+female port is the input.** Both are bidirectional, so it can be run either way
+round, but in a closed pocket that male plug has to mate with something — a
+female-to-female coupler, or a lead with a socket on it — and it stands proud
+when deployed.
+
+The pocket has **15.2 mm** at the 12 o'clock end once you step off the centreline
+the wall screw's head sweeps, and only 6.5 mm at 6 o'clock. A fold-out plug plus a
+coupler plus a lead will not fit in 15.2 mm.
+
+**So: check the A1653's plug and port geometry against the pocket before you
+order.** The bounding box is fine with 3.7 mm to spare; the connectors are the
+risk. If they do not work out, the Baseus below is a plain brick with ordinary
+ports and no fold-out anything.
+
+### Runner-up: Baseus Compact Power Bank, Type-C Edition, 5,000 mAh 20W — **A$45.99**
+
+- **baseus.com.au, in stock, ships from Australia. Price verified.**
+- **80 × 40.2 × 25.6 mm.** That lands **exactly** on the pocket's limit — 0.0 mm of
+  spare length at that width, assuming 2 mm corner radii. `params.fits()` computes it.
+- Mechanically simpler than the Anker: ordinary ports, nothing folds out.
+- **Measure the actual unit before committing.** At zero margin, a millimetre of
+  vendor optimism is the difference between it going in and not.
+
+### Everything else
+
+| | | fits? |
+|---|---|---|
+| UGREEN Nexode PB503 5000 | 79 × 38 × 26 | fits, but **no Australian stock** |
+| Cygnett ChargeUp Boost Gen4 5K | 95 × 65 × 15 | no |
+| Anker MagGo 10K Slim | 104 × 71 × 15 | no |
+| Anker PowerCore 10000 | 92 × 60 × 22 | no |
+| Core Electronics AD0505B 5000 | 110 × 66 × 10 | no |
+| Kogan 5200 brick | 102 × 46 × 22 | no |
+| Anker Nano A1259 10000 | 104 × 52 × 26 | no — and not the same part |
 
 ### Which way round it goes
 
 Not a free choice. A 77 mm bank in a 102 mm circle leaves ~25 mm split between
 its ends, and the 6 o'clock end has only **6.51 mm** — no plug fits there. The
-12 o'clock end has 15.2 mm once you step off the centreline the wall screw's
-head sweeps.
+12 o'clock end has **15.2 mm** once you step off the centreline the screw head
+sweeps, and there is **22.8 mm** beside the battery on each side for routing.
 
-**Ports face 12 o'clock, off centre, slim right-angle USB-C plug.** The mains
-lead enters at 6 o'clock and runs up the side of the battery, where there is
-22.8 mm of room. Check where the A1653's ports actually are before you order —
-if its only connector is the fold-out plug and it needs to swing out, measure
-that swing against the 15.2 mm.
+**Ports face 12 o'clock, off centre, slim right-angle USB-C plug. The mains lead
+enters at 6 o'clock and runs up the side.**
 
 ### The one thing that decides whether this works at all
 
 **Many power banks, once flat, will not resume output when mains comes back until
 someone presses the button.** On a clock 2.4 m up a wall, that means it stays
-dead until someone gets a ladder. Anker do not document A1653's behaviour either
-way, and I could not establish it from owner reports.
+dead until someone gets a ladder.
 
-**Test it on the bench, before it goes in the clock. Five minutes:**
+Anker do not document A1653's behaviour: not in the Quick Start Guide (read in
+full), not on the US or AU product pages, not in their support articles. Owner
+reports on Reddit could not be reached from here — that is a real gap in
+coverage, not evidence of absence.
 
-1. Plug the bank into the clock (or any ~200 mA load) and let it run flat.
-2. Leave the load connected. Plug the wall charger into the bank.
-3. Watch the load. Does it come alive on its own?
+There is a second failure in the same family: pass-through banks often drop their
+output for about a second on the mains↔battery transition, which reboots the
+ESP32 every time the power blinks — the opposite of what a UPS is for.
 
-If yes, buy a second one and stop reading. If no, the bank is not usable as a
-wall-clock UPS at any price, and the alternative below is the answer.
+**Test both on the bench, before the bank goes in the clock:**
 
-Idle cutoff, the trap people usually worry about, is **not** the problem here: at
-188 mA the clock sits well above the ~50–75 mA threshold banks use. It would only
-bite if firmware dimmed everything hard on battery and dropped the draw below it
-— worth remembering if you ever write that feature.
+1. Clock on the bank, bank on mains. Confirm it runs.
+2. **Pull mains.** The clock should carry on with no flicker and no reboot. Plug
+   mains back in and watch again. *(This catches the transition dropout.)*
+3. Leave it on battery until the bank goes flat and the clock dies.
+4. Plug mains back in. **Touch nothing.** If the clock comes back on its own
+   within a minute or two — pass. If it needs a button press — fail.
 
----
+If it fails step 2 or step 4, no consumer power bank will do this job, and §4 is
+the answer.
 
 ## 4. The alternative, if the bank fails the test
 

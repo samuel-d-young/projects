@@ -134,13 +134,37 @@ VENT_ROWS      = 3
 # --- battery retention shims -------------------------------------------------
 SHIM_CLR     = 0.30
 
-def max_battery(W):
-    """Longest battery of width W the pocket takes, given where the hanging
-    screw's head sweeps and where the pocket wall is."""
+def max_battery(W, corner_r=0.0):
+    """Longest battery of width W the pocket takes.
+
+    Set by two things: where the hanging screw's head sweeps (which fixes the
+    +x end) and the pocket wall (which fixes the -x end via the far corners).
+
+    corner_r matters more than it looks. Treating a power bank as a sharp
+    rectangle is conservative by a couple of millimetres, and a couple of
+    millimetres is the difference between a candidate fitting and not. Every
+    retail bank has radiused corners; 2 mm is a safe floor.
+    """
     head_x0 = HANG_R - KEY_DROP - 4.5          # innermost the head ever reaches
     xe = head_x0 - 1.5                         # battery's +x edge, with clearance
-    lo = -math.sqrt(max(R_INNER**2 - (W/2)**2, 0.0))
+    hw, rho = W / 2.0, corner_r
+    if rho <= 0:
+        lo = -math.sqrt(max(R_INNER**2 - hw**2, 0.0))
+    else:
+        inner = R_INNER - rho                  # the corner ARC's centre line
+        dy = hw - rho
+        lo = -(math.sqrt(max(inner**2 - dy**2, 0.0)) + rho)
     return xe - lo
+
+
+def fits(L, W, T, corner_r=2.0):
+    """Would this bank go in? -> (ok, why)."""
+    if T > POCKET_BATTERY - 1.4:
+        return False, f'{T:.1f} mm thick, pocket takes {POCKET_BATTERY - 1.4:.1f}'
+    lim = max_battery(W, corner_r)
+    if L > lim:
+        return False, f'{L:.1f} long, {lim:.1f} available at {W:.1f} wide'
+    return True, f'{lim - L:.1f} mm to spare on length'
 
 
 def summary():

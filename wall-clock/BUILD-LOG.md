@@ -1405,6 +1405,48 @@ at 50–70 °C inside. Vents are in the design; the material change is nearly fr
 Both housing depths are shipped so the trade is Sam's: `-slim` (44.4 mm, mains only) or
 `-battery` (55.4 mm, ~17 h).
 
+### The battery, after verification
+
+Adversarial verification against the retailers found exactly one bank that is
+both small enough for a 108 mm disc and buyable in Australia:
+
+**Anker Nano A1653, 5,000 mAh, 76.96 x 36.83 x 24.89 mm** (verified from Anker's
+own spec table, corroborated by a hands-on review), about **A$49 at Scorptec**
+in Melbourne. 3.7 mm of spare length in the pocket. Pass-through verified in the
+printed manual. ~17 hours. The shim is cut for exactly these dimensions.
+
+Three things the verification changed, all of which would have cost an evening:
+
+- **The output is a rigid fold-out MALE USB-C plug; the single female port is
+  the input.** The pocket has 15.2 mm at 12 o'clock and 6.5 mm at 6 o'clock, and
+  a fold-out plug plus a coupler plus a lead does not fit in 15.2 mm. The
+  bounding box was never the risk — the connectors are. **(verified)**
+- **A1259 is a different product** — 10,000 mAh, 104 mm long, will not go in.
+  Easy substitution to accept at a counter.
+- **"22.5W" is marketing**; Anker's manual says 18 W max total output.
+
+Two pieces of good news: Anker document a 30-90 mA minimum sustaining draw, and
+the clock's 188 mA is 2-6x above it, so idle cutoff will not bite; and the A1653
+has no trickle mode, so there is nothing to re-arm after an outage. **(verified)**
+
+Still unknown, and it is the thing that decides the whole idea: **whether it
+resumes output by itself after being drained.** Not in the manual, not on either
+product page, not in Anker's support articles; owner reports on Reddit were
+unreachable from here, which is a gap in coverage rather than evidence of
+absence. `docs/BATTERY.md` has a four-step bench test that settles it, plus the
+related transition-dropout test — a pass-through bank that blinks its output for
+a second when mains comes and goes reboots the ESP32 every time.
+
+Runner-up if either test fails: **Baseus Compact Type-C Edition 5,000 mAh,
+A$45.99, verified in stock at baseus.com.au** — a plain brick with ordinary
+ports and nothing that folds out, but at 80 x 40.2 x 25.6 it lands *exactly* on
+the pocket's limit, so measure the real unit first.
+
+`params.fits()` and `check2` now score candidates against the pocket properly,
+including corner radius: treating a bank as a sharp-cornered rectangle is
+conservative by about 0.7 mm at 2 mm radii, and 0.7 mm was the difference for
+one of these.
+
 ### Open
 
 - Nothing sliced, nothing printed, nothing bought.

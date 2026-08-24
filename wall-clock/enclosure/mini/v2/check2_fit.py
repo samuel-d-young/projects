@@ -5,6 +5,7 @@ import numpy as np, trimesh
 import csg
 from csg import box_lwh, cyl, to_manifold, to_trimesh
 from params import *
+from params import max_battery, fits
 from build_v2 import load_sams_base
 
 FAIL=[]
@@ -163,14 +164,26 @@ for sx in (-1,1):
         ck(r < R_INNER, f'battery corner ({sx:+d},{sy:+d}) inside the wall', f'r={r:.2f} < {R_INNER:.2f}')
 ck(POCKET_BATTERY - BAT_T >= 1.4, 'air above the battery', f'{POCKET_BATTERY-BAT_T:.2f} mm')
 
-# what is the biggest bank this pocket will actually take?
-print('\n   maximum battery this pocket accepts:')
-head_x0 = HANG_R - KEY_DROP - 4.5
+# what this pocket will actually take, and how the real candidates score.
+# Sharp-cornered is the conservative reading; every retail bank is radiused,
+# and 2 mm of corner radius is worth ~0.7 mm of length here.
+print('\n   maximum battery, by width:')
+print(f'      {"width":>6s}  {"sharp":>7s}  {"r=2mm":>7s}   (x {POCKET_BATTERY-1.4:.1f} mm thick)')
 for W in (36, 38, 40, 45, 50, 55, 60):
-    xe = head_x0 - 1.5
-    lo = -math.sqrt(max(R_INNER**2 - (W/2)**2, 0))
-    L = xe - lo
-    print(f'      {L:5.1f} x {W:4.1f} x {POCKET_BATTERY-1.5:4.1f} mm')
+    print(f'      {W:6.1f}  {max_battery(W, 0.0):7.1f}  {max_battery(W, 2.0):7.1f}')
+print('\n   the candidates that were verified:')
+CANDIDATES = [
+    ('Anker Nano A1653          A$49  Scorptec',      76.96, 36.83, 24.89),
+    ('Baseus Compact Type-C 5K  A$46  baseus.com.au', 80.00, 40.20, 25.60),
+    ('UGREEN PB503              no AU stock',         79.00, 38.00, 26.00),
+    ('Anker PowerCore 10000',                         92.00, 60.00, 22.00),
+    ('Anker Nano A1259 10000    wrong part',         103.90, 52.30, 25.90),
+]
+for name, L, W, T in CANDIDATES:
+    ok, why = fits(L, W, T)
+    print(f'      {"FITS" if ok else "no  "}  {name:44s} {L:5.1f}x{W:4.1f}x{T:4.1f}  {why}')
+ck(fits(BAT_L, BAT_W, BAT_T)[0], 'the battery the shim is cut for fits',
+   fits(BAT_L, BAT_W, BAT_T)[1])
 
 print('\n8. Room for the battery\'s own connectors')
 # A 77 mm bank in a 102 mm circle leaves ~25 mm split between its two ends, and
