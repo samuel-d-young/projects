@@ -15,21 +15,24 @@
 #   without PSRAM is REFUSED at validation. The N16R8's 8 MB of octal PSRAM is
 #   exactly what satisfies it.
 #
-# !! THE DISPLAY SECTION IS COMMENTED OUT — READ THIS !!
-#   This panel is a GC9B72, not an ST77916, and its header
-#   (TE SDO BL CS DC RST SDA SCL VCC GND) is single 4-wire SPI, not QSPI.
-#   ESPHome 2026.8.0 ships NO GC9B72 model, so it needs `model: CUSTOM` plus
-#   the panel's init sequence, which is not published anywhere verifiable.
-#   The RING config below is complete and works TODAY — flash it, get the clock
-#   running, and re-enable the display once the init sequence is in hand.
+# DISPLAY: WORKING. The panel is a GC9B72 on single 4-wire SPI (header reads
+#   TE SDO BL CS DC RST SDA SCL VCC GND — no D0-D3, so not QSPI). ESPHome 2026.8.0
+#   ships no GC9B72 model, so this uses `model: CUSTOM` with the panel's real
+#   init sequence, transcribed from xboot/xstar's fb-gc9b72.c and corroborated
+#   byte-for-byte against MaliosDark/Arduino_GC9B72. Confirmed on hardware
+#   2026-08-24 at 20 MHz, pixel_mode 16bit.
 #
-# !! CHECK THE DISPLAY PINS BEFORE FLASHING !!
-#   `model: ESP-VOCAT` ships Espressif's init sequence AND the ESP-VoCat v1.2
-#   board's pin defaults, because that is where the init data came from. Your
-#   panel is almost certainly wired differently. The GPIOs are substitutions
-#   below — correct them against your module first.
+#   Do NOT substitute a GC9B71 or GC9A01 table. The GC9B71 was tried: same
+#   family, same 360x360 geometry, same 0xFE/0xEF unlock pair — and it still
+#   came out as stripes, because the register map differs. Family resemblance
+#   is not the table.
 #
-# Verified against ESPHome 2026.8.0 source. `esphome config` NOT yet run.
+# PINS are the real ones for this module, set in the substitutions below and
+#   confirmed working — not the ESP-VoCat reference defaults the ST77916 model
+#   would have brought with it.
+#
+# COLOUR is resolved in one place: see the palette resolver under `interval:`.
+#   Neither render lambda does colour maths of its own.
 # =============================================================================
 
 substitutions:
@@ -401,6 +404,165 @@ number:
     optimistic: true
     restore_value: true
 
+  # ---------------------------------------------------------------------------
+  # CUSTOM PALETTE — twelve numbers, four elements, HSV
+  # ---------------------------------------------------------------------------
+  # Only consulted when "Colour theme" is set to "custom"; the presets ignore
+  # them entirely, so these can be left mid-fiddle without affecting anything.
+  #
+  # HSV rather than RGB on purpose. Hue is the axis you actually want to drag,
+  # and keeping saturation and value separate is what lets the SCREEN reuse the
+  # same hue at its own brightness. A backlit LCD and an LED at arm's length do
+  # not want the same value: the ring's timer colour is deliberately dim (V 35)
+  # because it is a bare emitter, while the same teal as screen text has to be
+  # bright to be legible. Storing RGB would weld those two together and one of
+  # the surfaces would always be wrong.
+  #
+  # Defaults below are the "default" preset converted to HSV, so switching
+  # straight to custom changes nothing visible until you move a slider.
+  #
+  # There is no pip control by design — the status pips track the timer arc at
+  # 62%, which is what all four presets already do to within a few percent.
+  - platform: template
+    id: hour_hue
+    name: "Hour hue"
+    entity_category: config
+    icon: mdi:palette-outline
+    unit_of_measurement: "°"
+    min_value: 0
+    max_value: 360
+    step: 1
+    initial_value: 18
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: hour_sat
+    name: "Hour saturation"
+    entity_category: config
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 92
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: hour_val
+    name: "Hour intensity"
+    entity_category: config
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+
+  - platform: template
+    id: min_hue
+    name: "Minute hue"
+    entity_category: config
+    icon: mdi:palette-outline
+    unit_of_measurement: "°"
+    min_value: 0
+    max_value: 360
+    step: 1
+    initial_value: 216
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: min_sat
+    name: "Minute saturation"
+    entity_category: config
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 88
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: min_val
+    name: "Minute intensity"
+    entity_category: config
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+
+  - platform: template
+    id: sec_hue
+    name: "Second hue"
+    entity_category: config
+    icon: mdi:palette-outline
+    unit_of_measurement: "°"
+    min_value: 0
+    max_value: 360
+    step: 1
+    initial_value: 0
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: sec_sat
+    name: "Second saturation"
+    entity_category: config
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 0
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: sec_val
+    name: "Second intensity"
+    entity_category: config
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 35
+    optimistic: true
+    restore_value: true
+
+  - platform: template
+    id: timer_hue
+    name: "Timer hue"
+    entity_category: config
+    icon: mdi:palette-outline
+    unit_of_measurement: "°"
+    min_value: 0
+    max_value: 360
+    step: 1
+    initial_value: 173
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: timer_sat
+    name: "Timer saturation"
+    entity_category: config
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: timer_val
+    name: "Timer intensity"
+    entity_category: config
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 1
+    initial_value: 35
+    optimistic: true
+    restore_value: true
+
 select:
   - platform: template
     id: display_mode
@@ -432,6 +594,11 @@ select:
 
   # Palette for hands and accents. "mono" is the accessible one — it drops all
   # hue coding, so nothing depends on telling red from green.
+  #
+  # "custom" hands control to the twelve Hue/Saturation/Value numbers below.
+  # The four named presets are unchanged and stay one click away — custom is an
+  # addition, not a replacement, so there is always a known-good palette to
+  # return to after fiddling.
   - platform: template
     id: colour_theme
     name: "Colour theme"
@@ -442,6 +609,7 @@ select:
       - "warm"
       - "cool"
       - "mono"
+      - "custom"
     initial_option: "default"
     optimistic: true
     restore_value: true
@@ -514,6 +682,125 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+
+  # ---------------------------------------------------------------------------
+  # RESOLVED PALETTE — the single place colour is decided
+  # ---------------------------------------------------------------------------
+  # Both renderers read plain ints from here and do no colour maths of their
+  # own. That is deliberate, and it is the same argument the brightness cap
+  # makes further down: a value computed in one auditable place can be reasoned
+  # about, and one scattered across two lambdas cannot. The ring lambda is also
+  # a bare function pointer that cannot capture, so a shared helper was never
+  # an option — a global is.
+  #
+  # Layout is flat rather than [5][3] because ESPHome global arrays take a
+  # single initial_value literal, and a flat one is unambiguous.
+  #   pal_ring: hour 0-2, minute 3-5, second 6-8, timer 9-11, pip 12-14
+  #   pal_scr : hour 0-2, minute 3-5, second 6-8, timer 9-11
+  #
+  # Initial values are the "default" preset already resolved, so the very first
+  # frames are correct in the gap before the resolver's first tick.
+  - id: pal_ring
+    type: int[15]
+    restore_value: no
+    initial_value: '{255,90,20, 30,120,255, 90,90,90, 0,90,80, 0,60,55}'
+  - id: pal_scr
+    type: int[12]
+    restore_value: no
+    initial_value: '{235,144,105, 106,153,224, 158,158,158, 94,235,219}'
+
+# -----------------------------------------------------------------------------
+# PALETTE RESOLVER
+# -----------------------------------------------------------------------------
+# Runs the theme (or the twelve custom numbers) through HSV -> RGB once every
+# 250 ms. A quarter second is imperceptible when dragging a slider and costs
+# nothing next to the 20 fps render.
+#
+# The ring and the screen get DIFFERENT values from the same hue, which is the
+# whole reason the palette is authored in HSV:
+#
+#   ring   — value as authored. These are bare emitters seen from a metre away,
+#            and the timer arc is deliberately dim so it never reads as a hand.
+#   screen — saturation x0.6 and a value set by the element's ROLE, not by the
+#            ring's. Fully saturated text on a dark panel is harsh, and the
+#            ring's value encodes LED power, not importance. The timer
+#            countdown is the hero element when a timer runs and has to stay
+#            bright even though its ring counterpart is dim.
+interval:
+  - interval: 250ms
+    then:
+      - lambda: |-
+          // h 0-360, s 0-100, v 0-100 -> RGB 0-255.
+          auto hsv = [](float h, float s, float v, int *out) {
+            h = fmodf(h, 360.0f); if (h < 0.0f) h += 360.0f;
+            s = s < 0.0f ? 0.0f : (s > 100.0f ? 100.0f : s) / 100.0f;
+            v = v < 0.0f ? 0.0f : (v > 100.0f ? 100.0f : v) / 100.0f;
+            const float c = v * s;
+            const float x = c * (1.0f - fabsf(fmodf(h / 60.0f, 2.0f) - 1.0f));
+            const float m = v - c;
+            float r = 0.0f, g = 0.0f, b = 0.0f;
+            if      (h <  60.0f) { r = c; g = x; }
+            else if (h < 120.0f) { r = x; g = c; }
+            else if (h < 180.0f) { g = c; b = x; }
+            else if (h < 240.0f) { g = x; b = c; }
+            else if (h < 300.0f) { r = x; b = c; }
+            else                 { r = c; b = x; }
+            out[0] = (int) lroundf((r + m) * 255.0f);
+            out[1] = (int) lroundf((g + m) * 255.0f);
+            out[2] = (int) lroundf((b + m) * 255.0f);
+          };
+
+          // hue, saturation, value for hour, minute, second, timer, pip.
+          // The presets are the previous hardcoded RGB triples converted to
+          // HSV, so they round-trip to within a unit or two of what they were.
+          float T[5][3] = {
+            { 17.9f,  92.2f, 100.0f},   // hour
+            {216.0f,  88.2f, 100.0f},   // minute
+            {  0.0f,   0.0f,  35.3f},   // second
+            {173.3f, 100.0f,  35.3f},   // timer
+            {175.0f, 100.0f,  23.5f},   // pip
+          };
+
+          const std::string th = id(colour_theme).current_option().str();
+          if (th == "warm") {
+            T[0][0]= 16.5f; T[0][1]=100.0f; T[0][2]=100.0f;
+            T[1][0]= 33.5f; T[1][1]= 84.3f; T[1][2]=100.0f;
+            T[2][0]= 24.0f; T[2][1]= 83.3f; T[2][2]= 47.1f;
+            T[3][0]= 24.0f; T[3][1]=100.0f; T[3][2]= 78.4f;
+            T[4][0]= 25.0f; T[4][1]=100.0f; T[4][2]= 47.1f;
+          } else if (th == "cool") {
+            T[0][0]=204.4f; T[0][1]= 52.9f; T[0][2]=100.0f;
+            T[1][0]=226.0f; T[1][1]= 84.3f; T[1][2]=100.0f;
+            T[2][0]=210.0f; T[2][1]= 50.0f; T[2][2]= 47.1f;
+            T[3][0]=198.0f; T[3][1]=100.0f; T[3][2]= 78.4f;
+            T[4][0]=200.0f; T[4][1]=100.0f; T[4][2]= 47.1f;
+          } else if (th == "mono") {
+            // Saturation pinned to zero on every element. This is the
+            // accessible palette: nothing on the face may depend on telling
+            // one hue from another, so custom must never leak into it.
+            T[0][0]=0.0f; T[0][1]=0.0f; T[0][2]=100.0f;
+            T[1][0]=0.0f; T[1][1]=0.0f; T[1][2]= 58.8f;
+            T[2][0]=0.0f; T[2][1]=0.0f; T[2][2]= 23.5f;
+            T[3][0]=0.0f; T[3][1]=0.0f; T[3][2]= 35.3f;
+            T[4][0]=0.0f; T[4][1]=0.0f; T[4][2]= 21.6f;
+          } else if (th == "custom") {
+            T[0][0]=id(hour_hue).state;  T[0][1]=id(hour_sat).state;  T[0][2]=id(hour_val).state;
+            T[1][0]=id(min_hue).state;   T[1][1]=id(min_sat).state;   T[1][2]=id(min_val).state;
+            T[2][0]=id(sec_hue).state;   T[2][1]=id(sec_sat).state;   T[2][2]=id(sec_val).state;
+            T[3][0]=id(timer_hue).state; T[3][1]=id(timer_sat).state; T[3][2]=id(timer_val).state;
+            // Pips follow the arc at 62%, which is what all four presets
+            // already do to within a few percent. One fewer control, and the
+            // two can never drift into looking like unrelated features.
+            T[4][0]=T[3][0]; T[4][1]=T[3][1]; T[4][2]=T[3][2] * 0.62f;
+          }
+
+          for (int e = 0; e < 5; e++)
+            hsv(T[e][0], T[e][1], T[e][2], &id(pal_ring)[e * 3]);
+
+          // Role values for the screen, in the panel's own hierarchy.
+          const float role_v[4] = {92.0f, 88.0f, 62.0f, 92.0f};
+          for (int e = 0; e < 4; e++)
+            hsv(T[e][0], T[e][1] * 0.6f, role_v[e], &id(pal_scr)[e * 3]);
 
 # -----------------------------------------------------------------------------
 # LIGHTS
@@ -592,35 +879,20 @@ light:
             };
 
             const std::string mode  = id(display_mode).current_option().str();
-            const std::string theme = id(colour_theme).current_option().str();
             const auto now = id(ha_time).now();
             if (!id(display_on).state) { it.all() = Color::BLACK; return; }
 
             // ---- THEME ------------------------------------------------------
-            // Hand and arc colours only. "mono" deliberately drops hue coding
-            // entirely, so nothing on the face depends on telling red from
-            // green.
-            int hourC[3] = {255, 90, 20}, minC[3] = {30, 120, 255}, secC[3] = {90, 90, 90};
-            int timerC[3] = {0, 90, 80}, pipC[3] = {0, 60, 55};
-            if (theme == "warm") {
-              hourC[0]=255; hourC[1]=70;  hourC[2]=0;
-              minC[0] =255; minC[1] =160; minC[2] =40;
-              secC[0] =120; secC[1] =60;  secC[2] =20;
-              timerC[0]=200; timerC[1]=80; timerC[2]=0;
-              pipC[0] =120; pipC[1] =50;  pipC[2] =0;
-            } else if (theme == "cool") {
-              hourC[0]=120; hourC[1]=200; hourC[2]=255;
-              minC[0] =40;  minC[1] =90;  minC[2] =255;
-              secC[0] =60;  secC[1] =90;  secC[2] =120;
-              timerC[0]=0;  timerC[1]=140; timerC[2]=200;
-              pipC[0] =0;   pipC[1] =80;  pipC[2] =120;
-            } else if (theme == "mono") {
-              hourC[0]=255; hourC[1]=255; hourC[2]=255;
-              minC[0] =150; minC[1] =150; minC[2] =150;
-              secC[0] =60;  secC[1] =60;  secC[2] =60;
-              timerC[0]=90; timerC[1]=90; timerC[2]=90;
-              pipC[0] =55;  pipC[1] =55;  pipC[2] =55;
-            }
+            // Already resolved. The palette resolver up in `interval:` turns
+            // the selected theme — or the twelve custom HSV numbers — into
+            // plain RGB, so this lambda does no colour maths at all and there
+            // is exactly one place a colour can be wrong.
+            const int *P_ = id(pal_ring);
+            const int *hourC  = P_ + 0;
+            const int *minC   = P_ + 3;
+            const int *secC   = P_ + 6;
+            const int *timerC = P_ + 9;
+            const int *pipC   = P_ + 12;
 
             // ---- TEST CHASE: wiring, LED count, colour order, index 0 ------
             if (mode == "test chase") {
@@ -923,6 +1195,20 @@ display:
       // Kept dark on purpose. This sits inside a lit LED ring; a bright
       // background would wash the ring out and be unreadable at night.
       std::string cond = id(weather_condition).state;
+      // Screen palette, resolved by the interval up top. Saturation and value
+      // are already set for a backlit panel, so these are used as-is; the
+      // dimmed variants below are for subordinate text.
+      const int *S_ = id(pal_scr);
+      const Color c_hour  = Color(S_[0],  S_[1],  S_[2]);
+      const Color c_min   = Color(S_[3],  S_[4],  S_[5]);
+      const Color c_sec   = Color(S_[6],  S_[7],  S_[8]);
+      const Color c_timer = Color(S_[9],  S_[10], S_[11]);
+      auto dim = [](const Color &c, float k) {
+        return Color((uint8_t) lroundf(c.r * k),
+                     (uint8_t) lroundf(c.g * k),
+                     (uint8_t) lroundf(c.b * k));
+      };
+
       Color bg = Color(10, 12, 18);
       if (id(show_weather).state) {
         if      (cond == "sunny")            bg = Color(46, 34,  6);
@@ -969,13 +1255,13 @@ display:
         // A timer is running: it gets the big numerals, the clock drops to a
         // subtitle. The thing you are waiting on should be the readable one.
         const int m = left / 60, s = left % 60;
-        it.printf(CX, CY - 34, id(font_big), Color(120, 235, 220),
+        it.printf(CX, CY - 34, id(font_big), c_timer,
                   TextAlign::CENTER, "%d:%02d", m, s);
 
         // Whose timer, when it was given a name.
         const std::string lbl = id(timer_label).state;
         if (!lbl.empty() && lbl != "unknown")
-          it.printf(CX, CY + 40, id(font_small), Color(120, 200, 195),
+          it.printf(CX, CY + 40, id(font_small), dim(c_timer, 0.84f),
                     TextAlign::CENTER, "%s", lbl.c_str());
 
         if (h24)
@@ -1007,7 +1293,7 @@ display:
 
         for (int k = 0; k < no && k < 3; k++) {
           const int r = (int) lroundf(others[k] - (float) now.timestamp);
-          it.printf(CX, CY + 106 + k * 22, id(font_small), Color(90, 150, 148),
+          it.printf(CX, CY + 106 + k * 22, id(font_small), dim(c_timer, 0.63f),
                     TextAlign::CENTER, "+ %d:%02d", r / 60, r % 60);
         }
 
@@ -1027,13 +1313,13 @@ display:
           const float ma = (now.minute / 60.0f + now.second / 3600.0f)
                             * 6.28318f - 1.5708f;
           it.line(CX, CY, CX + (int)(cosf(ha) * 80),  CY + (int)(sinf(ha) * 80),
-                  Color(255, 150, 60));
+                  c_hour);
           it.line(CX, CY, CX + (int)(cosf(ma) * 125), CY + (int)(sinf(ma) * 125),
-                  Color(120, 180, 255));
+                  c_min);
           if (id(show_seconds).state) {
             const float sa = (now.second / 60.0f) * 6.28318f - 1.5708f;
             it.line(CX, CY, CX + (int)(cosf(sa) * 138), CY + (int)(sinf(sa) * 138),
-                    Color(150, 150, 150));
+                    c_sec);
           }
           it.filled_circle(CX, CY, 5, Color(220, 220, 220));
 

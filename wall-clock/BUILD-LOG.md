@@ -974,3 +974,106 @@ Home Assistant side is installed, loaded and now actually exercised, so the
 ring going live is the next thing that can be observed rather than reasoned
 about. Then the one remaining untested path: a spoken timer from a real
 satellite, which is what finally exercises `preferred_area_id`.
+
+---
+
+## 2026-08-24 — Colour is customisable, and resolved in one place
+
+Ring bring-up closed out first: **twelve o'clock is at the top with
+`twelve_oclock_offset: 0`**, so the offset needed no correction, and the face
+rendering in its intended colours settles `channel_colors: GRB` as correct.
+Both were outstanding from MAKE.md step 6.
+
+### A control that only half-worked
+
+`select.mini_round_clock_colour_theme` described itself as covering "hands and
+accents". It covered the ring only — **every colour on the 360x360 display was
+hardcoded and ignored the theme entirely**. Six `Color(...)` literals: the
+timer countdown, its label, the extra-timer lines, and the three analogue
+hands. Changing the theme moved the ring and left the screen alone.
+
+### The design, and why HSV rather than RGB
+
+Twelve numbers — hue, saturation and intensity for hour, minute, second and
+timer — plus a fifth theme option, `custom`, that consults them. The four
+presets are untouched and stay one click away, so there is always a known-good
+palette to come back to.
+
+HSV is not a preference here, it is what makes one palette drive two very
+different surfaces. **A bare LED at a metre and a backlit LCD do not want the
+same value.** The ring's timer colour is deliberately dim (V 35) so the arc can
+never be mistaken for a hand; the same teal as screen text has to be bright to
+be legible at all. Storing RGB would weld those together and one surface would
+always be wrong. Storing hue and saturation separately lets the screen reuse
+the hue at its own value:
+
+- **ring** — value as authored
+- **screen** — saturation x0.6 (fully saturated text on a dark panel is harsh)
+  and a value set by the element's *role*, because the ring's value encodes LED
+  power, not importance
+
+Checked against what the screen used to hardcode: the rule reproduces the old
+timer text `(120,235,220)` as `(94,235,219)`, and the old analogue minute hand
+`(120,180,255)` as `(106,153,224)`. Close enough that the change reads as a
+unification rather than a restyle.
+
+### One place decides colour
+
+The palette resolver lives under `interval:` at 250 ms and writes two globals,
+`pal_ring` and `pal_scr`. Neither render lambda does any colour maths.
+
+That is the same argument the brightness cap makes: a value computed in one
+auditable place can be reasoned about, one scattered across two lambdas cannot.
+It was also forced — `addressable_lambda` compiles to a bare function pointer
+and cannot capture, so a shared helper was never available. A global was.
+
+Globals are seeded with the resolved *default* palette so the first frames are
+correct in the gap before the resolver's first tick.
+
+**Pips are derived, not controlled.** All four presets already set the pip
+colour to ~62% of the timer colour, so custom does the same. One fewer control,
+and the two can never drift into looking like unrelated features.
+
+**`mono` pins saturation to zero on every element.** Custom must never leak
+into it — it is the accessible palette and nothing on the face may depend on
+telling one hue from another.
+
+### Verified, at last, by the real toolchain
+
+Previous entries all carry the same caveat: `esphome config` had never been
+run, and the lambdas were only checked against a stub harness. Neither applies
+now. There is no `g++`, `esphome` CLI or Docker on the Windows box, but the
+**ESPHome Device Builder add-on compiles for real**, which is strictly better
+than the stub:
+
+- `esphome config` -> **`INFO Configuration is valid!`** — the first time this
+  project has ever passed it
+- full ESP-IDF build, 115 objects, **compiled and linked clean**; the only
+  warnings are upstream `mipi_spi.cpp` `-Wempty-body` noise
+- OTA uploaded, device rebooted, `safe_mode:154: Boot seems successful;
+  resetting boot loop counter`
+- `[S][select]: 'Colour theme' >> custom` accepted with no crash, and no
+  `mini_round_clock` entity is unavailable
+
+Switching to `custom` is visually identical to `default`, which is the useful
+test: it means the RGB -> HSV -> RGB round-trip of the presets is faithful.
+
+**Before overwriting the box's config it was diffed against the repo** by
+copying it out of the Device Builder editor. Byte-identical, so nothing
+unrecorded was discarded. Worth doing rather than assuming.
+
+### A stale banner, corrected
+
+The file's header still said **"THE DISPLAY SECTION IS COMMENTED OUT"** and
+"`esphome config` NOT yet run", and warned about ESP-VoCat pin defaults. All
+three were false — `display:` is live, the pins are this module's real ones,
+and the panel has worked since 2026-08-24. Replaced with what is actually true.
+A header that lies about the file underneath it is exactly the thing that costs
+someone an evening.
+
+### Not done
+
+`esphome/mini-round-clock.yaml` — the ring-only fallback — still has the old
+hardcoded theme block. It is not flashed and nothing depends on it, but the two
+configs have now diverged and it should be brought to parity before anyone
+reaches for it as a fallback.
