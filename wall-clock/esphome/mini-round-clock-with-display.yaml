@@ -263,6 +263,10 @@ sensor:
     id: t5_fin
     entity_id: sensor.wall_clock_timer_5_finish_epoch
   - platform: homeassistant
+    id: radar_age
+    entity_id: sensor.wall_clock_radar_age     # minutes since the frame was made
+
+  - platform: homeassistant
     id: weather_temp
     entity_id: ${weather_entity}
     attribute: temperature
@@ -277,6 +281,22 @@ text_sensor:
   - platform: homeassistant
     id: timer_label
     entity_id: sensor.wall_clock_timer_label   # name of the next timer, or empty
+
+  # The finished tile URL, built by HA. A new value here means a new frame,
+  # which is exactly when a re-fetch is worth doing.
+  - platform: homeassistant
+    id: radar_url
+    entity_id: sensor.wall_clock_radar_url
+    on_value:
+      - lambda: |-
+          std::string u = x;
+          // HA templates arrive with the whitespace of their own indentation.
+          while (!u.empty() && isspace((unsigned char) u.front())) u.erase(u.begin());
+          while (!u.empty() && isspace((unsigned char) u.back()))  u.pop_back();
+          if (u.rfind("http", 0) == 0) {
+            id(radar_ready) = false;
+            id(radar_img).set_url(u);
+          }
 
 binary_sensor:
   - platform: homeassistant
@@ -630,6 +650,14 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
 
   - platform: template
+    id: show_radar
+    name: "Rain radar"
+    entity_category: config
+    icon: mdi:radar
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: template
     id: show_seconds
     name: "Second hand"
     entity_category: config
@@ -679,6 +707,13 @@ globals:
     restore_value: no
     initial_value: '0'
   - id: ha_connected
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  # Set only by the image component's own download callback. Asking the image
+  # how wide it is would not work — `resize:` gives it a size before a single
+  # byte has arrived, so it would claim to be ready while holding nothing.
+  - id: radar_ready
     type: bool
     restore_value: no
     initial_value: 'false'
@@ -1251,6 +1286,21 @@ display:
 
       it.filled_circle(CX, CY, 180, bg);
 
+      // ---- RAIN RADAR, background layer -------------------------------------
+      // First thing after the ground, so the clock always sits ON the weather.
+      //
+      // Stale radar is worse than none, because it still looks current — a
+      // frame from two hours ago reads as "it is raining now". Anything older
+      // than 45 minutes is simply not drawn. RainViewer runs ~8 minutes behind
+      // real time and publishes every 10, so 45 is several missed frames, not
+      // a hair trigger.
+      if (id(show_radar).state && id(radar_ready)
+          && !std::isnan(id(radar_age).state) && id(radar_age).state <= 45.0f) {
+        // The tile centres Melbourne at (0.54, 0.54), not (0.5, 0.5).
+        // 4% of 360 px is 14 px, so shifting up and left puts home dead centre.
+        it.image(-14, -14, id(radar_img));
+      }
+
       if (left >= 0) {
         // A timer is running: it gets the big numerals, the clock drops to a
         // subtitle. The thing you are waiting on should be the readable one.
@@ -1362,3 +1412,55 @@ display:
       // Stale-status hint, matching the ring's red tint at 6 o'clock.
       if (!id(ha_connected))
         it.filled_circle(CX, CY + 140, 4, Color(120, 30, 30));
+
+# =============================================================================
+# RAIN RADAR — RainViewer tile, fetched by the device, addressed by HA
+# =============================================================================
+# Status tier. Bottom of `reliable clock > timers > status`, and built so it
+# cannot climb: the download is asynchronous, so a slow or dead fetch never
+# stalls the render loop, and every draw is behind a flag that defaults off.
+#
+# The URL is NOT built here. RainViewer's frame path is an opaque hash
+# (/v2/radar/461614397c0b), not the timestamp, so it cannot be derived from the
+# clock — checked against the live API, not assumed. HA polls the index and
+# hands over the finished string; this device parses no JSON.
+#
+# HTTPS direct from the ESP32, rather than proxying through HA, because the
+# alternative needs `allowlist_external_dirs` and a snapshot automation writing
+# into /config/www — more moving parts for the same picture. `verify_ssl` is
+# off: no credentials are involved, it is public weather imagery, and carrying
+# a cert bundle costs flash for nothing here.
+http_request:
+  verify_ssl: false
+  timeout: 15s
+
+online_image:
+  - id: radar_img
+    # Placeholder only — the real URL arrives from HA at runtime. It has to
+    # parse as a URL at config time, hence a syntactically valid dummy.
+    url: "https://tilecache.rainviewer.com/v2/radar/0/512/7/115/78/2/1_1.png"
+    format: png
+    # RGBA keeps the alpha channel, which is the whole point: clear sky is
+    # genuinely transparent in these tiles (verified — PNG colour type 6), so
+    # the clock face shows through instead of sitting on a coloured slab.
+    # 360x360x3 = 388 KB plus the alpha mask, nothing against 8 MB of PSRAM.
+    #
+    # NOT `type: RGBA` — that spelling is REMOVED in this ESPHome and fails
+    # with "Image type RGBA is removed". It still appears in the enum the
+    # validator prints, which is purely so it can produce that message.
+    type: RGB
+    transparency: alpha_channel
+    resize: 360x360
+    # Never on a timer. HA publishes a new URL only when a new frame exists,
+    # and that is the only thing worth re-fetching for.
+    update_interval: never
+    on_download_finished:
+      - globals.set:
+          id: radar_ready
+          value: 'true'
+      - logger.log: "Radar frame downloaded"
+    on_error:
+      - globals.set:
+          id: radar_ready
+          value: 'false'
+      - logger.log: "Radar frame download FAILED"

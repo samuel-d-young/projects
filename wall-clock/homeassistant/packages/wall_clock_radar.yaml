@@ -1,0 +1,91 @@
+# =============================================================================
+# wall_clock_radar.yaml — RainViewer rain radar for the mini round clock
+# =============================================================================
+# Drop in /config/packages/ alongside wall_clock.yaml, then reload:
+#   Developer Tools > Actions > homeassistant.reload_all
+# `rest:` and `template:` are both already set up on this system, so this one
+# does NOT need a restart (unlike the first install of wall_clock.yaml, which
+# introduced timer: and intent_script:).
+#
+# WHY HOME ASSISTANT HAS TO BE IN THIS AT ALL
+# -------------------------------------------
+# The obvious shortcut — have the ESP32 build the tile URL from its own clock —
+# does not work, and this was checked against the live API rather than assumed:
+#
+#   {"time": 1787578800, "path": "/v2/radar/461614397c0b"}
+#
+# Frames are exactly 600 s apart and `time` IS on a 600 s boundary, so the
+# timestamp is predictable. But the URL does not contain it. `path` carries an
+# OPAQUE HASH that cannot be derived from anything. Miss this and you get a
+# device that 404s forever while looking perfectly correct.
+#
+# So HA polls the index and publishes the finished URL as a string. The ESP32
+# imports one text sensor and fetches one PNG. No JSON parsing on the device —
+# which is the failure mode the build log keeps warning about.
+#
+# WHAT THE TILE IS
+# ----------------
+# Web Mercator z/x/y, the same scheme as any map tile. Melbourne's position was
+# solved rather than guessed:
+#
+#   z=6  tile 57/39   -> Melbourne at (0.77, 0.27), badly off-centre
+#   z=7  tile 115/78  -> Melbourne at (0.54, 0.54), 247 x 246 km   <-- this one
+#   z=8  tile 231/157 -> Melbourne at (0.08, 0.09), against a corner
+#
+# z=7 puts you 4% off dead centre in a SINGLE tile, so nothing has to be
+# stitched or composited anywhere. The firmware draws it 14 px up and left to
+# take out that 4%.
+#
+# Verified live: 512x512 PNG, colour type 6 (RGBA, real alpha), ~58 KB, HTTP
+# 200. Alpha is genuine — clear sky is transparent, so the clock shows through.
+# =============================================================================
+
+rest:
+  # ~8 minutes of lag is normal for the radar composite, and frames land every
+  # 600 s, so polling faster than this only burns requests.
+  - resource: https://api.rainviewer.com/public/weather-maps.json
+    scan_interval: 300
+    timeout: 20
+    sensor:
+      - name: Wall clock radar frame
+        unique_id: wall_clock_radar_frame
+        # The frame time, which IS meaningful — it drives "how stale is this".
+        value_template: "{{ value_json.radar.past[-1].time | int(0) }}"
+        device_class: timestamp
+        # Keep the whole radar block so the URL template can reach `path`.
+        json_attributes:
+          - host
+          - radar
+
+template:
+  - sensor:
+      # The finished tile URL. The firmware subscribes to exactly this and does
+      # nothing else clever.
+      #
+      # Colour scheme 2 (Universal Blue) is chosen for a dark clock face —
+      # every scheme carries the SAME alpha channel, so the choice is purely
+      # about how the rain reads, not how much of the face it covers.
+      # Options `1_1` are smoothed, with snow shown separately.
+      - name: Wall clock radar url
+        unique_id: wall_clock_radar_url
+        icon: mdi:radar
+        state: >
+          {% set h = state_attr('sensor.wall_clock_radar_frame', 'host') %}
+          {% set r = state_attr('sensor.wall_clock_radar_frame', 'radar') %}
+          {% if h and r and r.past %}
+            {{ h }}{{ r.past[-1].path }}/512/7/115/78/2/1_1.png
+          {% endif %}
+
+      # How old the frame is, in minutes. The clock uses this to stop drawing
+      # stale rain: a radar picture from two hours ago is worse than none,
+      # because it looks current.
+      - name: Wall clock radar age
+        unique_id: wall_clock_radar_age
+        unit_of_measurement: min
+        state: >
+          {% set t = states('sensor.wall_clock_radar_frame') %}
+          {% if t not in ['unknown', 'unavailable', ''] %}
+            {{ ((now().timestamp() - (t | as_datetime | as_timestamp(0))) / 60) | round(0) }}
+          {% else %}
+            999
+          {% endif %}

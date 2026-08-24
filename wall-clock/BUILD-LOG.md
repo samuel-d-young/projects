@@ -1077,3 +1077,97 @@ someone an evening.
 hardcoded theme block. It is not flashed and nothing depends on it, but the two
 configs have now diverged and it should be brought to parity before anyone
 reaches for it as a fallback.
+
+---
+
+## 2026-08-24 — Rain radar: RainViewer, one tile, no compositing
+
+Plane B's first real feature. Everything below was checked against the live API
+and the live ESPHome rather than reasoned about.
+
+### The shortcut that does not work
+
+The obvious design is to have the ESP32 build the tile URL from its own clock.
+RainViewer's index encourages it — frames are exactly 600 s apart and `time`
+sits on a 600 s boundary:
+
+```json
+{"time": 1787578800, "path": "/v2/radar/461614397c0b"}
+```
+
+**But the URL does not contain the timestamp.** `path` carries an opaque hash
+that cannot be derived from anything. A device built on the obvious assumption
+would 404 forever while looking entirely correct — the exact failure shape this
+log keeps running into. Home Assistant therefore has to poll the index; there
+is no version of this where the device works alone.
+
+### Melbourne fits in one tile, and only at one zoom
+
+Solved rather than eyeballed (`z/x/y` is standard Web Mercator):
+
+| zoom | tile | Melbourne at | covers |
+|---|---|---|---|
+| 6 | 57/39 | (0.77, 0.27) | 495 x 485 km |
+| **7** | **115/78** | **(0.54, 0.54)** | **247 x 246 km** |
+| 8 | 231/157 | (0.08, 0.09) | 124 x 122 km |
+
+z=7 lands 4% off dead centre, so **nothing has to be stitched or composited**,
+anywhere, by anyone. The firmware draws the image at `(-14, -14)` — 4% of
+360 px — which takes out the residual offset. z=6 and z=8 both put the city in
+a corner.
+
+Fetched live to confirm: `512x512`, PNG **colour type 6 (RGBA)**, ~58 KB,
+HTTP 200. The alpha is genuine, so clear sky is transparent and the clock face
+shows through instead of sitting on a coloured slab.
+
+Alpha coverage is **identical across every colour scheme** (measured: 27.9%
+fully transparent, 70.6% solid on a wet night). Scheme choice is therefore
+purely about how the rain reads, never about how much of the face it covers.
+Scheme 2 picked for a dark face.
+
+### `online_image` exists — and `RGBA` does not
+
+Both settled by making ESPHome answer rather than by reading docs, which this
+project has already been burned by once:
+
+- `'type' is a required option for [online_image]` — proves the component
+  ships in 2026.8.0
+- feeding it a junk value made it print the enum:
+  `'BINARY', 'GRAYSCALE', 'RGB565', 'RGB', 'TRANSPARENT_BINARY', 'RGB24', 'RGBA'`
+- **and `RGBA` still fails**: *"Image type RGBA is removed; replace with
+  `type: RGB` and `transparency: alpha_channel`"*
+
+That last one is a trap worth naming: **the removed spelling is still listed as
+valid by the enum**, purely so the validator can emit that message. Trusting
+the list gets you a config that looks right and will not build.
+
+### Design
+
+- HA (`packages/wall_clock_radar.yaml`) polls the index every 300 s and
+  publishes `sensor.wall_clock_radar_url` — the finished string — plus
+  `sensor.wall_clock_radar_age` in minutes.
+- The device subscribes to the URL, calls `set_url()` on a new value, and
+  re-fetches. **No JSON on the device.**
+- HTTPS straight from the ESP32 with `verify_ssl: false`. The alternative —
+  proxying via `/config/www` — needs `allowlist_external_dirs` and a snapshot
+  automation for the same picture. No credentials are involved.
+- Readiness comes from the component's own `on_download_finished`, not from
+  asking the image its width: `resize:` gives it a size before a byte arrives,
+  so it would claim to be ready while holding nothing.
+- **Stale radar is not drawn.** Anything over 45 minutes old is skipped, because
+  a two-hour-old frame still reads as "it is raining now". RainViewer runs ~8
+  min behind and publishes every 10, so 45 is several missed frames.
+- Drawn immediately after the background fill, so the clock is always on top,
+  behind a switch that defaults **off**.
+
+### State
+
+`esphome config` **passes** ("YAML saved", no errors) and the config is saved on
+the box. **Not yet compiled or flashed** — the add-on's editor toolbar became
+unresponsive and the remaining step is one click on Install. The running
+firmware is still the colour build; the radar changes it in no way until
+installed, and the switch defaults off even then.
+
+`packages/wall_clock_radar.yaml` still has to be placed in `/config/packages/`
+by hand — this session has no write path to `/config` (no SSH, no Samba, no
+file-editor add-on), which is recorded above under the installer entry.
