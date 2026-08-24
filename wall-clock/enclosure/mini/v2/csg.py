@@ -59,6 +59,19 @@ def prism(pts_xy, z0, z1):
     """Extrude a closed CCW polygon."""
     return _ex(pts_xy, z0, z1)
 
+
+def prism_taper(pts_xy, z0, z1, sx=1.0, sy=1.0):
+    """Extrude a polygon, scaling it about the origin on the way up."""
+    return _ex_taper(pts_xy, z0, z1, sx, sy)
+
+def _ex_taper(pts_xy, z0, z1, sx, sy):
+    """Extrude with the top scaled — a straight-line flare, for a lead-in."""
+    p = np.array(pts_xy, dtype=np.float64)
+    if _signed_area(p) < 0: p = p[::-1]
+    cs = CrossSection([p])
+    return Manifold.extrude(cs, z1 - z0, 0, 0.0, (sx, sy)).translate([0.0, 0.0, z0])
+
+
 def _ex(pts_xy, z0, z1):
     """Extrude one closed polygon between two z planes, winding fixed for us."""
     p = np.array(pts_xy, dtype=np.float64)

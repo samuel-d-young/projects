@@ -1455,3 +1455,89 @@ one of these.
 - The ring's die revision is unknown — V5 vs original is 2× per channel. Power the ring
   alone, all pixels zero, read the supply: ~14 mA means V5, ~24–36 mA means older.
 - The display module's rim thickness, per finding 2 above.
+
+---
+
+## 2026-08-24 — v3: the four fixes after Sam's test fit
+
+Sam printed the v2 parts, fitted the display, and reported: the pocket the bottom
+of the screen sits in is too loose and the screen doesn't stay upright; the
+diffuser should be a tight press fit; the part over the LEDs should be one layer;
+and the diffuser's inner collar can go 2 mm further in to help hold the screen.
+
+He also gave the number that mattered most: **the tab that sticks out of the
+bottom of the screen is 30.55 mm wide. (verified — measured on the real module.)**
+
+### The looseness was a wrong assumption, and it was mine
+
+`DISP_TAB_W` had been 40.0 since Phase 5 — never measured, just carried forward.
+The slot is cut as an angular wedge sized for it, which at r = 35 is **46.62 mm
+wide**. Against a 30.55 mm tab that is **±25.9° of free rotation**: the module
+could sit more than a clock-hour off true and there was nothing to stop it.
+
+Two walls either side now bring the slot to 31.15 mm.
+
+| | before | after |
+|---|---:|---:|
+| slot width at the tab | 46.62 mm | 31.15 mm |
+| tab can rotate | ±25.90° | **±0.47°** |
+| screen edge can move | 12.5 mm | **0.22 mm** |
+
+The walls run from the deck to the ring pocket floor with a 45° lead-in chamfer
+on the top inner edge, sit at |y| ≥ 15.575 (the S3 board is |y| ≤ 12.70, so they
+never meet), and — a side effect worth having — **put back the ring pocket floor
+the tab window had removed**, so the ring is no longer unsupported across 83° at
+12 o'clock. The checker measures the restored sector at 100%.
+
+### What Sam's report told me that he didn't mean to tell me
+
+The v2 notes said the diffuser's collar over-reaches the module by 1.8 mm, on
+the assumption that the module is 4 mm thick at its rim. **That was wrong, and
+the report is what disproves it.**
+
+The collar lands at base z = 19.00 − 8.20 = 10.80; the seat is at 8.60; so it
+clamps a rim of exactly 2.20 mm and fouls anything thicker. Sam has assembled
+these and reports the screen **loose** — not the diffuser standing 1.8 mm proud.
+So the collar is not touching and **the rim is under 2.20 mm**. The 4 mm figure
+is the module overall, not the rim the collar lands on. Interference finding
+retired. **(verified by assembly, which beats my arithmetic.)**
+
+That also fixes the collar problem: the right extension is exactly (2.20 − rim).
+Sam asked for 2.00, which corresponds to a 0.20 mm rim and is almost certainly
+long. It is shipped at 2.00 as asked, with the one-caliper-measurement fix
+written next to it: measure the rim at the r = 29 circle, set
+`COLLAR_EXTEND = 2.20 - t`. If it prints proud, the proud gap *is* `t − 0.20`.
+
+### The other two
+
+- **Press fit.** The diffuser was 46.000 in a 46.3516 pocket — 0.70 mm of slop on
+  diameter, which is why it rattled. Now 46.4016, a 0.10 mm diametral
+  interference. `DIFF_FIT = 0.00` backs it off to a slip fit.
+- **One layer over the LEDs.** Membrane 0.80 → 0.20, which is a single layer at
+  0.20 mm layer height, printed membrane-side down so it lands straight on the
+  plate with no bridging. **The cut steps around all 24 cell walls** — thinning
+  through them would have left every wall standing on nothing. All 24 verified
+  still at full height. Slice this part at 0.20 mm or the arithmetic stops
+  working.
+
+### Two things the checker got wrong, and now doesn't
+
+Both were measurement bugs in the checks, not in the parts, and both were
+over-reporting:
+
+- **Bridge span was measured as a bounding box.** A 0.1 mm wide ring 78 mm
+  across has a 78 mm bounding box and is not a bridge at all — the nozzle is
+  never more than 0.05 mm from solid. It now finds the patch's own boundary
+  edges and takes twice the greatest distance to them. Worst bridge across all
+  five parts dropped from a reported 6.6 mm to a real 2.6 mm.
+- **The diffuser had no thin-wall baseline.** It reported four 0.00 mm regions
+  at r = 35.5 as new. Running the same analysis on Sam's uploaded diffuser finds
+  them in the same place — they are artefacts of his mesh, like the base's.
+
+### Open
+
+- Nothing sliced, nothing printed since the change.
+- The module's rim thickness, per above. One caliper measurement, and it is the
+  only thing standing between the collar and an exact clamp.
+- Whether 0.10 mm diametral is the right press. It is a judgement; the number is
+  one line.

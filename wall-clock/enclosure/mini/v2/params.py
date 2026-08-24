@@ -32,6 +32,19 @@ R_TAB         = 42.6566     # and how far out it reaches
 RESIDUE_VOL   = 605.0
 
 # =============================================================================
+# THE PARTS THAT GO IN — Sam's own measurements, carried over from build.py
+# =============================================================================
+RING_OD, RING_ID = 92.0, 71.0
+PCB_T, LED_H     = 1.6, 1.6
+NUM_LEDS         = 24
+DISP_PCB_D       = 60.0     # round part of the display's blue PCB
+DISP_ACTIVE_D    = 55.0     # the black screen area
+DISP_T           = 4.0      # module thickness -- see the note on the collar,
+                            # this is the OVERALL figure, not the rim
+DISP_OVERALL     = 67.0     # top of the round part to the end of the tab
+DISP_TAB_T       = 1.6      # bare PCB. Assumes the 10-pin header is desoldered.
+
+# =============================================================================
 # THE ESP32-S3 DEVKIT — Espressif's own mechanical drawing,
 # DXF_ESP32-S3-DevKitC-1_V1_20210312CB.pdf
 # =============================================================================
@@ -211,3 +224,67 @@ SHIM_WALL   = 2.50
 SHIM_HALF_X = 22.00         # at x=+/-22 the pocket wall is still 45.6 mm out,
                             # so the straight end meets the arc at a steep
                             # angle and no sliver can form
+
+# =============================================================================
+# v3 — the fixes Sam asked for after test-fitting the printed parts
+# =============================================================================
+
+# --- 1. THE TAB SLOT WAS TOO LOOSE -------------------------------------------
+# Sam measured the tab that sticks out of the bottom of the screen: 30.55 mm.
+# The slot was cut as an angular wedge on an assumed 40 mm tab, which at r=35 is
+# 46.62 mm wide. That let the module rotate +/-25.9 degrees -- which is exactly
+# "it doesn't stay upright".
+DISP_TAB_W    = 30.55       # MEASURED by Sam on the real module
+TAB_CLR       = 0.30        # per side. FDM runs internal features slightly
+                            # undersize, so this lands near 0.15 in the plastic.
+TAB_SLOT_HW   = DISP_TAB_W / 2 + TAB_CLR        # 15.575
+TAB_WALL_RI   = 31.00       # walls start here: clear of the module at r=30.0
+TAB_WALL_RO   = 43.50       # over-reach into solid material, for a clean union
+TAB_WALL_AHALF = 44.0       # ditto, angularly
+# Taking the walls to the ring pocket floor also puts back the floor the tab
+# window removed, so the ring is supported at 12 o'clock again.
+TAB_WALL_TOP  = Z_RING_FLOOR                    # 11.80
+# 45-degree lead-in on the top inner edge of the walls, so a slightly rotated
+# tab still drops in. It has to start above the tab (which tops out at 10.20)
+# and finish by the ring pocket floor, or it eats into the ring's space.
+TAB_CHAMF_Z   = 10.60
+
+# --- 2, 3, 4. THE DIFFUSER ----------------------------------------------------
+# Measured off the uploaded file, 90-degree ray (clear of the baffles):
+#     r 27.92 .. 30.11   collar        8.2 tall
+#     r 30.20 .. 35.60   inner skirt   2.0
+#     r 35.60 .. 36.70   cell rib      4.0
+#     r 36.70 .. 39.00   skirt         2.0
+#     r 39.00 .. 44.90   MEMBRANE      0.8
+#     r 44.90 .. 46.00   outer wall    4.0
+DIFF_OUTER    = 46.000
+DIFF_WALL_RI  = 44.900
+DIFF_MEM_RI   = 39.000
+DIFF_MEM_RO   = 44.900
+DIFF_WALL_H   = 4.000
+DIFF_COLLAR_RI, DIFF_COLLAR_RO = 27.9164, 30.1080
+DIFF_COLLAR_H = 8.200
+
+# press fit: the ring pocket wall is at 46.3516 and the diffuser was 46.000, so
+# it had 0.35 mm of radial slop -- 0.70 on diameter. This takes it to a light
+# interference. Back it off to 0.00 for a slip fit if it will not go in.
+DIFF_FIT      = 0.05        # radial interference, i.e. 0.10 mm on diameter
+DIFF_OUTER_NEW = R_RING_O + DIFF_FIT            # 46.4016
+
+# one layer over the LEDs. At 0.20 mm layers this is a single bottom layer, and
+# the diffuser prints membrane-side DOWN so it is the first layer -- no bridging.
+DIFF_MEM_T    = 0.20
+
+# the 24 cell walls have to stay attached to the membrane, so the thinning cut
+# steps around them and leaves a small buttress at each base.
+DIFF_BAFFLE_N  = 24
+DIFF_BAFFLE_A0 = 7.50       # first one; they run every 15 degrees
+DIFF_BAFFLE_KEEP = 2.60     # degrees of membrane kept at full 0.8 either side
+
+# Sam: "the inside of the diffuser can be 2 mm tall to go further into the LED
+# screen area to hold it in too" -- the collar grows 2 mm so it reaches the
+# module's front face and clamps it. See README for what that implies.
+COLLAR_EXTEND = 2.00
+COLLAR_EXT_RI, COLLAR_EXT_RO = 28.05, 29.95     # inset both faces 0.13/0.16 so
+                            # the extension does not share a surface with the
+                            # collar it grows from

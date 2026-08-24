@@ -11,8 +11,9 @@ by eye.
 
 ```
 python3 measure_uploaded.py    # re-derive every number in params.py from his STLs
+python3 measure_fit.py         # the tab slot and diffuser features specifically
 python3 build_v2.py            # write the STLs and 3MFs
-./runchecks.sh                 # all three verification passes
+./runchecks.sh                 # all four verification passes
 python3 render.py              # picture sheets
 python3 viz.py                 # cross-section atlas of the uploaded parts
 ```
@@ -31,7 +32,7 @@ holds — if he sends new files, run it and diff.
 | `mini-round-clock-rearhousing-battery` | **rear plate down** | none | ~73 g | ~3 h |
 | *or* `mini-round-clock-rearhousing-slim` | rear plate down | none | ~57 g | ~2.5 h |
 | `mini-round-clock-battery-shim-x2` | flat | none | ~11 g each, **print 2** | ~20 min |
-| `mini-round-clock-diffuser-fix` | *optional* — see §4 | none | ~12 g | ~40 min |
+| `mini-round-clock-diffuser-v3` | **membrane face down** | none | ~14 g white PLA | ~45 min |
 
 Both `.stl` and `.3mf` are provided. **Prefer the 3MF** — STL stores coordinates
 as 32-bit floats, and the round trip through that is what generates most
@@ -66,32 +67,22 @@ It sits precisely in the window the display tab has to pass through. Sliced
 as-is, it prints as an extra crescent of plastic exactly where the display goes.
 `build_v2.py` drops it and says so when it runs.
 
-### The diffuser's screen collar over-reaches by 1.8 mm
+### The module's rim is thinner than 4 mm — and you told me so without meaning to
 
-The new collar on the diffuser is r 27.92–30.11, 8.2 mm tall. Working the stack
-through:
+An earlier version of this file said the diffuser's collar over-reaches the
+module by 1.8 mm. **That was wrong, and the way it came apart is worth keeping.**
 
-```
-display seat (measured, base)                     z =  8.60
-+ module thickness (your measurement, 4 mm)       z = 12.60   <- module front face
-diffuser seats when its baffles meet the LED tops z = 15.00
-  -> its collar bottom lands at 19.00 - 8.20      z = 10.80
-```
+The collar (r 27.92–30.11, 8.2 tall) lands at base z = 19.00 − 8.20 = **10.80**.
+The display seat is at **8.60**. So the collar clamps a module whose rim is
+exactly 2.20 mm thick, and it fouls anything thicker. On a 4 mm module the
+diffuser would stand 1.8 mm proud and the plywood would not sit down.
 
-The collar bottom wants to be at 10.80 and the module's front face is at 12.60,
-so the collar hits the display **1.8 mm before the diffuser seats**. The diffuser
-would stand 1.8 mm proud and the plywood face would not sit down.
+You have printed and test-fitted these and reported the screen **loose** — not
+the diffuser standing proud. So the collar is not touching, and **the module's
+rim is under 2.20 mm.** The 4 mm figure is the module overall, not the rim the
+collar actually lands on. That retires the interference finding.
 
-That arithmetic assumes the module is 4.00 mm thick at its rim. If it is 2.2 mm
-there, it is already correct and nothing needs doing. **Measure the module rim
-before touching this** — it is the one number the whole thing turns on.
-
-If it does need fixing, there are two ways and both are provided:
-
-- `mini-round-clock-diffuser-fix.stl` — collar shortened by 1.80 mm, nothing
-  else changed. Reprint the diffuser.
-- Set `SEAT_DROP = 1.80` in `params.py` and rebuild the base — this drops the
-  display seat instead, so no diffuser reprint. Costs 1.8 mm more screen depth.
+See §7 for what that means for the new collar height.
 
 ### The wire slot goes right through
 
@@ -100,6 +91,77 @@ at all from z = 0 to z = 22 for r 31–43. The plywood face covers it at the
 front, so it was never visible, but the deck now closes it from behind, which
 also encloses the electronics. A 4 × 16 mm port is cut through the deck beside
 the S3's USB-C end so the battery lead can still get up to the board.
+
+---
+
+## 1b. v3 — the four changes after your test fit
+
+### The tab slot was the looseness
+
+You measured the tab that sticks out of the bottom of the screen: **30.55 mm**.
+The slot was cut as an angular wedge sized for a 40 mm tab, which at r = 35 is
+**46.62 mm wide**. Against a 30.55 mm tab that is ±25.9° of free rotation — the
+screen could sit a quarter-turn of a clock face off true. That is
+"doesn't stay upright".
+
+Two walls either side now bring it to **31.15 mm**:
+
+| | before | after |
+|---|---:|---:|
+| slot width at the tab | 46.62 mm | **31.15 mm** |
+| tab can rotate | ±25.90° | **±0.47°** |
+| screen edge can move | 12.5 mm | **0.22 mm** |
+
+The walls run from the deck up to the ring pocket floor, with a 45° lead-in
+chamfer on the top inner edge so a slightly rotated tab still finds its way
+down. They sit at |y| ≥ 15.575 and the S3 board is |y| ≤ 12.70, so the two never
+meet.
+
+**A side effect worth having:** the tab window had removed the ring pocket floor
+across ±41.8°, leaving the ring unsupported over a 83° arc at 12 o'clock. The
+walls put that floor back everywhere the tab is not — the checker measures it at
+100% of the sector outboard of the slot.
+
+### The diffuser is now a press fit
+
+It was **46.000** in a **46.3516** pocket: 0.35 mm radial, **0.70 mm on
+diameter**. It is now **46.4016** — a **0.10 mm diametral interference**.
+
+If it will not go in, set `DIFF_FIT = 0.00` in `params.py` and rebuild for a
+slip fit. That is the one number.
+
+### One layer over the LEDs
+
+The membrane was 0.80 mm. It is now **0.20 mm** — a single layer at 0.20 mm
+layer height, and the diffuser prints membrane side **down**, so it is the first
+layer and there is no bridging.
+
+**Slice the diffuser at 0.20 mm layer height.** At any other layer height a
+0.20 mm feature does not land on a whole number of layers.
+
+The thinning cut **steps around all 24 cell walls** and leaves a small buttress
+at each base. Thinning straight through them would have left every wall standing
+on nothing — the checker confirms all 24 still reach full height.
+
+A 0.2 mm sheet is fragile in the hand. It is captured between the ring and the
+plywood once assembled, so it only has to survive the bench.
+
+### The collar reaches 2 mm further in
+
+8.20 → **10.20 mm**, so it lands at base z = **8.80**.
+
+**Read this before printing it.** The seat is at 8.60, so a 10.20 collar clamps a
+module rim **0.20 mm** thick. From §1 we know the rim is under 2.20 mm but not
+what it is. The exact answer is one caliper measurement:
+
+```
+measure the module's rim thickness at the r = 29 mm circle   -> call it t
+set  COLLAR_EXTEND = 2.20 - t   in params.py, rebuild, print
+```
+
+If you print it as shipped and the diffuser stands proud, that gap **is**
+`t − 0.20`: measure it with a ruler, subtract it from `COLLAR_EXTEND`, reprint.
+Either way it is one number and a 45-minute print — but the caliper is cheaper.
 
 ---
 

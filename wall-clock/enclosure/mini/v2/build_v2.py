@@ -15,7 +15,8 @@ import sys, math
 import numpy as np, trimesh
 sys.path.insert(0, '.')
 import csg
-from csg import box_lwh, cyl, cone, tube, wedge, prism, rounded_rect, to_manifold, to_trimesh
+from csg import (box_lwh, cyl, cone, tube, wedge, prism, prism_taper,
+                 rounded_rect, to_manifold, to_trimesh)
 from params import *
 from manifold3d import Manifold
 
@@ -97,6 +98,37 @@ def seat_drop(mm):
     if mm <= 0:
         return None
     return cyl(R_DISP_POCKET, Z_SEAT - mm, Z_RECESS + 0.5, SEG)
+
+
+def tab_slot_walls():
+    """Narrow the display-tab slot to the tab Sam actually measured.
+
+    His base cuts the slot as an angular wedge sized for a 40 mm tab. The real
+    tab is 30.55 mm, so at r=35 the slot is 46.6 mm wide against a 30.55 mm tab
+    and the module can rotate +/-25.9 degrees. That is the "doesn't stay
+    upright".
+
+    Two walls either side bring it to 31.15 mm. They run from the deck up to the
+    ring pocket floor, which also puts back the floor the tab window had removed,
+    so the ring is supported at 12 o'clock again. Above them the slot flares back
+    out, so the tab still finds its way in.
+
+    They sit at |y| >= 15.575 and the S3 board is |y| <= 12.70, so the two never
+    meet.
+    """
+    solid = wedge(TAB_WALL_RI, TAB_WALL_RO, Z_BACK, TAB_WALL_TOP,
+                  -TAB_WALL_AHALF, TAB_WALL_AHALF)
+    # The volume the tab needs: a straight slot up to just above the tab, then a
+    # 45-degree lead-in chamfer on the top inner edge so a slightly rotated tab
+    # still finds its way down. The chamfer has to finish BY the ring pocket
+    # floor -- an earlier version carried it 2.2 mm above, straight into the
+    # 445 mm3 of space the LED ring occupies, and the checker caught it.
+    hw, R = TAB_SLOT_HW, TAB_WALL_RO + 5.0
+    keep = box_lwh(0.0, R, -hw, hw, Z_BACK - 1.0, TAB_CHAMF_Z)
+    keep += prism_taper([(0.0, -hw), (R, -hw), (R, hw), (0.0, hw)],
+                        TAB_CHAMF_Z, TAB_WALL_TOP + 0.001,
+                        1.0, (hw + (TAB_WALL_TOP - TAB_CHAMF_Z)) / hw)
+    return solid - keep
 
 
 def screw_pilots():
@@ -203,8 +235,7 @@ def build_shim(bat_w, pocket_d):
 
 
 # =============================================================================
-def build_diffuser_fix(shorten):
-    """Sam's diffuser with the screen-retainer collar shortened by `shorten` mm."""
+def load_sams_diffuser():
     m = trimesh.load('diffuser_in.stl', process=False)
     m.merge_vertices(); m.update_faces(m.nondegenerate_faces()); m.remove_unreferenced_vertices()
     parts = [p for p in m.split(only_watertight=False) if abs(p.volume) > 1.0]
@@ -212,13 +243,55 @@ def build_diffuser_fix(shorten):
     d = parts[0].copy()
     b = d.bounds
     d.apply_translation([-(b[0][0]+b[1][0])/2, -(b[0][1]+b[1][1])/2, 0])
-    man = to_manifold(d)
-    top = d.bounds[1][2]
-    return man - cyl(34.0, top - shorten, top + 5.0, SEG)
+    return to_manifold(d)
+
+
+def build_diffuser_v3():
+    """Sam's diffuser, with the three changes he asked for after test-fitting.
+
+    1. PRESS FIT. It was 46.000 in a 46.3516 pocket -- 0.70 mm of slop on
+       diameter. Grown to 46.4016 for a light interference.
+    2. ONE LAYER over the LEDs. The membrane was 0.80; it is now 0.20, which at
+       0.20 mm layers is a single bottom layer. The diffuser prints membrane
+       side DOWN, so that layer goes straight onto the plate -- no bridging.
+       The cut steps around all 24 cell walls: thinning through them would leave
+       each one standing on nothing.
+    3. COLLAR + COLLAR_EXTEND, to reach further in and hold the screen.
+    """
+    d = load_sams_diffuser()
+
+    # --- 1. press fit -------------------------------------------------------
+    # overlap the existing wall from 45.9 rather than butting at 46.000, so no
+    # two surfaces are coincident
+    d += tube(45.90, DIFF_OUTER_NEW, 0.0, DIFF_WALL_H, SEG)
+
+    # --- 2. one layer over the LEDs -----------------------------------------
+    # reach 0.1 into the skirt and the outer wall at either end, again to avoid
+    # coincident surfaces -- and a 0.1 notch is well under one extrusion width,
+    # so the slicer never sees it
+    cut = tube(DIFF_MEM_RI - 0.10, DIFF_MEM_RO + 0.10,
+               DIFF_MEM_T, 0.80 + 0.05, SEG)
+    keep = None
+    for i in range(DIFF_BAFFLE_N):
+        a = DIFF_BAFFLE_A0 + i * (360.0 / DIFF_BAFFLE_N)
+        w = wedge(DIFF_MEM_RI - 1.0, DIFF_MEM_RO + 1.0,
+                  DIFF_MEM_T - 0.5, 0.80 + 0.5,
+                  a - DIFF_BAFFLE_KEEP / 2, a + DIFF_BAFFLE_KEEP / 2)
+        keep = w if keep is None else keep + w
+    d -= (cut - keep)
+
+    # --- 3. a taller collar --------------------------------------------------
+    if COLLAR_EXTEND > 0:
+        # start 1 mm DOWN inside the collar rather than butting onto its top
+        # face: two coincident faces there survive the float32 round trip as a
+        # self-intersection. The overlap is entirely inside existing material.
+        d += tube(COLLAR_EXT_RI, COLLAR_EXT_RO,
+                  DIFF_COLLAR_H - 1.0, DIFF_COLLAR_H + COLLAR_EXTEND, SEG)
+    return d
 
 # =============================================================================
 def assemble_base(base, deck):
-    out = base + deck - screw_pilots()
+    out = base + deck + tab_slot_walls() - screw_pilots()
     drop = seat_drop(SEAT_DROP)
     if drop is not None:
         out = out - drop
@@ -238,9 +311,9 @@ if __name__ == '__main__':
         (build_rear_housing(POCKET_BATTERY),   'mini-round-clock-rearhousing-battery', True),
         (build_shim(BAT_W, POCKET_BATTERY),    'mini-round-clock-battery-shim-x2',   True),
         # derived from Sam's diffuser, which itself carries 387 non-manifold
-        # edges at the baffle junctions; the trim halves that to 183 but cannot
-        # invent topology that was never in the source. Not held to strict.
-        (build_diffuser_fix(COLLAR_TRIM),  'mini-round-clock-diffuser-fix', False),
+        # edges at the baffle junctions. Not held to strict -- the topology it
+        # is missing was never in the source.
+        (build_diffuser_v3(),              'mini-round-clock-diffuser-v3',  False),
     ]
     for man, fn, strict in parts:
         t = csg.finalise(man, fn, strict=strict)

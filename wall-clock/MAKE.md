@@ -34,14 +34,23 @@ superseded.
 | `v2/mini-round-clock-rearhousing-battery` | **PETG** if a cell goes in | **Rear plate down.** No supports. |
 | *or* `v2/mini-round-clock-rearhousing-slim` | PETG or PLA | Rear plate down. No supports. Mains only, and 11 mm shallower. |
 | `v2/mini-round-clock-battery-shim-x2` | anything | Flat. **Print two.** |
-| your `Mini_Wall_Clock_Difuser.stl` | **White PLA** | Diffusing face **down**. **Bottom layers = 2 exactly.** 0% infill, no supports. |
+| `v2/mini-round-clock-diffuser-v3` | **White PLA** | Diffusing face **down**. **0.20 mm layers.** 0% infill, no supports. |
 
 Prefer the **`.3mf`** of each over the `.stl` — STL stores coordinates as 32-bit
 floats and that round trip is what makes slicers ask to repair things.
 
-**Bottom layers = 2 on the diffuser** is the single setting that decides whether
-this looks good. More and it stops glowing. White PLA specifically — natural
-pipes light along the layer lines and bleeds between cells.
+**Slice the diffuser at 0.20 mm layer height.** The membrane over the LEDs is
+now 0.20 mm of geometry — one layer — so any other layer height does not land on
+a whole number of layers. It prints membrane-side down, so that layer goes
+straight onto the plate and there is nothing to bridge. White PLA specifically —
+natural pipes light along the layer lines and bleeds between cells.
+
+**The diffuser is now a press fit** (0.10 mm on diameter). If it will not go in,
+set `DIFF_FIT = 0.00` in `v2/params.py` and rebuild.
+
+**Before you print the diffuser, measure the display module's rim thickness** at
+the r = 29 mm circle and set `COLLAR_EXTEND = 2.20 - t` in `v2/params.py`. It
+ships at 2.00, which assumes a 0.20 mm rim. See `v2/README.md` §1b.
 
 **PETG for the housing if a battery goes in it.** PLA softens at 55–60 °C; about
 1 W in a small closed box on a west-facing wall in a Victorian summer can sit

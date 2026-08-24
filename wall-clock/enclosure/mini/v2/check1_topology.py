@@ -17,7 +17,7 @@ PARTS = [('mini-round-clock-base-v2.stl', True),
          ('mini-round-clock-battery-shim-x2.stl', True),
          # inherits 387 non-manifold edges from Sam's uploaded diffuser; the
          # trim halves them. Held to "manifold3d accepts it", not "watertight".
-         ('mini-round-clock-diffuser-fix.stl', False)]
+         ('mini-round-clock-diffuser-v3.stl', False)]
 
 for name, strict in PARTS:
     print(f'\n{name}' + ('' if strict else '   [derived from Sam\'s mesh - relaxed]')) 

@@ -3,7 +3,7 @@
 import sys, math; sys.path.insert(0,'.')
 import numpy as np, trimesh
 import csg
-from csg import box_lwh, cyl, to_manifold, to_trimesh
+from csg import box_lwh, cyl, wedge, to_manifold, to_trimesh
 from params import *
 from params import max_battery, fits
 from build_v2 import load_sams_base
@@ -44,17 +44,32 @@ ck((removed - pilots).volume() < 0.05,
    'the only material removed above z=0 is the four screw pilots',
    f'{(removed - pilots).volume():.4f} mm3 outside them')
 
-# everything added must be inside the four board-locating posts
+# everything added must be inside the four board-locating posts, or inside the
+# tab-slot walls. Not a blanket allowance: the walls have to be where they are
+# supposed to be, which is outboard of the tab, inside the tab window, and
+# stopping at the ring pocket floor.
 c2 = BOARD_CLR
-posts = None
+allowed = None
 for sx, sy in [(1,1),(1,-1),(-1,1),(-1,-1)]:
     px = (BOARD_X1 + c2 - 3.0) if sx > 0 else (BOARD_X0 - c2 + 3.0)
     py = sy * (BOARD_W/2 + c2 + 1.4)
     c = cyl(1.60 + 0.05, -1, Z_BACK + POST_H + 0.05, 40, centre=(px, py))
-    posts = c if posts is None else posts + c
-ck((added - posts).volume() < 0.05,
-   'the only material added above z=0 is the four board posts',
-   f'{(added - posts).volume():.4f} mm3 outside them')
+    allowed = c if allowed is None else allowed + c
+# the walls' own construction envelope. They deliberately over-reach past the
+# tab window, both radially and angularly, into material that is already solid,
+# so the union has something to merge with instead of butting onto a face.
+wall_env = (wedge(TAB_WALL_RI - 0.10, TAB_WALL_RO + 0.10,
+                  Z_BACK - 0.05, TAB_WALL_TOP + 0.10,
+                  -TAB_WALL_AHALF - 0.2, TAB_WALL_AHALF + 0.2)
+            - box_lwh(-1.0, 60.0, -TAB_SLOT_HW, TAB_SLOT_HW,
+                      Z_BACK - 1.0, TAB_CHAMF_Z))
+allowed = allowed + wall_env
+stray = (added - allowed).volume()
+ck(stray < 0.05,
+   'material added above z=0 is only the board posts and the tab-slot walls',
+   f'{stray:.3f} mm3 outside either')
+walls_v = (added - (added - wall_env)).volume()
+ck(walls_v > 2000, 'the tab-slot walls are actually there', f'{walls_v:.0f} mm3')
 
 print('\n2. The S3 board goes in and is caught by the end ledges')
 BX0, BX1, BY = BOARD_X0, BOARD_X1, BOARD_W/2
