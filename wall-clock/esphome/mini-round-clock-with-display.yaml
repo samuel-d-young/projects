@@ -296,6 +296,7 @@ text_sensor:
           if (u.rfind("http", 0) == 0) {
             id(radar_ready) = false;
             id(radar_img).set_url(u);
+            id(radar_img).update();   // set_url only STORES it; this fetches.
           }
 
 binary_sensor:
