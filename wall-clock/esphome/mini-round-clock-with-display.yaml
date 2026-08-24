@@ -42,7 +42,15 @@ substitutions:
 
   # The render reads the real LED count from the strip at runtime, so this
   # only has to be right for the light component itself.
+  # Default ring size, and the initial value of the runtime "Ring LED count"
+  # number. Changing the ring later is done from Home Assistant, not here.
   num_leds: "24"
+
+  # COMPILE-TIME CEILING. The RMT buffer is sized to this, so it is the largest
+  # ring this firmware can drive. Raising it costs a little RAM and a longer
+  # write (60 LEDs is ~1.8 ms at 20 fps, which is nothing). Only a ring BIGGER
+  # than this needs a reflash.
+  max_leds: "60"
 
   # ---- LED ring ------------------------------------------------------------
   led_pin: GPIO5              # keep clear of the QSPI pins below
@@ -224,6 +232,33 @@ sensor:
     entity_id: sensor.wall_clock_timer_total
     # Arc denominator. Can GROW mid-timer on "add five minutes" — the render
     # clamps so the arc never jumps backwards past full.
+
+  # ---- MULTI-TIMER: one finish epoch per pool slot ------------------------
+  # The Echo Wall Clock draws the NEXT-expiring timer as a full depleting arc
+  # and gives every other running timer a single indicator LED at the position
+  # where it will finish. These five feed those pips; the arc still comes from
+  # timer_finish_epoch above, which HA defines as "whichever expires soonest".
+  #
+  # Five flat sensors rather than one packed string on purpose — ESPHome
+  # imports numbers natively, and parsing a delimited blob inside a lambda is
+  # the kind of thing that fails silently.
+  #
+  # 0 = that slot is not running.
+  - platform: homeassistant
+    id: t1_fin
+    entity_id: sensor.wall_clock_timer_1_finish_epoch
+  - platform: homeassistant
+    id: t2_fin
+    entity_id: sensor.wall_clock_timer_2_finish_epoch
+  - platform: homeassistant
+    id: t3_fin
+    entity_id: sensor.wall_clock_timer_3_finish_epoch
+  - platform: homeassistant
+    id: t4_fin
+    entity_id: sensor.wall_clock_timer_4_finish_epoch
+  - platform: homeassistant
+    id: t5_fin
+    entity_id: sensor.wall_clock_timer_5_finish_epoch
   - platform: homeassistant
     id: weather_temp
     entity_id: ${weather_entity}
@@ -236,6 +271,9 @@ text_sensor:
   - platform: homeassistant
     id: next_bin
     entity_id: sensor.next_bin        # "Green waste" / "Recycling"
+  - platform: homeassistant
+    id: timer_label
+    entity_id: sensor.wall_clock_timer_label   # name of the next timer, or empty
 
 binary_sensor:
   - platform: homeassistant
@@ -269,6 +307,49 @@ binary_sensor:
 # CONTROLS EXPOSED TO HOME ASSISTANT
 # -----------------------------------------------------------------------------
 number:
+  # ---- Ring geometry -------------------------------------------------------
+  # HOW MANY LEDs ARE ACTUALLY ON YOUR RING.
+  #
+  # esp32_rmt_led_strip's own `num_leds:` is COMPILE-TIME — it sizes the RMT
+  # buffer and cannot be a runtime value. So the strip is declared at
+  # ${max_leds} (the largest ring this build supports) and this number says how
+  # many of those are physically present. The render uses this count and leaves
+  # the rest dark.
+  #
+  # Driving a chain shorter than the declared length is harmless: the surplus
+  # bits simply fall off the end of the chain with nothing to latch them.
+  #
+  # So: change this from Home Assistant for any ring up to ${max_leds}, no
+  # reflash. Only a ring LARGER than ${max_leds} needs the substitution raised
+  # and a reflash.
+  - platform: template
+    id: ring_size
+    name: "Ring LED count"
+    entity_category: config
+    icon: mdi:led-strip-variant
+    min_value: 8
+    max_value: ${max_leds}
+    step: 1
+    initial_value: ${num_leds}
+    optimistic: true
+    restore_value: true
+
+  # Which physical LED sits at 12 o'clock. Set Mode to "test chase" and watch
+  # where the red pixel lands, then dial this until it is at the top.
+  # Positive rotates clockwise. Was a compile-time substitution.
+  - platform: template
+    id: twelve_offset
+    name: "Twelve o'clock offset"
+    entity_category: config
+    icon: mdi:rotate-right
+    min_value: 0
+    max_value: ${max_leds}
+    step: 1
+    initial_value: ${twelve_oclock_offset}
+    optimistic: true
+    restore_value: true
+
+  # ---- Brightness ----------------------------------------------------------
   - platform: template
     id: day_brightness
     name: "Brightness"
@@ -280,11 +361,6 @@ number:
     initial_value: 45
     optimistic: true
     restore_value: true
-    # NOTE: ESPHome's `max_power` CANNOT cap an addressable strip — it is
-    # float-outputs-only and does not reach esp32_rmt_led_strip. The cap is
-    # applied by hand at exactly one place in the render lambda. Do not assume
-    # max_power protects the supply.
-
   - platform: template
     id: night_brightness
     name: "Night brightness"
@@ -294,6 +370,34 @@ number:
     max_value: 50
     step: 1
     initial_value: 8
+    optimistic: true
+    restore_value: true
+
+  # ---- Auto-dim window -----------------------------------------------------
+  # Was two compile-time substitutions. Set both to the same hour to disable
+  # the window without touching the Auto dim switch.
+  - platform: template
+    id: night_start
+    name: "Night starts"
+    entity_category: config
+    icon: mdi:weather-night
+    unit_of_measurement: "h"
+    min_value: 0
+    max_value: 23
+    step: 1
+    initial_value: ${night_start_hour}
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: night_end
+    name: "Night ends"
+    entity_category: config
+    icon: mdi:weather-sunny
+    unit_of_measurement: "h"
+    min_value: 0
+    max_value: 23
+    step: 1
+    initial_value: ${night_end_hour}
     optimistic: true
     restore_value: true
 
@@ -308,8 +412,37 @@ select:
       - "clock bare"    # clock alone — fault-finding
       - "test chase"    # one pixel walks the ring: wiring / order / index check
     initial_option: "auto"
-    # NOTE: the key is `initial_option`, not `initial_value` — template SELECT
-    # and template NUMBER differ here and the error message is unhelpful.
+    optimistic: true
+    restore_value: true
+
+  # Face style for the LCD. The ring is always analogue — that is the point of
+  # a ring — so this only changes the screen.
+  - platform: template
+    id: clock_face
+    name: "Face"
+    entity_category: config
+    icon: mdi:clock-outline
+    options:
+      - "digital"       # big time, subtitle underneath
+      - "minimal"       # time only, nothing else
+      - "analog"        # drawn hands on the LCD as well as the ring
+    initial_option: "digital"
+    optimistic: true
+    restore_value: true
+
+  # Palette for hands and accents. "mono" is the accessible one — it drops all
+  # hue coding, so nothing depends on telling red from green.
+  - platform: template
+    id: colour_theme
+    name: "Colour theme"
+    entity_category: config
+    icon: mdi:palette
+    options:
+      - "default"
+      - "warm"
+      - "cool"
+      - "mono"
+    initial_option: "default"
     optimistic: true
     restore_value: true
 
@@ -319,8 +452,56 @@ switch:
     name: "Display"
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
-    # Template switches have no restore_value/initial_value — the base switch
-    # component's `restore_mode` is how persistence is expressed.
+
+  - platform: template
+    id: fmt_24h
+    name: "24 hour time"
+    entity_category: config
+    icon: mdi:clock-digital
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
+    id: show_seconds
+    name: "Second hand"
+    entity_category: config
+    icon: mdi:timer-outline
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
+    id: show_weather
+    name: "Show weather"
+    entity_category: config
+    icon: mdi:weather-partly-cloudy
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # The ambient hints on the ring: bin night, garage, driveway, who's home.
+  - platform: template
+    id: show_status
+    name: "Show status hints"
+    entity_category: config
+    icon: mdi:information-outline
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # Echo-style indicator LEDs for timers that are NOT the next to expire.
+  - platform: template
+    id: show_pips
+    name: "Show extra timer pips"
+    entity_category: config
+    icon: mdi:circle-small
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
+    id: auto_dim
+    name: "Auto dim at night"
+    entity_category: config
+    icon: mdi:brightness-auto
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
 
 globals:
   # Drives pulses and the test chase. Deliberately independent of wall-clock
@@ -351,7 +532,7 @@ light:
                         # invites a state fight between HA's brightness slider
                         # and the cap, with no way to tell which one won.
     pin: ${led_pin}
-    num_leds: ${num_leds}
+    num_leds: ${max_leds}       # ceiling; actual count is the ring_size number
 
     # `WS2812B` is NOT valid here. The accepted set is exactly WS2811, WS2812,
     # SK6812, APA106, SM16703 — a WS2812B ring uses WS2812. (fastled_clockless
@@ -382,10 +563,13 @@ light:
           name: "Face"
           update_interval: 50ms     # 20fps: smooth second hand, light main loop
           lambda: |-
-            // N comes from the strip itself, not the substitution, so the face
-            // adapts to whatever ring is connected and cannot half-render.
-            int N = it.size();
-            if (N < 4) return;
+            // The strip is COMPILED at ${max_leds}, but the ring physically
+            // present is whatever "Ring LED count" says in Home Assistant.
+            // Render to that and leave the surplus dark, so one firmware drives
+            // any ring up to the ceiling with no reflash.
+            const int PHYS = it.size();
+            int N = (int) lroundf(id(ring_size).state);
+            if (N < 4 || N > PHYS) N = PHYS;      // unset or nonsense -> whole strip
             if (N > 256) N = 256;
             id(frame)++;
 
@@ -396,8 +580,9 @@ light:
             for (int i = 0; i < N; i++) buf[i] = Color(0, 0, 0);
 
             // Fractions of the circle, so the face is correct at any ring size.
-            auto P = [N](float frac) -> int {
-              int p = (int) lroundf(frac * N) + (${twelve_oclock_offset});
+            const int off = (int) lroundf(id(twelve_offset).state);
+            auto P = [N, off](float frac) -> int {
+              int p = (int) lroundf(frac * N) + off;
               p %= N; return p < 0 ? p + N : p;
             };
             auto add = [](int i, int r, int g, int b) {   // buf is static
@@ -406,9 +591,36 @@ light:
               buf[i].b = (uint8_t) std::min(255, (int) buf[i].b + b);
             };
 
-            const std::string mode = id(display_mode).current_option().str();
+            const std::string mode  = id(display_mode).current_option().str();
+            const std::string theme = id(colour_theme).current_option().str();
             const auto now = id(ha_time).now();
             if (!id(display_on).state) { it.all() = Color::BLACK; return; }
+
+            // ---- THEME ------------------------------------------------------
+            // Hand and arc colours only. "mono" deliberately drops hue coding
+            // entirely, so nothing on the face depends on telling red from
+            // green.
+            int hourC[3] = {255, 90, 20}, minC[3] = {30, 120, 255}, secC[3] = {90, 90, 90};
+            int timerC[3] = {0, 90, 80}, pipC[3] = {0, 60, 55};
+            if (theme == "warm") {
+              hourC[0]=255; hourC[1]=70;  hourC[2]=0;
+              minC[0] =255; minC[1] =160; minC[2] =40;
+              secC[0] =120; secC[1] =60;  secC[2] =20;
+              timerC[0]=200; timerC[1]=80; timerC[2]=0;
+              pipC[0] =120; pipC[1] =50;  pipC[2] =0;
+            } else if (theme == "cool") {
+              hourC[0]=120; hourC[1]=200; hourC[2]=255;
+              minC[0] =40;  minC[1] =90;  minC[2] =255;
+              secC[0] =60;  secC[1] =90;  secC[2] =120;
+              timerC[0]=0;  timerC[1]=140; timerC[2]=200;
+              pipC[0] =0;   pipC[1] =80;  pipC[2] =120;
+            } else if (theme == "mono") {
+              hourC[0]=255; hourC[1]=255; hourC[2]=255;
+              minC[0] =150; minC[1] =150; minC[2] =150;
+              secC[0] =60;  secC[1] =60;  secC[2] =60;
+              timerC[0]=90; timerC[1]=90; timerC[2]=90;
+              pipC[0] =55;  pipC[1] =55;  pipC[2] =55;
+            }
 
             // ---- TEST CHASE: wiring, LED count, colour order, index 0 ------
             if (mode == "test chase") {
@@ -444,14 +656,43 @@ light:
                     float ratio = left / tot;
                     if (ratio > 1.0f) ratio = 1.0f;   // "add 5 minutes" clamp
                     const int lit = (int) ceilf(ratio * N);
-                    // Teal, so it can never be mistaken for a hand.
-                    for (int i = 0; i < lit; i++) add(P((float) i / N), 0, 90, 80);
+                    // Teal by default, so it can never be mistaken for a hand.
+                    for (int i = 0; i < lit; i++)
+                      add(P((float) i / N), timerC[0], timerC[1], timerC[2]);
+                  }
+                }
+
+                // ---- ECHO-STYLE PIPS for the OTHER running timers ----------
+                // The real Echo Wall Clock gives the next-expiring timer the
+                // full depleting arc, and every OTHER running timer a single
+                // LED sitting where it will finish. This is that.
+                //
+                // Position is the finish time mapped onto the minute dial, so
+                // two timers ending at different times land in different places
+                // and can be told apart at a glance.
+                //
+                // The timer that already owns the arc is skipped, or the
+                // soonest timer would draw a redundant dot on itself.
+                if (id(show_pips).state) {
+                  const float nextfin = id(timer_finish_epoch).state;
+                  const float fins[5] = { id(t1_fin).state, id(t2_fin).state,
+                                          id(t3_fin).state, id(t4_fin).state,
+                                          id(t5_fin).state };
+                  for (int k = 0; k < 5; k++) {
+                    const float f = fins[k];
+                    if (std::isnan(f) || f <= 0) continue;
+                    if (f <= (float) now.timestamp) continue;
+                    if (!std::isnan(nextfin) && fabsf(f - nextfin) < 0.5f) continue;
+                    // Where that wall-clock time falls on the minute dial.
+                    const long secs = (long) f;
+                    const float frac = (float) (secs % 3600L) / 3600.0f;
+                    add(P(frac), pipC[0], pipC[1], pipC[2]);
                   }
                 }
               }
 
               // ---- AMBIENT: accent pixels only, never anything hand-like ----
-              if (mode == "auto" && !timer_running) {
+              if (mode == "auto" && !timer_running && id(show_status).state) {
                 if (id(bin_night).state) {                 // 12 o'clock breathe
                   const float ph = (id(frame) % 60) / 60.0f;
                   const float k = 0.4f + 0.6f * fabsf(1.0f - 2.0f * ph);
@@ -478,10 +719,12 @@ light:
               const float hf = fmodf((float) now.hour, 12.0f) / 12.0f
                              + now.minute / 720.0f;
               // On a 24-LED ring one pixel is 2.5 minutes, so the hour hand
-              // gets no shoulders — they would swamp the dial.
-              add(P(hf), 255, 90, 20);                                 // amber
-              add(P(now.minute / 60.0f + now.second / 3600.0f), 30, 120, 255);
-              add(P(now.second / 60.0f), 90, 90, 90);
+              // gets no shoulders — they would swamp the dial. The same code on
+              // a 60-LED ring gives a genuinely per-minute face.
+              add(P(hf), hourC[0], hourC[1], hourC[2]);
+              add(P(now.minute / 60.0f + now.second / 3600.0f), minC[0], minC[1], minC[2]);
+              if (id(show_seconds).state)
+                add(P(now.second / 60.0f), secC[0], secC[1], secC[2]);
 
               // HA dropped: tint 6 o'clock so it is visible from the room that
               // STATUS is stale. The time itself is still trustworthy.
@@ -490,14 +733,19 @@ light:
 
             // ---- BRIGHTNESS + WRITE-OUT: the single place it is applied ----
             // Night window is inclusive of start, exclusive of end, and handles
-            // the wrap over midnight. If the time is unknown we cannot tell day
-            // from night, so fall back to the dimmer value.
+            // the wrap over midnight. Start == end means "no night window",
+            // which is how you disable dimming by hours alone. If the time is
+            // unknown we cannot tell day from night, so fall back to dimmer.
             float bri = id(day_brightness).state / 100.0f;
-            if (now.is_valid()) {
+            if (!id(auto_dim).state) {
+              // Auto dim off: day brightness around the clock.
+            } else if (now.is_valid()) {
               const int h = now.hour;
-              const int ns = ${night_start_hour}, ne = ${night_end_hour};
-              const bool night = (ns > ne) ? (h >= ns || h < ne)
-                                           : (h >= ns && h < ne);
+              const int ns = (int) lroundf(id(night_start).state);
+              const int ne = (int) lroundf(id(night_end).state);
+              const bool night = (ns == ne) ? false
+                               : (ns > ne)  ? (h >= ns || h < ne)
+                                            : (h >= ns && h < ne);
               if (night) bri = id(night_brightness).state / 100.0f;
             } else {
               bri = id(night_brightness).state / 100.0f;
@@ -506,9 +754,12 @@ light:
               it[i] = Color((uint8_t) lroundf(buf[i].r * bri),
                             (uint8_t) lroundf(buf[i].g * bri),
                             (uint8_t) lroundf(buf[i].b * bri));
+            // Anything past the configured ring size stays dark, so a short
+            // ring on a long-compiled strip does not show stale pixels.
+            for (int i = N; i < PHYS; i++) it[i] = Color::BLACK;
 
 # =============================================================================
-# DISPLAY — ENABLED, with the GC9B71-derived candidate init sequence
+# DISPLAY — verified GC9B72 init sequence (working on hardware 2026-08-24)
 # =============================================================================
 # If `esphome config` rejects anything here, or the panel comes up blank or
 # garbled, fall back to mini-round-clock.yaml (ring only, known good) and read
@@ -661,23 +912,31 @@ display:
     lambda: |-
       const int CX = 180, CY = 180;
       const auto now = id(ha_time).now();
+      const std::string face = id(clock_face).current_option().str();
+      const bool h24 = id(fmt_24h).state;
+
+      // 12/24 hour. Done by hand rather than with strftime %I because %I pads
+      // to "09:30", which reads wrong on a clock face. This drops the zero.
+      auto hour12 = [](int h) -> int { int v = h % 12; return v == 0 ? 12 : v; };
 
       // ---- background: weather wash ------------------------------------
       // Kept dark on purpose. This sits inside a lit LED ring; a bright
       // background would wash the ring out and be unreadable at night.
       std::string cond = id(weather_condition).state;
       Color bg = Color(10, 12, 18);
-      if      (cond == "sunny")            bg = Color(46, 34,  6);
-      else if (cond == "clear-night")      bg = Color( 8, 10, 26);
-      else if (cond == "partlycloudy")     bg = Color(28, 30, 38);
-      else if (cond == "cloudy")           bg = Color(22, 24, 28);
-      else if (cond == "fog")              bg = Color(26, 26, 30);
-      else if (cond == "rainy" ||
-               cond == "pouring")          bg = Color( 8, 20, 40);
-      else if (cond == "lightning" ||
-               cond == "lightning-rainy")  bg = Color(38, 24, 46);
-      else if (cond == "snowy")            bg = Color(30, 36, 44);
-      else if (cond == "windy")            bg = Color(16, 30, 30);
+      if (id(show_weather).state) {
+        if      (cond == "sunny")            bg = Color(46, 34,  6);
+        else if (cond == "clear-night")      bg = Color( 8, 10, 26);
+        else if (cond == "partlycloudy")     bg = Color(28, 30, 38);
+        else if (cond == "cloudy")           bg = Color(22, 24, 28);
+        else if (cond == "fog")              bg = Color(26, 26, 30);
+        else if (cond == "rainy" ||
+                 cond == "pouring")          bg = Color( 8, 20, 40);
+        else if (cond == "lightning" ||
+                 cond == "lightning-rainy")  bg = Color(38, 24, 46);
+        else if (cond == "snowy")            bg = Color(30, 36, 44);
+        else if (cond == "windy")            bg = Color(16, 30, 30);
+      }
 
       // ---- work out what this screen should be showing ------------------
       bool alert = id(timer_alert).state;
@@ -697,8 +956,10 @@ display:
         it.filled_circle(CX, CY, 180, on ? Color(120, 40, 0) : Color(40, 14, 0));
         it.print(CX, CY - 12, id(font_big), Color(255, 255, 255),
                  TextAlign::CENTER, "0:00");
-        it.print(CX, CY + 78, id(font_med), Color(255, 220, 190),
-                 TextAlign::CENTER, "timer finished");
+        const std::string lbl = id(timer_label).state;
+        it.printf(CX, CY + 78, id(font_med), Color(255, 220, 190),
+                  TextAlign::CENTER, "%s finished",
+                  lbl.empty() ? "timer" : lbl.c_str());
         return;
       }
 
@@ -708,23 +969,102 @@ display:
         // A timer is running: it gets the big numerals, the clock drops to a
         // subtitle. The thing you are waiting on should be the readable one.
         const int m = left / 60, s = left % 60;
-        it.printf(CX, CY - 22, id(font_big), Color(120, 235, 220),
+        it.printf(CX, CY - 34, id(font_big), Color(120, 235, 220),
                   TextAlign::CENTER, "%d:%02d", m, s);
-        it.strftime(CX, CY + 66, id(font_med), Color(150, 162, 185),
-                    TextAlign::CENTER, "%H:%M", now);
-      } else if (now.is_valid()) {
-        it.strftime(CX, CY - 22, id(font_big), Color(255, 255, 255),
-                    TextAlign::CENTER, "%H:%M", now);
-        if (!std::isnan(id(weather_temp).state))
-          it.printf(CX, CY + 62, id(font_med), Color(210, 220, 240),
-                    TextAlign::CENTER, "%.0f°C", id(weather_temp).state);
-        if (!cond.empty() && cond != "unknown") {
-          // HA conditions are hyphenated slugs; make them readable.
-          std::string pretty = cond;
-          for (auto &ch : pretty) if (ch == '-') ch = ' ';
-          it.printf(CX, CY + 104, id(font_small), Color(140, 152, 175),
-                    TextAlign::CENTER, "%s", pretty.c_str());
+
+        // Whose timer, when it was given a name.
+        const std::string lbl = id(timer_label).state;
+        if (!lbl.empty() && lbl != "unknown")
+          it.printf(CX, CY + 40, id(font_small), Color(120, 200, 195),
+                    TextAlign::CENTER, "%s", lbl.c_str());
+
+        if (h24)
+          it.strftime(CX, CY + 74, id(font_med), Color(150, 162, 185),
+                      TextAlign::CENTER, "%H:%M", now);
+        else
+          it.printf(CX, CY + 74, id(font_med), Color(150, 162, 185),
+                    TextAlign::CENTER, "%d:%02d", hour12(now.hour), now.minute);
+
+        // ---- THE OTHER TIMERS -------------------------------------------
+        // The ring can only give these a single pip each. The screen is where
+        // a third and fourth timer are actually legible, so they are listed
+        // here as a row of remaining times, soonest first.
+        const float nextfin = id(timer_finish_epoch).state;
+        float others[5]; int no = 0;
+        const float fins[5] = { id(t1_fin).state, id(t2_fin).state,
+                                id(t3_fin).state, id(t4_fin).state,
+                                id(t5_fin).state };
+        for (int k = 0; k < 5; k++) {
+          const float f = fins[k];
+          if (std::isnan(f) || f <= 0) continue;
+          if (f <= (float) now.timestamp) continue;
+          if (!std::isnan(nextfin) && fabsf(f - nextfin) < 0.5f) continue;
+          others[no++] = f;
         }
+        for (int a = 0; a < no; a++)          // tiny list, insertion sort
+          for (int b = a + 1; b < no; b++)
+            if (others[b] < others[a]) { float t = others[a]; others[a] = others[b]; others[b] = t; }
+
+        for (int k = 0; k < no && k < 3; k++) {
+          const int r = (int) lroundf(others[k] - (float) now.timestamp);
+          it.printf(CX, CY + 106 + k * 22, id(font_small), Color(90, 150, 148),
+                    TextAlign::CENTER, "+ %d:%02d", r / 60, r % 60);
+        }
+
+      } else if (now.is_valid()) {
+
+        if (face == "analog") {
+          // Drawn hands on the LCD as well as the ring. Deliberately thin and
+          // unfilled — the ring is the primary analogue read, this echoes it.
+          it.circle(CX, CY, 150, Color(60, 66, 80));
+          for (int m = 0; m < 12; m++) {
+            const float a = (m / 12.0f) * 6.28318f - 1.5708f;
+            it.filled_circle(CX + (int)(cosf(a) * 150), CY + (int)(sinf(a) * 150),
+                             3, Color(90, 98, 118));
+          }
+          const float ha = ((fmodf((float) now.hour, 12.0f) / 12.0f)
+                            + now.minute / 720.0f) * 6.28318f - 1.5708f;
+          const float ma = (now.minute / 60.0f + now.second / 3600.0f)
+                            * 6.28318f - 1.5708f;
+          it.line(CX, CY, CX + (int)(cosf(ha) * 80),  CY + (int)(sinf(ha) * 80),
+                  Color(255, 150, 60));
+          it.line(CX, CY, CX + (int)(cosf(ma) * 125), CY + (int)(sinf(ma) * 125),
+                  Color(120, 180, 255));
+          if (id(show_seconds).state) {
+            const float sa = (now.second / 60.0f) * 6.28318f - 1.5708f;
+            it.line(CX, CY, CX + (int)(cosf(sa) * 138), CY + (int)(sinf(sa) * 138),
+                    Color(150, 150, 150));
+          }
+          it.filled_circle(CX, CY, 5, Color(220, 220, 220));
+
+        } else {
+          // digital and minimal share the big numerals
+          if (h24)
+            it.strftime(CX, CY - 22, id(font_big), Color(255, 255, 255),
+                        TextAlign::CENTER, "%H:%M", now);
+          else
+            it.printf(CX, CY - 22, id(font_big), Color(255, 255, 255),
+                      TextAlign::CENTER, "%d:%02d", hour12(now.hour), now.minute);
+
+          if (face == "digital") {
+            if (id(show_weather).state) {
+              if (!std::isnan(id(weather_temp).state))
+                it.printf(CX, CY + 62, id(font_med), Color(210, 220, 240),
+                          TextAlign::CENTER, "%.0f°C", id(weather_temp).state);
+              if (!cond.empty() && cond != "unknown") {
+                // HA conditions are hyphenated slugs; make them readable.
+                std::string pretty = cond;
+                for (auto &ch : pretty) if (ch == '-') ch = ' ';
+                it.printf(CX, CY + 104, id(font_small), Color(140, 152, 175),
+                          TextAlign::CENTER, "%s", pretty.c_str());
+              }
+            }
+            if (!h24)
+              it.printf(CX, CY + 140, id(font_small), Color(120, 130, 150),
+                        TextAlign::CENTER, "%s", now.hour < 12 ? "AM" : "PM");
+          }
+        }
+
       } else {
         // Deliberate "I don't know the time" state, matching the ring's crawl.
         it.print(CX, CY - 22, id(font_big), Color(90, 70, 30),

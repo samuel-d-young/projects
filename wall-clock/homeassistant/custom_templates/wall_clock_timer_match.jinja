@@ -1,0 +1,152 @@
+{# ===========================================================================
+   wall_clock_timer_match.jinja — shared timer-matching logic
+   ===========================================================================
+   Install to /config/custom_templates/wall_clock_timer_match.jinja.
+
+   Custom templates are loaded ONCE at startup. After editing this file run
+   Developer Tools > Actions > homeassistant.reload_custom_templates, or the
+   intents keep using the old copy with no warning.
+
+   Used by wall_clock_timers.yaml. Every timer intent has to answer "which of
+   the five slots did they mean?", and intent_script evaluates `speech:`
+   separately from `action:` — so each intent has to answer it twice. Without
+   these macros that is twelve copies of the same twenty lines.
+
+   All of them read sensor.wall_clock_timer_slots, which carries a `slots`
+   attribute: a list of dicts with i, entity, st, label, area, total, fin.
+   =========================================================================== #}
+
+
+{# ---------------------------------------------------------------------------
+   pick() — resolve intent slots to one timer entity_id, or '' for no match.
+
+   HA's timer intents can carry a name ("pasta"), an area, or the ORIGINAL
+   duration ("the ten minute timer") to disambiguate. Priority:
+
+     1. name      — substring, case-insensitive
+     2. area      — exact area_id
+     3. duration  — exact original total in seconds
+     4. neither   — prefer timers set in the room being spoken to, else any
+
+   An EXPLICIT selector that matches nothing returns '' rather than falling
+   back. "Cancel the pasta timer" when there is no pasta timer must not cancel
+   the bread one.
+
+   `require` optionally constrains to 'active' or 'paused' — pausing should
+   only consider running timers, resuming only paused ones.
+
+   Ties break toward the timer expiring soonest, which is the one a person
+   most likely means. Paused timers sort last (they have fin = 0).
+   --------------------------------------------------------------------------- #}
+{% macro pick(name='', area='', preferred_area='', sh=0, sm=0, ss=0, require='') %}
+{%- set want_name = name | string | trim | lower -%}
+{%- set want_area = area | string | trim | lower | replace(' ', '_') -%}
+{%- set pref = preferred_area | string | trim | lower | replace(' ', '_') -%}
+{%- set want_dur = (sh | int(0)) * 3600 + (sm | int(0)) * 60 + (ss | int(0)) -%}
+
+{%- set slots = state_attr('sensor.wall_clock_timer_slots', 'slots') | default([], true) -%}
+
+{#- constrain by state first -#}
+{%- set ns = namespace(pool = []) -%}
+{%- for s in slots -%}
+  {%- if require == '' or s.st == require -%}
+    {%- set ns.pool = ns.pool + [s] -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{#- then by whichever selector was actually supplied -#}
+{%- set ns2 = namespace(cand = [], explicit = false) -%}
+{%- if want_name != '' -%}
+  {%- set ns2.explicit = true -%}
+  {%- for s in ns.pool -%}
+    {%- if want_name in (s.label | string | lower) -%}
+      {%- set ns2.cand = ns2.cand + [s] -%}
+    {%- endif -%}
+  {%- endfor -%}
+{%- elif want_area != '' -%}
+  {%- set ns2.explicit = true -%}
+  {%- for s in ns.pool -%}
+    {%- if (s.area | string | lower) == want_area -%}
+      {%- set ns2.cand = ns2.cand + [s] -%}
+    {%- endif -%}
+  {%- endfor -%}
+{%- elif want_dur > 0 -%}
+  {%- set ns2.explicit = true -%}
+  {%- for s in ns.pool -%}
+    {%- if (s.total | int(0)) == want_dur -%}
+      {%- set ns2.cand = ns2.cand + [s] -%}
+    {%- endif -%}
+  {%- endfor -%}
+{%- else -%}
+  {#- nothing specified: prefer this room's timers, but do not require them -#}
+  {%- if pref != '' -%}
+    {%- for s in ns.pool -%}
+      {%- if (s.area | string | lower) == pref -%}
+        {%- set ns2.cand = ns2.cand + [s] -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endif -%}
+  {%- if ns2.cand | length == 0 -%}
+    {%- set ns2.cand = ns.pool -%}
+  {%- endif -%}
+{%- endif -%}
+
+{#- soonest first; paused (fin = 0) sorted to the end -#}
+{%- set ns3 = namespace(best = '', bestfin = 0) -%}
+{%- for s in ns2.cand -%}
+  {%- set f = s.fin | int(0) -%}
+  {%- set f = f if f > 0 else 9999999999 -%}
+  {%- if ns3.best == '' or f < ns3.bestfin -%}
+    {%- set ns3.best = s.entity -%}
+    {%- set ns3.bestfin = f -%}
+  {%- endif -%}
+{%- endfor -%}
+{{- ns3.best -}}
+{% endmacro %}
+
+
+{# ---------------------------------------------------------------------------
+   describe() — "Pasta timer" / "Kitchen timer" / "Timer", for speech.
+   Capitalised so it can open a sentence; lower-case it at the call site when
+   it lands mid-sentence.
+   --------------------------------------------------------------------------- #}
+{% macro describe(entity) %}
+{%- set slots = state_attr('sensor.wall_clock_timer_slots', 'slots') | default([], true) -%}
+{%- set ns = namespace(label = '', area = '') -%}
+{%- for s in slots -%}
+  {%- if s.entity == entity -%}
+    {%- set ns.label = s.label | string | trim -%}
+    {%- set ns.area = s.area | string | trim -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- if ns.label != '' -%}
+  {{- ns.label | capitalize }} timer
+{%- elif ns.area != '' -%}
+  {{- area_name(ns.area) | default(ns.area, true) | capitalize }} timer
+{%- else -%}
+  Timer
+{%- endif -%}
+{% endmacro %}
+
+
+{# ---------------------------------------------------------------------------
+   spoken() — seconds as natural speech: "2 minutes and 30 seconds".
+   Drops zero components, so 120 is "2 minutes", not "2 minutes 0 seconds".
+   --------------------------------------------------------------------------- #}
+{% macro spoken(total) %}
+{%- set t = total | int(0) -%}
+{%- set h = t // 3600 -%}
+{%- set m = (t % 3600) // 60 -%}
+{%- set s = t % 60 -%}
+{%- set ns = namespace(parts = []) -%}
+{%- if h > 0 -%}{%- set ns.parts = ns.parts + [h ~ ' hour' ~ ('s' if h != 1 else '')] -%}{%- endif -%}
+{%- if m > 0 -%}{%- set ns.parts = ns.parts + [m ~ ' minute' ~ ('s' if m != 1 else '')] -%}{%- endif -%}
+{%- if s > 0 -%}{%- set ns.parts = ns.parts + [s ~ ' second' ~ ('s' if s != 1 else '')] -%}{%- endif -%}
+{%- if ns.parts | length == 0 -%}
+  no time
+{%- elif ns.parts | length == 1 -%}
+  {{- ns.parts[0] -}}
+{%- else -%}
+  {{- ns.parts[:-1] | join(', ') }} and {{ ns.parts[-1] -}}
+{%- endif -%}
+{% endmacro %}

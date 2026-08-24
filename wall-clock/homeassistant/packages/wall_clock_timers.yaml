@@ -1,0 +1,651 @@
+# =============================================================================
+# wall_clock_timers.yaml — multi-timer subsystem (Echo Wall Clock parity)
+# =============================================================================
+# Install alongside wall_clock.yaml in /config/packages/. HA merges packages
+# per domain, so `template:`, `automation:`, `timer:` and friends defined here
+# and there combine cleanly.
+#
+# ---------------------------------------------------------------------------
+# WHY THIS REPLACED THE ONE-TIMER-PER-AREA MODEL
+# ---------------------------------------------------------------------------
+# wall_clock.yaml originally gave each AREA one timer (timer.kitchen, ...) and
+# routed by `preferred_area_id`. Its own header called this out:
+#
+#     "KNOWN LIMITATION: one timer per area. Saying 'set a second timer' in the
+#      same room replaces the first."
+#
+# That is the one thing the Echo Wall Clock is actually for. It shows several
+# concurrent timers, which a one-per-area model structurally cannot do.
+#
+# So timers now come from a POOL, not from areas. There is one physical clock,
+# so one pool is the honest model — a kitchen timer and a bedroom timer both
+# have to appear on the same ring regardless. The area is still recorded per
+# timer, so voice replies and the finish announcement still know which room a
+# timer belongs to.
+#
+# ---------------------------------------------------------------------------
+# HOW THE ECHO WALL CLOCK ACTUALLY DISPLAYS MULTIPLE TIMERS
+# ---------------------------------------------------------------------------
+# Verified against reviews of the real device, because "parity" is the spec:
+#
+#   * The NEXT-EXPIRING timer gets the full depleting arc.
+#   * Every OTHER running timer gets a SINGLE indicator LED, sitting at the
+#     position where it will finish.
+#   * Above about three it gets cluttered.
+#
+# The firmware implements exactly that. This file's job is to expose the data
+# for it: one "next timer" pair of sensors (which is also what the older
+# single-timer firmware already reads, so this file is backward compatible)
+# plus per-slot sensors for the indicator pips.
+#
+# ---------------------------------------------------------------------------
+# SLOT COUNT
+# ---------------------------------------------------------------------------
+# Five. Three is where the real device gets unreadable, and the 24-LED ring is
+# coarser than its 60, so five is headroom rather than a target. The LCD lists
+# all of them regardless, which is where a 4th and 5th timer are actually
+# legible. To change it you must edit BOTH the `timer:` block and the range()
+# bounds in the templates below — they are not derived from each other.
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# THE POOL
+# -----------------------------------------------------------------------------
+# `restore: true` means a running timer survives an HA restart. Without it a
+# restart silently eats an in-flight timer.
+timer:
+  wall_clock_1:
+    name: Wall clock timer 1
+    restore: true
+    duration: "00:00:00"
+  wall_clock_2:
+    name: Wall clock timer 2
+    restore: true
+    duration: "00:00:00"
+  wall_clock_3:
+    name: Wall clock timer 3
+    restore: true
+    duration: "00:00:00"
+  wall_clock_4:
+    name: Wall clock timer 4
+    restore: true
+    duration: "00:00:00"
+  wall_clock_5:
+    name: Wall clock timer 5
+    restore: true
+    duration: "00:00:00"
+
+
+# -----------------------------------------------------------------------------
+# PER-SLOT METADATA
+# -----------------------------------------------------------------------------
+# A timer entity has no custom attributes, so the label ("pasta") and the area
+# the command came from are parked in a companion input_text as JSON.
+#
+# Written on start, cleared on finish/cancel. If it ever desyncs the timer
+# still works — the label just falls back to "timer".
+input_text:
+  wall_clock_timer_1_meta:
+    name: Wall clock timer 1 meta
+    max: 255
+  wall_clock_timer_2_meta:
+    name: Wall clock timer 2 meta
+    max: 255
+  wall_clock_timer_3_meta:
+    name: Wall clock timer 3 meta
+    max: 255
+  wall_clock_timer_4_meta:
+    name: Wall clock timer 4 meta
+    max: 255
+  wall_clock_timer_5_meta:
+    name: Wall clock timer 5 meta
+    max: 255
+
+
+# -----------------------------------------------------------------------------
+# THE SLOT TABLE — computed once, read by every intent
+# -----------------------------------------------------------------------------
+# Without this, every intent below would have to re-walk all five slots,
+# parse the JSON and split the "H:MM:SS" duration strings inline. Six copies of
+# that is how config files rot. Computed here once instead.
+#
+# State is the number of live timers, which is independently useful.
+template:
+  - triggers:
+      - trigger: state
+        entity_id:
+          - timer.wall_clock_1
+          - timer.wall_clock_2
+          - timer.wall_clock_3
+          - timer.wall_clock_4
+          - timer.wall_clock_5
+      - trigger: state
+        entity_id:
+          - input_text.wall_clock_timer_1_meta
+          - input_text.wall_clock_timer_2_meta
+          - input_text.wall_clock_timer_3_meta
+          - input_text.wall_clock_timer_4_meta
+          - input_text.wall_clock_timer_5_meta
+      - trigger: homeassistant
+        event: start
+    sensor:
+      - name: "Wall clock timer slots"
+        unique_id: wall_clock_timer_slots
+        icon: mdi:timer-sand
+        state: >-
+          {% set ns = namespace(n = 0) %}
+          {% for i in range(1, 6) %}
+            {% if states('timer.wall_clock_' ~ i) in ['active', 'paused'] %}
+              {% set ns.n = ns.n + 1 %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.n }}
+        attributes:
+          slots: >-
+            {% set ns = namespace(out = []) %}
+            {% for i in range(1, 6) %}
+              {% set e = 'timer.wall_clock_' ~ i %}
+              {% set st = states(e) %}
+              {% if st in ['active', 'paused'] %}
+                {% set raw = states('input_text.wall_clock_timer_' ~ i ~ '_meta') %}
+                {# from_json throws on junk, so only attempt it on something that looks like an object #}
+                {% set m = (raw | from_json) if (raw is string and raw.startswith('{')) else {} %}
+                {% set dp = (state_attr(e, 'duration') or '0:00:00').split(':') | map('int') | list %}
+                {% set fa = state_attr(e, 'finishes_at') %}
+                {% set ns.out = ns.out + [{
+                     'i': i,
+                     'entity': e,
+                     'st': st,
+                     'label': m.label | default('') ,
+                     'area': m.area | default(''),
+                     'total': dp[0] * 3600 + dp[1] * 60 + dp[2],
+                     'fin': (fa | as_timestamp | round(0) | int) if fa else 0
+                   }] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.out }}
+
+
+# -----------------------------------------------------------------------------
+# THE CONTRACT WITH THE ESP32
+# -----------------------------------------------------------------------------
+# BACKWARD COMPATIBLE ON PURPOSE. wall_clock_timer_finish_epoch and
+# wall_clock_timer_total keep their original meaning — "the timer that expires
+# soonest" — so firmware written against the single-timer package keeps working
+# unchanged and simply shows the next timer. The per-slot sensors below are
+# additive, for the indicator pips.
+#
+# Absolute unix epoch, not "seconds remaining", because HA's `remaining`
+# attribute does NOT tick down while running, and `duration`/`remaining` are
+# "H:MM:SS" STRINGS that ESPHome's numeric sensor platform cannot import.
+# The finish time is genuinely static while a timer runs, so the ESP32 counts
+# down against its own clock. No drift, no polling.
+  - triggers:
+      - trigger: state
+        entity_id: sensor.wall_clock_timer_slots
+      - trigger: homeassistant
+        event: start
+    sensor:
+      # ---- the next timer: what the main arc draws ----
+      - name: "Wall clock timer finish epoch"
+        unique_id: wall_clock_timer_finish_epoch
+        state: >-
+          {% set s = state_attr('sensor.wall_clock_timer_slots', 'slots') | default([], true)
+                     | selectattr('st', 'eq', 'active') | sort(attribute='fin') | list %}
+          {{ s[0].fin if s | length > 0 else 0 }}
+        # 0 means "no timer running" — the firmware checks for > 0.
+
+      - name: "Wall clock timer total"
+        unique_id: wall_clock_timer_total
+        unit_of_measurement: "s"
+        state: >-
+          {% set s = state_attr('sensor.wall_clock_timer_slots', 'slots') | default([], true)
+                     | selectattr('st', 'eq', 'active') | sort(attribute='fin') | list %}
+          {{ s[0].total if s | length > 0 else 0 }}
+
+      - name: "Wall clock timer label"
+        unique_id: wall_clock_timer_label
+        state: >-
+          {% set s = state_attr('sensor.wall_clock_timer_slots', 'slots') | default([], true)
+                     | selectattr('st', 'eq', 'active') | sort(attribute='fin') | list %}
+          {{ (s[0].label if s | length > 0 else '')[:32] }}
+
+      # ---- how many are live: the firmware uses this to decide whether to
+      # ---- bother drawing pips or the LCD list at all ----
+      - name: "Wall clock timer count"
+        unique_id: wall_clock_timer_count
+        state: "{{ states('sensor.wall_clock_timer_slots') | int(0) }}"
+
+      # ---- per-slot finish epochs: one indicator pip each ----
+      # Deliberately flat sensors rather than one packed string: ESPHome
+      # imports numbers natively and parsing a delimited blob in a lambda is
+      # exactly the kind of thing that breaks silently at 1am.
+      - name: "Wall clock timer 1 finish epoch"
+        unique_id: wall_clock_timer_1_finish_epoch
+        state: >-
+          {% set a = state_attr('sensor.wall_clock_timer_slots', 'slots') | default([], true)
+                     | selectattr('i', 'eq', 1) | selectattr('st', 'eq', 'active') | list %}
+          {{ a[0].fin if a | length > 0 else 0 }}
+      - name: "Wall clock timer 2 finish epoch"
+        unique_id: wall_clock_timer_2_finish_epoch
+        state: >-
+          {% set a = state_attr('sensor.wall_clock_timer_slots', 'slots') | default([], true)
+                     | selectattr('i', 'eq', 2) | selectattr('st', 'eq', 'active') | list %}
+          {{ a[0].fin if a | length > 0 else 0 }}
+      - name: "Wall clock timer 3 finish epoch"
+        unique_id: wall_clock_timer_3_finish_epoch
+        state: >-
+          {% set a = state_attr('sensor.wall_clock_timer_slots', 'slots') | default([], true)
+                     | selectattr('i', 'eq', 3) | selectattr('st', 'eq', 'active') | list %}
+          {{ a[0].fin if a | length > 0 else 0 }}
+      - name: "Wall clock timer 4 finish epoch"
+        unique_id: wall_clock_timer_4_finish_epoch
+        state: >-
+          {% set a = state_attr('sensor.wall_clock_timer_slots', 'slots') | default([], true)
+                     | selectattr('i', 'eq', 4) | selectattr('st', 'eq', 'active') | list %}
+          {{ a[0].fin if a | length > 0 else 0 }}
+      - name: "Wall clock timer 5 finish epoch"
+        unique_id: wall_clock_timer_5_finish_epoch
+        state: >-
+          {% set a = state_attr('sensor.wall_clock_timer_slots', 'slots') | default([], true)
+                     | selectattr('i', 'eq', 5) | selectattr('st', 'eq', 'active') | list %}
+          {{ a[0].fin if a | length > 0 else 0 }}
+
+  # ---- alert flag ----
+  - binary_sensor:
+      # Mirrors the input_boolean. The extra hop exists so the firmware has a
+      # stable wall_clock_* contract — you can suppress alerts overnight here
+      # without touching (or reflashing) the ESP32.
+      - name: "Wall clock timer alert"
+        unique_id: wall_clock_timer_alert
+        state: "{{ is_state('input_boolean.wall_clock_timer_alert', 'on') }}"
+
+
+# -----------------------------------------------------------------------------
+# INTENT OVERRIDE — all eight timer intents
+# -----------------------------------------------------------------------------
+# Assist's built-in timers live in an internal TimerManager that nothing
+# outside the handling device can read. Overriding these intents is the only
+# way to get spoken timers into real entities the clock can see.
+#
+# The `Intent HassStartTimer is being overwritten` warning in the log is the
+# SUCCESS signal, not an error.
+#
+# HA 2026.8 ships eight timer intents. All eight are handled here — leaving any
+# unhandled means it silently falls through to the invisible internal manager,
+# and that timer never appears on the clock.
+#
+# NOTE ON DUPLICATION: `speech:` is evaluated separately from `action:` and
+# cannot see its variables, so each intent works out its target twice. That is
+# a constraint of intent_script, not an oversight. The slot table above keeps
+# each copy down to a few lines.
+# WHY async_action IS true ON EVERY INTENT
+# Found by testing, 2026-08-24. `speech:` is rendered AFTER `action:` has run,
+# so any matcher that filters on state the action just changed sees the wrong
+# world. With async_action: false, "cancel all timers" cancelled three timers
+# and then answered "There were no timers running" — because by the time the
+# speech template ran, there were not. Cancel/pause/resume all had the same
+# fault, and start had it in the edge case of filling the last free slot.
+#
+# async_action: true renders the response BEFORE waiting on the action, so the
+# speech templates below see the pre-action state, which is what they describe.
+intent_script:
+
+  # ---- START ---------------------------------------------------------------
+  HassStartTimer:
+    async_action: true
+    action:
+      - variables:
+          slot: >-
+            {% set ns = namespace(free = 0) %}
+            {% for i in range(1, 6) %}
+              {% if ns.free == 0 and states('timer.wall_clock_' ~ i) == 'idle' %}
+                {% set ns.free = i %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.free }}
+          total: >-
+            {{ (hours   | default(0) | int) * 3600
+             + (minutes | default(0) | int) * 60
+             + (seconds | default(0) | int) }}
+          hhmmss: >-
+            {% set t = (hours | default(0) | int) * 3600
+                     + (minutes | default(0) | int) * 60
+                     + (seconds | default(0) | int) %}
+            {{ '%02d:%02d:%02d' | format(t // 3600, (t % 3600) // 60, t % 60) }}
+          meta: >-
+            {{ {'label': (name | default('') | trim),
+                'area': (preferred_area_id | default('') | lower | replace(' ', '_'))} | to_json }}
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ slot | int > 0 and total | int > 0 }}"
+            sequence:
+              - action: input_text.set_value
+                target:
+                  entity_id: "input_text.wall_clock_timer_{{ slot }}_meta"
+                data:
+                  value: "{{ meta }}"
+              - action: timer.start
+                target:
+                  entity_id: "timer.wall_clock_{{ slot }}"
+                data:
+                  duration: "{{ hhmmss }}"
+    speech:
+      text: >-
+        {% set ns = namespace(free = 0) %}
+        {% for i in range(1, 6) %}
+          {% if ns.free == 0 and states('timer.wall_clock_' ~ i) == 'idle' %}
+            {% set ns.free = i %}
+          {% endif %}
+        {% endfor %}
+        {% set t = (hours | default(0) | int) * 3600
+                 + (minutes | default(0) | int) * 60
+                 + (seconds | default(0) | int) %}
+        {% if t == 0 %}
+          I need to know how long to set the timer for.
+        {% elif ns.free == 0 %}
+          All five timers are already running.
+        {% else %}
+          {% set h = t // 3600 %}{% set m = (t % 3600) // 60 %}{% set s = t % 60 %}
+          {% set lbl = name | default('') | trim %}
+          {{ lbl ~ ' timer' if lbl else 'Timer' }} set for
+          {%- if h %} {{ h }} hour{{ 's' if h != 1 }}{% endif %}
+          {%- if m %} {{ m }} minute{{ 's' if m != 1 }}{% endif %}
+          {%- if s %} {{ s }} second{{ 's' if s != 1 }}{% endif %}.
+        {% endif %}
+
+  # ---- CANCEL ONE ----------------------------------------------------------
+  HassCancelTimer:
+    async_action: true
+    action:
+      - variables:
+          target: >-
+            {% from 'wall_clock_timer_match.jinja' import pick %}
+            {{ pick(name | default(''), area | default(''), preferred_area_id | default(''),
+                    start_hours | default(0), start_minutes | default(0), start_seconds | default(0)) }}
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ target != '' }}"
+            sequence:
+              - action: timer.cancel
+                target:
+                  entity_id: "{{ target }}"
+    speech:
+      text: >-
+        {% from 'wall_clock_timer_match.jinja' import pick, describe %}
+        {% set target = pick(name | default(''), area | default(''), preferred_area_id | default(''),
+                             start_hours | default(0), start_minutes | default(0), start_seconds | default(0)) %}
+        {% if target != '' %}{{ describe(target) }} cancelled.
+        {% else %}There's no timer running.{% endif %}
+
+  # ---- CANCEL ALL ----------------------------------------------------------
+  HassCancelAllTimers:
+    async_action: true
+    action:
+      - action: timer.cancel
+        target:
+          entity_id:
+            - timer.wall_clock_1
+            - timer.wall_clock_2
+            - timer.wall_clock_3
+            - timer.wall_clock_4
+            - timer.wall_clock_5
+    speech:
+      text: >-
+        {% set n = states('sensor.wall_clock_timer_slots') | int(0) %}
+        {% if n > 0 %}{{ n }} timer{{ 's' if n != 1 }} cancelled.
+        {% else %}There were no timers running.{% endif %}
+
+  # ---- PAUSE ---------------------------------------------------------------
+  HassPauseTimer:
+    async_action: true
+    action:
+      - variables:
+          target: >-
+            {% from 'wall_clock_timer_match.jinja' import pick %}
+            {{ pick(name | default(''), area | default(''), preferred_area_id | default(''),
+                    start_hours | default(0), start_minutes | default(0), start_seconds | default(0), 'active') }}
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ target != '' }}"
+            sequence:
+              - action: timer.pause
+                target:
+                  entity_id: "{{ target }}"
+    speech:
+      text: >-
+        {% from 'wall_clock_timer_match.jinja' import pick, describe %}
+        {% set target = pick(name | default(''), area | default(''), preferred_area_id | default(''),
+                             start_hours | default(0), start_minutes | default(0), start_seconds | default(0), 'active') %}
+        {% if target != '' %}{{ describe(target) }} paused.
+        {% else %}There's no timer running.{% endif %}
+
+  # ---- RESUME --------------------------------------------------------------
+  HassUnpauseTimer:
+    async_action: true
+    action:
+      - variables:
+          target: >-
+            {% from 'wall_clock_timer_match.jinja' import pick %}
+            {{ pick(name | default(''), area | default(''), preferred_area_id | default(''),
+                    start_hours | default(0), start_minutes | default(0), start_seconds | default(0), 'paused') }}
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ target != '' }}"
+            sequence:
+              # timer.start with no duration resumes a paused timer from where
+              # it stopped. There is no separate "unpause" action.
+              - action: timer.start
+                target:
+                  entity_id: "{{ target }}"
+    speech:
+      text: >-
+        {% from 'wall_clock_timer_match.jinja' import pick, describe %}
+        {% set target = pick(name | default(''), area | default(''), preferred_area_id | default(''),
+                             start_hours | default(0), start_minutes | default(0), start_seconds | default(0), 'paused') %}
+        {% if target != '' %}{{ describe(target) }} resumed.
+        {% else %}There's no paused timer.{% endif %}
+
+  # ---- ADD TIME ------------------------------------------------------------
+  # `timer.change` (HA 2024.3+) adjusts a running timer in place. A negative
+  # duration subtracts, which is what HassDecreaseTimer uses below.
+  HassIncreaseTimer:
+    async_action: true
+    action:
+      - variables:
+          target: >-
+            {% from 'wall_clock_timer_match.jinja' import pick %}
+            {{ pick(name | default(''), area | default(''), preferred_area_id | default(''),
+                    start_hours | default(0), start_minutes | default(0), start_seconds | default(0)) }}
+          delta: >-
+            {% set t = (hours | default(0) | int) * 3600
+                     + (minutes | default(0) | int) * 60
+                     + (seconds | default(0) | int) %}
+            {{ '%02d:%02d:%02d' | format(t // 3600, (t % 3600) // 60, t % 60) }}
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ target != '' }}"
+            sequence:
+              - action: timer.change
+                target:
+                  entity_id: "{{ target }}"
+                data:
+                  duration: "{{ delta }}"
+    speech:
+      text: >-
+        {% from 'wall_clock_timer_match.jinja' import pick, describe, spoken %}
+        {% set target = pick(name | default(''), area | default(''), preferred_area_id | default(''),
+                             start_hours | default(0), start_minutes | default(0), start_seconds | default(0)) %}
+        {% set t = (hours | default(0) | int) * 3600
+                 + (minutes | default(0) | int) * 60
+                 + (seconds | default(0) | int) %}
+        {% if target == '' %}There's no timer running.
+        {% elif t == 0 %}I need to know how much time to add.
+        {% else %}Added {{ spoken(t) }} to {{ describe(target) | lower }}.{% endif %}
+
+  # ---- REMOVE TIME ---------------------------------------------------------
+  HassDecreaseTimer:
+    async_action: true
+    action:
+      - variables:
+          target: >-
+            {% from 'wall_clock_timer_match.jinja' import pick %}
+            {{ pick(name | default(''), area | default(''), preferred_area_id | default(''),
+                    start_hours | default(0), start_minutes | default(0), start_seconds | default(0)) }}
+          delta: >-
+            {% set t = (hours | default(0) | int) * 3600
+                     + (minutes | default(0) | int) * 60
+                     + (seconds | default(0) | int) %}
+            -{{ '%02d:%02d:%02d' | format(t // 3600, (t % 3600) // 60, t % 60) }}
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ target != '' }}"
+            sequence:
+              - action: timer.change
+                target:
+                  entity_id: "{{ target }}"
+                data:
+                  duration: "{{ delta }}"
+    speech:
+      text: >-
+        {% from 'wall_clock_timer_match.jinja' import pick, describe, spoken %}
+        {% set target = pick(name | default(''), area | default(''), preferred_area_id | default(''),
+                             start_hours | default(0), start_minutes | default(0), start_seconds | default(0)) %}
+        {% set t = (hours | default(0) | int) * 3600
+                 + (minutes | default(0) | int) * 60
+                 + (seconds | default(0) | int) %}
+        {% if target == '' %}There's no timer running.
+        {% elif t == 0 %}I need to know how much time to take off.
+        {% else %}Took {{ spoken(t) }} off {{ describe(target) | lower }}.{% endif %}
+
+  # ---- STATUS --------------------------------------------------------------
+  # With a pool this has to be able to report on several at once, which the
+  # one-timer version could not.
+  HassTimerStatus:
+    async_action: true
+    speech:
+      text: >-
+        {% from 'wall_clock_timer_match.jinja' import spoken %}
+        {% set slots = state_attr('sensor.wall_clock_timer_slots', 'slots') | default([], true) %}
+        {% set act = slots | selectattr('st', 'eq', 'active') | sort(attribute='fin') | list %}
+        {% set pau = slots | selectattr('st', 'eq', 'paused') | list %}
+        {% if act | length == 0 and pau | length == 0 %}
+          There are no timers running.
+        {% else %}
+          {%- for s in act %}
+            {%- set left = (s.fin - as_timestamp(now())) | round(0) | int %}
+            {%- if left > 0 %}
+              {{ (s.label ~ ' timer') if s.label else 'Timer' }}, {{ spoken(left) }} left.
+            {%- endif %}
+          {%- endfor %}
+          {%- if pau | length > 0 %}
+            {{ pau | length }} timer{{ 's' if pau | length != 1 }} paused.
+          {%- endif %}
+        {% endif %}
+
+
+input_boolean:
+  # Latched by the automation below when a timer fires. The ring pulses while
+  # this is on.
+  wall_clock_timer_alert:
+    name: Wall clock timer alert
+    icon: mdi:bell-ring
+
+
+# -----------------------------------------------------------------------------
+# AUTOMATIONS
+# -----------------------------------------------------------------------------
+automation:
+
+  - id: wall_clock_timer_alert_on
+    alias: "Wall clock: timer finished -> alert + announce"
+    mode: restart          # a second timer finishing restarts the 60s window
+    triggers:
+      - trigger: event
+        event_type: timer.finished
+    conditions:
+      - condition: template
+        value_template: "{{ trigger.event.data.entity_id.startswith('timer.wall_clock_') }}"
+    actions:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.wall_clock_timer_alert
+
+      # Announce on the Voice PE in the room the timer was SET in — recorded in
+      # the slot's meta at start time. This replaces the satellite's own chime,
+      # which the intent override silences.
+      #
+      # Resolved by looking up assist_satellite entities in that area rather
+      # than guessing an entity-id pattern. The previous version guessed
+      # `assist_satellite.<area>_assist_satellite`, which is not the id HA
+      # actually generates for a Voice PE.
+      - variables:
+          slot: "{{ trigger.event.data.entity_id.split('_')[-1] }}"
+          raw: "{{ states('input_text.wall_clock_timer_' ~ slot ~ '_meta') }}"
+          meta: "{{ (raw | from_json) if (raw is string and raw.startswith('{')) else {} }}"
+          label: "{{ meta.label | default('') }}"
+          sats: >-
+            {% set a = meta.area | default('') %}
+            {{ area_entities(a) | select('match', 'assist_satellite\\.') | list if a else [] }}
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ sats | length > 0 }}"
+            sequence:
+              - action: assist_satellite.announce
+                target:
+                  entity_id: "{{ sats }}"
+                data:
+                  message: >-
+                    {{ ('Your ' ~ label ~ ' timer has finished.') if label
+                       else 'Your timer has finished.' }}
+
+      - delay: "00:01:00"
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.wall_clock_timer_alert
+
+  - id: wall_clock_timer_alert_off
+    alias: "Wall clock: timer cancelled or started -> clear alert"
+    mode: single
+    triggers:
+      - trigger: event
+        event_type: timer.cancelled
+      - trigger: event
+        event_type: timer.started
+    conditions:
+      - condition: template
+        value_template: "{{ trigger.event.data.entity_id.startswith('timer.wall_clock_') }}"
+    actions:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.wall_clock_timer_alert
+
+  # Free the slot's metadata once it is no longer running, so a stale label
+  # cannot attach itself to the next timer that lands in the same slot.
+  - id: wall_clock_timer_meta_clear
+    alias: "Wall clock: clear slot metadata when a timer ends"
+    mode: queued
+    max: 10
+    triggers:
+      - trigger: event
+        event_type: timer.finished
+      - trigger: event
+        event_type: timer.cancelled
+    conditions:
+      - condition: template
+        value_template: "{{ trigger.event.data.entity_id.startswith('timer.wall_clock_') }}"
+    actions:
+      - action: input_text.set_value
+        target:
+          entity_id: >-
+            input_text.wall_clock_timer_{{ trigger.event.data.entity_id.split('_')[-1] }}_meta
+        data:
+          value: ""
