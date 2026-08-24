@@ -177,7 +177,34 @@ plug = box_lwh(-70, -R_INNER+3.0, -9.0/2, 9.0/2, ZF+2.0, ZF+2.0+4.5)
 ck((mHB ^ plug).volume() < 1e-6, 'a 9.0 x 4.5 mm USB-C plug body passes the exit',
    f'{(mHB ^ plug).volume():.4f} mm3')
 
-print('\n9. Overall stack')
+print('\n9. Will the hanger hold it?')
+PLA_RHO, PETG_RHO = 1.24e-3, 1.27e-3          # g/mm3
+parts_g = {
+    'base':          to_trimesh(mBASE).volume * PLA_RHO,
+    'rear housing':  to_trimesh(mHB).volume * PETG_RHO,
+    'shims x2':      2 * to_trimesh(mCR).volume * PLA_RHO,
+}
+fitted_g = {'battery (Anker A1653)': 100.0, 'display module': 25.0,
+            'LED ring': 12.0, 'S3 devkit': 9.0, 'plywood face': 16.0,
+            'wiring + screws': 15.0}
+total = sum(parts_g.values()) + sum(fitted_g.values())
+for k, v in {**parts_g, **fitted_g}.items():
+    print(f'         {k:24s} {v:6.1f} g')
+print(f'         {"TOTAL":24s} {total:6.1f} g')
+W = total * 9.81e-3                            # newtons
+# the shank bears on the slot walls through the plate's thickness
+bearing = KEY_SLOT_W * PLATE_T
+sigma = W / bearing
+ck(sigma < 5.0, 'bearing stress on the keyhole slot is nowhere near PLA yield',
+   f'{sigma:.3f} MPa on {bearing:.1f} mm2, against ~50 MPa')
+# and the plate must not tear out between the slot and the outer wall
+lig = R_INNER - (HANG_R + KEY_SLOT_W/2)
+ck(lig >= 1.5, 'ligament between the slot and the outer wall', f'{lig:.2f} mm')
+shear = W / (2 * lig * PLATE_T)
+ck(shear < 5.0, 'shear on that ligament', f'{shear:.3f} MPa')
+ck(total < 600, 'total hanging mass is sane for one wall screw', f'{total:.0f} g')
+
+print('\n10. Overall stack')
 tb = to_trimesh(mBASE).bounds; hb = to_trimesh(mHB).bounds; hs = to_trimesh(mHS).bounds
 ck(True, 'clock depth, battery variant', f'{tb[1][2]-hb[0][2]:.2f} mm')
 ck(True, 'clock depth, slim variant', f'{tb[1][2]-hs[0][2]:.2f} mm')

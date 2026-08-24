@@ -78,10 +78,15 @@ Z_REAR      = Z_DECK - REAR_H
 
 # The battery the cradle is cut for. Change these two numbers, re-run, reprint
 # just the cradle -- the housing does not move.
-# The largest of the two retail banks that fit the disc at all (UGREEN Mini
-# 5000 is 79x38x26; the Anker Nano 5000 is 77x37x25 and fits inside this).
-BAT_L, BAT_W, BAT_T = 79.0, 38.0, 26.0
-BAT_CX = -7.00              # pocket centre offset, to clear the hanging screw's head
+# Anker Nano Power Bank 22.5W, model A1653, 5000 mAh, built-in USB-C.
+# 76.96 x 36.83 x 24.89 mm -- Anker publish 3.03 x 1.45 x 0.98 in on the product
+# page. VERIFIED, along with A$49 in stock at Scorptec (Melbourne).
+# It is the only retail bank found that is both small enough for a 108 mm disc
+# and actually buyable in Australia. The POCKET is cut 1.1 mm deeper than this
+# so a slightly fatter bank still goes in; only the shim keys off these numbers,
+# and the shim is a 20-minute reprint.
+BAT_L, BAT_W, BAT_T = 76.96, 36.83, 24.89
+BAT_CX = -6.00              # pocket centre offset, to clear the hanging screw's head
 
 # Largest rectangle that fits the interior circle:  L^2 + W^2 <= (2*R_INNER)^2
 MAX_DIAG    = 2 * R_INNER             # 101.98

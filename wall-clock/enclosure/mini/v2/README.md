@@ -223,18 +223,28 @@ The measured budget, from datasheets rather than estimates:
 That is **22.6 Wh a day**. A 5,000 mAh bank holds ~18.5 Wh nominal, ~16 Wh after
 boost losses — **under 18 hours**. It does not last a day.
 
-### What actually fits
+### What actually fits, and what to buy
 
 The pocket takes **up to 80 × 38 × 26 mm**, or 78 × 45, or 77 × 50 — the limit is
 a rectangle inside the 102 mm interior circle with the hanging screw's swept zone
 carved out of the top. `check2_fit.py` prints the full table.
 
 A sweep of Officeworks, JB Hi-Fi, Kogan, Amazon AU, Core Electronics, Zaitronics,
-PB Tech, Cygnett, Anker AU, Belkin AU and Bunnings found that **almost nothing on
-the retail market is both small enough and thin enough**. The market splits into
-slim-and-wide (Cygnett 95 × 65, Anker MagGo 104 × 71) and small-and-fat. Only the
-second kind fits a 108 mm circle, and those are 25–26 mm thick — which is what
-pushes the clock from 44 mm to 55 mm deep.
+PB Tech, Cygnett, Anker AU, Belkin AU, Bunnings and Scorptec found **one** retail
+bank that is both small enough and actually buyable here:
+
+> **Anker Nano Power Bank 22.5W, model A1653, 5,000 mAh — A$49 at Scorptec
+> (Melbourne), in stock.** 76.96 × 36.83 × 24.89 mm, from Anker's own page.
+> Pass-through confirmed in their manual. **~17 hours.**
+> Price and dimensions **verified**; see `docs/BATTERY.md`.
+
+The shim is cut for exactly those dimensions. Buy something else and you change
+two numbers in `params.py` and reprint the shim; the pocket does not move.
+
+The market is otherwise bifurcated and this clock lands in the gap: slim banks
+are wide (Cygnett 95 × 65, Anker MagGo 104 × 71), and banks narrow enough for a
+108 mm circle are 25–26 mm thick — which is what pushes the clock from 44 mm to
+55 mm deep.
 
 ### The failure mode that decides it
 
@@ -242,9 +252,12 @@ At 188 mA the clock sits above the ~50–75 mA idle cutoff most banks use, so it
 would probably not get switched off in normal running. The one that would bite is
 different: **many banks, once flat, will not resume output when mains comes back
 until someone presses the button.** On a clock 2.4 m up a wall that means it stays
-dead. That behaviour is the single thing to test on the bench before a bank goes
-in the wall — drain it, reconnect mains, and see whether the output comes back on
-its own.
+dead. Anker do not document A1653 either way.
+
+**Test it before it goes in the wall.** Run the bank flat into the clock, leave
+the load connected, plug the charger into the bank, and watch. If it comes alive
+on its own, you are done. If not, no power bank is usable here at any price —
+`docs/BATTERY.md` §4 has the alternative.
 
 ### Safety, and the material
 
@@ -264,6 +277,9 @@ plain answer:
 - If the battery is not worth 11 mm of depth and this list of caveats to you,
   print the **slim** housing and run it on mains. The clock is better at 44 mm and
   nothing else changes.
+
+The full working — power budget, every candidate scored, the runtime arithmetic,
+the alternative if the Anker fails its test — is in **`docs/BATTERY.md`**.
 
 ---
 
