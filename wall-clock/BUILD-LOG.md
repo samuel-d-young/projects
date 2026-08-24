@@ -1681,3 +1681,89 @@ inserted into `/config/.storage/lovelace.wall_clock_build` with `jq` (backup at
 `.bak-preColour`) — the Device Builder's own editors have been unreliable all
 session, whereas fetching from the repo with `curl` in the Terminal & SSH
 add-on and editing with `jq` has been exact every time.
+
+---
+
+## 2026-08-25 — Eleven more options; radar shelved
+
+### The radar was a design failure, not a bug
+
+It drew. Sam's verdict: *"it's just a static square image."* Both halves of that
+are correct and neither is fixable by tuning:
+
+- **Square.** A 256 px web-mercator tile is a rectangle. Pasting one on a round
+  360 px face gives you a square of weather sitting on a circular clock — it
+  reads as something stuck on rather than part of the face. Masking it to a
+  circle would help, but the real fix is a radar rendered FOR a circle.
+- **Static.** One frame every ten minutes is, correctly, almost motionless.
+  `flightdeck.html` looks alive because it cross-fades seven cached frames every
+  600 ms — the motion is animation, not new data.
+
+Shelved rather than deleted: it downloads in 452 ms without crashing, and the
+analysis (opaque frame hash, tile maths, alpha measurements, the v1 crash) is
+worth keeping. The package now lives at
+`homeassistant/packages-disabled-wall_clock_radar.yaml` so it cannot be
+deployed by accident.
+
+**Anything that revisits this should mask to a circle and hold several frames
+to animate.** ~256 KB per frame at 256 px means seven fit in PSRAM easily.
+
+### Eleven new runtime options
+
+All are `entity_category: config`, all restore across reboots, and none needs a
+reflash to change once this firmware is on.
+
+| | |
+|---|---|
+| Second hand style | tick / **sweep** — sweep interpolates with the render counter, which is already running at 20 fps for the alert pulse, so it costs one line |
+| Hour markers | twelve / **quarters** / none — on a 24-LED ring twelve markers use half the pixels and drown the hands |
+| Hour marker brightness | 0-100% |
+| Timer arc direction | clockwise / anticlockwise — `P()` already normalises negatives, so this is a sign flip |
+| Alert pattern | pulse / **chase** (a four-pixel comet) / solid |
+| Alert hue | 0-360° |
+| Status pixel brightness | 0-100%, one scale over every ambient pixel |
+| Show date | screen |
+| Show day of week | screen |
+| Weather tint strength | 0-100%, blends the weather colour back toward the plain ground |
+| Blank screen at night | screen only — the ring keeps the time |
+
+**The alert colour is deliberately outside the theme.** An alert is a single
+state with nothing to be distinguished from, so the only axis worth exposing is
+which hue catches *your* eye — saturation and value are pinned full. `mono`
+still drops it to grey, because mono's promise is that nothing on the face
+depends on telling one hue from another.
+
+**Subtitle lines now stack down a y cursor** rather than sitting at fixed
+offsets. Turning one off closes the gap instead of leaving a hole, nothing can
+land on top of anything else, and the cursor stops at CY+150 because past that
+a centred line on a round screen is already running out of width.
+
+### Compiled, not installed — the device is off the network
+
+```
+INFO Successfully compiled program.
+     RAM 35.2% (120147 / 341760)   Flash 58.5% (1072955 / 1835008)
+WARNING Connecting to 192.168.1.80 port 3232 failed: [Errno 113] No route to host
+ERROR Upload failed after 3 attempts
+```
+
+Confirmed independently: `.80` answers only with an ICMP unreachable from
+`192.168.1.32`, and a sweep of the whole `/24` finds **nothing** on 6053 or
+3232. The ESP32 is unpowered or not joining wifi — the same signature, and the
+same ping trap, recorded on 2026-08-24.
+
+Nothing is broken. The device still holds radar v2; the new build is compiled
+and waiting on the box. One Install once it is back on the network.
+
+The radar square will disappear on its own without any flash: the HA package is
+gone, so `sensor.wall_clock_radar_age` is unavailable, the draw's `isnan` guard
+fails, and it stops being drawn.
+
+### Dashboard
+
+Three more cards on the Settings view — **Ring detail**, **Alert**, **Screen** —
+grouped by what they affect. HA sorts config entities alphabetically on the
+device page, which is what scattered each hue/saturation/intensity trio between
+"Mode" and "Ring LED count" and made them impossible to find. Inserted with
+`jq` (backup `.bak-preOptions`); the entities read unavailable until the device
+is flashed.
