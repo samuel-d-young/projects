@@ -2673,40 +2673,63 @@ compose rather than stack: `arc_dir` names the direction of the MINUTES phase,
 and the last minute is always its mirror. Nothing in the firmware pins the final
 minute to one absolute direction.
 
-### The Settings dashboard is blocked by someone else's card
+### The Settings dashboard is blocked by the frontend, not by the cards
 
 New cards installed into `/config/.storage/lovelace.wall_clock_build` (backup
 `.bak-preEcho`), all four new controls present in the file. But the view renders
-half empty: `switch` and `light` rows appear, while every `number`, `select` and
-`markdown` row is blank.
+half empty: `switch` and `light` rows appear, while every `number`, `select`,
+`markdown` and `timer` row is blank.
 
-Not a dashboard bug. The console shows:
+**The entities are fine.** The ESPHome device page renders all of them —
+sliders, dropdowns, the lot — and reports firmware built 2026-08-25 14:32. That
+page lives under `/config/` and is the one page that does NOT load Lovelace
+custom resources, which is the whole clue.
+
+Measured directly in the page, rather than inferred:
+
+```
+customElements.get('hui-toggle-entity-row')  -> true     renders
+customElements.get('hui-number-entity-row')  -> false    blank
+customElements.get('hui-select-entity-row')  -> false    blank
+customElements.get('hui-markdown-card')      -> false    blank
+```
+
+The split is exactly main-bundle versus lazy-loaded. Forcing the import by hand
+works instantly:
+
+```js
+const h = await window.loadCardHelpers();
+await h.createRowElement({entity: 'number.mini_round_clock_brightness'});
+// -> HUI-NUMBER-ENTITY-ROW, and the element is defined from then on
+```
+
+So the modules exist and are reachable; the dashboard simply never completes the
+lazy import during render. It is also not deterministic — the Timers card had
+its five `timer.*` rows on one load and lost them on the next.
+
+**A false lead, recorded so it is not chased twice.** The console did show a
+real error:
 
 ```
 DOMException: Failed to execute 'define' on 'CustomElementRegistry':
-the name "flightradar24-card" has already been used with this registry
-    at /flightradar24/flightradar24-card.js?v=v2.1.0:1687
+the name "flightradar24-card" has already been used
 ```
 
-`lovelace_resources` holds TWO resources that define the same element:
+Two resources defined that element: the HACS card, and the Flightradar24
+integration's own bundled copy at `/flightradar24/`. Removed the HACS one — the
+exception is gone and the console is now clean — **and the rows are still
+blank**. So the collision was real but was never the cause. No dashboard
+references `custom:flightradar24-card` at all, so nothing was lost either way.
 
-- `/hacsfiles/flightradar24-card/home-assistant-flightradar24-card.js?hacstag=812212177030`
-- `/flightradar24/flightradar24-card.js?v=v2.1.0`
+**The remaining suspect is the resource list itself.** Fifteen HACS frontend
+bundles load on every dashboard render, several of them code-split
+(`advanced-camera-card` pulls `card-294f2ffb.js`). A custom card whose bundler
+`publicPath` collides with Home Assistant's own chunk loading is a known way to
+break exactly this. Narrowing it means disabling resources a few at a time,
+which is disruptive and is Sam's call.
 
-The second throws, and the exception aborts the frontend's lazy element
-loading, so `hui-number-entity-row`, `hui-select-entity-row` and
-`hui-markdown-card` are never defined. Switch and light rows survive only
-because they are already defined by the time it throws.
-
-**This is system-wide, not clock-specific.** Home HQ shows it too — the empty
-Cameras card, the "NaN W" power draw stuck behind a spinner.
-
-`/config/www/flightradar24/` does not exist, so the second resource is served by
-the Flightradar24 custom integration's own static path, not by `www`. No
-dashboard references `custom:flightradar24-card` at all right now (zero matches
-across every `lovelace.*` file), so dropping one resource breaks nothing that is
-currently drawn. Left for Sam to choose which, since the integration is likely
-to re-register its own on restart.
+**Meanwhile there is a working path to every control:** Settings > Devices >
+Mini Round Clock. Not as tidy as the grouped cards, but complete.
 
 ---
 
