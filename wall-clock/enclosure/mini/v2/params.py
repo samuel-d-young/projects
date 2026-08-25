@@ -503,39 +503,127 @@ WIRE_PORT    = (-38.0, -30.0, 10.0, 13.0)   # battery lead, beside the bay
 #    width is 111.85mm and the inside is 96mm"
 
 # --- 1. the housing is now the electronics box --------------------------------
-HOUSING_DEEP  = 50.00                    # Sam: "at least 50mm deep"
-POCKET_DEEP   = HOUSING_DEEP - PLATE_T   # 46.50 clear
-# The board sits flat on posts off the rear plate, pushed as far to the 6
-# o'clock wall as its own corners allow: at |y| = 13.15 the pocket wall is at
-# x = -49.27, so -48.50 leaves 0.77 mm at the corners.
-BRD_POST_H    = 4.00                     # PCB underside above the pocket floor
-BRD_X0        = -48.50
-BRD_X1        = BRD_X0 + BOARD_L         # 14.24
-BRD_POST_D    = 6.00
-BRD_POST_HY   = 5.50                     # inboard of the pad rows (|y| 10.6-12.3)
-BRD_HOOK_T    = 1.60
-# +x end: the last 2.50 mm of the board is bare PCB (22-pin rows are 53.34 mm
-# on a 62.74 mm board, so 4.70 mm is clear at each end), so the hook there can
-# sit 0.20 mm over the PCB and take the float out completely.
-BRD_HOOK_LO   = BOARD_T + 0.20
-BRD_HOOK_OVER = 2.50
-BRD_HOOK_HY   = 8.00
-# -x end: the wall there is the USB window, and a hook over the board's long
-# edges would be over the pad rows, so that pair sits ABOVE everything the board
-# carries. It cannot foul anything; it leaves 3.4 mm of lift at that end, which
-# does not matter when gravity acts in the board's own plane.
-BRD_HOOK_HI   = BOARD_T + BOARD_TALL + 0.20
-BRD_HOOK_PX   = -44.00
-BRD_HOOK_PY   = 16.00
-BRD_HOOK_PD   = 5.00
-BRD_HOOK_IY   = 11.50
-# the window the power lead comes in through, at 6 o'clock. 24 x 10 because
+# v9: 25.00, not 50.00. Sam: "The housing can be 25mm deep, not 50mm anymore."
+# That is his call and it is a big one, so the consequence is stated rather than
+# buried: the board and its frame stand 7.40 mm off the pocket floor, which
+# leaves 14.10 mm of clear plenum above it for the display ribbon and the ring
+# leads. What it does NOT leave is room for a battery -- the Anker A1653 is
+# 24.89 mm on its thinnest axis, so nothing like it fits in a 21.50 mm pocket
+# any more. See BATTERY_MIN_HOUSING below.
+HOUSING_DEEP  = 25.00                    # Sam: "can be 25mm deep, not 50mm"
+POCKET_DEEP   = HOUSING_DEEP - PLATE_T   # 21.50 clear
+
+# =============================================================================
+# WHAT IS ACTUALLY ON THE S3 BOARD
+# Espressif DXF_ESP32-S3-DevKitC-1_V1.1_20220429.pdf, read as a drawing.
+# This block exists because the retention has to land on bare board, and where
+# that is depends on where the copper and the connectors are -- not on a guess.
+#
+#   DIMENSIONED on the drawing: 62.74 x 25.40 board, 2.54 pad pitch, pad rows
+#   1.27 mm in from each long edge, and the two USB shells occupying the last
+#   8.00 mm of the length.
+#   MEASURED off the same drawing (scaled, so +/- 2%): pad OD about 1.70, the
+#   shells 7.95 mm wide reaching to |y| = 10.54, and overhanging the board's
+#   end by 0.87 mm.
+#   DERIVED: 22 pins at 2.54 is a 53.34 mm row, so the two end margins sum to
+#   62.74 - 53.34 = 9.40. With the connector-end margin at 8.00 the antenna-end
+#   margin is 1.40 -- and 1.40 + 53.34 + 8.00 = 62.74 exactly, which is the
+#   check that the reading is right.
+#
+# AND CRITICALLY: there are NO MOUNTING HOLES. The drawing shows two 22-pin
+# rows and nothing else. So the board can only be captured mechanically.
+# =============================================================================
+BOARD_PAD_PITCH = 2.54
+BOARD_PAD_N     = 22
+BOARD_PAD_EDGE  = 1.27       # pad row centre, in from the long edge
+BOARD_PAD_OD    = 1.70       # so copper spans |y| 10.58 .. 12.28
+BOARD_CONN_L    = 8.00       # the two USB shells own the last 8.00 mm
+BOARD_CONN_Y    = 10.54      # and reach this far out across the board
+BOARD_CONN_OVER = 0.87       # and hang this far past the board's end
+BOARD_PAD_X_ANT = BOARD_L - (BOARD_PAD_N - 1)*BOARD_PAD_PITCH - BOARD_CONN_L   # 1.40
+# The clear top surface, which is what the retention has to live on:
+#   antenna end   0.55 mm -- and the WROOM module sits on it. Nothing can hook
+#                 there, and nothing should: it is the antenna end.
+#   connector end 7.15 mm long, in the two strips at |y| 10.54..12.70 outboard
+#                 of the USB shells. THIS is where the board gets held down.
+BOARD_CLEAR_ANT = BOARD_PAD_X_ANT - BOARD_PAD_OD/2                     # 0.55
+BOARD_CLEAR_CON = BOARD_CONN_L - BOARD_PAD_OD/2                        # 7.15
+
+# --- the frame that holds it --------------------------------------------------
+# v9 rebuild. What was there before was a tray, not a mount: the board rested on
+# four posts at |y| = 5.50 with NOTHING locating it across, 0.50 mm of slop
+# along, and the -x retainer sitting 3.40 mm above the board's top face -- so it
+# could lift 3.4 mm at that end. Measured on the built file, not argued.
+#
+# What the mount actually has to resist is modest: the housing is closed and
+# bolted, so the only real load is the USB plug pushing the board in +x. Every-
+# thing else is rattle. So: rails locate it across, an end wall takes the plug
+# load, and two snap fingers clamp the connector end down. The antenna end needs
+# no clamp -- a 1.6 mm FR4 board 62.74 mm long is rigid, and an end that is held
+# top, bottom and sideways cannot let the far end rise.
+#
+# NOTHING here touches the board's faces except the two snap lips, and those
+# land in the connector-end clear strips, so it works whether or not header
+# strips are soldered on.
+BRD_POST_H    = 4.00         # PCB underside above the pocket floor; header
+                             # tails from a 2.54 strip are about 3 mm
+BRD_X0        = -48.50       # the connector end, at the 6 o'clock wall
+BRD_X1        = BRD_X0 + BOARD_L         # 14.24, the antenna end
+BRD_POST_D    = 5.00
+BRD_POST_HY   = 6.50         # between the USB shells' end tabs (|y| 2.6 and
+                             # 10.5) and well inboard of the pad rows
+BRD_RAIL_CLR  = 0.10         # per side. The rails touch only the board's 1.6 mm
+                             # EDGE -- never a face -- so pads and solder
+                             # fillets are irrelevant to them.
+BRD_RAIL_Y    = BOARD_W/2 + BRD_RAIL_CLR                    # 12.80
+BRD_RAIL_T    = 2.00
+BRD_END_CLR   = 0.30         # board's antenna end to the end wall
+BRD_LIP_CLR   = 0.20         # over the board's top face
+BRD_LIP_Z0    = BRD_POST_H + BOARD_T + BRD_LIP_CLR          # 5.80
+BRD_LIP_T     = 1.60         # lip and rail height above that
+BRD_RAIL_TOP  = BRD_LIP_Z0 + BRD_LIP_T                      # 7.40
+
+# The snap fingers. Each is a WALL with a slot behind it, not a post: its long
+# axis is x and it flexes in y, so both are in the print's XY plane. That is the
+# whole point -- a finger standing up in z would put the bending stress straight
+# across the layer bonds, which is where printed snap fits break. Printed rear-
+# plate-down, a finger like this is just another vertical wall.
+#
+#   strain, straight cantilever:  e = 1.5 * Y * t / L^2
+#     Y 1.00 mm deflection, t 1.50 thick, L 18.00 long  ->  0.69%
+#   PLA yields around 1.5-2% and PETG higher, so this has real margin, and it
+#   is well under the 8:1 length/thickness floor that gets quoted for PLA
+#   (18/1.5 = 12:1).
+#   force,  P = b*t^2*E*e / (6*L), b = 7.40 finger height, E ~ 2500 MPa
+#     -> about 2.7 N a finger, 5.4 N to press the board home. A firm thumb.
+BRD_FING_L     = 18.00       # root to tip
+BRD_FING_T     = 1.50        # thickness in the flexing direction
+BRD_FING_X0    = 1.00        # tip, measured from the board's connector end
+BRD_FING_OVER  = 0.90        # how far the lip reaches over the board
+BRD_FING_GAP   = 2.00        # slot behind it, so it has somewhere to flex to
+BRD_FING_LIP_L = 4.00        # length of the lip at the tip
+BRD_FING_BURY  = 0.60        # lip buried into the finger rather than butted
+BRD_FING_DEFL  = BRD_FING_OVER + BRD_RAIL_CLR               # 1.00, what it flexes
+BRD_FING_STRAIN = 1.5 * BRD_FING_DEFL * BRD_FING_T / BRD_FING_L**2      # 0.0069
+BRD_FING_EMAX  = 0.015       # PLA's working limit. PETG is roughly twice this.
+BRD_STOP_RI    = 11.50       # corner stops at the connector end: they butt the
+                             # board's end face in the strips outboard of the USB
+                             # shells (|y| 10.54) and inboard of nothing, and they
+                             # clear the USB window (|y| 11.00) by 0.50 mm. Without
+                             # them the board can walk 2.49 mm toward the wall when
+                             # a plug is pulled out, and jam in its own window.
+
+# the window the power lead comes in through, at 6 o'clock. 22 x 6 because
 # which connector the board carries is still not a settled fact -- Espressif's
 # v1.1 guide says Micro-USB, the boards sold as DevKitC-1 have two Type-C -- so
 # the window clears either, in either position.
 USB_WIN_W     = 22.00
 USB_WIN_H     = 6.00
 USB_WIN_Z     = BRD_POST_H + BOARD_T + BOARD_TALL/2 - USB_WIN_H/2   # above the floor
+
+# A battery needs the deep housing back. Stated as a number so the builder and
+# the checker use the same one.
+BATTERY_MIN_HOUSING = PLATE_T + BRD_RAIL_TOP + BAT_T + BAT_TOP_CLR + 6.0
 
 # --- 2. the deck is just a floor now ------------------------------------------
 # With the board out of the base there is nothing to hold, so the deck goes back
@@ -600,6 +688,27 @@ STAND_LIFT    = 36.00        # air under the clock at the front face, and not a
                              # plug -- check5 measures it. A right-angle USB
                              # lead only needs about 8 mm of that: drop this to
                              # 24 if that is what you will use.
+STAND_TOE_TARGET = 22.5      # design angle for tipping FORWARD, same idea as
+                             # TAIL_TARGET is for backwards. A shallower clock
+                             # sits further forward in its own cradle, so at
+                             # HOUSING_DEEP = 25 the 240 mm stand's forward
+                             # margin fell to 18 deg against a 20 deg floor --
+                             # the 108 and 120 mm ones never came close and get
+                             # no toe at all. Unlike TAIL_TARGET this one is
+                             # exact: foot_front = -(h*tan(tilt) + toe/cos(tilt))
+                             # is closed form, and it agrees with what check5
+                             # measures on the built file to a tenth of a degree.
+STAND_FOOT    = 0.60         # the stand is built upright, tilted back and then
+                             # trimmed by the desk plane, and a plane through a
+                             # tilted solid leaves knife edges wherever a face
+                             # meets it at a shallow angle -- 0.01 mm at the
+                             # front corners and along the heel, measured on the
+                             # built file. Everything below this height is
+                             # replaced by a straight extrusion of the section
+                             # AT this height, so every edge on the footprint is
+                             # vertical and nothing tapers to nothing.
+STAND_FOOT_OFF = 0.10        # and pulled in by this, so the cutting wall is
+                             # strictly inside the solid rather than tangent to it
 STAND_NOTCH_BACK = 28.00     # the cable slot only opens over the last 28 mm +
                              # the stop wall, so the two legs stay joined by the
                              # shell under the front of the cradle

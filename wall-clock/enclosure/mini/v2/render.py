@@ -90,7 +90,6 @@ if __name__ == '__main__':
     H  = trimesh.load('mini-round-clock-housing.stl')
     D  = trimesh.load('mini-round-clock-diffuser.stl')
     S  = trimesh.load('mini-round-clock-deskstand.stl')
-    C  = trimesh.load('mini-round-clock-battery-shelf-x2.stl')
     B2 = trimesh.load('mini-round-clock-base-32.stl')
     H2 = trimesh.load('mini-round-clock-housing-32.stl')
     D2 = trimesh.load('mini-round-clock-diffuser-32.stl')
@@ -109,7 +108,6 @@ if __name__ == '__main__':
         (H2,'iso_f','HOUSING 32 - inside','summer'),
         (D2,'front','DIFFUSER 32 - 32 ticks','bone'),
         (S2,'iso_f','DESK STAND 32','copper'),
-        (C,'iso_f','BATTERY SHELF (print two)','copper'),
     ], 'render_v6_32.png')
     B6 = trimesh.load('mini-round-clock-base-60.stl')
     H6 = trimesh.load('mini-round-clock-housing-60.stl')

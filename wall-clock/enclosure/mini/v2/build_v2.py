@@ -18,7 +18,7 @@ import csg
 from csg import (box_lwh, cyl, cone, tube, wedge, prism, prism_taper,
                  rounded_rect, rot_rect, text_prism, to_manifold, to_trimesh)
 from params import *
-from manifold3d import Manifold
+from manifold3d import Manifold, JoinType
 
 SEG = 144          # matches the segment count of Sam's own outer wall
 
@@ -128,54 +128,107 @@ def screw_pilots():
     return holes
 # =============================================================================
 def board_mount(z_floor, RB=None, RI=None):
-    """Posts, hooks and the window that hold the S3 in the housing pocket.
+    """A frame that actually holds the S3, and prints with no support anywhere.
 
     Returns (solid, void). The void is the USB window through the outer wall.
 
-    Sam: "move the board more towards the edge so that the power can be
-    connected easily." So the board is as far out at 6 o'clock as its own
-    corners allow -- at |y| = 13.15 the pocket wall is at x = -49.27, and the
-    board's end sits at -48.50. Its own connector then looks straight out
-    through the wall; there is no breakout board any more.
+    The board has NO mounting holes -- Espressif's v1.1 dimension drawing shows
+    two 22-pin rows and nothing else -- so it has to be captured mechanically.
+    What was here before was a tray: four posts under the middle of the board,
+    nothing locating it across, and the -x retainer 3.40 mm clear of the board's
+    top face. It rattled in every direction.
+
+    WHAT HOLDS IT NOW
+      rails        two walls at |y| = BRD_RAIL_Y, touching only the board's
+                   1.6 mm EDGE. They locate it across to 0.10 mm a side and
+                   never touch a face, so pads, solder fillets and header
+                   strips are all irrelevant to them.
+      end wall     at the antenna end. Takes the USB plug's insertion load,
+                   which is the only real force this thing ever sees.
+      snap fingers two, at the connector end, clamping the board down onto its
+                   posts. Their lips land in the clear strips at |y| 10.54 to
+                   12.70, over the last 7.15 mm of board that carries neither
+                   the USB shells nor the pad rows -- so they work with or
+                   without headers soldered on.
+      posts        three pairs, at |y| = 6.50: between the USB shells' end tabs
+                   at the connector end, mid-board, and under the antenna end.
+
+    The antenna end gets no clamp and should not have one: it has 0.55 mm of
+    clear board and the WROOM module sits on it. It does not need one either --
+    a 1.6 mm FR4 board is rigid over 62.74 mm, so an end held top, bottom and
+    sideways cannot let the far end lift.
+
+    PRINT ORIENTATION, which is the other half of the question. The housing
+    prints rear-plate-down, so this whole frame grows upward off the pocket
+    floor and every wall in it is vertical. The fingers are part of that: each
+    is a wall with a slot behind it, so its long axis AND its flexing direction
+    are both in the XY plane -- the strong orientation. A finger standing up in
+    z would put the bending stress straight across the layer bonds, which is
+    exactly where printed snap fits break. The only overhangs in the part are
+    the two lips, each a 0.90 mm ledge, and each lip's upper face is a 63 degree
+    lead-in ramp rather than a flat roof, so there is nothing to bridge.
     """
     RB = R_BODY if RB is None else RB
     RI = R_INNER if RI is None else RI
-    zt = z_floor + BRD_POST_H                     # PCB underside
+    z0 = z_floor
+    zt = z0 + BRD_POST_H                        # PCB underside
+    z_lip = z0 + BRD_LIP_Z0                     # underside of the snap lips
+    z_top = z0 + BRD_RAIL_TOP
     s = None
 
     def add(m):
         nonlocal s
         s = m if s is None else s + m
 
-    # four posts under the board, inboard of the pad rows
-    for px in (BRD_X0 + 5.0, BRD_X1 - 5.0):
-        for py in (BRD_POST_HY, -BRD_POST_HY):
-            add(cyl(BRD_POST_D/2, z_floor, zt, 32, centre=(px, py)))
+    RY, RT = BRD_RAIL_Y, BRD_RAIL_T
+    x_end = BRD_X1 + BRD_END_CLR                # inner face of the end wall
+    x_tip = BRD_X0 + BRD_FING_X0                # finger tip
+    x_root = x_tip + BRD_FING_L                 # where it joins the rail
 
-    # +x end: two posts and a hook 0.20 mm over the bare end of the board
-    zl = zt + BRD_HOOK_LO
-    for py in (BRD_HOOK_HY, -BRD_HOOK_HY):
-        add(cyl(BRD_POST_D/2, z_floor, zl + BRD_HOOK_T, 32,
-                centre=(BRD_X1 + 3.50, py)))
-    add(box_lwh(BRD_X1 - BRD_HOOK_OVER, BRD_X1 + 3.50 + BRD_POST_D/2,
-                -BRD_HOOK_HY - BRD_POST_D/2, BRD_HOOK_HY + BRD_POST_D/2,
-                zl, zl + BRD_HOOK_T))
-
-    # -x end: two posts standing clear of the wall, with arms reaching in over
-    # the board's long edges ABOVE everything on it
-    zh = zt + BRD_HOOK_HI
+    # --- rails, from the finger root to the end wall
     for sy in (1, -1):
-        add(cyl(BRD_HOOK_PD/2, z_floor, zh + BRD_HOOK_T, 32,
-                centre=(BRD_HOOK_PX, sy * BRD_HOOK_PY)))
-        add(box_lwh(BRD_HOOK_PX - BRD_HOOK_PD/2, BRD_HOOK_PX + BRD_HOOK_PD/2,
-                    min(sy*BRD_HOOK_IY, sy*BRD_HOOK_PY), max(sy*BRD_HOOK_IY, sy*BRD_HOOK_PY),
-                    zh, zh + BRD_HOOK_T))
+        add(box_lwh(x_root, x_end + RT,
+                    *sorted((sy*RY, sy*(RY + RT))), z0, z_top))
 
-    # the window the power lead comes in through. 22 x 6 because which
-    # connector the board carries is still not a settled fact -- Espressif's
-    # v1.1 guide says Micro-USB, the boards sold as DevKitC-1 have two Type-C.
+    # --- end wall: the plug's load path, and the +x stop
+    add(box_lwh(x_end, x_end + RT, -(RY + RT), RY + RT, z0, z_top))
+
+    # --- snap fingers
+    for sy in (1, -1):
+        y_in, y_out = sy*RY, sy*(RY + BRD_FING_T)
+        add(box_lwh(x_tip, x_root, *sorted((y_in, y_out)), z0, z_top))
+        # The lip, and its lead-in ramp, as the hull of two thin slices: at the
+        # bottom it reaches BRD_FING_OVER over the board, at the top it is back
+        # flush with the rail, so pressing the board down wedges the finger out.
+        # Built buried BRD_FING_BURY into the finger rather than butted against
+        # its face -- a coincident face here does not survive float32.
+        y_lip = sy*(BOARD_W/2 - BRD_FING_OVER)
+        y_bury = sy*(RY + BRD_FING_BURY)
+        lo = box_lwh(x_tip, x_tip + BRD_FING_LIP_L,
+                     *sorted((y_lip, y_bury)), z_lip, z_lip + 0.01)
+        hi = box_lwh(x_tip, x_tip + BRD_FING_LIP_L,
+                     *sorted((sy*(RY - 0.01), y_bury)), z_top - 0.01, z_top)
+        add((lo + hi).hull())
+
+    # --- corner stops at the connector end, so the board cannot walk toward the
+    #     wall when a plug is pulled out. They butt the board's END FACE, in the
+    #     strips outboard of the USB shells, and stop short of the window.
+    for sy in (1, -1):
+        # started at -RI + 0.5, not -RI - 1.0: at |y| = 14.80 the outer wall is
+        # only at x = -51.92, and running the stop out to -RI - 1.0 pushed 0.07
+        # mm of it through the outside of the clock. Starting inboard still
+        # buries it 0.8-1.7 mm into the wall, which is what fuses it on.
+        add(box_lwh(-RI + 0.5, BRD_X0 - BRD_END_CLR,
+                    *sorted((sy*BRD_STOP_RI, sy*(RY + RT))), z0, z_lip))
+
+    # --- posts under it
+    for px in (BRD_X0 + 3.0, (BRD_X0 + BRD_X1)/2, BRD_X1 - 4.0):
+        for py in (BRD_POST_HY, -BRD_POST_HY):
+            add(cyl(BRD_POST_D/2, z0, zt, 32, centre=(px, py)))
+
+    # --- the window the board's own connector looks out through
     win = box_lwh(-RB - 2.0, -RI + 2.0, -USB_WIN_W/2, USB_WIN_W/2,
-                  z_floor + USB_WIN_Z, z_floor + USB_WIN_Z + USB_WIN_H)
+                  z0 + USB_WIN_Z, z0 + USB_WIN_Z + USB_WIN_H)
     return s, win
 
 
@@ -183,10 +236,10 @@ def build_rear_housing(pocket_d, r_body=None, r_inner=None, with_board=True,
                        vent_ang=None, screw_ang=None, screw_r=None):
     """Electronics box + battery pocket + wall hanger. Prints rear-plate-down.
 
-    v6 moved the S3 in here. pocket_d is the clear depth; at 46.50 that is
-    8.80 mm of board on its posts, 24.89 of battery above it if one goes in,
-    and still 11.31 mm left for the cables coming off the display and the ring
-    -- which is what Sam said the old 15.00 and 27.50 mm pockets did not have.
+    v6 moved the S3 in here; v9 halves the depth. pocket_d is the clear depth;
+    at 21.50 that is 7.40 mm of board and its frame, and 14.10 mm of clear
+    plenum above it for the display ribbon and the ring leads. A battery no
+    longer fits -- see BATTERY_MIN_HOUSING in params.
     """
     RB = R_BODY if r_body is None else r_body
     RI = R_INNER if r_inner is None else r_inner
@@ -727,14 +780,24 @@ def build_stand(B, depth):
     tail = max(0.0, com_back + h_com*math.tan(math.radians(TAIL_TARGET))
                     - (depth*math.cos(math.radians(t)) + STAND_STOP_T))
 
+    # And a toe at the front, for tipping the other way. Tilted back and stood on
+    # the desk, the stand's front-most point works out at exactly
+    #     foot_front = -(h_com*tan(t) + toe/cos(t))
+    # so the toe that buys a given forward margin is closed form rather than
+    # tuned. On the 108 and 120 mm bodies it comes out negative -- they are
+    # already stable forwards -- and those get no toe.
+    toe = max(0.0, math.cos(math.radians(t)) *
+              (h_com*math.tan(math.radians(STAND_TOE_TARGET))
+               - h_com*math.tan(math.radians(t)) - com_back))
+
     prof = [( x_out, y_top), ( hw, y_top - STAND_FLARE), ( hw, Y_LOW),
             (-hw, Y_LOW), (-hw, y_top - STAND_FLARE), (-x_out, y_top)]
-    s = prism(prof, -(depth + STAND_STOP_T), 0.0)
+    s = prism(prof, -(depth + STAND_STOP_T), toe)
     if tail > 0.5:
         s += (prism(prof, -(depth + STAND_STOP_T + tail), -(depth + STAND_STOP_T))
               - box_lwh(-hw - 1, hw + 1, -(B.r_body + 6.0), 1.0,
                         -(depth + STAND_STOP_T + tail) - 1.0, -(depth + STAND_STOP_T) + 0.001))
-    s -= cyl(R, -depth - 0.001, 5.0, SEG)                       # the cradle
+    s -= cyl(R, -depth - 0.001, toe + 5.0, SEG)                 # the cradle
     s -= cyl(STAND_STOP_RI, -(depth + STAND_STOP_T) - 1.0, -depth, SEG)  # stop wall
     # An arch through it, front to back. It halves the filament, it is the
     # cable route, and its ceiling is a cylinder concentric with the cradle --
@@ -744,7 +807,7 @@ def build_stand(B, depth):
             (STAND_ARCH_HW, crown - (STAND_ARCH_HW - 10.0)),
             (10.0, crown), (-10.0, crown),
             (-STAND_ARCH_HW, crown - (STAND_ARCH_HW - 10.0))]
-    s -= prism(arch, -(depth + STAND_STOP_T) - 1.0, 5.0)
+    s -= prism(arch, -(depth + STAND_STOP_T) - 1.0, toe + 5.0)
     # its roof has to clear the stop wall's inner circle, or a shallow shelf is
     # left across it at the back
     s -= box_lwh(-STAND_NOTCH_HW, STAND_NOTCH_HW, Y_LOW - 1.0, -(STAND_STOP_RI - 6.0),
@@ -753,7 +816,22 @@ def build_stand(B, depth):
     # tilt it back and stand it on the desk
     h0 = STAND_LIFT + B.r_body * math.cos(math.radians(t))
     s = s.rotate([90.0 - t, 0.0, 0.0]).translate([0.0, 0.0, h0])
-    return s ^ box_lwh(-200, 200, -200, 200, 0.0, 400.0)
+    s = s ^ box_lwh(-200, 200, -200, 200, 0.0, 400.0)
+    # --- a real flat foot.
+    # Trimming a tilted solid with the desk plane leaves a knife edge wherever a
+    # face happens to meet that plane at a shallow angle. Replace everything
+    # below STAND_FOOT with a straight extrusion of the section at STAND_FOOT,
+    # so every edge on the footprint is vertical and has full thickness.
+    # Done as ONE subtraction rather than cut-and-re-union: butting a separately
+    # built foot onto the body at z = STAND_FOOT leaves two coincident faces,
+    # and in float32 those come apart into two shells.
+    # The section is pulled in STAND_FOOT_OFF first. Extruded at its exact size
+    # its wall would be tangent to the stand's own surface all along z =
+    # STAND_FOOT, and a boolean against a tangency is what NotManifold means.
+    # Shrunk, the wall is strictly inside the solid it is cutting.
+    sec = s.slice(STAND_FOOT).offset(-STAND_FOOT_OFF, JoinType.Miter, 2.0)
+    keep = Manifold.extrude(sec, STAND_FOOT + 1.0).translate([0.0, 0.0, -1.0])
+    return s - (box_lwh(-200, 200, -200, 200, -1.0, STAND_FOOT) - keep)
 
 
 # =============================================================================
@@ -775,7 +853,15 @@ if __name__ == '__main__':
                                              f'mini-round-clock-deskstand{tg}', True),
             (build_numerals(B),              f'mini-round-clock-numerals{tg}',  False),
         ]
-    parts.append((build_shelf(BAT_W), 'mini-round-clock-battery-shelf-x2', True))
+    # The battery shelves only mean anything if a battery fits, and at
+    # HOUSING_DEEP = 25.00 one does not. Emitting the part anyway would put a
+    # file in the folder that cannot be used, so it is skipped and said out loud.
+    if HOUSING_DEEP >= BATTERY_MIN_HOUSING:
+        parts.append((build_shelf(BAT_W), 'mini-round-clock-battery-shelf-x2', True))
+    else:
+        print(f'  battery shelves SKIPPED: a {BAT_T:.2f} mm cell needs a '
+              f'{BATTERY_MIN_HOUSING:.2f} mm housing and this one is '
+              f'{HOUSING_DEEP:.2f}. No internal battery in this build.')
     parts.append((build_light_guides(BODY60), 'mini-round-clock-light-guides-60', True))
     for man, fn, strict in parts:
         t = csg.finalise(man, fn, strict=strict)

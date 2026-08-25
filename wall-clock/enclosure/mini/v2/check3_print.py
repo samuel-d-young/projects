@@ -6,7 +6,7 @@ measured separately here:
   * a FLAT ceiling is a bridge. It is fine if the span is short.
   * a SLOPED downward face cannot be bridged. It is fine if it is steep enough.
 """
-import sys, math; sys.path.insert(0,'.')
+import sys, os, math; sys.path.insert(0,'.')
 import numpy as np, trimesh
 from scipy.cluster.hierarchy import fcluster, linkage
 import csg
@@ -185,6 +185,11 @@ for k, v in SAM_THIN.items():
 INLAY = {'mini-round-clock-numerals.stl', 'mini-round-clock-numerals-32.stl',
          'mini-round-clock-numerals-60.stl'}
 NOZZLE = 0.42       # narrowest bead a 0.4 mm nozzle will actually lay down
+
+_gone = [f for f, _, _ in PARTS if not os.path.exists(f)]
+if _gone:
+    print('not built, so not checked: ' + ', '.join(_gone))
+PARTS = [t for t in PARTS if os.path.exists(t[0])]
 
 for fn, orient, min_wall in PARTS:
     m = trimesh.load(fn, process=False); m.merge_vertices()

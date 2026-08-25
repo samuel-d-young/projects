@@ -2509,3 +2509,132 @@ and a gap-fill, and a visible seam down every stroke in a second colour. The
 the ticks runs 30.95..37.55, so that still leaves 2.55 mm clear of the collar.
 
 Five passes, seventeen parts, three bodies, all green.
+
+---
+
+## 2026-08-25 — v9: a 25 mm housing, and a mount that actually holds the board
+
+> *"The housing can be 25mm deep, not 50mm anymore. Also, make sure that the
+> mount for the ESP32 actually hold it and followed 3D printer constraints.
+> (Research this if you need to)"*
+
+### Half the depth, and what it costs
+
+50.00 → 25.00. The clock goes from 74.40 mm deep to **49.40**, and there is
+14.10 mm of clear plenum above the board's frame for the display ribbon and the
+ring leads — which is the thing the 50 mm was originally for, and it is still
+comfortably there.
+
+What it does cost is the battery, and that is worth saying plainly rather than
+letting him find out with a cell in his hand. The Anker A1653 is 24.89 mm on its
+thinnest axis; with the board's frame under it a cell needs a **43.29 mm**
+housing. So the two battery shelves are **not generated at all** now — shipping
+a part that cannot be used is worse than not shipping it — and the build prints
+a line saying why. `HOUSING_DEEP = 50.00` brings the lot back; the pocket, the
+shelves and the checks all key off that one number.
+
+The screws change with it: the pillars were M3 × 60 and are now **M3 × 35**.
+A 60 in a 25 mm housing bottoms out and splits the boss.
+
+### The mount was a tray, and he was right about it
+
+Measured on the built file before touching anything:
+
+```
+down        four posts under it at |y| = 5.50
+up, +x      a hook 0.20 mm over the bare end            0.20 mm of float
+up, -x      two arms above everything on the board      3.40 mm of float
+sideways    nothing at all                              +/-7 mm
+along       a post 3.50 mm from the end                 0.50 mm
+```
+
+A board that can lift 3.4 mm at one end and slide 7 mm sideways is not mounted.
+
+### What the drawing said, which is what the design had to follow
+
+Espressif's v1.1 dimension drawing, read as a drawing rather than remembered:
+
+- **62.74 × 25.40**, pad rows **1.27 mm** in from each long edge at 2.54 pitch,
+  the two USB shells owning the **last 8.00 mm**. All dimensioned.
+- 22 pins at 2.54 is a 53.34 mm row, so the end margins sum to 9.40. With the
+  connector end at 8.00 the antenna end is **1.40** — and 1.40 + 53.34 + 8.00 =
+  62.74 exactly. That arithmetic closing is the check that the reading is right.
+- Scaled off the same drawing: pad OD ~1.70, shells 7.95 wide reaching to
+  |y| = 10.54 and overhanging the board's end by 0.87.
+- **And there are no mounting holes.** Two 22-pin rows and nothing else.
+
+So copper reaches to within **0.42 mm of each long edge**, and the antenna end
+has **0.55 mm** of clear board with the WROOM module standing on it. That kills
+every obvious answer: no screws, no lip on the long edges (it lands on pads or
+solder or a header body), no lip at the antenna end. What is left is the
+**connector end** — 7.15 mm of clear board in the two strips at |y| 10.54–12.70,
+outboard of the shells and before the pads. That is where the board is held, and
+it is the only place it can be.
+
+### The frame
+
+Rails that touch only the board's 1.60 mm edge (0.20 mm of total slop, and
+completely indifferent to headers). An end wall at the antenna end, which is
+what takes the USB plug's insertion load — the only real force in here. Corner
+stops at the connector end so pulling a plug cannot drag the board into its own
+window. Three pairs of posts, including one pair under the middles of the two
+USB shells, where a plug pushes down. And two snap fingers clamping the
+connector end.
+
+The antenna end gets no clamp and does not need one: a 1.6 mm FR4 board is rigid
+over 62.74 mm, so an end held top, bottom and sideways cannot let the far end
+lift.
+
+### The bit that needed research, and the two constraints that agreed
+
+A cantilever snap is a strain problem: `e = 1.5·Y·t/L²`. The obvious shape here
+— a short finger standing up beside the board — is hopeless: at L = 6 mm the
+1.00 mm deflection needed is **6.3 % strain**, and PLA yields around 1.5–2 %. It
+would snap off on the first board.
+
+At L = 18, t = 1.50 it is **0.69 %**, on a 12:1 beam against the 8:1 floor
+usually quoted for PLA, at about 2.7 N a finger.
+
+The print constraint pointed the same way. The published FDM guidance is
+consistent: a snap arm built up the Z axis bends across the layer bonds, which
+costs roughly half the elongation at break, and that is where printed snaps
+shear off. The arm has to lie in the XY plane.
+
+Both wanted the same thing, and the housing's own print orientation gave it for
+free: it goes on the plate rear-plate-down, so the pocket opens upward and every
+feature in the frame is a vertical wall. Each finger is a wall too, with a slot
+behind it — long axis in X, flexing in Y, both in the layer plane. The only
+overhangs in the part are the two 0.90 mm lips, and each lip's top is a 63°
+lead-in ramp, so pressing the board down wedges the fingers open and there is
+nothing to bridge.
+
+`check2` §5 now measures the finger's thickness on the built STL and does the
+strain arithmetic from that, rather than reading it back out of params.
+
+### Three things the depth change broke, all caught by the checks
+
+- **The corner stops poked 0.07 mm through the outside of the clock.** At
+  |y| = 14.80 the outer wall is only at x = −51.92 and the stop ran to −51.99.
+  Starting it inboard still buries it 0.8–1.7 mm into the wall, which is what
+  fuses it on.
+- **The desk stands grew knife edges.** The stand is built upright, tilted and
+  then trimmed by the desk plane, and a plane through a tilted solid feathers to
+  nothing wherever a face meets it shallowly — 0.01 mm at the front corners and
+  along the heel. Fixed properly with a real flat foot: everything below 0.60 mm
+  is replaced by a straight extrusion of the section at 0.60 mm, so every edge
+  on the footprint is vertical. Doing that as cut-and-re-union left two shells;
+  doing it as one subtraction with the section shrunk 0.10 mm first (so the
+  cutting wall is inside the solid rather than tangent to it) is clean.
+- **The 240 mm stand's forward tip margin fell to 18°** against a 20° floor. A
+  shallower clock sits further forward in its own cradle, so its centre of mass
+  moves toward the front edge. It now grows a front toe, sized closed-form:
+  `foot_front = -(h·tan t + toe/cos t)` falls straight out of the tilt, so
+  unlike the tail plinth the design angle and the measured angle agree to a
+  tenth of a degree. 12 mm of toe on the 240; the 108 and 120 mm stands compute
+  a negative toe — they were never close — and get none.
+
+Plug clearance on the stand went the other way and doubled, from 5.7 mm to
+**10.0 mm**: the USB window is 39 mm back from the front face now instead of 64,
+so the 10° lean drops it less.
+
+Five passes, sixteen parts, three bodies, all green.

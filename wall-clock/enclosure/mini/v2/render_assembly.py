@@ -22,19 +22,17 @@ EXPLODE = 26.0
 sets = {
  'assembled': [('mini-round-clock-base.stl',0,0,False),
                ('mini-round-clock-housing.stl',0,0,False),
-               ('mini-round-clock-battery-shelf-x2.stl', Z_REAR+PLATE_T, 0, False),
-               ('mini-round-clock-battery-shelf-x2.stl', Z_REAR+PLATE_T, 0, True)],
+],
  'exploded':  [('mini-round-clock-base.stl', EXPLODE,0,False),
                ('mini-round-clock-housing.stl',0,0,False),
-               ('mini-round-clock-battery-shelf-x2.stl', Z_REAR+PLATE_T-EXPLODE*1.6, 0, False),
-               ('mini-round-clock-battery-shelf-x2.stl', Z_REAR+PLATE_T-EXPLODE*1.6, 0, True)],
+],
 }
 A = stack(sets['assembled']); E = stack(sets['exploded'])
 
 fig, axes = plt.subplots(1, 3, figsize=(16, 6.0))
 for ax,(m,v,t) in zip(axes, [(A,'iso_r','ASSEMBLED - from the rear'),
                              (A,'side','ASSEMBLED - side. 12 o\'clock up, wall to the right'),
-                             (E,'iso_r','EXPLODED - base / housing / two shims')]):
+                             (E,'iso_r','EXPLODED - base / housing')]):
     eye, up = VIEWS[v]
     img, hit = render(m, eye, up, px=760)
     rgb = plt.get_cmap('bone')(np.nan_to_num(img))[...,:3]; rgb[~hit]=0.96

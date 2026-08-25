@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """PASS 1 of 3 — topology. Is each part a single, closed, correctly-oriented solid?"""
-import sys; sys.path.insert(0,'.')
+import sys, os; sys.path.insert(0,'.')
 import numpy as np, trimesh, collections
 import csg
 from csg import to_manifold
@@ -39,6 +39,12 @@ PARTS = [('mini-round-clock-base.stl', True),
          ('mini-round-clock-numerals-32.stl', True),
          ('mini-round-clock-numerals-60.stl', True),
          ('mini-round-clock-battery-shelf-x2.stl', True)]
+# Parts that the build deliberately did not emit -- at HOUSING_DEEP = 25.00 no
+# battery fits, so there are no shelves to check. Say which, do not skip quietly.
+_gone = [f for f, _ in PARTS if not os.path.exists(f)]
+if _gone:
+    print('  not built, so not checked: ' + ', '.join(_gone))
+PARTS = [(f, k) for f, k in PARTS if os.path.exists(f)]
 
 for name, strict in PARTS:
     print(f'\n{name}' + ('' if strict else '   [derived from Sam\'s mesh - relaxed]')) 

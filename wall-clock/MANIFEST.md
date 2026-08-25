@@ -41,7 +41,7 @@ Repo: `samuel-d-young/projects`, branch `claude/home-assistant-wall-clock-om42v2
 | `enclosure/mini/build.py` | Regenerates all of the above from measured dimensions |
 | `enclosure/mini/mesh.py` | The STL builder (revolve + boxes, volume-validated) |
 
-## Print — mini v8, the current parts
+## Print — mini v9, the current parts
 
 Built on top of Sam's remodelled `base_in.stl` / `diffuser_in.stl`, which are
 kept in the folder so everything re-derives from source. **These supersede
@@ -58,12 +58,11 @@ All in `enclosure/mini/v2/`, prefixed `mini-round-clock`.
 | numerals — **filament 2**, added as a part of the diffuser | `-numerals` | `-numerals-32` | `-numerals-60` |
 | light guides — **clear/natural PETG**, or cut perspex | — | — | `-light-guides-60` |
 | desk stand — flat, 8–10% infill | `-deskstand` | `-deskstand-32` | `-deskstand-60` |
-| battery shelves — flat, **print two** | `-battery-shelf-x2` | same part | same part |
 
 | File | |
 |---|---|
 | `enclosure/mini/v2/params.py` | Every dimension, each with where it came from |
-| `enclosure/mini/v2/build_v2.py` | Generates all 17 parts, all three bodies |
+| `enclosure/mini/v2/build_v2.py` | Generates all 16 parts, all three bodies |
 | `enclosure/mini/v2/measure_uploaded.py` | Re-derives `params.py` from Sam's STLs. **Run this first if he sends new files** |
 | `enclosure/mini/v2/runchecks.sh` | Five verification passes — topology, fit, printability, diffuser, desk stand |
 | `enclosure/mini/v2/README.md` | What changed and why, section by section |

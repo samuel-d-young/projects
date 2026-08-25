@@ -1,4 +1,4 @@
-# mini-round-clock enclosure — v8
+# mini-round-clock enclosure — v9
 
 Built on top of the base and diffuser Sam remodelled. Three clock sizes: the
 **24-LED** body at 107.99 mm, which is his; a **32-LED** body at 119.85 mm,
@@ -31,19 +31,17 @@ Pick a body. Everything in one column goes together; nothing crosses over.
 | **numerals** (2nd colour, §9) | `-numerals` | `-numerals-32` | `-numerals-60` |
 | light guides *(optional)* | — | — | `-light-guides-60`, or cut perspex — §7 |
 | desk stand *(optional)* | `-deskstand` | `-deskstand-32` | `-deskstand-60` (a very big print) |
-| battery shelves *(optional)* | `-battery-shelf-x2` — **print two**, any body | | |
 
 Every filename is prefixed `mini-round-clock`.
 
 | File | Orientation | Support | Solid volume (24 / 32 / 60) |
 |---|---|---|---|
 | base | **deck face down** | see note | 105 / 132 / 502 cm³ |
-| housing | **rear plate down** | none | 80 / 95 / 264 cm³ |
+| housing | **rear plate down** | none | 55 / 66 / 210 cm³ |
 | diffuser | **face down, 0.20 mm layers** | none | 15 / 22 / 109 cm³ |
 | numerals | *not printed alone* — see §9 | none | 0.07 / 0.10 / 0.21 cm³ |
-| desk stand | flat on its desk face | none | 259 / 315 / 1047 cm³ |
+| desk stand | flat on its desk face | none | 219 / 264 / 1003 cm³ |
 | light guides | flat, **clear or natural PETG** | none | — / — / 31 cm³ |
-| battery shelf ×2 | flat | none | 13 cm³ |
 
 **Those are solid volumes, not filament.** The stand is a big blocky part —
 print it at 8–10% infill with 3 walls and it lands around 60–80 g. Mass is not a
@@ -343,14 +341,25 @@ All three of those, and they undo most of v5a. The board is out of the base's
 deck bay; the deck is an annular floor again; the beam, the keeper and the
 USB-C breakout are gone.
 
+v9 halves the depth again, at his word: *"The housing can be 25mm deep, not
+50mm anymore."*
+
 ```
-housing            50.00 mm deep, 46.50 mm of clear pocket
-clock overall      74.40 mm  (22.00 base + 2.40 deck + 50.00 housing)
+housing            25.00 mm deep, 21.50 mm of clear pocket   (was 50.00 / 46.50)
+clock overall      49.40 mm  (22.00 base + 2.40 deck + 25.00 housing)
 board              62.74 x 25.40, on 4.00 mm posts off the pocket floor
-                   x -48.50 .. +14.24, tops out 8.80 mm above the floor
-battery, if fitted on its two shelves at 12.00 mm, so 24.89 mm of cell
-still free         11.31 mm for the display's ribbon and the ring's leads
+                   x -48.50 .. +14.24; board and frame top out at 7.40
+still free         14.10 mm for the display's ribbon and the ring's leads
+battery            DOES NOT FIT ANY MORE -- see below
 ```
+
+**The one thing 25 mm costs you is the battery.** The Anker A1653 is 24.89 mm on
+its thinnest axis, and with the board's frame in the way a cell needs a 43.29 mm
+housing. Nothing like it goes in a 21.50 mm pocket. So the build is
+mains-or-USB-powered now, the two battery shelves are **not generated at all**
+(rather than shipped as a part that cannot be used), and the build prints a line
+saying so. Put `HOUSING_DEEP` back to 50.00 in `params.py` and everything --
+shelves, pocket, checks -- comes back.
 
 That last line is the point of the whole change. The old 15.0 and 27.5 mm
 pockets had the board *and* the cables competing for the same space behind the
@@ -380,23 +389,94 @@ withdrawn.
 
 ### What holds the board
 
-| | what stops it | float |
+v9 rebuilt this. Sam: *"make sure that the mount for the ESP32 actually hold it
+and followed 3D printer constraints."* He was right on both counts. What was
+there was a tray, not a mount — **measured on the built file, not argued**:
+
+| | what stopped it | float |
 |---|---|---:|
-| down | four posts under it, inboard of the pad rows | — |
-| up, +x end | a hook 0.20 mm over the bare end of the board | 0.20 mm |
-| up, −x end | two arms **above everything the board carries** | 3.4 mm |
-| sideways | the posts and the pocket wall | — |
+| down | four posts under it at \|y\| = 5.50 | — |
+| up, +x end | a hook 0.20 mm over the bare end | 0.20 mm |
+| up, −x end | two arms above everything on the board | **3.4 mm** |
+| sideways | nothing at all | **±7 mm** |
+| along | a post 3.50 mm from the end | 0.50 mm |
 
-The two ends are held differently for a reason. The last 2.50 mm of the board's
-**+x** end is bare PCB — the two 22-pin rows are 21 × 2.54 = 53.34 mm on a
-62.74 mm board, so 4.70 mm is clear at each end — so a hook there can sit 0.2 mm
-over it and take the float out. At the **−x** end the wall is the USB window and
-the long edges are the pad rows, so that pair sits above the tallest thing the
-board carries instead. It cannot foul a connector or a soldered header whatever
-your board's layout; it leaves 3.4 mm of lift at that end, which does not matter
-when gravity acts in the board's own plane.
+**The board has no mounting holes.** Espressif's own v1.1 dimension drawing
+(`DXF_ESP32-S3-DevKitC-1_V1.1_20220429.pdf`) shows two 22-pin rows and nothing
+else, so it can only be captured mechanically. That drawing also settles where
+the retention is allowed to touch:
 
-It goes in tilted, and that is easy now: there is 37 mm of empty pocket above it.
+- **62.74 × 25.40 mm**, pad rows **1.27 mm** in from each long edge at 2.54
+  pitch, and the two USB shells owning the **last 8.00 mm** — all dimensioned.
+- 22 pins at 2.54 is a 53.34 mm row, so the two end margins sum to 9.40 mm.
+  With the connector end at 8.00, the antenna end is **1.40** — and
+  1.40 + 53.34 + 8.00 = 62.74 exactly, which is the check that the reading is
+  right.
+- So the copper reaches to within **0.42 mm of each long edge**, and there is
+  only **0.55 mm** of clear board at the antenna end — with the WROOM module
+  sitting on it.
+
+That rules out most of the obvious answers. Nothing can clamp the long edges: a
+lip there lands on pads, or on solder fillets, or on a header body. Nothing can
+clamp the antenna end either. What is left is the **connector end**, which has
+**7.15 mm** of clear board in the two strips at \|y\| 10.54–12.70, outboard of
+the USB shells and before the pad rows start. That is where the board gets held.
+
+| | what stops it now | |
+|---|---|---:|
+| sideways | two **rails**, touching only the board's 1.60 mm edge | 0.20 mm total |
+| along, +x | an **end wall** — the plug's insertion load goes here | 0.30 mm |
+| along, −x | two **corner stops** against the board's end face | 0.30 mm |
+| down | three pairs of **posts** at \|y\| = 6.50, including under the connectors | — |
+| up | two **snap fingers**, clamping the connector end | 0.20 mm |
+
+The antenna end gets no clamp, and should not have one — there is nowhere to put
+it, and it is the antenna end. It does not need one: a 1.6 mm FR4 board is rigid
+over 62.74 mm, so an end held top, bottom and sideways cannot let the far end
+lift.
+
+**It works with or without headers soldered on.** The rails only ever touch the
+board's edge, the posts sit at \|y\| = 6.50 with 4.00 mm of space under the
+board for header tails, and the two lips land 1–5 mm along the connector end,
+where there is no copper and no header body.
+
+### Why the snap fingers are shaped like that
+
+Two constraints, and they happen to agree.
+
+**Mechanically**, a cantilever snap is a strain problem. For a straight beam,
+
+```
+e = 1.5 · Y · t / L²        Y  deflection    1.00 mm
+                            t  thickness     1.50 mm
+                            L  length       18.00 mm
+                            ->  e = 0.69 %
+```
+
+PLA yields around 1.5–2 % and PETG higher, so that has real margin, and L/t is
+12:1 against the 8:1 floor usually quoted for PLA. The force follows from the
+same numbers: `P = b·t²·E·e / 6L` ≈ **2.7 N a finger**, 5.4 N for the pair —
+a firm thumb, not a press. `check2` measures `t` on the built STL and does this
+arithmetic rather than taking it on trust.
+
+A finger short enough to stand up beside the board would have been hopeless: at
+L = 6 mm the same 1.00 mm deflection is **6.3 % strain**, which snaps.
+
+**For printing**, the housing goes on the plate rear-plate-down, so the pocket
+opens upward and everything in this frame is a vertical wall. Each finger is a
+wall too, with a slot behind it — so its long axis and its bending direction are
+**both in the XY plane**, along the layers rather than across them. That matters:
+in FDM a part loaded across the layer bonds loses roughly half its elongation at
+break, and a snap arm built up the Z axis is the classic way to have one shear
+off at a layer line. Nothing here is built that way.
+
+The only overhangs in the whole frame are the two lips, each a 0.90 mm ledge,
+and each lip's upper face is a 63° lead-in ramp rather than a flat roof — so
+pressing the board down wedges the fingers open, and there is nothing to bridge.
+
+**To get the board out:** push both fingers outward — a fingernail or a small
+screwdriver on each — and lift the connector end. The retaining face is
+horizontal, so it will not let go on its own, which is the point.
 
 ## 3. The rear housing
 
@@ -405,13 +485,14 @@ want one, the cables, the hanger and the vents.
 
 | | |
 |---|---:|
-| depth | **50.00 mm** |
-| clear pocket | 46.50 mm |
-| clock overall | **74.40 mm** |
-| screws to the base | 4 × M3 self-tapping, **M3 × 60** |
+| depth | **25.00 mm** |
+| clear pocket | 21.50 mm |
+| clock overall | **49.40 mm** |
+| screws to the base | 4 × M3 self-tapping, **M3 × 35** |
 
-The slim and battery variants are gone. Sam asked for at least 50 mm and the
-board now lives in here, so there is nothing left for a shallower one to do.
+**Check your screws.** At 50 mm the housing needed M3 × 60; at 25 mm it needs
+about **M3 × 35** — the pillar is 25.00 mm plus 8.00 mm into the base's boss.
+An M3 × 60 will bottom out and split the boss.
 
 ### Wall hanger
 
@@ -481,7 +562,7 @@ sealed oven.
    pair — it never rests on the board.
 5. Solder the ring and display leads to the board. They come down through the
    deck's openings: the ribbon at 12 o'clock, the ring's leads at 6.
-6. Housing on: 4 × M3 × 60 self-tapping.
+6. Housing on: 4 × M3 × 35 self-tapping.
 7. Either hang it — one screw in the wall, 4 mm shank, head no wider than 8 mm
    — or drop it in the desk stand.
 8. Plug a USB lead into the window at the bottom of the rim.
@@ -674,6 +755,12 @@ only if you actually want one on a desk.
 
 ## 8. The battery — read this before buying anything
 
+> **v9: no battery fits any more.** Sam took the housing to 25 mm, and a cell
+> needs 43.29. The two shelves are no longer generated. Everything below is kept
+> because the power arithmetic still decides what supply to use, and because
+> putting `HOUSING_DEEP` back to 50.00 in `params.py` brings the whole thing
+> back — the pocket, the shelves and the checks all key off that one number.
+
 **A battery this size cannot run this clock. It is a UPS for outages.**
 
 The measured budget, from datasheets rather than estimates:
@@ -839,8 +926,17 @@ Both now derive from the body's own shelf height.
   window is bored right through the wall and a plug reaches the board from
   outside (`check2`)
 - Base and housing touch only at the mating plane — zero interference volume —
-  and the clock is 74.40 mm deep with 11.31 mm of cable room left after a board
-  and a battery (`check2`)
+  and the clock is **49.40 mm** deep with 14.10 mm of clear plenum above the
+  board's frame for the display ribbon and the ring leads (`check2`)
+- The S3 is **held, not just rested on**: located across to 0.20 mm on rails
+  that touch only its edge, stopped along by an end wall one way and corner
+  stops the other, carried on three pairs of posts, and clamped down by two snap
+  lips that land on the 7.15 mm of clear board at the connector end — outboard
+  of the USB shells and before the pad rows, so headers make no difference
+  (`check2` §5)
+- Each snap finger flexes 1.00 mm at **0.69 % strain** — the thickness measured
+  on the built STL, not taken from params — on a 12:1 beam, for about 2.7 N a
+  finger (`check2` §5)
 - No part introduces a sloped overhang below 45°, a flat ceiling spanning more
   than 25 mm, or a wall thinner than 1.2 mm that is not already in Sam's file
   (`check3`)
@@ -877,6 +973,13 @@ Both now derive from the body's own shelf height.
   given. Nothing about that ring has been checked against a listing.
 - Crush-rib interference of 0.60 mm on diameter is a judgement from moulding
   practice, not a measurement on this printer. `DIFF_RIB_H` is the one knob.
+- **The snap fingers have not been printed and flexed.** The strain and force
+  numbers are beam theory with E ≈ 2500 MPa for PLA; the real modulus depends
+  on your filament, infill and layer height. If they feel stiff, drop
+  `BRD_FING_T` to 1.30; if they feel loose, raise `BRD_FING_OVER`.
+- The USB shells' width and reach across the board (7.95 mm, |y| ≤ 10.54) were
+  **scaled off** the drawing, not dimensioned on it — so ±2%. The retention is
+  0.96 mm clear of them, which is more than that error.
 - **The typeface is Liberation Sans Bold, not Amazon Ember.** Ember is Amazon's
   proprietary brand face and is not installable here — checked, not assumed.
   `NUM_FONT_FILE` is the one line to change if you have a licensed .ttf.

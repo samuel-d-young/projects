@@ -36,7 +36,6 @@ All in `enclosure/mini/v2/`, all prefixed `mini-round-clock`.
 | **numerals** (2nd colour) | `-numerals` | `-numerals-32` | `-numerals-60` |
 | light guides *(optional)* | — | — | `-light-guides-60` |
 | desk stand *(optional)* | `-deskstand` | `-deskstand-32` | `-deskstand-60` |
-| battery shelves *(optional)* | `-battery-shelf-x2` — **print two**, any body | | |
 
 | File | Material | Settings |
 |---|---|---|
@@ -45,8 +44,20 @@ All in `enclosure/mini/v2/`, all prefixed `mini-round-clock`.
 | diffuser | **White PLA** | Face **down**. **0.20 mm layers.** 0% infill, no supports |
 | numerals | **Black PLA** (filament 2) | Not a print of its own — added *as a part of the diffuser* and assigned filament 2. See below |
 | desk stand | anything | Flat on its desk face. **8–10% infill** — it is a big blocky part and the volume figures are solid volume, not filament |
-| battery shelf ×2 | anything | Flat. **Print two** |
 | light guides (60 only) | **clear or natural PETG** | Flat. White PLA is opaque and would do nothing |
+
+**The housing is 25 mm deep now, and the clock is 49.4 mm overall.** Sam:
+*"The housing can be 25mm deep, not 50mm anymore."* That leaves 14.1 mm of clear
+space above the board for the display ribbon and the ring leads — and **no room
+for a battery**. A cell needs a 43.3 mm housing, so the battery shelves are not
+generated any more. Power it from USB. Putting `HOUSING_DEEP` back to 50.00 in
+`v2/params.py` brings the deep housing and the shelves back.
+
+**The S3 is properly held now**, not resting in a tray: rails that touch only
+the board's edge, an end wall that takes the plug's push, corner stops the other
+way, three pairs of posts, and two snap fingers clamping the connector end. Push
+both fingers outward to get the board back out. See `v2/README.md` §2 and
+`v2/render_fit.png`.
 
 **The 60-LED build is 240 mm across.** It fits a 256 mm bed with 8 mm to spare —
 watch the brim. Its desk stand is over a litre of enclosed volume; print that
@@ -91,7 +102,8 @@ crush ribs, 0.60 mm of interference on diameter. Still loose → raise
 **Before you print the diffuser, measure the display module's rim thickness** at
 the r = 29 mm circle and set `COLLAR_EXTEND = 2.20 - t` in `v2/params.py`.
 
-**PETG for the housing if a battery goes in it.** PLA softens at 55–60 °C; about
+**PETG for the housing if it will sit in the sun.** (There is no battery in
+it any more — see above.) PLA softens at 55–60 °C; about
 1 W in a small closed box on a west-facing wall in a Victorian summer can sit
 well above that. PETG's Tg is ~80 °C. The vents are already in the part.
 
@@ -189,7 +201,8 @@ Fill in your real entity IDs **before** restarting — the queries are in
    deck's openings — the display's ribbon at 12 o'clock, the ring's leads at 6.
    **Power the board at its own USB port now**, or at 5V/GND if you prefer;
    there is no breakout board any more.
-5. Housing on: 4 × **M3 × 60** self-tapping.
+5. Housing on: 4 × **M3 × 35** self-tapping. (It was M3 × 60 when the
+   housing was 50 mm deep — a 60 will now bottom out and split the boss.)
 6. Either hang it — one screw in the wall, 4 mm shank, head no wider than 8 mm
    — or drop it into the desk stand.
 7. Plug a USB lead into the window at the bottom of the rim. On the stand the
