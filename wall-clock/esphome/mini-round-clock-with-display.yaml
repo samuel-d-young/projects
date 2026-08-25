@@ -650,6 +650,7 @@ select:
       - "digital"       # big time, subtitle underneath
       - "minimal"       # time only, nothing else
       - "analog"        # drawn hands on the LCD as well as the ring
+      - "analog ring"   # dial pushed to the rim, quantised to the LED positions
     initial_option: "digital"
     optimistic: true
     restore_value: true
@@ -1522,7 +1523,115 @@ display:
 
       } else if (now.is_valid()) {
 
-        if (face == "analog") {
+        if (face == "analog ring") {
+          // ---- ANALOG RING ---------------------------------------------------
+          // The dial is pushed out to the rim so the screen and the physical
+          // LED ring read as ONE instrument rather than two clocks that happen
+          // to agree.
+          //
+          // The trick is quantisation. A smooth drawn hand and a ring that can
+          // only light whole LEDs disagree by up to half a pixel-step, and the
+          // eye catches it immediately — the screen looks right and the ring
+          // looks wrong. So every outer mark here snaps to the SAME positions
+          // the ring can light: round(f * N) / N.
+          //
+          // No twelve_oclock_offset is applied, and that is deliberate. The
+          // offset renumbers which LED is twelve; it does not move where twelve
+          // physically sits. Twelve is the top of the object on both surfaces,
+          // so both use frac 0 -> -90 degrees and they line up by construction.
+          const int RN = std::max(4, std::min(60, (int) lroundf(id(ring_size).state)));
+          const float TAU = 6.28318f;
+
+          auto ang  = [TAU](float f) { return f * TAU - 1.5708f; };
+          auto qang = [TAU, RN](float f) {
+            return (roundf(f * RN) / (float) RN) * TAU - 1.5708f;
+          };
+          auto dotf = [&](float f, int r, int rad, Color c) {
+            const float a = qang(f);
+            it.filled_circle(CX + (int) lroundf(cosf(a) * r),
+                             CY + (int) lroundf(sinf(a) * r), rad, c);
+          };
+          // ESPHome lines are one pixel. At 360 px a one-pixel hand disappears,
+          // so hands are drawn as a few parallel lines offset along the normal.
+          auto thick = [&](int x1, int y1, int w, Color c) {
+            const float dx = (float)(x1 - CX), dy = (float)(y1 - CY);
+            const float len = sqrtf(dx*dx + dy*dy);
+            if (len < 1.0f) return;
+            const float px = -dy/len, py = dx/len;
+            for (int o = -(w/2); o <= w/2; o++)
+              it.line(CX + (int) lroundf(px*o), CY + (int) lroundf(py*o),
+                      x1  + (int) lroundf(px*o), y1  + (int) lroundf(py*o), c);
+          };
+
+          const int R_DIAL = 170;   // the rim; the LED ring continues outward
+
+          // Minute track: one dot per LED, so each screen dot sits radially
+          // inward of a real LED. Hour positions are larger.
+          {
+            const float mb = id(marker_bright).state / 100.0f;
+            const Color tick = Color((uint8_t)(70*mb), (uint8_t)(76*mb), (uint8_t)(92*mb));
+            const Color hour = Color((uint8_t)(150*mb), (uint8_t)(158*mb), (uint8_t)(180*mb));
+            const std::string ms = id(marker_style).current_option().str();
+            if (ms != "none") {
+              for (int k = 0; k < RN; k++) {
+                // Is this LED one of the twelve hour positions?
+                const float f = (float) k / RN;
+                const float h12 = f * 12.0f;
+                const bool is_hour = fabsf(h12 - roundf(h12)) < 0.02f;
+                if (ms == "quarters" && !(is_hour && ((int) roundf(h12)) % 3 == 0))
+                  continue;
+                dotf(f, R_DIAL, is_hour ? 4 : 2, is_hour ? hour : tick);
+              }
+            }
+          }
+
+          // Timer echo, drawn on the same track and in the same direction the
+          // ring drains, so the two arcs move together.
+          if (left > 0) {
+            const float tot = id(timer_total_seconds).state;
+            if (!std::isnan(tot) && tot > 0.0f) {
+              float ratio = left / tot;
+              if (ratio > 1.0f) ratio = 1.0f;
+              const int lit = (int) ceilf(ratio * RN);
+              const bool acw =
+                id(arc_dir).current_option().str() == "anticlockwise";
+              for (int i = 0; i < lit; i++)
+                dotf(acw ? -(float) i / RN : (float) i / RN, R_DIAL, 3,
+                     dim(c_timer, 0.75f));
+            }
+          }
+
+          // Hands. Tips stop just short of the dial so they point AT it rather
+          // than through it, which is what makes the LED beyond read as the
+          // continuation of the hand.
+          const float hf = fmodf((float) now.hour, 12.0f) / 12.0f
+                         + now.minute / 720.0f;
+          const float mf = now.minute / 60.0f + now.second / 3600.0f;
+          const float ha = ang(hf), ma = ang(mf);
+          thick(CX + (int) lroundf(cosf(ha) * 96),
+                CY + (int) lroundf(sinf(ha) * 96), 7, c_hour);
+          thick(CX + (int) lroundf(cosf(ma) * 148),
+                CY + (int) lroundf(sinf(ma) * 148), 5, c_min);
+
+          // The lit LED for each hand, snapped to the ring's own grid. This is
+          // the bit that literally follows the LEDs.
+          dotf(hf, R_DIAL, 5, c_hour);
+          dotf(mf, R_DIAL, 4, c_min);
+
+          if (id(show_seconds).state) {
+            float sf = now.second / 60.0f;
+            if (id(sec_style).current_option().str() == "sweep")
+              sf = (now.second + (id(frame) % 20) / 20.0f) / 60.0f;
+            const float sa = ang(sf);
+            it.line(CX, CY, CX + (int) lroundf(cosf(sa) * 158),
+                            CY + (int) lroundf(sinf(sa) * 158), c_sec);
+            dotf(sf, R_DIAL, 3, c_sec);
+          }
+
+          it.filled_circle(CX, CY, 7, Color(220, 220, 220));
+          it.filled_circle(CX, CY, 3, Color(40, 44, 54));
+
+        } else if (face == "analog") {
           // Drawn hands on the LCD as well as the ring. Deliberately thin and
           // unfilled — the ring is the primary analogue read, this echoes it.
           it.circle(CX, CY, 150, Color(60, 66, 80));
