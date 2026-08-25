@@ -1,14 +1,15 @@
 # mini-round-clock enclosure — v6
 
-Built on top of the base and diffuser Sam remodelled. Two clock sizes now: the
-**24-LED** body at 107.99 mm, which is his, and a **32-LED** body at 119.85 mm,
-which the bigger ring forces. Both get a rear housing that carries the ESP32-S3,
-and both get a desk stand.
+Built on top of the base and diffuser Sam remodelled. Three clock sizes: the
+**24-LED** body at 107.99 mm, which is his; a **32-LED** body at 119.85 mm,
+which the bigger ring forces; and a **60-LED** body at **240 mm**, where perspex
+light guides make each LED read 30 mm long. All three share one rear housing
+design that carries the ESP32-S3, and all three get a desk stand.
 
 ```
 python3 measure_uploaded.py    # re-derive every number in params.py from his STLs
 python3 build_v2.py            # write the STLs and 3MFs
-./runchecks.sh                 # five verification passes, both bodies
+./runchecks.sh                 # five verification passes, all three bodies
 python3 render.py              # picture sheets
 ```
 
@@ -22,20 +23,24 @@ re-derives from source. `measure_uploaded.py` prints the table `params.py` holds
 
 Pick a body. Everything in one column goes together; nothing crosses over.
 
-| | 24-LED (108 mm) | 32-LED (120 mm) |
-|---|---|---|
-| base | `mini-round-clock-base` | `mini-round-clock-base-32` |
-| housing | `mini-round-clock-housing` | `mini-round-clock-housing-32` |
-| diffuser | `mini-round-clock-diffuser` | `mini-round-clock-diffuser-32` |
-| desk stand *(optional)* | `mini-round-clock-deskstand` | `mini-round-clock-deskstand-32` |
-| battery shelves *(optional)* | `mini-round-clock-battery-shelf-x2` — **print two**, either body | |
-
-| File | Orientation | Support | Solid volume |
+| | 24-LED (108 mm) | 32-LED (120 mm) | 60-LED (240 mm) |
 |---|---|---|---|
-| base | **deck face down** | see note | 105 cm³ (24) / 142 cm³ (32) |
-| housing | **rear plate down** | none | 80 cm³ (24) / 95 cm³ (32) |
-| diffuser | **face down, 0.20 mm layers** | none | 13 cm³ (24) / 20 cm³ (32) |
-| desk stand | flat on its desk face | none | 248 cm³ (24) / 296 cm³ (32) |
+| base | `-base` | `-base-32` | `-base-60` |
+| housing | `-housing` | `-housing-32` | `-housing-60` |
+| diffuser | `-diffuser` | `-diffuser-32` | `-diffuser-60` |
+| light guides *(optional)* | — | — | `-light-guides-60`, or cut perspex — §7 |
+| desk stand *(optional)* | `-deskstand` | `-deskstand-32` | `-deskstand-60` (a very big print) |
+| battery shelves *(optional)* | `-battery-shelf-x2` — **print two**, any body | | |
+
+Every filename is prefixed `mini-round-clock`.
+
+| File | Orientation | Support | Solid volume (24 / 32 / 60) |
+|---|---|---|---|
+| base | **deck face down** | see note | 105 / 142 / 514 cm³ |
+| housing | **rear plate down** | none | 80 / 95 / 264 cm³ |
+| diffuser | **face down, 0.20 mm layers** | none | 13 / 20 / 109 cm³ |
+| desk stand | flat on its desk face | none | 259 / 315 / 1047 cm³ |
+| light guides | flat, **clear or natural PETG** | none | — / — / 31 cm³ |
 | battery shelf ×2 | flat | none | 13 cm³ |
 
 **Those are solid volumes, not filament.** The stand is a big blocky part —
@@ -486,7 +491,120 @@ holding the printed face plate up before cutting plywood for it.
 
 ---
 
-## 7. The battery — read this before buying anything
+## 7. The 60-LED clock, 240 mm, with perspex light guides
+
+> *"I have some perspex that can be used to make the LED's look longer than they
+> are ... make the clock larger by using the perspex in strips to make the light
+> shine down it. I would like to make the clock of the 60LED ring 24cm wide, and
+> use the perspex, or other material to make the LED's shine further away from
+> the LED"*
+
+A third body: **240 mm across**, for the 60-LED ring, where each LED feeds a
+radial strip and **reads 30 mm long instead of about 5**.
+
+```
+ring          172 / 156 mm, 60 LEDs, LED circle r = 82.00
+body          240 mm.  ring pocket r 77.50 .. 86.50, floor at z = 10.45
+guide channel r 79.00 .. 113.60, 6.70 wide, 3.35 deep
+the strip     r 86.50 .. 112.00 -- 6.00 x 3.00 x 25.50, resting on a shelf at
+              z = 13.65, which is exactly the height of the LED tops
+aperture      r 80.00 .. 110.50, thinned to 0.20 mm, widening 1.40 -> 3.00
+hours         inboard of the ring, r 70.3 .. 73.7
+```
+
+Three things about that layout are decisions, not arbitrary:
+
+- **The channel starts inboard of the LED circle** (r = 79 against LEDs at 82),
+  so the LED fires into the space above itself and the aperture starts at r = 80
+  — the LED is the head of the lit line, not a separate dot.
+- **The strip starts outboard of the ring** (r = 86.5), so it rests on the
+  base's shelf and never on an LED.
+- **The aperture widens as it goes out**, 1.40 → 3.00 mm. Light falls off along
+  a strip; opening the slot pays some of that back so the line looks even rather
+  than hot at the inner end.
+
+### The material, against your standing rule
+
+Your rule is *"never PVC or acrylic containing chlorine … cast acrylic or
+plywood only, and tell me which and why."*
+
+**Perspex is a brand of PMMA, and PMMA contains no chlorine.** It is safe to cut
+and safe to laser. The material that rule is about is **PVC** — sold as "vinyl",
+and what unlabelled "acrylic-look" marketplace sheet often turns out to be. That
+one releases hydrogen chloride, and it is the one to keep out of the machine.
+
+So: Perspex-branded, or any sheet **labelled** cast or extruded PMMA from a
+known supplier, is fine. Unlabelled sheet is not. **Cast** is the better of the
+two — extruded crazes and engraves poorly — but for a strip that is sawn and
+sanded rather than lasered, either works.
+
+### You cannot cut it on the Aura, and that is already in this project's notes
+
+`enclosure/MATERIALS.md`: the Glowforge Aura is a **~5 W diode laser**, and it
+**cannot cut clear, white or translucent acrylic at all** — those materials are
+transparent at 445 nm and the beam goes straight through. Glowforge's own Aura
+material list is limited to *opaque* acrylic.
+
+So the strips come off something mechanical:
+
+| how | notes |
+|---|---|
+| **table saw or bandsaw**, fine blade | Rip 6.00 mm strips from 3 mm sheet, then crosscut 60 off at 25.5 mm. Leave the protective film on. Fastest if you have the saw. |
+| **scroll saw**, then a sanding jig | Slower, but 60 short pieces is not a big job with a stop block. |
+| **6 mm acrylic rod or strip stock** | Skips the ripping. Round rod works too — the channel is 6.70 wide, so a 6 mm round rod drops in and will actually spread light more evenly than a square strip. |
+| **a CO₂ laser** at a makerspace | The one laser that does cut clear PMMA. |
+
+**Frost one face.** A polished strip is a *pipe*, not a lamp: light goes in one
+end and comes out the other, and the middle stays dark. Wet-sand the face that
+sits **downward** (against the base's shelf) with 400 grit until it is evenly
+milky. That face scatters light up through the aperture along the whole length,
+which is the difference between a lit line and a bright dot at the far end.
+
+### If you would rather not cut anything
+
+`mini-round-clock-light-guides-60` is all 60 strips as one printed part, joined
+by a 1.40 mm ring at the outer end. **Print it in clear or natural PETG** —
+white PLA is opaque and would do nothing. A printed guide is a worse pipe than
+acrylic and a better lamp for exactly the same reason: the layer lines scatter,
+so it glows along its length instead of dumping the light out of the end.
+
+And if you fit neither: **the channels still work empty.** They are white
+troughs with an opaque face over them and a slot in it, lit from one end. Not as
+crisp, but it is not a broken clock — it is the fallback, and it costs nothing
+to try first.
+
+### What I cannot tell you without a bench test
+
+**How far the light actually carries.** That depends on the coupling from a
+top-emitting 5050 into the end of a strip 4.5 mm away, on how evenly you frost
+it, and on the acrylic itself. The geometry is right and the aperture taper is
+the knob — `APER_W_IN` and `APER_W_OUT` in `params.py`. If the far end is dim,
+widen `APER_W_OUT`; if the inner end is a hot spot, narrow `APER_W_IN`.
+
+Test it before you commit to a 240 mm print: put the ring on the bench, lay one
+strip on it, tape a strip of paper over as a mask, and look.
+
+### The size of these prints
+
+A 240 mm clock is a big object and the parts are honest about it.
+
+| part | solid volume | note |
+|---|---:|---|
+| `base-60` | 514 cm³ | hollow, ribbed, with two shelves. Fits a 256 mm bed with 8 mm to spare |
+| `housing-60` | 264 cm³ | |
+| `diffuser-60` | 109 cm³ | white PLA, 0.20 mm layers |
+| `light-guides-60` | 31 cm³ | clear/natural PETG, if you print them |
+| `deskstand-60` | **1047 cm³** | see below |
+
+Those are solid volumes, not filament — at 15% infill the base is around 200 g.
+**The 240 mm desk stand is a different matter**: it is over a litre of enclosed
+volume and about 10–12 hours even at 8% infill. It exists because it is the same
+parametric part, and it checks out, but a 24 cm clock is a wall clock. Print it
+only if you actually want one on a desk.
+
+---
+
+## 8. The battery — read this before buying anything
 
 **A battery this size cannot run this clock. It is a UPS for outages.**
 
@@ -569,7 +687,7 @@ the alternative if the Anker fails its test — is in **`docs/BATTERY.md`**.
 
 ---
 
-## 8. What is verified and what is not
+## 9. What is verified and what is not
 
 **Verified here, by running it — nine parts, two bodies, five passes:**
 

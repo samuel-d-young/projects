@@ -26,13 +26,16 @@ the module has to move back another 9 mm into a well you cannot read.
 Use the **v6** parts in `enclosure/mini/v2/`. There are two clock sizes and you
 pick one — everything in a column goes together.
 
-| | 24-LED (108 mm) | 32-LED (120 mm) |
-|---|---|---|
-| base | `v2/mini-round-clock-base` | `v2/mini-round-clock-base-32` |
-| housing | `v2/mini-round-clock-housing` | `v2/mini-round-clock-housing-32` |
-| diffuser | `v2/mini-round-clock-diffuser` | `v2/mini-round-clock-diffuser-32` |
-| desk stand *(optional)* | `v2/mini-round-clock-deskstand` | `v2/mini-round-clock-deskstand-32` |
-| battery shelves *(optional)* | `v2/mini-round-clock-battery-shelf-x2` — **print two**, either body | |
+All in `enclosure/mini/v2/`, all prefixed `mini-round-clock`.
+
+| | 24-LED (108 mm) | 32-LED (120 mm) | 60-LED (240 mm) |
+|---|---|---|---|
+| base | `-base` | `-base-32` | `-base-60` |
+| housing | `-housing` | `-housing-32` | `-housing-60` |
+| diffuser | `-diffuser` | `-diffuser-32` | `-diffuser-60` |
+| light guides *(optional)* | — | — | `-light-guides-60` |
+| desk stand *(optional)* | `-deskstand` | `-deskstand-32` | `-deskstand-60` |
+| battery shelves *(optional)* | `-battery-shelf-x2` — **print two**, any body | | |
 
 | File | Material | Settings |
 |---|---|---|
@@ -41,6 +44,19 @@ pick one — everything in a column goes together.
 | diffuser | **White PLA** | Face **down**. **0.20 mm layers.** 0% infill, no supports |
 | desk stand | anything | Flat on its desk face. **8–10% infill** — it is a big blocky part and the volume figures are solid volume, not filament |
 | battery shelf ×2 | anything | Flat. **Print two** |
+| light guides (60 only) | **clear or natural PETG** | Flat. White PLA is opaque and would do nothing |
+
+**The 60-LED build is 240 mm across.** It fits a 256 mm bed with 8 mm to spare —
+watch the brim. Its desk stand is over a litre of enclosed volume; print that
+one only if you really want a 24 cm clock on a desk.
+
+**The perspex, if you are using it.** 60 off **6.00 × 3.00 × 25.50 mm**, and
+**not on the Aura** — a 5 W diode laser cannot cut clear acrylic at all. Table
+saw, bandsaw, scroll saw, or 6 mm acrylic rod. **Frost one face** with 400 grit
+and put that face down, or the strip pipes the light to its far end instead of
+glowing along its length. Perspex is PMMA and contains no chlorine, so it is
+safe to cut and to laser; PVC is the one your rule is about, and unlabelled
+"acrylic-look" sheet is often exactly that. See `v2/README.md` §7.
 
 Either `.3mf` or `.stl` — for these files they carry identical geometry, because
 the generator quantises to float32 and heals the mesh *before* writing.

@@ -30,7 +30,7 @@ def placed(man, B, up=0.0, along=0.0):
     return man.translate([0.0, up, along]).rotate([90.0 - T, 0.0, 0.0]) \
               .translate([0.0, 0.0, h0])
 
-for B, tg in [(BV.BODY24, ''), (BV.BODY32, '-32')]:
+for B, tg in [(BV.BODY24, ''), (BV.BODY32, '-32'), (BV.BODY60, '-60')]:
     S  = to_manifold(load(f'mini-round-clock-deskstand{tg}.stl'))
     St = load(f'mini-round-clock-deskstand{tg}.stl')
     print(f'\n{"="*70}\n{B.n}-LED stand — for a {2*B.r_body:.2f} x {DEPTH:.1f} mm clock')

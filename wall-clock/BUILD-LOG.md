@@ -2149,3 +2149,107 @@ between the 2.4 and 5 GHz SSIDs.
 the device's API roughly every 15 seconds — `[api.connection] Socket operation
 failed CONNECTION_CLOSED errno=128` fills the log. `.32` is also the host that
 answers ICMP-unreachable for `.80`. Whatever it is, it is noise at best.
+
+---
+
+## 2026-08-25 — v7: a 240 mm clock for the 60-LED ring, with perspex light guides
+
+> *"I have some perspex that can be used to make the LED's look longer than they
+> are or for the 60LED ring, make the clock larger by using the perspex in
+> strips to make the light shine down it. I would like to make the clock of the
+> 60LED ring 24cm wide, and use the perspex, or other material to make the LED's
+> shine further away from the LED"*
+
+A third body, and the first one where the interesting part is optical rather
+than mechanical: each LED feeds a radial strip and **reads 30 mm long instead of
+about 5**.
+
+```
+ring          172 / 156, 60 LEDs, LED circle r = 82.00   (three resellers, no
+                                                          datasheet -- measure it)
+body          240 mm.  ring pocket 77.50..86.50, floor z = 10.45
+channel       r 79.00..113.60, 6.70 wide, 3.35 deep, one per LED
+strip         r 86.50..112.00 -- 6.00 x 3.00 x 25.50 on a shelf at z = 13.65
+aperture      r 80.00..110.50, one layer, WIDENING 1.40 -> 3.00
+```
+
+Three of those are decisions rather than arbitrary numbers:
+
+- **The channel starts inboard of the LED circle** (79 against LEDs at 82) and
+  the aperture starts at 80, so the LED itself is the head of the lit line
+  rather than a separate dot beside it.
+- **The strip starts outboard of the ring** (86.5), so it lands on the base's
+  shelf and never rests on an LED.
+- **The aperture widens going out.** Light falls off along a strip; opening the
+  slot pays some of it back, so the line reads even instead of hot at the inner
+  end. That is the tuning knob if the first one looks wrong.
+
+### The two facts that decided the material story
+
+Both were already in this project's own notes and both are worth restating,
+because the obvious plan — laser the strips — does not work.
+
+- **Perspex is PMMA and contains no chlorine.** Sam's standing rule is *"never
+  PVC or acrylic containing chlorine."* PMMA satisfies it. **PVC** is the one
+  the rule is about, and unlabelled "acrylic-look" marketplace sheet is often
+  exactly that. Labelled cast PMMA from a known supplier, or nothing.
+- **The Aura cannot cut it.** `enclosure/MATERIALS.md`: a ~5 W *diode* laser at
+  445 nm goes straight through clear, white and translucent acrylic. Glowforge's
+  own Aura material list is opaque acrylic only. So the strips come off a table
+  saw, a bandsaw or a scroll saw, or out of 6 mm acrylic rod, or a CO2 laser
+  somewhere else.
+
+And one that is physics rather than a project note: **a polished strip is a
+pipe, not a lamp.** Light goes in one end and out the other and the middle stays
+dark. Wet-sanding the downward face with 400 grit is what turns it into a lit
+line. That instruction matters more than any dimension in the part.
+
+### Three ways to fill the channels, and the channels work empty
+
+Because I cannot promise how far the light carries without building one:
+
+1. **60 cut perspex strips** -- the thing he asked for, and the crispest.
+2. **`mini-round-clock-light-guides-60`** -- all 60 as one printed part joined by
+   a 1.40 mm ring, in clear or natural PETG. A worse pipe and a better lamp: the
+   layer lines scatter, so it glows along its length instead of dumping the
+   light out of the end.
+3. **Nothing.** The channels are white troughs with an opaque face over them and
+   a slot in it, lit from one end. Not as crisp, but not a broken clock.
+
+That fallback is deliberate. A design that only works if a 60-piece hand-cutting
+job goes well is a design that does not work.
+
+### Hollowing a 240 mm part, and what it costs
+
+A solid 240 mm annulus is 855 cm³ -- over a kilogram. Hollowed to a floor plate,
+two shelves, the pocket walls, twelve radial ribs and one circumferential rib
+per cavity, it is 514.
+
+Two things went wrong on the way and both are general:
+
+- **Sealed cavities are a second body.** The hollow closed on itself and the
+  topology check counted 25 shells. They need a vent: two Ø6 holes per rib gap
+  per cavity, and *two* rather than one, because the circumferential rib splits
+  each cavity in half and each half needs its own way out.
+- **Hollowing without a circumferential rib gives a 28 mm ceiling.** The radial
+  ribs do nothing for the radial span. One circumferential rib per cavity takes
+  the worst bridge from 28 mm to 14.
+
+### The check that was wrong, again
+
+`check3`'s "total ceiling area is modest" was a flat 2000 mm² written for a
+108 mm disc. A deliberately hollowed 240 mm part is ~47% ceiling by plan area
+**and every bit of it spans 14 mm or less**. The span test is the one that
+carries the meaning; the area test is now proportional and only fires if a part
+is essentially a lid over a void.
+
+### And the desk stand for it is silly, so it says so
+
+1047 cm³. It exists because it is the same parametric part and it passes every
+check, but a 24 cm clock is a wall clock. The docs say to print it only if you
+actually want one on a desk. The big body did surface one real bug in the stand,
+though: at 240 mm the clock's centre of mass is 155 mm up, and the cradle's own
+footprint tips at 11°. It now grows a low plinth behind the stop wall, sized
+from the geometry to bring that back over 20°.
+
+Five passes, fourteen parts, three bodies, all green.

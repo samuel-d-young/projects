@@ -111,6 +111,19 @@ if __name__ == '__main__':
         (S2,'iso_f','DESK STAND 32','copper'),
         (C,'iso_f','BATTERY SHELF (print two)','copper'),
     ], 'render_v6_32.png')
+    B6 = trimesh.load('mini-round-clock-base-60.stl')
+    H6 = trimesh.load('mini-round-clock-housing-60.stl')
+    D6 = trimesh.load('mini-round-clock-diffuser-60.stl')
+    G6 = trimesh.load('mini-round-clock-light-guides-60.stl')
+    S6 = trimesh.load('mini-round-clock-deskstand-60.stl')
+    sheet([
+        (B6,'front','BASE 60 - FRONT, 240 mm','bone'),
+        (B6,'rear', 'BASE 60 - REAR: ribbed and hollow','bone'),
+        (B6,'iso_f','BASE 60 - inside: ring pocket + guide shelf','bone'),
+        (D6,'front','DIFFUSER 60 - 60 tapered apertures','bone'),
+        (G6,'iso_f','LIGHT GUIDES - print in clear PETG, or cut 60 in perspex','copper'),
+        (S6,'iso_f','DESK STAND 60 - a very big print','copper'),
+    ], 'render_v7_60.png')
     sheet([
         (H,'side', 'HOUSING - side (vents, USB window at 6)','summer'),
         (S,'side', 'DESK STAND - side, 8 deg back','copper'),

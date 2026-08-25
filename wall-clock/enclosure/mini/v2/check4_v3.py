@@ -3,7 +3,7 @@
 import sys, math; sys.path.insert(0,'.')
 import numpy as np, trimesh
 import csg
-from csg import box_lwh, cyl, tube, wedge, to_manifold, to_trimesh
+from csg import box_lwh, cyl, tube, wedge, prism, rot_rect, to_manifold, to_trimesh
 from params import *
 
 FAIL=[]
@@ -35,7 +35,7 @@ def bisect(f, lo, hi, n=40):
     return (lo+hi)/2
 
 # ---------------------------------------------------------------- 1. tab slot
-BODIES = [(BV.BODY24, ''), (BV.BODY32, '-32')]
+BODIES = [(BV.BODY24, ''), (BV.BODY32, '-32'), (BV.BODY60, '-60')]
 
 print('1. The tab slot, cut for the 30.55 mm tab Sam measured')
 TAB_HW, TAB_R = DISP_TAB_W/2, math.hypot(DISP_TAB_W/2, DISP_OVERALL - DISP_PCB_D/2)
@@ -54,42 +54,87 @@ for B, tg in BODIES:
         return r*math.cos(math.radians(a)), r*math.sin(math.radians(a))
     a_cell = B.wall_a0 + B.pitch/2
 
-    print('\n2. One layer over the LEDs, in a radial tick')
-    for r in (B.tick_ri + 0.4, (B.tick_ri + B.tick_ro)/2, B.tick_ro - 0.4):
-        t = column_top(DIFF, *at(r, a_cell))
-        ck(t is not None and abs(t - DIFF_MEM_T) < 0.02,
-           f'r={r:.2f} is one layer, inside the tick', f'{t:.3f} mm' if t else 'n/a')
-    for r in (B.tick_ri - 0.6, B.tick_ro + 0.6):
-        t = column_top(DIFF, *at(r, a_cell))
-        ck(t is not None and abs(t - FACE_T) < 0.02,
-           f'r={r:.2f} is {FACE_T:.2f} mm, outside the tick', f'{t:.3f} mm' if t else 'n/a')
-    ticks = sum(1 for i in range(B.n)
-                if (lambda t: t is not None and t < 0.5)(
-                    column_top(DIFF, *at((B.tick_ri+B.tick_ro)/2, B.wall_a0 + (i+0.5)*B.pitch))))
-    ck(ticks == B.n, f'all {B.n} cells have a tick', f'{ticks} of {B.n}')
-    walls = sum(1 for i in range(B.n)
-                if (lambda t: t is not None and abs(t - BAND_TOP) < 0.02)(
-                    column_top(DIFF, *at((B.wall_ri + B.rib_o_ri)/2,
-                                         B.wall_a0 + i*B.pitch), e=0.02)))
-    ck(walls == B.n, f'all {B.n} cell walls reach {BAND_TOP:.2f} mm', f'{walls} of {B.n}')
-    for r in (B.rib_i_ri + 0.5, B.rib_o_ri + 0.5):
-        t = column_top(DIFF, *at(r, a_cell))
-        ck(t is not None and abs(t - BAND_TOP) < 0.02, f'the rib at r={r:.2f} is continuous',
-           f'{t:.3f} mm' if t else 'n/a')
-    ck(BAND_TOP - FACE_T >= 1.5, 'the cell wall runs the full depth of the cell',
-       f'{BAND_TOP-FACE_T:.2f} mm from the face to the PCB')
+    if B.guides:
+        print('\n2. The light guides')
+        for r in (APER_RI + 1.0, (APER_RI + APER_RO)/2, APER_RO - 1.0):
+            t = column_top(DIFF, *at(r, 0.0))
+            ck(t is not None and abs(t - DIFF_MEM_T) < 0.02,
+               f'r={r:.1f} is one layer, inside the aperture', f'{t:.3f} mm' if t else 'n/a')
+        half = B.pitch/2
+        for r in ((APER_RI + APER_RO)/2,):
+            t = column_top(DIFF, *at(r, half))
+            ck(t is not None and t >= FACE_T - 0.02,
+               f'and {2*math.pi*r*half/360:.1f} mm to the side of it is solid face',
+               f'{t:.3f} mm' if t else 'n/a')
+        aps = sum(1 for k in range(B.n)
+                  if (lambda t: t is not None and t < 0.5)(
+                      column_top(DIFF, *at((APER_RI+APER_RO)/2, 360.0/B.n*k))))
+        ck(aps == B.n, f'all {B.n} guides have an aperture', f'{aps} of {B.n}')
+        # a 6.00 x 3.00 x 30 strip has to drop into every channel
+        strip = None
+        for k in range(B.n):
+            a_ = 360.0/B.n*k
+            rm = (GUIDE_RI + GUIDE_RO)/2
+            s_ = prism(rot_rect(rm*math.cos(math.radians(a_)), rm*math.sin(math.radians(a_)),
+                                GUIDE_RO - GUIDE_RI, GUIDE_W, a_),
+                       FACE_T + 0.05, FACE_T + 0.05 + GUIDE_T)
+            strip = s_ if strip is None else strip + s_
+        ck((DIFF ^ strip).volume() < 1e-3,
+           f'a {GUIDE_W:.0f} x {GUIDE_T:.0f} mm strip drops into all {B.n} channels',
+           f'{(DIFF ^ strip).volume():.5f} mm3')
+        ck(B.band_top - FACE_T >= GUIDE_T + 0.30, 'with clearance over it',
+           f'channel {B.band_top - FACE_T:.2f} deep for a {GUIDE_T:.2f} mm strip')
+        ck(GUIDE_CH_RI < RING60_R, 'the channel starts inboard of the LED circle, so '
+           'the LED fires into the space above it',
+           f'channel from r={GUIDE_CH_RI:.1f}, LEDs at r={RING60_R:.1f}')
+        ck(GUIDE_RI >= B.r_ring_o, 'and the strip starts outboard of the ring, so it '
+           'never rests on an LED', f'strip from r={GUIDE_RI:.1f}, ring ends {B.r_ring_o:.1f}')
+        wall_in = 2*math.pi*GUIDE_CH_RI/B.n - (GUIDE_W + 2*GUIDE_CLR)
+        ck(wall_in > 1.2, 'and the wall between two channels is printable at the '
+           'tight end', f'{wall_in:.2f} mm at r={GUIDE_CH_RI:.0f}')
+        ck(APER_W_OUT > APER_W_IN, 'the aperture widens going out, to pay for the '
+           'light falling off', f'{APER_W_IN:.2f} -> {APER_W_OUT:.2f} mm over '
+           f'{APER_RO-APER_RI:.0f} mm')
+        lit = APER_RO - APER_RI
+        print(f'         one lit LED now reads {lit:.0f} mm long instead of ~5 mm, '
+              f'and the clock is {2*B.r_body:.0f} mm across')
+    else:
+        print('\n2. One layer over the LEDs, in a radial tick')
+        for r in (B.tick_ri + 0.4, (B.tick_ri + B.tick_ro)/2, B.tick_ro - 0.4):
+            t = column_top(DIFF, *at(r, a_cell))
+            ck(t is not None and abs(t - DIFF_MEM_T) < 0.02,
+               f'r={r:.2f} is one layer, inside the tick', f'{t:.3f} mm' if t else 'n/a')
+        for r in (B.tick_ri - 0.6, B.tick_ro + 0.6):
+            t = column_top(DIFF, *at(r, a_cell))
+            ck(t is not None and abs(t - FACE_T) < 0.02,
+               f'r={r:.2f} is {FACE_T:.2f} mm, outside the tick', f'{t:.3f} mm' if t else 'n/a')
+        ticks = sum(1 for i in range(B.n)
+                    if (lambda t: t is not None and t < 0.5)(
+                        column_top(DIFF, *at((B.tick_ri+B.tick_ro)/2, B.wall_a0 + (i+0.5)*B.pitch))))
+        ck(ticks == B.n, f'all {B.n} cells have a tick', f'{ticks} of {B.n}')
+        walls = sum(1 for i in range(B.n)
+                    if (lambda t: t is not None and abs(t - BAND_TOP) < 0.02)(
+                        column_top(DIFF, *at((B.wall_ri + B.rib_o_ri)/2,
+                                             B.wall_a0 + i*B.pitch), e=0.02)))
+        ck(walls == B.n, f'all {B.n} cell walls reach {BAND_TOP:.2f} mm', f'{walls} of {B.n}')
+        for r in (B.rib_i_ri + 0.5, B.rib_o_ri + 0.5):
+            t = column_top(DIFF, *at(r, a_cell))
+            ck(t is not None and abs(t - BAND_TOP) < 0.02, f'the rib at r={r:.2f} is continuous',
+               f'{t:.3f} mm' if t else 'n/a')
+        ck(BAND_TOP - FACE_T >= 1.5, 'the cell wall runs the full depth of the cell',
+           f'{BAND_TOP-FACE_T:.2f} mm from the face to the PCB')
 
-    print('\n3. The tick is perpendicular to the circle, and sized to the LED')
-    ck(B.tick_ro - B.tick_ri > TICK_W, 'it is radial, not tangential',
-       f'{B.tick_ro-B.tick_ri:.2f} radial x {TICK_W:.2f} tangential')
-    led_i, led_o = B.led_r - 2.5, B.led_r + 2.5
-    ck(led_i < B.tick_ri and B.tick_ro < led_o, 'it sits inside the LED',
-       f'tick {B.tick_ri:.2f}..{B.tick_ro:.2f} inside LED {led_i:.2f}..{led_o:.2f}')
-    ck(abs((B.tick_ri+B.tick_ro)/2 - B.led_r) < 0.01, 'and centred on the LED circle',
-       f'{B.led_r:.2f}')
-    gap = 2*math.pi*B.led_r/B.n - TICK_W
-    ck(gap > 2*TICK_W, 'the ticks read as separate marks, not a ring',
-       f'{TICK_W:.2f} mm lit, {gap:.2f} mm dark between them')
+        print('\n3. The tick is perpendicular to the circle, and sized to the LED')
+        ck(B.tick_ro - B.tick_ri > TICK_W, 'it is radial, not tangential',
+           f'{B.tick_ro-B.tick_ri:.2f} radial x {TICK_W:.2f} tangential')
+        led_i, led_o = B.led_r - 2.5, B.led_r + 2.5
+        ck(led_i < B.tick_ri and B.tick_ro < led_o, 'it sits inside the LED',
+           f'tick {B.tick_ri:.2f}..{B.tick_ro:.2f} inside LED {led_i:.2f}..{led_o:.2f}')
+        ck(abs((B.tick_ri+B.tick_ro)/2 - B.led_r) < 0.01, 'and centred on the LED circle',
+           f'{B.led_r:.2f}')
+        gap = 2*math.pi*B.led_r/B.n - TICK_W
+        ck(gap > 2*TICK_W, 'the ticks read as separate marks, not a ring',
+           f'{TICK_W:.2f} mm lit, {gap:.2f} mm dark between them')
 
     print('\n4. The hours are written on the face')
     def column_bottom(man, x, y, e=0.05):
@@ -136,4 +181,4 @@ for B, tg in BODIES:
 print()
 if FAIL:
     print(f'CHECK 4: {len(FAIL)} FAILURES'); [print('   -', f) for f in FAIL]; sys.exit(1)
-print('CHECK 4: the diffuser checks out on both bodies')
+print('CHECK 4: the diffuser checks out on all three bodies')

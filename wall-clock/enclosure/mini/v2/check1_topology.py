@@ -23,6 +23,11 @@ PARTS = [('mini-round-clock-base.stl', True),
          ('mini-round-clock-housing-32.stl', True),
          ('mini-round-clock-diffuser-32.stl', True),
          ('mini-round-clock-deskstand-32.stl', True),
+         ('mini-round-clock-base-60.stl', True),
+         ('mini-round-clock-housing-60.stl', True),
+         ('mini-round-clock-diffuser-60.stl', True),
+         ('mini-round-clock-deskstand-60.stl', True),
+         ('mini-round-clock-light-guides-60.stl', True),
          ('mini-round-clock-battery-shelf-x2.stl', True)]
 
 for name, strict in PARTS:

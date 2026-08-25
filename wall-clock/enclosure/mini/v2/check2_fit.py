@@ -20,7 +20,7 @@ def load(f):
 
 SEG = BV.SEG
 SAM = BV.load_sams_base()
-BODIES = [(BV.BODY24, ''), (BV.BODY32, '-32')]
+BODIES = [(BV.BODY24, ''), (BV.BODY32, '-32'), (BV.BODY60, '-60')]
 DEPTH  = Z_FRONT - (Z_DECK - HOUSING_DEEP)
 
 for B, tg in BODIES:
@@ -74,14 +74,17 @@ for B, tg in BODIES:
     print('\n3. The diffuser is a press fit')
     r_out = np.hypot(*load(f'mini-round-clock-diffuser{tg}.stl').vertices[:, :2].T).max()
     nominal = B.diff_outer
+    # on a guide body the diffuser is the whole face and presses into the lip,
+    # not into the ring pocket
+    press_r = B.r_lip_i if B.guides else B.r_ring_o
     ck(abs(r_out - (nominal + DIFF_RIB_H)) < 0.02, 'the crush ribs stand proud of the wall',
        f'crest r {r_out:.3f}, wall {nominal:.3f}')
-    ck(nominal < B.r_ring_o, 'the wall itself has clearance, so it starts square',
-       f'{2*(B.r_ring_o - nominal):.2f} mm on diameter')
-    ck(r_out > B.r_ring_o, 'and the ribs interfere, so it does not fall out',
-       f'{2*(r_out - B.r_ring_o):.2f} mm on diameter at {DIFF_RIB_N} ribs')
-    ck(0.35 <= 2*(r_out - B.r_ring_o) <= 0.90, '...by an amount a printer can actually crush',
-       f'{2*(r_out - B.r_ring_o):.2f} mm')
+    ck(nominal < press_r, 'the wall itself has clearance, so it starts square',
+       f'{2*(press_r - nominal):.2f} mm on diameter, into r={press_r:.2f}')
+    ck(r_out > press_r, 'and the ribs interfere, so it does not fall out',
+       f'{2*(r_out - press_r):.2f} mm on diameter at {DIFF_RIB_N} ribs')
+    ck(0.35 <= 2*(r_out - press_r) <= 0.90, '...by an amount a printer can actually crush',
+       f'{2*(r_out - press_r):.2f} mm')
 
     print('\n4. The display module and its tab')
     module = cyl(DISP_PCB_D/2, Z_SEAT, Z_SEAT + 4.0, 128)
@@ -151,4 +154,4 @@ for B, tg in BODIES:
 print()
 if FAIL:
     print(f'PASS 2: {len(FAIL)} FAILURES'); [print('   -', f) for f in FAIL]; sys.exit(1)
-print('PASS 2: every fit and clearance check holds, on both bodies')
+print('PASS 2: every fit and clearance check holds, on all three bodies')

@@ -48,13 +48,16 @@ kept in the folder so everything re-derives from source. **These supersede
 `enclosure/mini/body.stl` and `diffuser.stl` above.** Two clock sizes — pick a
 column, everything in it goes together.
 
-| File | 24-LED, 108 mm | 32-LED, 120 mm |
-|---|---|---|
-| base — deck face down | `v2/mini-round-clock-base` | `v2/mini-round-clock-base-32` |
-| housing — rear plate down. **Holds the S3** | `v2/mini-round-clock-housing` | `v2/mini-round-clock-housing-32` |
-| diffuser — **white PLA, 0.20 mm layers, face down** | `v2/mini-round-clock-diffuser` | `v2/mini-round-clock-diffuser-32` |
-| desk stand — flat, 8–10% infill | `v2/mini-round-clock-deskstand` | `v2/mini-round-clock-deskstand-32` |
-| battery shelves — flat, **print two** | `v2/mini-round-clock-battery-shelf-x2` | same part |
+All in `enclosure/mini/v2/`, prefixed `mini-round-clock`.
+
+| File | 24-LED, 108 mm | 32-LED, 120 mm | 60-LED, 240 mm |
+|---|---|---|---|
+| base — deck face down | `-base` | `-base-32` | `-base-60` |
+| housing — rear plate down. **Holds the S3** | `-housing` | `-housing-32` | `-housing-60` |
+| diffuser — **white PLA, 0.20 mm layers, face down** | `-diffuser` | `-diffuser-32` | `-diffuser-60` |
+| light guides — **clear/natural PETG**, or cut perspex | — | — | `-light-guides-60` |
+| desk stand — flat, 8–10% infill | `-deskstand` | `-deskstand-32` | `-deskstand-60` |
+| battery shelves — flat, **print two** | `-battery-shelf-x2` | same part | same part |
 
 | File | |
 |---|---|
@@ -89,7 +92,7 @@ column, everything in it goes together.
 `secrets.yaml` — sent separately, deliberately kept out of anything that might
 get moved around or shared. It holds your WiFi password and API key.
 
-## The five things most likely to break
+## The six things most likely to break
 
 1. **Display pins** in `mini-round-clock.yaml` are ESP-VoCat reference values, not your panel's.
 2. **The display module's rim thickness.** `COLLAR_EXTEND` in `v2/params.py` ships at 2.00, which assumes a 0.20 mm rim. Measure it at the r = 29 circle and set `COLLAR_EXTEND = 2.20 − t` before printing the diffuser.
@@ -97,5 +100,6 @@ get moved around or shared. It holds your WiFi password and API key.
 
 4. **Which USB connector the ESP32-S3 board carries** — Espressif's v1.1 guide says Micro-USB, the boards sold as DevKitC-1 have two Type-C. The 22 × 6 mm window in the housing rim is sized so it does not matter, but it has not been checked against a board in hand.
 5. **The 32-LED ring's dimensions** (111.85 / 96 mm, 32 LEDs) are Sam's numbers, taken as given and not checked against a listing. The whole 120 mm body follows from them.
+6. **The 60-LED ring's 172 / 156 mm** is corroborated by three resellers but not by a datasheet — put calipers on it before printing a 240 mm base. And **how far the light carries along a perspex strip** is the one thing in the light-guide design that needs a bench test, not a calculation: `enclosure/mini/v2/README.md` §7 says how to try it in ten minutes.
 
 Nothing here has been flashed, sliced, cut, or run against a real Home Assistant.

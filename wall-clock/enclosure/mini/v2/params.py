@@ -566,3 +566,73 @@ STAND_NOTCH_HW = 9.00       # cable slot at 6 o'clock, through everything
 STAND_ARCH_HW = 42.00        # the arch that lightens it and carries the lead
 STAND_SHELL   = 6.00         # material left under the cradle at the crown
 STAND_FLARE   = 9.00         # the outer face flares out over this height
+
+
+# =============================================================================
+# v7 — a 240 mm clock for the 60-LED ring, with perspex light guides
+# =============================================================================
+# Sam: "I have some perspex that can be used to make the LED's look longer than
+#       they are ... make the clock larger by using the perspex in strips to
+#       make the light shine down it. I would like to make the clock of the
+#       60LED ring 24cm wide, and use the perspex, or other material to make the
+#       LED's shine further away from the LED"
+#
+# MATERIAL, against the standing rule ("never PVC or acrylic containing
+# chlorine ... cast acrylic or plywood only, and tell me which and why"):
+# Perspex is a brand of PMMA. PMMA contains NO chlorine and is safe to cut and
+# to laser. PVC -- sold as "vinyl", and what unlabelled "acrylic-look" sheet
+# often turns out to be -- is the one that releases hydrogen chloride. So the
+# rule is satisfied by Perspex-branded or any labelled cast/extruded PMMA, and
+# violated by anything unlabelled. Cast PMMA is the better of the two: extruded
+# crazes and engraves poorly.
+#
+# CUTTING, and this one is already in the project's own findings: the Glowforge
+# Aura is a ~5 W DIODE laser and cannot cut clear, white or translucent acrylic
+# at all -- those materials are transparent at 445 nm and the beam goes straight
+# through (enclosure/MATERIALS.md). So the strips CANNOT be cut on the Aura.
+# They come off a table saw, a bandsaw or a scroll saw, or out of 6 mm acrylic
+# rod, or they are printed instead -- see build_light_guides().
+
+RING60_OD, RING60_ID, RING60_N = 172.00, 156.00, 60
+RING60_R      = (RING60_OD + RING60_ID) / 4       # 82.00, the LED circle
+R_BODY60      = 120.00                            # Sam: "24cm wide"
+R_RING_I60    = RING60_ID/2 - 0.50                # 77.50
+R_RING_O60    = RING60_OD/2 + 0.50                # 86.50
+R_LIP_I60     = R_BODY60 - 3.50
+SCREW_R60     = 68.00                             # inboard of the ring: at any
+                                                  # larger radius a pilot bores
+                                                  # into the pocket or a guide
+# --- the z stack has to change to make room for a 3 mm strip -------------------
+# 24/32 body:  ring floor 11.80, ring 3.20, diffuser 4.00, face recess at 19.00
+# 60 body:     ring floor 10.50, ring 3.20, diffuser 5.30, face recess at 19.00
+#              ...so the guide channel is 3.30 deep and the face above it 2.00
+BAND_TOP60_    = None        # (set below, once FACE_T and GUIDE_T are known)
+GUIDE_T        = 3.00        # the perspex: 3 mm sheet, the same as the plywood
+GUIDE_W        = 6.00
+GUIDE_CLR      = 0.35
+BAND_TOP60     = FACE_T + GUIDE_T + GUIDE_CLR     # 5.35 of diffuser
+GUIDE_SHELF    = Z_RECESS - BAND_TOP60            # 13.65, what the strips rest on
+Z_RING_FLOOR60 = GUIDE_SHELF - (PCB_T + LED_H)    # 10.45, so the LED tops are
+                                                  # level with the strip's underside
+GUIDE_CH_RI    = 79.00       # the CHANNEL starts inboard of the LED circle, so
+                             # the LED at r=82 fires into the space above it
+GUIDE_CH_RO    = 113.60      # ...and runs past the strips, for the printed
+                             # guide part's connecting ring
+GUIDE_RI       = 86.50       # the STRIP itself starts at the ring's outer edge,
+GUIDE_RO       = 112.00      # so it never rests on an LED. 25.5 mm long.
+# the aperture over each guide is a slot thinned to one layer, and it WIDENS
+# going out, to pay for the light falling off along the strip
+APER_W_IN, APER_W_OUT = 1.40, 3.00
+APER_RI, APER_RO = 80.00, 110.50    # starts inboard of the LED, so the LED
+                                    # itself is the head of the lit line
+# the hours go inboard of the ring on this body -- there is no room for them
+# between the guides
+MARK60_RI, MARK60_RO = 70.60, 73.20
+MARK60_RI_MAJ, MARK60_RO_MAJ = 70.30, 73.50
+NUM60_R       = 72.00
+NUM60_H       = 5.00
+# --- and the 240 mm annulus has to be hollow, or it is a kilogram of PLA ------
+HOLLOW_FLOOR  = 3.00         # floor plate under the whole annulus
+HOLLOW_RIBS   = 12           # radial ribs tying floor to walls
+HOLLOW_RIB_W  = 3.00
+HOLLOW_WALL   = 2.50         # either side of the ring pocket

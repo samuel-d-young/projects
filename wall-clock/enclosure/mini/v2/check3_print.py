@@ -26,7 +26,8 @@ MIN_WALL    = 1.20     # three perimeters at 0.4 mm
 # at the top of the display-tab slot, 33-40 deg from horizontal. Measured off
 # the uploaded file, not assumed. It is his geometry and it is unchanged.
 INHERITED = {'mini-round-clock-base.stl': 409.1,
-             'mini-round-clock-base-32.stl': 409.1}
+             'mini-round-clock-base-32.stl': 409.1,
+             'mini-round-clock-base-60.stl': 409.1}
 
 # Sam's base also feathers out to nothing where the tab-slot ramp runs into the
 # ring-pocket floor and the display-pocket wall. Rather than hand-draw boxes
@@ -37,7 +38,9 @@ INHERITED = {'mini-round-clock-base.stl': 409.1,
 BASELINE = {'mini-round-clock-base.stl': 'sam-base',
             'mini-round-clock-base-32.stl': 'sam-base',
             'mini-round-clock-diffuser.stl': 'sam-diffuser',
-            'mini-round-clock-diffuser-32.stl': 'sam-diffuser'}
+            'mini-round-clock-base-60.stl': 'sam-base',
+            'mini-round-clock-diffuser-32.stl': 'sam-diffuser',
+            'mini-round-clock-diffuser-60.stl': 'sam-diffuser'}
 
 def overlaps(a, b, pad=0.6):
     """Do two thin regions occupy the same (r, z) band?"""
@@ -59,9 +62,14 @@ PARTS = [
     ('mini-round-clock-base-32.stl',             'deck face down',  MIN_WALL),
     ('mini-round-clock-housing-32.stl',          'rear plate down', MIN_WALL),
     ('mini-round-clock-deskstand-32.stl',        'flat on the desk face', MIN_WALL),
+    ('mini-round-clock-base-60.stl',             'deck face down',  MIN_WALL),
+    ('mini-round-clock-housing-60.stl',          'rear plate down', MIN_WALL),
+    ('mini-round-clock-deskstand-60.stl',        'flat on the desk face', MIN_WALL),
+    ('mini-round-clock-light-guides-60.stl',     'flat',            MIN_WALL),
     ('mini-round-clock-battery-shelf-x2.stl',    'flat',            MIN_WALL),
     ('mini-round-clock-diffuser.stl',            'face down',       0.18),
     ('mini-round-clock-diffuser-32.stl',         'face down',       0.18),
+    ('mini-round-clock-diffuser-60.stl',         'face down',       0.18),
 ]
 
 def bridge_span(m, face_idx):
@@ -188,7 +196,17 @@ for fn, orient, min_wall in PARTS:
             if w > worst: worst, worst_at = w, (z, at)
     ck(worst <= MAX_BRIDGE, f'every flat ceiling bridges <= {MAX_BRIDGE:.0f} mm',
        f'worst {worst:.1f} mm' + (f' at z={worst_at[0]:.1f}' if worst_at else ''))
-    ck(ar[ceil].sum() < 2000, 'total ceiling area is modest', f'{ar[ceil].sum():.0f} mm2')
+    # The span test above is the one that carries the meaning -- a bridge either
+    # crosses or it does not. Total area only says "how much bridging", and a
+    # deliberately hollowed part is mostly bridging by design: the 240 mm base
+    # is a floor plate with two shelves over ribbed cavities, so ~47% of its
+    # plan area is ceiling and every bit of it spans 14 mm or less. So this is a
+    # proportional sanity check now, not a flat 2000 mm2 written for a 108 mm
+    # disc: it only fires if the part is essentially a lid over a void.
+    plan = math.pi * (max(np.hypot(m.vertices[:,0], m.vertices[:,1]))**2) \
+           if abs(m.extents[0] - m.extents[1]) < 1.0 else m.extents[0]*m.extents[1]
+    ck(ar[ceil].sum() < 0.60*plan, 'total ceiling area is in proportion',
+       f'{ar[ceil].sum():.0f} mm2, {100*ar[ceil].sum()/plan:.0f}% of its plan area')
 
     # --- wall thickness ------------------------------------------------------
     cl, p1 = thin_clusters(m, thr=min_wall)

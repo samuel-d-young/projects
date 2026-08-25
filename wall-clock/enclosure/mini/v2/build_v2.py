@@ -299,18 +299,23 @@ class Body:
     the ticks, the outer rib is the same width, and so on.
     """
     def __init__(self, tag, n, ring_od, ring_id, r_body, r_ring_i, r_ring_o,
-                 r_lip_i, deck_ri, screw_r, screw_ang, vent_ang):
+                 r_lip_i, deck_ri, screw_r, screw_ang, vent_ang, guides=False):
         self.tag, self.n = tag, n
         self.ring_od, self.ring_id = ring_od, ring_id
         self.r_body, self.r_lip_i = r_body, r_lip_i
         self.r_ring_i, self.r_ring_o = r_ring_i, r_ring_o
         self.deck_ri, self.screw_r = deck_ri, screw_r
         self.screw_ang, self.vent_ang = screw_ang, vent_ang
+        self.guides  = guides
+        self.ring_floor = Z_RING_FLOOR60 if guides else Z_RING_FLOOR
+        self.band_top   = BAND_TOP60 if guides else BAND_TOP
         self.r_inner = r_body - WALL_T
         self.pitch = 360.0 / n
         self.led_r = (ring_od + ring_id) / 4
         # --- diffuser band
-        self.diff_outer = r_ring_o + DIFF_FIT
+        # on a guide body the diffuser is the whole face, out to the lip, not
+        # just an insert in the ring pocket -- so that is what it presses into
+        self.diff_outer = (r_lip_i if guides else r_ring_o) + DIFF_FIT
         self.rib_o_ri = self.diff_outer - (DIFF_OUTER_NEW - RIB_O_RI)   # same rib width
         self.tick_ri = self.led_r - (TICK_RO - TICK_RI) / 2
         self.tick_ro = self.led_r + (TICK_RO - TICK_RI) / 2
@@ -324,7 +329,14 @@ class Body:
         # the cells sit in the ring pocket. On the 24 body that is Sam's own
         # inner rib at 35.50; on the 32 the pocket has moved out, so they move
         # with it -- everything inboard of the pocket is face, and only face.
-        if n == CELL_N:
+        if guides:
+            self.rib_i_ri, self.rib_i_ro = r_ring_i + 0.15, r_ring_i + 1.35
+            self.wall_ri = self.rib_i_ri
+            self.tick_ri, self.tick_ro = APER_RI, APER_RO
+            self.mark_ri, self.mark_ro = MARK60_RI, MARK60_RO
+            self.mark_ri_maj, self.mark_ro_maj = MARK60_RI_MAJ, MARK60_RO_MAJ
+            self.num_r = NUM60_R
+        elif n == CELL_N:
             self.rib_i_ri, self.rib_i_ro = RIB_I_RI, RIB_I_RO
             self.wall_ri = CELL_WALL_RI
         else:
@@ -336,6 +348,41 @@ BODY24 = Body('', 24, RING_OD, RING_ID, R_BODY, R_RING_I, R_RING_O, R_LIP_I,
 BODY32 = Body('-32', RING32_N, RING32_OD, RING32_ID, R_BODY32, R_RING_I32,
               R_RING_O32, R_LIP_I32, DECK_RI, 44.00, [60, 120, 240, 300],
               [80, 105, 255, 280])
+BODY60 = Body('-60', RING60_N, RING60_OD, RING60_ID, R_BODY60, R_RING_I60,
+              R_RING_O60, R_LIP_I60, DECK_RI, SCREW_R60, [45, 135, 225, 315],
+              [80, 105, 255, 280], guides=True)
+
+
+def taper_slot(a_deg, r0, r1, w0, w1, z0, z1):
+    """A radial slot that widens as it goes out -- the aperture over a light
+    guide, paid out to match the light falling off along the strip."""
+    a = math.radians(a_deg)
+    ca, sa = math.cos(a), math.sin(a)
+    pts = [(r0, -w0/2), (r1, -w1/2), (r1, w1/2), (r0, w0/2)]
+    return prism([(u*ca - v*sa, u*sa + v*ca) for u, v in pts], z0, z1)
+
+
+def build_light_guides(B):
+    """The 60 light guides, printed, as one part.
+
+    This is the alternative to cutting 60 strips of perspex. Print it in CLEAR
+    or NATURAL PETG -- white PLA is opaque and would do nothing. A printed guide
+    is a worse pipe than acrylic (the layer lines scatter) and a better lamp for
+    exactly the same reason: it glows along its length instead of dumping the
+    light out of the far end.
+
+    The strips are joined by a 1.40 mm ring at the outer end so it drops in as
+    one piece. Cut perspex instead if you have it -- 60 off 6.00 x 3.00 x 30.00,
+    and see the README for how, because the Aura cannot cut clear acrylic.
+    """
+    g = tube(GUIDE_RO, GUIDE_RO + 1.40, 0.0, GUIDE_T, SEG)
+    rm = (GUIDE_RI + GUIDE_RO) / 2
+    for k in range(B.n):
+        a = 360.0/B.n * k
+        cx, cy = rm*math.cos(math.radians(a)), rm*math.sin(math.radians(a))
+        g += prism(rot_rect(cx, cy, GUIDE_RO - GUIDE_RI + 1.0, GUIDE_W, a),
+                   0.0, GUIDE_T)
+    return g
 
 
 # =============================================================================
@@ -361,14 +408,39 @@ def build_diffuser(B):
 
     # --- 2. the band, rebuilt clean -----------------------------------------
     d += tube(BAND_FACE_RI, B.diff_outer, 0.0, FACE_T, SEG)
-    d += tube(B.rib_i_ri, B.rib_i_ro, 0.0, BAND_TOP, SEG)
-    d += tube(B.rib_o_ri, B.diff_outer, 0.0, BAND_TOP, SEG)
-    rm = (B.wall_ri + B.rib_o_ri + 0.60) / 2
-    ln = (B.rib_o_ri + 0.60) - B.wall_ri
-    for k in range(B.n):
-        a = B.wall_a0 + k * B.pitch
-        cx, cy = rm * math.cos(math.radians(a)), rm * math.sin(math.radians(a))
-        d += prism(rot_rect(cx, cy, ln, CELL_WALL_T, a), 0.0, BAND_TOP)
+    if B.guides:
+        # A solid band, then a channel cut out of it per LED. The channel is
+        # open downward, so the LED under its inner end fires straight into the
+        # strip; the strip is trapped between this face above and the base's
+        # guide shelf below, and needs nothing to hold it.
+        d += tube(B.rib_i_ri, B.diff_outer, 0.0, B.band_top, SEG)
+        ch = None
+        rm = (GUIDE_CH_RI + GUIDE_CH_RO) / 2
+        for k in range(B.n):
+            a = 360.0/B.n * k
+            cx, cy = rm*math.cos(math.radians(a)), rm*math.sin(math.radians(a))
+            c = prism(rot_rect(cx, cy, GUIDE_CH_RO - GUIDE_CH_RI,
+                               GUIDE_W + 2*GUIDE_CLR, a), FACE_T, B.band_top + 0.6)
+            ch = c if ch is None else ch + c
+        d -= ch
+        # the aperture: one layer of face left, widening as it goes out
+        ap = None
+        for k in range(B.n):
+            a = 360.0/B.n * k
+            s_ = taper_slot(a, APER_RI, APER_RO, APER_W_IN, APER_W_OUT,
+                            DIFF_MEM_T, FACE_T + 0.60)
+            ap = s_ if ap is None else ap + s_
+        d -= ap
+    if not B.guides:
+        d += tube(B.rib_i_ri, B.rib_i_ro, 0.0, BAND_TOP, SEG)
+        d += tube(B.rib_o_ri, B.diff_outer, 0.0, BAND_TOP, SEG)
+    if not B.guides:
+        rm = (B.wall_ri + B.rib_o_ri + 0.60) / 2
+        ln = (B.rib_o_ri + 0.60) - B.wall_ri
+        for k in range(B.n):
+            a = B.wall_a0 + k * B.pitch
+            cx, cy = rm * math.cos(math.radians(a)), rm * math.sin(math.radians(a))
+            d += prism(rot_rect(cx, cy, ln, CELL_WALL_T, a), 0.0, BAND_TOP)
 
     # --- 2b. crush ribs on the outside --------------------------------------
     # tangential blocks standing DIFF_RIB_H proud, with a lead-in so the
@@ -388,14 +460,15 @@ def build_diffuser(B):
 
     # --- 3. one radial tick per cell, thinned to a single layer --------------
     ticks = None
-    for i in range(B.n):
+    for i in ([] if B.guides else range(B.n)):
         a = B.wall_a0 + (i + 0.5) * B.pitch
         cx = (B.tick_ri + B.tick_ro) / 2 * math.cos(math.radians(a))
         cy = (B.tick_ri + B.tick_ro) / 2 * math.sin(math.radians(a))
         t = prism(rot_rect(cx, cy, B.tick_ro - B.tick_ri, TICK_W, a, TICK_END_R),
                   DIFF_MEM_T, BAND_TOP + 0.60)
         ticks = t if ticks is None else ticks + t
-    d -= ticks
+    if ticks is not None:
+        d -= ticks
 
     # --- 4. the hours, written on the face ----------------------------------
     marks = None
@@ -408,7 +481,8 @@ def build_diffuser(B):
         if key in NUMERALS:
             cx = B.num_r * math.cos(math.radians(a))
             cy = B.num_r * math.sin(math.radians(a))
-            m = text_prism(NUMERALS[key], NUM_H, (cx, cy), -0.10, NUM_DEPTH)
+            m = text_prism(NUMERALS[key], NUM60_H if B.guides else NUM_H,
+                           (cx, cy), -0.10, NUM_DEPTH)
         else:
             cx = (ri + ro) / 2 * math.cos(math.radians(a))
             cy = (ri + ro) / 2 * math.sin(math.radians(a))
@@ -441,13 +515,78 @@ def build_base(B, sam):
     # of it, or the tab could not be got in.
     keep += (tube(34.60, KEEP_R32 - 0.50, 10.40, 17.00, SEG) - tab_slot_keep())
 
+    shelf = Z_FRONT - FACE_T - B.band_top + B.band_top   # top of the face shelf
+    shelf = Z_RECESS - (B.band_top - FACE_T) - FACE_T + FACE_T
+    shelf = Z_RECESS - B.band_top + FACE_T                # 17.00 / 15.65
     ann = tube(KEEP_R32 - 1.00, B.r_body, Z_BACK, Z_FRONT, SEG)
-    ann -= tube(B.r_ring_i, B.r_ring_o, Z_RING_FLOOR, Z_FRONT + 1.0, SEG)
-    # inboard of the new pocket the face sits on the same 17.00 shelf...
-    ann -= tube(KEEP_R32 - 2.0, B.r_ring_i, 17.00, Z_FRONT + 1.0, SEG)
+    ann -= tube(B.r_ring_i, B.r_ring_o, B.ring_floor, Z_FRONT + 1.0, SEG)
+    # inboard of the pocket the diffuser's face sits on a shelf...
+    ann -= tube(KEEP_R32 - 2.0, B.r_ring_i, shelf, Z_FRONT + 1.0, SEG)
     # ...and the plywood face still drops into a 3 mm recess at 19.00
     ann -= tube(KEEP_R32 - 2.0, B.r_lip_i, Z_RECESS, Z_FRONT + 1.0, SEG)
+    if B.guides:
+        # outboard of the ring the guides need their own shelf to rest on, at
+        # the height of the LED tops -- so the strip's underside is level with
+        # what is feeding it
+        ann -= tube(B.r_ring_o, B.r_lip_i, GUIDE_SHELF, Z_FRONT + 1.0, SEG)
+        ann -= hollow(B)
     return keep + ann
+
+
+def hollow(B):
+    """The void that keeps a 240 mm annulus from being a kilogram of PLA.
+
+    Everything between the floor plate and whatever is above it goes, except
+    the two walls either side of the ring pocket, the outer wall, four screw
+    bosses and twelve radial ribs.
+    """
+    # Both voids stop 2.50 mm short of what sits on top of them: inboard that is
+    # the shelf the diffuser's face lands on, outboard it is the shelf the light
+    # guides rest on. Hollowing straight through would have left the guides
+    # bridging between ribs.
+    shelf_in = Z_RECESS - B.band_top + FACE_T
+    inner = tube(KEEP_R32 + 1.0, B.r_ring_i - HOLLOW_WALL, HOLLOW_FLOOR,
+                 shelf_in - 2.50, SEG)
+    outer = tube(B.r_ring_o + HOLLOW_WALL, B.r_lip_i - HOLLOW_WALL, HOLLOW_FLOOR,
+                 GUIDE_SHELF - 2.50, SEG)
+    void = inner + outer
+    # one circumferential rib in each cavity, so no ceiling spans more than
+    # ~14 mm when the part is printed deck-face-down
+    keep = (tube((KEEP_R32 + B.r_ring_i)/2 - HOLLOW_RIB_W/2,
+                 (KEEP_R32 + B.r_ring_i)/2 + HOLLOW_RIB_W/2,
+                 HOLLOW_FLOOR - 1.0, Z_FRONT + 1.0, SEG)
+            + tube((B.r_ring_o + B.r_lip_i)/2 - HOLLOW_RIB_W/2,
+                   (B.r_ring_o + B.r_lip_i)/2 + HOLLOW_RIB_W/2,
+                   HOLLOW_FLOOR - 1.0, Z_FRONT + 1.0, SEG))
+    for k in range(HOLLOW_RIBS):
+        a = 360.0/HOLLOW_RIBS * (k + 0.5)
+        rm = (KEEP_R32 + B.r_lip_i) / 2
+        r = prism(rot_rect(rm*math.cos(math.radians(a)), rm*math.sin(math.radians(a)),
+                           B.r_lip_i - KEEP_R32, HOLLOW_RIB_W, a),
+                  HOLLOW_FLOOR - 1.0, Z_FRONT + 1.0)
+        keep = keep + r
+    for a in B.screw_ang:
+        x, y = B.screw_r*math.cos(math.radians(a)), B.screw_r*math.sin(math.radians(a))
+        keep += cyl(5.50, HOLLOW_FLOOR - 1.0, Z_FRONT + 1.0, 32, centre=(x, y))
+    # ...and a vent through each shelf, so no cavity is sealed. A sealed void is
+    # a second surface shell -- the topology check counts it as a second body,
+    # and a slicer cannot drain it either.
+    shelf_in = Z_RECESS - B.band_top + FACE_T
+    vents = None
+    for k in range(HOLLOW_RIBS):
+        a = 360.0/HOLLOW_RIBS * k
+        # two per gap, one either side of the circumferential rib -- it splits
+        # each cavity in half and each half needs its own way out
+        mid_i = (KEEP_R32 + B.r_ring_i)/2
+        mid_o = (B.r_ring_o + B.r_lip_i)/2
+        for rr, z0, z1 in ((mid_i - 7.0, shelf_in - 3.0, Z_FRONT),
+                           (mid_i + 7.0, shelf_in - 3.0, Z_FRONT),
+                           (mid_o - 7.0, GUIDE_SHELF - 3.0, Z_FRONT),
+                           (mid_o + 7.0, GUIDE_SHELF - 3.0, Z_FRONT)):
+            v = cyl(3.0, z0, z1, 24,
+                    centre=(rr*math.cos(math.radians(a)), rr*math.sin(math.radians(a))))
+            vents = v if vents is None else vents + v
+    return (void - keep) + vents
 
 
 def build_deck_for(B):
@@ -519,9 +658,21 @@ def build_stand(B, depth):
     hw = B.r_body                      # the stand is exactly as wide as the clock
     Y_LOW = -160.0
 
+    # A 240 mm clock puts its centre of mass 155 mm up. On the footprint the
+    # cradle alone gives, that tips at 11 degrees -- so the big bodies get a low
+    # plinth behind the stop wall, sized to bring the measured angle back over 20.
+    h_com = STAND_LIFT + B.r_body*math.cos(math.radians(t))
+    com_back = depth/2 * math.cos(math.radians(t))
+    tail = max(0.0, com_back + h_com*math.tan(math.radians(27.0))
+                    - (depth*math.cos(math.radians(t)) + STAND_STOP_T))
+
     prof = [( x_out, y_top), ( hw, y_top - STAND_FLARE), ( hw, Y_LOW),
             (-hw, Y_LOW), (-hw, y_top - STAND_FLARE), (-x_out, y_top)]
     s = prism(prof, -(depth + STAND_STOP_T), 0.0)
+    if tail > 0.5:
+        s += (prism(prof, -(depth + STAND_STOP_T + tail), -(depth + STAND_STOP_T))
+              - box_lwh(-hw - 1, hw + 1, -(B.r_body + 6.0), 1.0,
+                        -(depth + STAND_STOP_T + tail) - 1.0, -(depth + STAND_STOP_T) + 0.001))
     s -= cyl(R, -depth - 0.001, 5.0, SEG)                       # the cradle
     s -= cyl(STAND_STOP_RI, -(depth + STAND_STOP_T) - 1.0, -depth, SEG)  # stop wall
     # An arch through it, front to back. It halves the filament, it is the
@@ -550,7 +701,7 @@ if __name__ == '__main__':
     print('building...')
     sam = load_sams_base()
     parts = []
-    for B in (BODY24, BODY32):
+    for B in (BODY24, BODY32, BODY60):
         tg = B.tag
         parts += [
             (assemble_base(B, sam),          f'mini-round-clock-base{tg}',      True),
@@ -563,6 +714,7 @@ if __name__ == '__main__':
                                              f'mini-round-clock-deskstand{tg}', True),
         ]
     parts.append((build_shelf(BAT_W), 'mini-round-clock-battery-shelf-x2', True))
+    parts.append((build_light_guides(BODY60), 'mini-round-clock-light-guides-60', True))
     for man, fn, strict in parts:
         t = csg.finalise(man, fn, strict=strict)
         t.export(fn + '.stl')
