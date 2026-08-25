@@ -650,6 +650,7 @@ select:
       - "digital"       # big time, subtitle underneath
       - "minimal"       # time only, nothing else
       - "analog"        # drawn hands on the LCD as well as the ring
+      - "analog ring"   # dial pushed to the rim, quantised to the LED positions
     initial_option: "digital"
     optimistic: true
     restore_value: true
@@ -1522,7 +1523,123 @@ display:
 
       } else if (now.is_valid()) {
 
-        if (face == "analog") {
+        if (face == "analog ring") {
+          // ---- ANALOG RING ---------------------------------------------------
+          // The dial is pushed out to the rim so the screen and the physical
+          // LED ring read as ONE instrument rather than two clocks that happen
+          // to agree.
+          //
+          // The trick is quantisation. A smooth drawn hand and a ring that can
+          // only light whole LEDs disagree by up to half a pixel-step, and the
+          // eye catches it immediately — the screen looks right and the ring
+          // looks wrong. So every outer mark here snaps to the SAME positions
+          // the ring can light: round(f * N) / N.
+          //
+          // No twelve_oclock_offset is applied, and that is deliberate. The
+          // offset renumbers which LED is twelve; it does not move where twelve
+          // physically sits. Twelve is the top of the object on both surfaces,
+          // so both use frac 0 -> -90 degrees and they line up by construction.
+          const int RN = std::max(4, std::min(60, (int) lroundf(id(ring_size).state)));
+          const float TAU = 6.28318f;
+
+          // The panel is 360 px, so the last drawable pixel is r=179. The dial
+          // is built OUT from that edge rather than in from a comfortable
+          // margin — the point is for the drawn dial and the LED ring beyond
+          // the bezel to look like one continuous instrument, and a visible gap
+          // between them destroys that in a way nothing else can fix.
+          const int RIM = 179;
+
+          auto ang  = [TAU](float f) { return f * TAU - 1.5708f; };
+          auto qang = [TAU, RN](float f) {
+            return (roundf(f * RN) / (float) RN) * TAU - 1.5708f;
+          };
+
+          // Marks are RADIAL, not dots. A dot can never reach the edge: its own
+          // radius has to fit inside the panel, so a 4 px dot centred at 175
+          // already overhangs. A line lying along the radius ends exactly where
+          // you tell it to.
+          auto radial = [&](float f, int r0, int r1, int w, Color c) {
+            const float a = qang(f), ca = cosf(a), sa = sinf(a);
+            const float px = -sa, py = ca;
+            for (int o = -(w / 2); o <= w / 2; o++) {
+              const int dx = (int) lroundf(px * o), dy = (int) lroundf(py * o);
+              it.line(CX + (int) lroundf(ca * r0) + dx,
+                      CY + (int) lroundf(sa * r0) + dy,
+                      CX + (int) lroundf(ca * r1) + dx,
+                      CY + (int) lroundf(sa * r1) + dy, c);
+            }
+          };
+          // ESPHome lines are one pixel and one pixel vanishes at this size, so
+          // hands are several parallel lines offset along the normal.
+          auto hand = [&](float a, int r, int w, Color c) {
+            const float ca = cosf(a), sa = sinf(a), px = -sa, py = ca;
+            for (int o = -(w / 2); o <= w / 2; o++)
+              it.line(CX + (int) lroundf(px * o), CY + (int) lroundf(py * o),
+                      CX + (int) lroundf(ca * r) + (int) lroundf(px * o),
+                      CY + (int) lroundf(sa * r) + (int) lroundf(py * o), c);
+          };
+
+          // ---- dial: one tick per LED, every tick ending at the rim ---------
+          {
+            const float mb = id(marker_bright).state / 100.0f;
+            const Color tk = Color((uint8_t)(78*mb), (uint8_t)(84*mb), (uint8_t)(100*mb));
+            const Color hr = Color((uint8_t)(170*mb), (uint8_t)(178*mb), (uint8_t)(200*mb));
+            const std::string ms = id(marker_style).current_option().str();
+            if (ms != "none") {
+              for (int k = 0; k < RN; k++) {
+                const float f = (float) k / RN;
+                const float h12 = f * 12.0f;
+                const bool is_hour = fabsf(h12 - roundf(h12)) < 0.02f;
+                if (ms == "quarters" && !(is_hour && ((int) roundf(h12)) % 3 == 0))
+                  continue;
+                if (is_hour) radial(f, 156, RIM, 3, hr);
+                else         radial(f, 170, RIM, 1, tk);
+              }
+            }
+          }
+
+          // ---- timer echo: a band at the very rim, draining with the LEDs ---
+          if (left > 0) {
+            const float tot = id(timer_total_seconds).state;
+            if (!std::isnan(tot) && tot > 0.0f) {
+              float ratio = left / tot;
+              if (ratio > 1.0f) ratio = 1.0f;
+              const int lit = (int) ceilf(ratio * RN);
+              const bool acw =
+                id(arc_dir).current_option().str() == "anticlockwise";
+              for (int i = 0; i < lit; i++)
+                radial(acw ? -(float) i / RN : (float) i / RN,
+                       172, RIM, 3, dim(c_timer, 0.85f));
+            }
+          }
+
+          // ---- hands, running all the way out to the dial -------------------
+          const float hf = fmodf((float) now.hour, 12.0f) / 12.0f
+                         + now.minute / 720.0f;
+          const float mf = now.minute / 60.0f + now.second / 3600.0f;
+          hand(ang(hf), 112, 9, c_hour);
+          hand(ang(mf), 162, 5, c_min);
+
+          // The quantised rim mark for each hand — this is the piece that
+          // literally lands on the same step the LED can light, so the hand and
+          // the lit LED are radially in line.
+          radial(hf, 150, RIM, 9, c_hour);
+          radial(mf, 164, RIM, 5, c_min);
+
+          if (id(show_seconds).state) {
+            float sf = now.second / 60.0f;
+            if (id(sec_style).current_option().str() == "sweep")
+              sf = (now.second + (id(frame) % 20) / 20.0f) / 60.0f;
+            const float sa = ang(sf);
+            it.line(CX, CY, CX + (int) lroundf(cosf(sa) * 168),
+                            CY + (int) lroundf(sinf(sa) * 168), c_sec);
+            radial(sf, 168, RIM, 1, c_sec);
+          }
+
+          it.filled_circle(CX, CY, 7, Color(220, 220, 220));
+          it.filled_circle(CX, CY, 3, Color(40, 44, 54));
+
+        } else if (face == "analog") {
           // Drawn hands on the LCD as well as the ring. Deliberately thin and
           // unfilled — the ring is the primary analogue read, this echoes it.
           it.circle(CX, CY, 150, Color(60, 66, 80));
