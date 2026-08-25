@@ -86,21 +86,33 @@ def sheet(specs, fn, cols=3, px=680):
     print('wrote', fn)
 
 if __name__ == '__main__':
-    B = trimesh.load('mini-round-clock-base-v2.stl')
-    R = trimesh.load('mini-round-clock-rearhousing-battery.stl')
-    C = trimesh.load('mini-round-clock-battery-shim-x2.stl')
-    K = trimesh.load('mini-round-clock-board-keeper.stl')
+    B  = trimesh.load('mini-round-clock-base.stl')
+    H  = trimesh.load('mini-round-clock-housing.stl')
+    D  = trimesh.load('mini-round-clock-diffuser.stl')
+    S  = trimesh.load('mini-round-clock-deskstand.stl')
+    C  = trimesh.load('mini-round-clock-battery-shelf-x2.stl')
+    B2 = trimesh.load('mini-round-clock-base-32.stl')
+    H2 = trimesh.load('mini-round-clock-housing-32.stl')
+    D2 = trimesh.load('mini-round-clock-diffuser-32.stl')
+    S2 = trimesh.load('mini-round-clock-deskstand-32.stl')
     sheet([
-        (B,'front','BASE v2 - FRONT (plywood side), 12 up','bone'),
-        (B,'rear', 'BASE v2 - REAR: deck + S3 window','bone'),
-        (B,'iso_r','BASE v2 - iso from the rear','bone'),
-        (R,'rear', 'REAR HOUSING - wall side, keyhole at 12','summer'),
-        (R,'iso_f','REAR HOUSING - inside: battery pocket','summer'),
-        (C,'iso_f','BATTERY SHIM (print two)','copper'),
-        (K,'iso_r','BOARD KEEPER - holds the S3 down','copper'),
-    ], 'render_v2.png')
+        (B,'front','BASE - FRONT (plywood side), 12 up','bone'),
+        (B,'rear', 'BASE - REAR: annular deck, cable openings','bone'),
+        (H,'iso_f','HOUSING - inside: S3 bay + battery pocket','summer'),
+        (H,'rear', 'HOUSING - wall side, keyhole at 12','summer'),
+        (D,'front','DIFFUSER - radial ticks + the hours','bone'),
+        (S,'iso_f','DESK STAND','copper'),
+    ], 'render_v6_24.png')
     sheet([
-        (B,'side', 'BASE v2 - side','bone'),
-        (R,'side', 'REAR HOUSING - side (vents, cable exit)','summer'),
-        (R,'front','REAR HOUSING - looking in from the base side','summer'),
-    ], 'render_v2_detail.png')
+        (B2,'front','BASE 32 - FRONT, 119.85 mm','bone'),
+        (B2,'rear', 'BASE 32 - REAR','bone'),
+        (H2,'iso_f','HOUSING 32 - inside','summer'),
+        (D2,'front','DIFFUSER 32 - 32 ticks','bone'),
+        (S2,'iso_f','DESK STAND 32','copper'),
+        (C,'iso_f','BATTERY SHELF (print two)','copper'),
+    ], 'render_v6_32.png')
+    sheet([
+        (H,'side', 'HOUSING - side (vents, USB window at 6)','summer'),
+        (S,'side', 'DESK STAND - side, 8 deg back','copper'),
+        (B,'side', 'BASE - side','bone'),
+    ], 'render_v6_detail.png')

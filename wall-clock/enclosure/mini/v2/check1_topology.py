@@ -15,16 +15,15 @@ def check(cond, msg, detail=''):
 _src = trimesh.load('diffuser_in.stl', process=False); _src.merge_vertices()
 SOURCE_AMBIGUITY = abs(to_manifold(_src).volume() - _src.volume) / _src.volume * 100
 
-PARTS = [('mini-round-clock-base-v2.stl', True),
-         ('mini-round-clock-rearhousing-slim.stl', True),
-         ('mini-round-clock-rearhousing-battery.stl', True),
-         ('mini-round-clock-battery-shim-x2.stl', True),
-         ('mini-round-clock-board-keeper.stl', True),
-         # v5b rebuilds the LED band rather than unioning through Sam's 183
-         # non-manifold edges, so this is now held to the same bar as the rest.
-         # SOURCE_AMBIGUITY is still measured above: it is what this part would
-         # have been stuck with had the band been patched instead of rebuilt.
-         ('mini-round-clock-diffuser-v3.stl', True)]
+PARTS = [('mini-round-clock-base.stl', True),
+         ('mini-round-clock-housing.stl', True),
+         ('mini-round-clock-diffuser.stl', True),
+         ('mini-round-clock-deskstand.stl', True),
+         ('mini-round-clock-base-32.stl', True),
+         ('mini-round-clock-housing-32.stl', True),
+         ('mini-round-clock-diffuser-32.stl', True),
+         ('mini-round-clock-deskstand-32.stl', True),
+         ('mini-round-clock-battery-shelf-x2.stl', True)]
 
 for name, strict in PARTS:
     print(f'\n{name}' + ('' if strict else '   [derived from Sam\'s mesh - relaxed]')) 

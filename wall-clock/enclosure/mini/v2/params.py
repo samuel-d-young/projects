@@ -181,19 +181,22 @@ def fits(L, W, T, corner_r=2.0):
 
 
 def summary():
-    return f"""
-  base outer            {2*R_BODY:.2f} mm dia
-  Sam's base depth      {Z_FRONT - Z_BACK:.2f} mm      (z 0 .. 22)
-  + deck                {DECK_T:.2f} mm      (z {Z_DECK:.2f} .. 0)
-  + rear housing        {REAR_H:.2f} mm      (z {Z_REAR:.2f} .. {Z_DECK:.2f})
-  = total clock depth   {Z_FRONT - Z_REAR:.2f} mm
-  battery clear depth   {POCKET_D:.2f} mm
-  battery max size      {max_battery(38):.0f}x38, {max_battery(45):.0f}x45, {max_battery(50):.0f}x50 mm, up to {POCKET_BATTERY-1.5:.0f} mm thick
-  battery fitted        {BAT_L:.0f} x {BAT_W:.0f} x {BAT_T:.0f} mm, centred at x={BAT_CX:+.1f}
-  S3 board sits at      x {BOARD_X0:.2f} .. {BOARD_X1:.2f}, y +/-{BOARD_W/2:.2f}
-  ...its parts top out  z {Z_BACK - 0.80 + BOARD_T + BOARD_TALL:.2f}, and the display seat is at z {Z_SEAT:.2f}
-  clearance above it    {Z_SEAT - (Z_BACK - 0.80 + BOARD_T + BOARD_TALL):.2f} mm
+    return f"""mini-round-clock v6
+  24-LED body           {2*R_BODY:.2f} mm dia   ring {RING_OD:.0f} / {RING_ID:.0f}
+  32-LED body           {2*R_BODY32:.2f} mm dia   ring {RING32_OD:.2f} / {RING32_ID:.0f}
+  Sam's base depth      {Z_FRONT - Z_BACK:.2f} mm      (z {Z_BACK:.0f} .. {Z_FRONT:.0f})
+  + deck                {Z_BACK - Z_DECK:.2f} mm      (z {Z_DECK:.2f} .. {Z_BACK:.0f})
+  + rear housing        {HOUSING_DEEP:.2f} mm      (pocket {POCKET_DEEP:.2f} clear)
+  = total clock depth   {Z_FRONT - (Z_DECK - HOUSING_DEEP):.2f} mm
+  the S3 lives in the housing now, at x {BRD_X0:.2f} .. {BRD_X1:.2f}, y +/-{BOARD_W/2:.2f}
+  ...on {BRD_POST_H:.2f} mm posts, so it tops out {BRD_POST_H + BOARD_T + BOARD_TALL:.2f} mm above the pocket floor
+  its own USB port looks out through a {USB_WIN_W:.0f} x {USB_WIN_H:.0f} mm window at 6 o'clock
+  battery on its shelves {BAT_L:.0f} x {BAT_W:.0f} x {BAT_T:.0f} mm, and still
+  {POCKET_DEEP - (BRD_POST_H + BOARD_T + BOARD_TALL) - BAT_T - 1.5:.2f} mm left over for the display and ring leads
+  diffuser press fit    {2*(R_RING_O + DIFF_FIT + DIFF_RIB_H - R_RING_O):.2f} mm on diameter at {DIFF_RIB_N} crush ribs
+  desk stand            clock {STAND_LIFT:.0f} mm off the desk, leaning back {STAND_TILT:.0f} deg
 """
+
 
 if __name__ == '__main__':
     print(summary())
@@ -275,7 +278,7 @@ DIFF_COLLAR_H = 8.200
 # press fit: the ring pocket wall is at 46.3516 and the diffuser was 46.000, so
 # it had 0.35 mm of radial slop -- 0.70 on diameter. This takes it to a light
 # interference. Back it off to 0.00 for a slip fit if it will not go in.
-DIFF_FIT      = 0.05        # radial interference, i.e. 0.10 mm on diameter
+DIFF_FIT      = -0.05        # radial interference, i.e. 0.10 mm on diameter
 DIFF_OUTER_NEW = R_RING_O + DIFF_FIT            # 46.4016
 
 # one layer over the LEDs. At 0.20 mm layers this is a single bottom layer, and
@@ -457,3 +460,109 @@ PLUG_CH_W, PLUG_CH_H = PLUG_W + 0.65, PLUG_H + 0.70      # 13.00 x 7.20
 PLUG_CH_Z0   = USBC_PORT_Z - PLUG_CH_H / 2               # 0.30
 USBC_BAY_X1  = -26.00            # +x end of the bay; the S3 window starts -24.45
 WIRE_PORT    = (-38.0, -30.0, 10.0, 13.0)   # battery lead, beside the bay
+
+
+# =============================================================================
+# v6 — the S3 moves into the housing, the diffuser gets crush ribs, and there is
+#      a 32-LED body and a desk stand
+# =============================================================================
+# Sam, after test-fitting v5:
+#   "I dont want to use a breakout board for power, move the board more towards
+#    the edge so that the power can be connected easily. Also, at the current
+#    moment, the new housing is not deep enough to account for the cables coming
+#    out of the screen and ESP32. Update the case so that it is at least 50mm
+#    deep and the ESP32 sits in the other mini rear round clock housing."
+#   "update the tolerance on the difuser, it's still too loose. I want it to be
+#    press fit"
+#   "build a stand for the clock to go in so that it can sit on a desk too"
+#   "make another version for an LED ring ... that has 32 LED's. The outside
+#    width is 111.85mm and the inside is 96mm"
+
+# --- 1. the housing is now the electronics box --------------------------------
+HOUSING_DEEP  = 50.00                    # Sam: "at least 50mm deep"
+POCKET_DEEP   = HOUSING_DEEP - PLATE_T   # 46.50 clear
+# The board sits flat on posts off the rear plate, pushed as far to the 6
+# o'clock wall as its own corners allow: at |y| = 13.15 the pocket wall is at
+# x = -49.27, so -48.50 leaves 0.77 mm at the corners.
+BRD_POST_H    = 4.00                     # PCB underside above the pocket floor
+BRD_X0        = -48.50
+BRD_X1        = BRD_X0 + BOARD_L         # 14.24
+BRD_POST_D    = 6.00
+BRD_POST_HY   = 5.50                     # inboard of the pad rows (|y| 10.6-12.3)
+BRD_HOOK_T    = 1.60
+# +x end: the last 2.50 mm of the board is bare PCB (22-pin rows are 53.34 mm
+# on a 62.74 mm board, so 4.70 mm is clear at each end), so the hook there can
+# sit 0.20 mm over the PCB and take the float out completely.
+BRD_HOOK_LO   = BOARD_T + 0.20
+BRD_HOOK_OVER = 2.50
+BRD_HOOK_HY   = 8.00
+# -x end: the wall there is the USB window, and a hook over the board's long
+# edges would be over the pad rows, so that pair sits ABOVE everything the board
+# carries. It cannot foul anything; it leaves 3.4 mm of lift at that end, which
+# does not matter when gravity acts in the board's own plane.
+BRD_HOOK_HI   = BOARD_T + BOARD_TALL + 0.20
+BRD_HOOK_PX   = -44.00
+BRD_HOOK_PY   = 16.00
+BRD_HOOK_PD   = 5.00
+BRD_HOOK_IY   = 11.50
+# the window the power lead comes in through, at 6 o'clock. 24 x 10 because
+# which connector the board carries is still not a settled fact -- Espressif's
+# v1.1 guide says Micro-USB, the boards sold as DevKitC-1 have two Type-C -- so
+# the window clears either, in either position.
+USB_WIN_W     = 22.00
+USB_WIN_H     = 6.00
+USB_WIN_Z     = BRD_POST_H + BOARD_T + BOARD_TALL/2 - USB_WIN_H/2   # above the floor
+
+# --- 2. the deck is just a floor now ------------------------------------------
+# With the board out of the base there is nothing to hold, so the deck goes back
+# to being an annulus: it carries the mating face, the screw pilots, and gets
+# out of the way of every cable.
+DECK_RI       = 30.00
+
+# --- 3. the diffuser press fit, done properly ---------------------------------
+# 0.10 mm on diameter is inside a printer's own tolerance, which is why it still
+# drops in. Crush ribs are the fix: clearance on the wall so it starts easily,
+# interference only at eight narrow ribs that deform as it goes home.
+DIFF_RIB_N    = 8
+DIFF_RIB_W    = 1.60         # tangential
+DIFF_RIB_H    = 0.35         # radial, proud of the nominal wall
+DIFF_RIB_LEAD = 1.20         # lead-in at the entry end, so it starts square
+# net at a rib: 0.35 - 0.05 = 0.30 radial, 0.60 on diameter, over 8 x 1.60 mm.
+# If it is still loose raise DIFF_RIB_H; if it will not start, lower it.
+
+# --- 4. the 32-LED ring, and the body it needs --------------------------------
+RING32_OD, RING32_ID, RING32_N = 111.85, 96.00, 32
+RING32_R      = (RING32_OD + RING32_ID) / 4          # 51.9625, the LED circle
+# 111.85 will not go in a 107.99 body, so the body grows. Everything inside
+# r = 46 is Sam's, untouched; everything outboard is rebuilt at the new size.
+KEEP_R32      = 46.00
+R_RING_I32    = RING32_ID/2 - 0.50                   # 47.50
+R_RING_O32    = RING32_OD/2 + 0.50                   # 56.425
+R_BODY32      = R_RING_O32 + 3.50                    # 59.925 -> OD 119.85
+R_LIP_I32     = R_BODY32 - 2.00
+WIRE32_HW     = 6.50         # slot from the new ring pocket down to the deck
+RING32_PITCH  = 360.0 / RING32_N                     # 11.25 deg
+
+# --- 5. the desk stand --------------------------------------------------------
+STAND_TILT    = 8.00         # degrees back from vertical
+STAND_CLR     = 0.35         # on the clock's rim
+STAND_WRAP    = 55.00        # half angle of the cradle, from bottom dead centre
+STAND_LIFT    = 36.00        # air under the clock at the front face, and not a
+                             # style choice. The board's own USB socket is 1 mm
+                             # inside the rim, so a plug's 20 mm overmold stands
+                             # about 21 mm proud -- at 6 o'clock, pointing at the
+                             # desk, 64 mm back from the front face where the
+                             # 8 degree tilt has already dropped the rim 8.8 mm.
+                             # 36 leaves 6 mm under the plug. A right-angle USB
+                             # lead only needs about 8 mm of that: drop this to
+                             # 24 if that is what you will use.
+STAND_NOTCH_BACK = 28.00     # the cable slot only opens over the last 28 mm +
+                             # the stop wall, so the two legs stay joined by the
+                             # shell under the front of the cradle
+STAND_WALL    = 5.50         # at the cradle's top edges
+STAND_STOP_RI = 46.00        # rear stop wall, inner radius
+STAND_STOP_T  = 3.00
+STAND_NOTCH_HW = 9.00       # cable slot at 6 o'clock, through everything
+STAND_ARCH_HW = 42.00        # the arch that lightens it and carries the lead
+STAND_SHELL   = 6.00         # material left under the cradle at the crown
+STAND_FLARE   = 9.00         # the outer face flares out over this height

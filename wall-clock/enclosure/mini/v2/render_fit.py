@@ -21,9 +21,9 @@ def segs(m, z):
         if len(p)==2: o.append([p[0][:2],p[1][:2]])
     return np.array(o) if o else np.zeros((0,2,2))
 
-B = trimesh.load('mini-round-clock-base-v2.stl'); B.merge_vertices()
-H = trimesh.load('mini-round-clock-rearhousing-battery.stl'); H.merge_vertices()
-S = trimesh.load('mini-round-clock-battery-shim-x2.stl'); S.merge_vertices()
+B = trimesh.load('mini-round-clock-base.stl'); B.merge_vertices()
+H = trimesh.load('mini-round-clock-housing.stl'); H.merge_vertices()
+S = trimesh.load('mini-round-clock-battery-shelf-x2.stl'); S.merge_vertices()
 
 fig, ax = plt.subplots(1, 2, figsize=(15, 7.6))
 

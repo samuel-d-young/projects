@@ -23,24 +23,27 @@ the module has to move back another 9 mm into a well you cannot read.
 
 ## 2. Print — Bambu
 
-Use the **v2** parts in `enclosure/mini/v2/`. They are built on top of the base
-and diffuser you remodelled, and they carry the S3 bay, the wall hanger and the
-battery pocket. `enclosure/mini/body.stl` is the earlier generated body and is
-superseded.
+Use the **v6** parts in `enclosure/mini/v2/`. There are two clock sizes and you
+pick one — everything in a column goes together.
+
+| | 24-LED (108 mm) | 32-LED (120 mm) |
+|---|---|---|
+| base | `v2/mini-round-clock-base` | `v2/mini-round-clock-base-32` |
+| housing | `v2/mini-round-clock-housing` | `v2/mini-round-clock-housing-32` |
+| diffuser | `v2/mini-round-clock-diffuser` | `v2/mini-round-clock-diffuser-32` |
+| desk stand *(optional)* | `v2/mini-round-clock-deskstand` | `v2/mini-round-clock-deskstand-32` |
+| battery shelves *(optional)* | `v2/mini-round-clock-battery-shelf-x2` — **print two**, either body | |
 
 | File | Material | Settings |
 |---|---|---|
-| `v2/mini-round-clock-base-v2` | PETG (PLA fine) | **Deck face down.** 0.2 mm, 3 walls, 15% gyroid. |
-| `v2/mini-round-clock-rearhousing-battery` | **PETG** if a cell goes in | **Rear plate down.** No supports. |
-| *or* `v2/mini-round-clock-rearhousing-slim` | PETG or PLA | Rear plate down. No supports. Mains only, and 11 mm shallower. |
-| `v2/mini-round-clock-battery-shim-x2` | anything | Flat. **Print two.** |
-| `v2/mini-round-clock-board-keeper` | anything | Plate down. No supports. 1 g. Holds the S3 in. |
-| `v2/mini-round-clock-diffuser-v3` | **White PLA** | Face **down**. **0.20 mm layers.** 0% infill, no supports. |
+| base | PETG (PLA fine) | **Deck face down.** 0.2 mm, 3 walls, 15% gyroid |
+| housing | **PETG** if a cell goes in | **Rear plate down.** No supports |
+| diffuser | **White PLA** | Face **down**. **0.20 mm layers.** 0% infill, no supports |
+| desk stand | anything | Flat on its desk face. **8–10% infill** — it is a big blocky part and the volume figures are solid volume, not filament |
+| battery shelf ×2 | anything | Flat. **Print two** |
 
 Either `.3mf` or `.stl` — for these files they carry identical geometry, because
-the generator quantises to float32 and heals the mesh *before* writing, so the
-STL round trip has already happened. The 3MF just carries units and metadata
-Bambu Studio likes.
+the generator quantises to float32 and heals the mesh *before* writing.
 
 **Slice the diffuser at 0.20 mm layer height.** Each LED's aperture is a radial
 tick thinned to 0.20 mm of geometry — one layer — so any other layer height does
@@ -49,31 +52,22 @@ goes straight onto the plate and there is nothing to bridge. White PLA
 specifically — natural pipes light along the layer lines and bleeds between
 cells.
 
-**The hours are on the diffuser now**, debossed 0.50 mm: 12, 3, 6 and 9 as
-numerals and the other eight as marks. Nothing to do about it at the slicer, but
-it is why the diffuser takes ~5 minutes longer than it did.
-
-**The diffuser is now a press fit** (0.10 mm on diameter). If it will not go in,
-set `DIFF_FIT = 0.00` in `v2/params.py` and rebuild.
+**The diffuser is a proper press fit now.** 0.10 mm of clearance on the wall so
+it starts square, then eight crush ribs give 0.60 mm of interference on
+diameter. If it is still loose raise `DIFF_RIB_H` in `v2/params.py` to 0.45; if
+it will not start, drop it to 0.25.
 
 **Before you print the diffuser, measure the display module's rim thickness** at
-the r = 29 mm circle and set `COLLAR_EXTEND = 2.20 - t` in `v2/params.py`. It
-ships at 2.00, which assumes a 0.20 mm rim. See `v2/README.md` §1b.
+the r = 29 mm circle and set `COLLAR_EXTEND = 2.20 - t` in `v2/params.py`.
 
 **PETG for the housing if a battery goes in it.** PLA softens at 55–60 °C; about
 1 W in a small closed box on a west-facing wall in a Victorian summer can sit
 well above that. PETG's Tg is ~80 °C. The vents are already in the part.
 
 The base wants a little support inside the display-tab slot — the lead-in ramp
-there runs 33–40° from horizontal. That is your own geometry, unchanged, and the
-slot is open so it picks straight out. Nothing else in any part needs support;
-`v2/runchecks.sh` verifies that.
-
-**Before printing the diffuser, read `v2/README.md` §1.** The screen collar on it
-reaches 1.8 mm past the display's front face on the numbers as measured, which
-would stop the diffuser seating. There are two one-line fixes and it may be a
-non-issue — it turns on the module's thickness at the rim, which is the first
-thing to measure.
+there runs 33–40° from horizontal. That is Sam's own geometry, unchanged, and
+the slot is open so it picks straight out. Nothing else in any part needs
+support; `v2/runchecks.sh` verifies that.
 
 ---
 
@@ -152,39 +146,26 @@ Fill in your real entity IDs **before** restarting — the queries are in
 
 ## Assembly, once the parts are off the plate
 
-**Order matters at steps 1 and 3.** The breakout cannot go in after the S3, and
-the S3 cannot go in after the keeper.
+1. Ring and display into the base from the front. Press the diffuser in after
+   them — it goes in square, then the eight crush ribs bite.
+2. **S3 into the housing**, tilted: slide the +x end under its hook, drop the
+   −x end, and it settles onto its four posts with its own connector facing the
+   22 × 6 mm window at 6 o'clock. There is 37 mm of empty pocket above it, so
+   this is not a fiddle.
+3. Battery, if you are fitting one: a shelf either side, cell on top of the
+   pair. It never rests on the board.
+4. Solder the ring and display leads to the board. They come down through the
+   deck's openings — the display's ribbon at 12 o'clock, the ring's leads at 6.
+   **Power the board at its own USB port now**, or at 5V/GND if you prefer;
+   there is no breakout board any more.
+5. Housing on: 4 × **M3 × 60** self-tapping.
+6. Either hang it — one screw in the wall, 4 mm shank, head no wider than 8 mm
+   — or drop it into the desk stand.
+7. Plug a USB lead into the window at the bottom of the rim. On the stand the
+   lead runs down into the arch and out the back.
 
-1. **USB-C breakout into its bay first.** Reach in through the rear bore, slide
-   it −x along the rails and under the lips until its PCB edge butts the
-   shoulder at x = −47. It is then trapped: the channel through the wall is
-   13.00 mm and the PCB is 14.20, so pulling on a plug cannot drag it out.
-2. Display and ring into the base from the front, as before.
-3. **S3 in from the rear, tilted +x end up** — about 18°. Put the raised end up
-   into the display-tab window, swing it flat, and let it settle onto the two
-   1.50 mm ledges. It will not go in flat and it will not go in −x end up; the
-   bore only opens to 8.60 mm at that end. If your board has male headers
-   pointing down, snip them; there is 1.6 mm under the PCB for solder joints,
-   not pins.
-4. **Keeper on**, tongue over the board's +x end, 2 × **M3 × 12** self-tapping.
-   That is what stops the board floating into the clock — 0.20 mm of movement
-   left, from 4.60.
-5. Solder ring and display leads to the board. Power it at the **5V and GND
-   pins**, not the board's own USB port — see `v2/README.md` §2 for why. Run the
-   breakout's VBUS and GND to those same pins.
-6. Battery, if you are fitting one: in the housing with a shim either side, its
-   output lead up through the deck port at 6 o'clock (the slot at y +10…+13),
-   and its input from the USB-C inlet.
-7. Housing on: 4 × M3 self-tapping. **M3 × 30** for the slim housing, **M3 × 40**
-   for the battery one.
-8. One screw in the wall — 4 mm shank, head no wider than 8 mm. Hang it.
-9. Plug a USB-C cable into the inlet at the bottom of the clock. About 13 mm of
-   the plug's overmold stands proud, so there is something to get hold of.
-
-**One part to buy for this:** Adafruit **ADA4090** USB-C breakout, A$5.40 inc GST
-at Core Electronics, 20.4 × 14.2 × 5.0 mm, with the 5.1 kΩ CC resistors on it.
-Those resistors are not optional — without them a USB-C supply never turns 5 V
-on. **Not ordered.**
+**Nothing to buy for the power inlet.** The ADA4090 breakout in the BOM is
+withdrawn.
 
 ---
 

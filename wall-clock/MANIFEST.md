@@ -41,24 +41,27 @@ Repo: `samuel-d-young/projects`, branch `claude/home-assistant-wall-clock-om42v2
 | `enclosure/mini/build.py` | Regenerates all of the above from measured dimensions |
 | `enclosure/mini/mesh.py` | The STL builder (revolve + boxes, volume-validated) |
 
-## Print — mini v2, the current parts
+## Print — mini v6, the current parts
 
-Built on top of Sam's remodelled `base_in.stl` / `diffuser_in.stl`, which are kept
-in the folder so everything re-derives from source. **These supersede
-`enclosure/mini/body.stl` and `diffuser.stl` above.**
+Built on top of Sam's remodelled `base_in.stl` / `diffuser_in.stl`, which are
+kept in the folder so everything re-derives from source. **These supersede
+`enclosure/mini/body.stl` and `diffuser.stl` above.** Two clock sizes — pick a
+column, everything in it goes together.
+
+| File | 24-LED, 108 mm | 32-LED, 120 mm |
+|---|---|---|
+| base — deck face down | `v2/mini-round-clock-base` | `v2/mini-round-clock-base-32` |
+| housing — rear plate down. **Holds the S3** | `v2/mini-round-clock-housing` | `v2/mini-round-clock-housing-32` |
+| diffuser — **white PLA, 0.20 mm layers, face down** | `v2/mini-round-clock-diffuser` | `v2/mini-round-clock-diffuser-32` |
+| desk stand — flat, 8–10% infill | `v2/mini-round-clock-deskstand` | `v2/mini-round-clock-deskstand-32` |
+| battery shelves — flat, **print two** | `v2/mini-round-clock-battery-shelf-x2` | same part |
 
 | File | |
 |---|---|
-| `enclosure/mini/v2/mini-round-clock-base-v2` | PETG or PLA, **deck face down**. S3 bay, beam, USB-C inlet, tab-slot walls |
-| `enclosure/mini/v2/mini-round-clock-rearhousing-battery` | **PETG** if a cell goes in. Rear plate down |
-| `enclosure/mini/v2/mini-round-clock-rearhousing-slim` | The no-battery variant, 11 mm shallower |
-| `enclosure/mini/v2/mini-round-clock-battery-shim-x2` | Flat. **Print two** |
-| `enclosure/mini/v2/mini-round-clock-board-keeper` | 1 g, plate down. **This is what holds the S3 in** |
-| `enclosure/mini/v2/mini-round-clock-diffuser-v3` | **White PLA, 0.20 mm layers, face down.** Radial ticks + the hours |
 | `enclosure/mini/v2/params.py` | Every dimension, each with where it came from |
-| `enclosure/mini/v2/build_v2.py` | Generates all six parts |
+| `enclosure/mini/v2/build_v2.py` | Generates all nine parts, both bodies |
 | `enclosure/mini/v2/measure_uploaded.py` | Re-derives `params.py` from Sam's STLs. **Run this first if he sends new files** |
-| `enclosure/mini/v2/runchecks.sh` | Five verification passes — topology, fit, printability, v3 changes, v5a |
+| `enclosure/mini/v2/runchecks.sh` | Five verification passes — topology, fit, printability, diffuser, desk stand |
 | `enclosure/mini/v2/README.md` | What changed and why, section by section |
 | `enclosure/mini/v2/render_*.py` `*.png` | Picture sheets, all drawn from `params.py` |
 
@@ -86,12 +89,13 @@ in the folder so everything re-derives from source. **These supersede
 `secrets.yaml` — sent separately, deliberately kept out of anything that might
 get moved around or shared. It holds your WiFi password and API key.
 
-## The three things most likely to break
+## The five things most likely to break
 
 1. **Display pins** in `mini-round-clock.yaml` are ESP-VoCat reference values, not your panel's.
 2. **The display module's rim thickness.** `COLLAR_EXTEND` in `v2/params.py` ships at 2.00, which assumes a 0.20 mm rim. Measure it at the r = 29 circle and set `COLLAR_EXTEND = 2.20 − t` before printing the diffuser.
 3. **Entity IDs** in `packages/wall_clock.yaml` are placeholders — the timer names must match your area IDs exactly.
 
-4. **The keeper's tongue** assumes the last 2.00 mm of the S3's +x end is bare PCB. If yours has something there, `KEEP_TONGUE_Z0 = 4.20` clamps over the top of it instead.
+4. **Which USB connector the ESP32-S3 board carries** — Espressif's v1.1 guide says Micro-USB, the boards sold as DevKitC-1 have two Type-C. The 22 × 6 mm window in the housing rim is sized so it does not matter, but it has not been checked against a board in hand.
+5. **The 32-LED ring's dimensions** (111.85 / 96 mm, 32 LEDs) are Sam's numbers, taken as given and not checked against a listing. The whole 120 mm body follows from them.
 
 Nothing here has been flashed, sliced, cut, or run against a real Home Assistant.

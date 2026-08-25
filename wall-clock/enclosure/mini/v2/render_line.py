@@ -14,9 +14,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Wedge, Circle, FancyBboxPatch
 from matplotlib.transforms import Affine2D
 from params import *
-
-N     = CELL_N
-PITCH = 360.0 / N
+import build_v2 as BV
 LIT   = {2: ('#ff5a14', 1.00),        # hour hand, amber
          9: ('#1e78ff', 1.00),        # minute hand, blue
         17: ('#9a9a9a', 0.85)}        # second dot, grey
@@ -42,61 +40,54 @@ def arc_patch(ax, i, ri, ro, col, alpha, zorder, grow=0.0):
                        fc=col, alpha=alpha, ec='none', zorder=zorder))
 
 
-def face(ax, mode, title, sub):
+def face(ax, B, title, sub):
+    N, PITCH = B.n, B.pitch
     ax.set_facecolor('#14161a')
-    ax.add_patch(Circle((0,0), RING_OD/2 + 0.5, fc=FACE, ec='none', zorder=1))
-    ax.add_patch(Circle((0,0), RING_ID/2 - 0.5, fc='#14161a', ec='none', zorder=2))
-
+    ax.add_patch(Circle((0,0), B.ring_od/2 + 0.5, fc=FACE, ec='none', zorder=1))
+    ax.add_patch(Circle((0,0), B.ring_id/2 - 0.5, fc='#14161a', ec='none', zorder=2))
+    lit = {2: LIT[2], int(N*9/24): LIT[9], int(N*17/24): LIT[17]}
     for i in range(N):
-        a = CELL_WALL_A0 + (i + 0.5) * PITCH
-        lit = i in LIT
-        col, alpha = LIT.get(i, ('#ddd8ca', 0.30))
-        halo = [(2.6,.13), (1.5,.22), (0.6,.38), (0.0,1.0)] if lit else [(0.0, alpha)]
+        a = B.wall_a0 + (i + 0.5) * PITCH
+        on = i in lit
+        col, alpha = lit.get(i, ('#ddd8ca', 0.30))
+        halo = [(2.6,.13), (1.5,.22), (0.6,.38), (0.0,1.0)] if on else [(0.0, alpha)]
         for k, (gr, ga) in enumerate(halo):
-            if mode == 'arc':
-                arc_patch(ax, i, DIFF_LINE_RI, DIFF_LINE_RO, col,
-                          ga*(alpha if lit else 1.0), 3+k, gr)
-            else:
-                tick_patch(ax, a, TICK_RI, TICK_RO, TICK_W, col,
-                           ga*(alpha if lit else 1.0), 3+k, gr)
-
-    # the hours, debossed on the diffuser itself (v5) or engraved in plywood (v4)
+            tick_patch(ax, a, B.tick_ri, B.tick_ro, TICK_W, col,
+                       ga*(alpha if on else 1.0), 3+k, gr)
     for h in range(12):
         a = 90.0 - h*30.0
         key = int(round(a)) % 360
-        if mode == 'tick' and key in NUMERALS:
-            ax.text(NUM_R*math.cos(math.radians(a)), NUM_R*math.sin(math.radians(a)),
+        if key in NUMERALS:
+            ax.text(B.num_r*math.cos(math.radians(a)), B.num_r*math.sin(math.radians(a)),
                     NUMERALS[key], ha='center', va='center', fontsize=8.5,
                     color=INK, zorder=6, family='DejaVu Sans', weight='bold')
             continue
-        ri, ro = ((MARK_RI_MAJ, MARK_RO_MAJ) if h % 3 == 0 else (MARK_RI, MARK_RO)) \
-                 if mode == 'tick' else (RING_ID/2 - 6.6, RING_ID/2 - 3.0)
-        lw = (MARK_W_MAJ if h % 3 == 0 else MARK_W) * 1.6 if mode == 'tick' else \
-             (2.4 if h % 3 == 0 else 1.4)
+        ri, ro = (B.mark_ri_maj, B.mark_ro_maj) if h % 3 == 0 else (B.mark_ri, B.mark_ro)
+        lw = (MARK_W_MAJ if h % 3 == 0 else MARK_W) * 1.6
         r_ = math.radians(a)
         ax.plot([ri*math.cos(r_), ro*math.cos(r_)], [ri*math.sin(r_), ro*math.sin(r_)],
                 color=INK, lw=lw, zorder=6, solid_capstyle='round')
-
     ax.add_patch(Circle((0,0), DISP_ACTIVE_D/2, fc='#0b0d10', ec='#2a2e35', lw=1.0, zorder=7))
     ax.text(0, 3.5, '10:09', ha='center', va='center', fontsize=17,
             color='#dfe3ea', zorder=8, family='DejaVu Sans')
-    ax.text(0, -6.0, '24°  clear', ha='center', va='center', fontsize=7.5,
+    ax.text(0, -6.0, '24\u00b0  clear', ha='center', va='center', fontsize=7.5,
             color='#7d838d', zorder=8)
-    ax.set_xlim(-52, 52); ax.set_ylim(-52, 52); ax.set_aspect('equal'); ax.axis('off')
+    L = 64
+    ax.set_xlim(-L, L); ax.set_ylim(-L, L); ax.set_aspect('equal'); ax.axis('off')
     ax.set_title(title, fontsize=12, color='#1c1c1c', pad=8)
-    ax.text(0, -58, sub, ha='center', fontsize=9.5, color='#555')
+    ax.text(0, -L-6, sub, ha='center', fontsize=9.5, color='#555')
 
 
 fig, axes = plt.subplots(1, 2, figsize=(13.4, 7.4))
-seg = 2*math.pi*DIFF_LINE_R/N - 0.95
-face(axes[0], 'arc', f'v4 — {DIFF_LINE_W:.2f} mm arc, hours in the plywood',
-     f'lit LED reads {DIFF_LINE_W:.2f} x {seg:.2f} mm, lying ALONG the circle')
-face(axes[1], 'tick', f'v5 — {TICK_W:.2f} x {TICK_RO-TICK_RI:.2f} mm radial tick',
-     f'lit LED reads {TICK_W:.2f} x {TICK_RO-TICK_RI:.2f} mm, pointing AT the centre')
+for ax, B in zip(axes, (BV.BODY24, BV.BODY32)):
+    gap = 2*math.pi*B.led_r/B.n - TICK_W
+    face(ax, B, f'{B.n} LEDs \u2014 body {2*B.r_body:.0f} mm',
+         f'ring {B.ring_od:g} / {B.ring_id:g}, tick {TICK_W:.2f} x '
+         f'{B.tick_ro-B.tick_ri:.2f} mm, {gap:.2f} mm dark between')
 fig.patch.set_facecolor('#f7f7f5')
-fig.suptitle('The lit face: aperture turned 90 degrees, and the hours moved onto '
-             'the diffuser', fontsize=13.5)
-fig.text(0.5, 0.015, 'Drawn from params.py — cell pitch, tick size and every hour '
+fig.suptitle('The lit face: radial ticks on the LED circle, hours debossed on the '
+             'diffuser', fontsize=13.5)
+fig.text(0.5, 0.015, 'Drawn from params.py \u2014 cell pitch, tick size and every hour '
          'marking are the geometry being printed. The glow is an impression.',
          ha='center', fontsize=8.5, color='#777')
 fig.tight_layout()

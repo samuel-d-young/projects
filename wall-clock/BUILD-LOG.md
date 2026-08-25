@@ -1937,3 +1937,141 @@ device page, which is what scattered each hue/saturation/intensity trio between
 "Mode" and "Ring LED count" and made them impossible to find. Inserted with
 `jq` (backup `.bak-preOptions`); the entities read unavailable until the device
 is flashed.
+
+---
+
+## 2026-08-25 — v6: the S3 moves into the housing, a 32-LED body, and a desk stand
+
+Five things in three messages, and between them they undo most of v5a:
+
+> *"I dont want to use a breakout board for power, move the board more towards
+> the edge so that the power can be connected easily. Also, at the current
+> moment, the new housing is not deep enough to account for the cables coming
+> out of the screen and ESP32. Update the case so that it is at least 50mm deep
+> and the ESP32 sits in the other mini rear round clock housing."*
+> … *"update the tolerance on the difuser, it's still too loose. I want it to be
+> press fit"* … *"build a stand for the clock to go in so that it can sit on a
+> desk too. But the stand is another print that the clock sits in."* … *"make
+> another version for an LED ring of the same brand that has 32 LED's. The
+> outside width is 111.85mm and the inside is 96mm"*
+
+### The board is in the housing, and its own connector is the inlet
+
+Out of the base's deck bay, onto four posts off the housing's pocket floor, as
+far out at 6 o'clock as its own corners allow: at |y| = 13.15 the pocket wall is
+at x = −49.27, so the board's end sits at −48.50 with 0.77 mm of margin. Its own
+connector then looks out through a 22 × 6 mm window in the rim, and the ADA4090
+breakout is withdrawn from the BOM.
+
+The window is that generous deliberately. **Which connector the board carries is
+still not a settled fact** — Espressif's v1.1 guide says Micro-USB, the boards
+sold as DevKitC-1 have two Type-C — so the window clears either in either
+position and nothing depends on knowing.
+
+Depth: housing 50.00, pocket 46.50 clear, clock 74.40 overall. The budget that
+matters is the last line of it:
+
+```
+board on 4 mm posts   8.80 mm
+battery on shelves   12.00 .. 36.89
+left for cables      11.31 mm
+```
+
+That 11.31 is what Sam was actually asking for. The old 15.0 and 27.5 mm pockets
+had the board and the cables competing for the same space.
+
+Retention: **the two ends are held differently, on purpose.** The last 2.50 mm
+of the board's +x end is bare PCB — 22-pin rows are 53.34 mm on a 62.74 mm board
+— so a hook there sits 0.20 mm over it. At the −x end the wall is the window and
+the long edges are the pad rows, so that pair sits above everything the board
+carries instead: 3.4 mm of lift there, which does not matter with gravity in the
+board's plane, and it cannot foul a connector whatever the layout.
+
+The base got simpler as a result: the deck is an annulus again, the beam and the
+screwed-on keeper are gone, and Sam's geometry inside r = 46 is now touched by
+nothing but the four screw pilots.
+
+### The press fit, done the way moulders do it
+
+v3 gave the diffuser a 0.10 mm interference on diameter and Sam still reports it
+loose. That is the right diagnosis to take seriously rather than just tightening
+further: **0.10 mm is inside a printer's own tolerance**, so on a given day the
+part comes out with clearance. Tightening the wall only moves the coin toss.
+
+So: 0.10 mm of *clearance* on the wall, and eight crush ribs 1.60 mm wide and
+0.35 mm proud — 0.60 mm of interference on diameter, at eight narrow places that
+can actually yield. A single conical cut takes a lead-in off the ribs and the
+wall together, so nothing has to deform until it is already aligned. One knob,
+`DIFF_RIB_H`, if it is still wrong.
+
+Mesh note worth keeping: a rib whose inner face sits **exactly** on the wall's
+outer surface separates from it in float32 — the diffuser came out as 9 bodies.
+Burying it 1.00 mm into the wall fixed it. Same lesson as the cell walls butting
+the ribs' 144-gon: bury, do not butt.
+
+### The 32-LED ring does not fit the clock
+
+111.85 mm across against a 107.99 mm body. It needs a pocket to r = 56.42
+against an outer wall at 53.99. So the body grows to **119.85 mm**, and the way
+it grows is the same trick that fixed the diffuser: keep Sam's mesh where it is
+good and rebuild the rest.
+
+```
+keep      everything inside r = 46 -- bore, display pocket and seat, tab window
+rebuild   ring pocket 47.50..56.42, outer wall to 59.93, face recess to 57.93
+fill      his old ring pocket up to z = 17.00, which becomes the shelf the new
+          diffuser's face lands on -- with the tab's slot cut back out of it, or
+          the tab could not be got in
+screws    moved to r 44.00 at 60/120/240/300; at r 49 they bored straight into
+          the new ring pocket
+```
+
+**A consequence worth flagging before he prints one:** with the LEDs at r = 52
+and the 2.1″ display ending at r = 30, there is a 22 mm wide blank annulus
+between the screen and the lit ring. Much more ring, much less screen. That is a
+look, not a fault, but it is one to see before cutting plywood.
+
+### The stand, and the number that sets its height
+
+A cylindrical cradle cut to the body's radius + 0.35, wrapping ±55° about bottom
+dead centre, leaning back 8°, with a stop wall behind the clock's rear face and
+a 45° gabled arch through it front to back that halves the filament and doubles
+as the cable route.
+
+The height is the only number that is not a style choice, and it is set by
+something easy to miss: **the USB socket is at 6 o'clock, which is exactly where
+a cradle wants to hold the clock.** A plug's overmold stands ~19 mm proud,
+pointing at the desk, 64 mm back from the front face where the 8° tilt has
+already dropped the rim 8.8 mm. So the clock sits 36 mm off the desk and the
+checker measures the plug tip at 7.9 mm of clearance. A right-angle lead only
+needs about 8 mm of that — `STAND_LIFT = 24` and it is 12 mm shorter.
+
+Two design facts fell out of building it, both worth keeping:
+
+- **A rigid disc cannot be located axially by a coaxial surface.** A taper that
+  narrows going back cannot be entered at all; a stop ring at a fixed station
+  fouls the rim. It has to be a wall beyond the rear face, which is why the
+  stand is per-depth rather than universal.
+- **Cutting the cable slot through the whole length split the stand into two
+  legs** — they are joined only by the shell under the cradle. The slot now
+  opens over the last 28 mm and the stop wall, which is where the plug is
+  anyway.
+
+### What the checkers caught this time
+
+- The USB window was cut with the *global* R_BODY, so on the 32 body it stopped
+  inside the pocket and never reached the outer wall. `check2` found it by
+  pushing a plug envelope in from outside.
+- The 32 housing's vents at 85/100° left a **1.00 mm** wall between them.
+- Cutting the deck at exactly Sam's own wire-slot half-width left two coincident
+  planes and a 2 mm³ disagreement between two ways of measuring the same solid.
+  Cutting the deck's ribbon slot wider than the tab-slot walls' feet did the
+  same. Both are the float32 lesson again, in a new place.
+- The deck at r = 44 left Sam's underside with a 16 mm annular bridge to print
+  into thin air, and a sliver where the tab cut met the deck's inner circle.
+- `check3` was wrong about one thing and it is now fixed: a face within 15° of
+  horizontal is a **bridge**, not a slope. An 8° stand tilt made every flat
+  ceiling in the part read as an unsupported overhang.
+
+`check5_v5a.py` is retired and `check5_stand.py` replaces it. Five passes, nine
+parts, two bodies, all green.

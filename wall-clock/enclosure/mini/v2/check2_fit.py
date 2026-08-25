@@ -1,280 +1,154 @@
 #!/usr/bin/env python3
-"""PASS 2 of 3 — fits and clearances. Does the hardware physically go in?"""
-import sys, math; sys.path.insert(0,'.')
-import numpy as np, trimesh
-import csg
-from csg import box_lwh, cyl, wedge, to_manifold, to_trimesh
-from params import *
-from params import max_battery, fits
-from build_v2 import load_sams_base
+"""Does everything fit, on both bodies, measured on the built STLs?
 
-FAIL=[]
-def ck(cond, msg, detail=''):
-    print(f'  [{"ok  " if cond else "FAIL"}] {msg}' + (f'   {detail}' if detail else ''))
-    if not cond: FAIL.append(msg)
+Nothing here reads the code that made the parts -- it loads the files that will
+be sliced and probes them as solids.
+"""
+import sys, math; sys.path.insert(0, '.')
+import numpy as np, trimesh
+from csg import box_lwh, cyl, cone, tube, wedge, to_manifold, to_trimesh
+from params import *
+import build_v2 as BV
+
+FAIL = []
+def ck(c, msg, d=''):
+    print(f'  [{"ok  " if c else "FAIL"}] {msg}' + (f'   {d}' if d else ''))
+    if not c: FAIL.append(msg)
 
 def load(f):
     m = trimesh.load(f, process=False); m.merge_vertices(); return m
 
-BASE = load('mini-round-clock-base-v2.stl')
-HB   = load('mini-round-clock-rearhousing-battery.stl')
-HS   = load('mini-round-clock-rearhousing-slim.stl')
-CR   = load('mini-round-clock-battery-shim-x2.stl')
-mBASE, mHB, mHS, mCR = map(to_manifold, (BASE, HB, HS, CR))
+SEG = BV.SEG
+SAM = BV.load_sams_base()
+BODIES = [(BV.BODY24, ''), (BV.BODY32, '-32')]
+DEPTH  = Z_FRONT - (Z_DECK - HOUSING_DEEP)
 
-BIG = 200.0
-def half(z0, z1):
-    return box_lwh(-BIG, BIG, -BIG, BIG, z0, z1)
+for B, tg in BODIES:
+    BASE = to_manifold(load(f'mini-round-clock-base{tg}.stl'))
+    HOUS = to_manifold(load(f'mini-round-clock-housing{tg}.stl'))
+    DIFF = to_manifold(load(f'mini-round-clock-diffuser{tg}.stl'))
+    Bt   = load(f'mini-round-clock-base{tg}.stl')
+    print(f'\n{"="*70}\n{B.n}-LED body — {2*B.r_body:.2f} mm across, ring {B.ring_od} / {B.ring_id}')
 
-print("\n1. Sam's geometry above z = 0 is untouched except where it must be")
-sam = load_sams_base()
-up = half(0.001, 60.0)
-samU, newU = sam ^ up, mBASE ^ up
-removed = (samU - newU)
-added   = (newU - samU)
-print(f'         removed {removed.volume():8.2f} mm3   added {added.volume():8.2f} mm3')
+    print("\n1. What of Sam's geometry survives")
+    keep_r = 40.0 if B.n == 24 else KEEP_R32 - 1.0
+    inside = cyl(keep_r, 0.001, 60.0, SEG)
+    sam_in, new_in = SAM ^ inside, BASE ^ inside
+    removed, added = (sam_in - new_in), (new_in - sam_in)
+    allow_rm = None
+    for a_ in B.screw_ang:
+        x, y = B.screw_r*math.cos(math.radians(a_)), B.screw_r*math.sin(math.radians(a_))
+        c = cyl(SCREW_PILOT/2 + 0.05, -1, Z_BACK+SCREW_DEPTH+0.05, 48, centre=(x, y))
+        allow_rm = c if allow_rm is None else allow_rm + c
+    if B.n != 24:
+        allow_rm += box_lwh(-B.r_ring_o - 1.0, WIRE_SLOT_END + 3.1,
+                            -WIRE32_HW - 0.05, WIRE32_HW + 0.05,
+                            Z_DECK - 1.0, Z_RING_FLOOR + 0.05)
+    ck((removed - allow_rm).volume() < 0.05,
+       f'inside r={keep_r:.0f} nothing is removed but the pilots'
+       + ('' if B.n == 24 else ' and the ring-lead slot'),
+       f'{(removed - allow_rm).volume():.4f} mm3 outside them')
+    wall_env = (wedge(TAB_WALL_RI - 0.10, TAB_WALL_RO + 0.10, Z_BACK - 0.05,
+                      TAB_WALL_TOP + 0.10, -TAB_WALL_AHALF - 0.2, TAB_WALL_AHALF + 0.2)
+                - box_lwh(-1.0, 60.0, -TAB_SLOT_HW, TAB_SLOT_HW, Z_BACK - 1.0, TAB_CHAMF_Z))
+    allow_add = wall_env
+    if B.n != 24:
+        allow_add += tube(34.50, KEEP_R32, 10.30, 17.10, SEG)
+    ck((added - allow_add).volume() < 0.05,
+       'and nothing is added but the tab-slot walls'
+       + ('' if B.n == 24 else ' and the pocket fill'),
+       f'{(added - allow_add).volume():.3f} mm3 outside them')
 
-# everything removed must be inside the four screw pilots
-pilots = None
-for a_ in SCREW_ANG:
-    x, y = SCREW_R*math.cos(math.radians(a_)), SCREW_R*math.sin(math.radians(a_))
-    c = cyl(SCREW_PILOT/2 + 0.05, -1, Z_BACK+SCREW_DEPTH+0.05, 48, centre=(x,y))
-    pilots = c if pilots is None else pilots + c
-# v5a adds two more pilots for the keeper, and cuts the USB-C bay: a pocket
-# through the wall at 6 o'clock and the channel the plug comes in through.
-for sy in (1, -1):
-    pilots += cyl(KEEP_SCREW_PIL/2 + 0.05, -1, Z_BACK + KEEP_SCREW_DEP + 0.05, 48,
-                  centre=(KEEP_SCREW_X, sy*KEEP_SCREW_Y))
-pilots += box_lwh(USBC_FACE_X - 0.05, WIRE_SLOT_END + 1.05,
-                  -USBC_RAIL_HY - 0.05, USBC_RAIL_HY + 0.05,
-                  Z_BACK - 0.05, USBC_RAIL_H + 0.05)
-pilots += box_lwh(-BIG, USBC_FACE_X + 0.05, -PLUG_CH_W/2 - 0.05, PLUG_CH_W/2 + 0.05,
-                  PLUG_CH_Z0 - 0.05, PLUG_CH_Z0 + PLUG_CH_H + 0.05)
-ck((removed - pilots).volume() < 0.05,
-   'the only material removed above z=0 is the pilots and the USB-C bay',
-   f'{(removed - pilots).volume():.4f} mm3 outside them')
+    print('\n2. The LED ring drops into its pocket')
+    ring = tube(B.ring_id/2, B.ring_od/2, Z_RING_FLOOR, Z_RING_FLOOR + PCB_T + LED_H, 192)
+    ck((BASE ^ ring).volume() < 1e-3, f'the {B.ring_od} / {B.ring_id} ring is clear of the base',
+       f'{(BASE ^ ring).volume():.5f} mm3')
+    ck((ring - BASE).volume() > 0.99*ring.volume(), '...and the pocket is actually empty',
+       f'{100*(ring - BASE).volume()/ring.volume():.1f}% clear')
+    ck(B.r_ring_i <= B.ring_id/2 and B.r_ring_o >= B.ring_od/2,
+       'the pocket brackets the ring on both edges',
+       f'{B.r_ring_i:.2f} <= {B.ring_id/2:.2f} and {B.r_ring_o:.2f} >= {B.ring_od/2:.2f}')
+    ck(B.r_body - B.r_ring_o >= 3.0, 'and there is a real wall outboard of it',
+       f'{B.r_body - B.r_ring_o:.2f} mm')
 
-# everything added must be inside the four board-locating posts, or inside the
-# tab-slot walls. Not a blanket allowance: the walls have to be where they are
-# supposed to be, which is outboard of the tab, inside the tab window, and
-# stopping at the ring pocket floor.
-c2 = BOARD_CLR
-allowed = None
-for sy in (1, -1):
-    c = cyl(1.60 + 0.05, -1, Z_BACK + POST_H + 0.05, 40,
-            centre=(BOARD_X1 - 3.0, sy * (BOARD_W/2 + c2 + 1.4)))
-    allowed = c if allowed is None else allowed + c
-# v5a: the beam over the board's USB end, and the USB-C bay's rails and lips
-_y1, _yo = BOARD_W/2 + c2, BEAM_PILLAR_Y + BEAM_PILLAR_W/2
-allowed += box_lwh(-20.0 - BEAM_PILLAR_W/2 - 0.05, -20.0 + BEAM_PILLAR_W/2 + 0.05,
-                   -_yo - 0.05, _yo + 0.05, Z_BACK - 0.05, BEAM_Z1 + 0.05)
-allowed += box_lwh(USBC_FACE_X - 0.05, USBC_BAY_X1 + 0.05,
-                   -USBC_RAIL_HY - 0.05, USBC_RAIL_HY + 0.05,
-                   Z_BACK - 0.05, USBC_RAIL_H + 0.05)
-# the walls' own construction envelope. They deliberately over-reach past the
-# tab window, both radially and angularly, into material that is already solid,
-# so the union has something to merge with instead of butting onto a face.
-wall_env = (wedge(TAB_WALL_RI - 0.10, TAB_WALL_RO + 0.10,
-                  Z_BACK - 0.05, TAB_WALL_TOP + 0.10,
-                  -TAB_WALL_AHALF - 0.2, TAB_WALL_AHALF + 0.2)
-            - box_lwh(-1.0, 60.0, -TAB_SLOT_HW, TAB_SLOT_HW,
-                      Z_BACK - 1.0, TAB_CHAMF_Z))
-allowed = allowed + wall_env
-stray = (added - allowed).volume()
-ck(stray < 0.05,
-   'material added above z=0 is only the board posts and the tab-slot walls',
-   f'{stray:.3f} mm3 outside either')
-walls_v = (added - (added - wall_env)).volume()
-ck(walls_v > 2000, 'the tab-slot walls are actually there', f'{walls_v:.0f} mm3')
+    print('\n3. The diffuser is a press fit')
+    r_out = np.hypot(*load(f'mini-round-clock-diffuser{tg}.stl').vertices[:, :2].T).max()
+    nominal = B.diff_outer
+    ck(abs(r_out - (nominal + DIFF_RIB_H)) < 0.02, 'the crush ribs stand proud of the wall',
+       f'crest r {r_out:.3f}, wall {nominal:.3f}')
+    ck(nominal < B.r_ring_o, 'the wall itself has clearance, so it starts square',
+       f'{2*(B.r_ring_o - nominal):.2f} mm on diameter')
+    ck(r_out > B.r_ring_o, 'and the ribs interfere, so it does not fall out',
+       f'{2*(r_out - B.r_ring_o):.2f} mm on diameter at {DIFF_RIB_N} ribs')
+    ck(0.35 <= 2*(r_out - B.r_ring_o) <= 0.90, '...by an amount a printer can actually crush',
+       f'{2*(r_out - B.r_ring_o):.2f} mm')
 
-print('\n2. The S3 board goes in and is caught by the end ledges')
-BX0, BX1, BY = BOARD_X0, BOARD_X1, BOARD_W/2
-Z_LEDGE = Z_BACK - 0.80
-board = box_lwh(BX0, BX1, -BY, BY, Z_LEDGE, Z_LEDGE + BOARD_T)
-ck((mBASE ^ board).volume() < 1e-6, 'PCB does not intersect the base', f'{(mBASE ^ board).volume():.4f} mm3')
-tall = box_lwh(BX0, BX1, -BY, BY, Z_LEDGE + BOARD_T, Z_LEDGE + BOARD_T + BOARD_TALL)
-ck((mBASE ^ tall).volume() < 1e-6, 'components on top clear the base too', f'{(mBASE ^ tall).volume():.4f} mm3')
-# ledge really is under the board at both ends
-for nm, x in [('-x end (USB-C)', BX0 + 1.0), ('+x end', BX1 - 1.0)]:
-    probe = box_lwh(x-0.5, x+0.5, -BY+0.5, BY-0.5, Z_DECK+0.1, Z_LEDGE-0.05)
-    v = (mBASE ^ probe).volume()
-    ck(v > 0.1, f'ledge present under the {nm}', f'{v:.3f} mm3')
-# and NOT under the long sides, where the pin rows are
-mid = box_lwh(0.0, 4.0, -BY+0.2, BY-0.2, Z_DECK+0.1, Z_LEDGE-0.05)
-ck((mBASE ^ mid).volume() < 1e-6, 'no ledge under the long sides (clears pin rows)')
-gap = BOARD_CLR
-ck(abs(gap-0.45) < 1e-9, 'clearance per side', f'{gap:.2f} mm')
+    print('\n4. The display module and its tab')
+    module = cyl(DISP_PCB_D/2, Z_SEAT, Z_SEAT + 4.0, 128)
+    ck((BASE ^ module).volume() < 1e-3, 'the module clears the base', f'{(BASE ^ module).volume():.5f} mm3')
+    tab = box_lwh(R_DISP_POCKET, DISP_OVERALL - DISP_PCB_D/2, -DISP_TAB_W/2, DISP_TAB_W/2,
+                  Z_SEAT, Z_SEAT + DISP_TAB_T)
+    ck((BASE ^ tab).volume() < 1e-6, 'the tab clears the slot', f'{(BASE ^ tab).volume():.5f} mm3')
 
-print('\n3. The board clears everything Sam already has in there')
-top = Z_LEDGE + BOARD_T + BOARD_TALL
-ck(top < Z_SEAT, 'board top is below the display seat', f'{top:.2f} < {Z_SEAT:.2f}  ({Z_SEAT-top:.2f} mm)')
-TAB_Z0 = Z_SEAT                       # tab is the module's own PCB, at its back
-ck(top < TAB_Z0, 'board top is below the display tab', f'{top:.2f} < {TAB_Z0:.2f}  ({TAB_Z0-top:.2f} mm)')
-ck(top < Z_RING_FLOOR, 'board top is below the ring pocket floor', f'{top:.2f} < {Z_RING_FLOOR:.2f}')
-for nm, x, y in [('-x corner', BOARD_X0, BOARD_W/2), ('+x corner', BOARD_X1, BOARD_W/2)]:
-    r = math.hypot(x, y)
-    lim = R_BORE if x < 0 else R_TAB
-    ck(r < lim, f'{nm} inside the {"bore" if x<0 else "tab window"}', f'r={r:.2f} < {lim:.2f}')
+    print('\n5. The S3 in the housing, and its own connector out through the wall')
+    ZP = Z_DECK - (PLATE_T + POCKET_DEEP) + PLATE_T
+    zt = ZP + BRD_POST_H
+    pcb  = box_lwh(BRD_X0, BRD_X1, -BOARD_W/2, BOARD_W/2, zt, zt + BOARD_T)
+    # the +x hook deliberately closes 0.20 mm over the last BRD_HOOK_OVER mm of
+    # the board, which is bare PCB (the two 22-pin rows are 53.34 mm on a 62.74
+    # board, leaving 4.70 mm clear at each end), so that strip is excluded here
+    tall = box_lwh(BRD_X0, BRD_X1 - BRD_HOOK_OVER, -BOARD_W/2, BOARD_W/2,
+                   zt + BOARD_T, zt + BOARD_T + BOARD_TALL)
+    ck((HOUS ^ pcb).volume() < 1e-3, 'the PCB does not intersect the housing',
+       f'{(HOUS ^ pcb).volume():.5f} mm3')
+    ck((HOUS ^ tall).volume() < 1e-3, 'nor does anything on top of it',
+       f'{(HOUS ^ tall).volume():.5f} mm3')
+    ck(math.hypot(BRD_X0, BOARD_W/2 + BOARD_CLR) < B.r_inner,
+       'the board sits as far out at 6 o\'clock as its corners allow',
+       f'corner r {math.hypot(BRD_X0, BOARD_W/2 + BOARD_CLR):.2f} inside the pocket wall {B.r_inner:.2f}')
+    # posts really under it, hooks really over it
+    for px in (BRD_X0 + 5.0, BRD_X1 - 5.0):
+        probe = cyl(1.0, ZP + 0.5, zt - 0.5, 24, centre=(px, BRD_POST_HY))
+        ck((HOUS ^ probe).volume() > 0.5*probe.volume(), f'a post stands under x={px:+.1f}',
+           f'{100*(HOUS ^ probe).volume()/probe.volume():.0f}% solid')
+    hk = box_lwh(BRD_X1 - 1.0, BRD_X1, -4.0, 4.0, zt + BRD_HOOK_LO, zt + BRD_HOOK_LO + BRD_HOOK_T)
+    ck((HOUS ^ hk).volume() > 0.5*hk.volume(), 'a hook closes over the +x end',
+       f'{1000*(zt + BRD_HOOK_LO - (zt + BOARD_T)):.0f} um of float there')
+    hk2 = box_lwh(BRD_HOOK_PX - 1.0, BRD_HOOK_PX + 1.0, BRD_HOOK_IY, BRD_HOOK_IY + 1.0,
+                  zt + BRD_HOOK_HI, zt + BRD_HOOK_HI + BRD_HOOK_T)
+    ck((HOUS ^ hk2).volume() > 0.5*hk2.volume(), 'and an arm closes over the -x end',
+       f'above everything on the board, so it cannot foul a connector')
+    # the window, and a plug through it
+    win = box_lwh(-B.r_body - 1.0, -B.r_inner + 1.0, -USB_WIN_W/2 + 0.2, USB_WIN_W/2 - 0.2,
+                  ZP + USB_WIN_Z + 0.2, ZP + USB_WIN_Z + USB_WIN_H - 0.2)
+    ck((HOUS ^ win).volume() < 1e-3, 'the window is bored right through the wall',
+       f'{USB_WIN_W:.0f} x {USB_WIN_H:.0f} mm, {(HOUS ^ win).volume():.5f} mm3')
+    plug = box_lwh(-B.r_body - 25.0, BRD_X0, -PLUG_W/2, PLUG_H/2 + 3.0,
+                   ZP + USB_WIN_Z + 0.5, ZP + USB_WIN_Z + USB_WIN_H - 0.5)
+    ck((HOUS ^ plug).volume() < 1e-3, 'and a plug reaches the board from outside',
+       f'{(HOUS ^ plug).volume():.5f} mm3')
 
-print('\n4. The two parts mate, and only mate')
-for nm, m in [('battery', mHB), ('slim', mHS)]:
-    v = (mBASE ^ m).volume()
-    ck(v < 1e-6, f'base and the {nm} housing do not interfere', f'{v:.6f} mm3')
-    tb = to_trimesh(m).bounds
-    ck(abs(tb[1][2] - Z_DECK) < 1e-3, f'{nm} housing front face meets the deck at z={Z_DECK}', f'{tb[1][2]:.3f}')
-    ck(abs(tb[1][0] - R_BODY) < 0.05, f'{nm} housing OD matches the base', f'{2*tb[1][0]:.2f} vs {2*R_BODY:.2f} mm')
+    print('\n6. The two printed halves mate, and only mate')
+    ck((BASE ^ HOUS).volume() < 1e-6, 'base and housing do not interfere',
+       f'{(BASE ^ HOUS).volume():.6f} mm3')
+    ck(abs(to_trimesh(HOUS).bounds[1][2] - Z_DECK) < 1e-3, 'they meet at z=-2.40',
+       f'{to_trimesh(HOUS).bounds[1][2]:.3f}')
+    ck(abs(2*np.hypot(*to_trimesh(HOUS).vertices[:, :2].T).max() - 2*B.r_body) < 0.05,
+       'and their outside diameters match', f'{2*B.r_body:.2f} mm')
+    ck(DEPTH >= 50.0, 'the clock is deep enough for the cables Sam asked for',
+       f'housing {HOUSING_DEEP:.1f} mm, pocket {POCKET_DEEP:.1f} clear, clock {DEPTH:.1f} overall')
+    left = POCKET_DEEP - (BRD_POST_H + BOARD_T + BOARD_TALL) - BAT_T - 1.5
+    ck(left > 8.0, 'with the board and a battery in, there is still cable room',
+       f'{left:.2f} mm above the battery')
 
-print('\n5. Screws line up and have material to bite into')
-for a_ in SCREW_ANG:
-    x, y = SCREW_R*math.cos(math.radians(a_)), SCREW_R*math.sin(math.radians(a_))
-    # an actual M3 shank is 3.0 mm; test with 3.05 so we are not comparing
-    # two coincident surfaces
-    shank = cyl(3.05/2, Z_DECK-40, Z_DECK, 32, centre=(x,y))
-    ck((mHB ^ shank).volume() < 1e-6, f'{a_:5.0f} deg: an M3 shank passes through the housing',
-       f'{(mHB ^ shank).volume():.5f} mm3')
-    # the pilot is deliberately UNDERSIZE so the screw taps it: check it is bored,
-    # not that it is empty at full diameter
-    core = cyl(SCREW_PILOT/2 - 0.15, Z_DECK, Z_BACK+SCREW_DEPTH-0.2, 32, centre=(x,y))
-    ck((mBASE ^ core).volume() < 1e-6, f'{a_:5.0f} deg: pilot is bored in the base',
-       f'{(mBASE ^ core).volume():.5f} mm3')
-    # is there PLA around the pilot to thread into?
-    ring = (cyl(SCREW_PILOT/2+1.6, Z_DECK, Z_BACK+SCREW_DEPTH, 40, centre=(x,y))
-            - cyl(SCREW_PILOT/2, Z_DECK-1, Z_BACK+SCREW_DEPTH+1, 40, centre=(x,y)))
-    v = (mBASE ^ ring).volume(); full = ring.volume()
-    ck(v/full > 0.85, f'{a_:5.0f} deg: solid material around the pilot', f'{100*v/full:.1f}% of the collar')
-
-print('\n6. The wall hanger')
-head = cyl(8.0/2, -60, 60, 48, centre=(HANG_R-KEY_DROP, 0))
-ck((mHB ^ head).volume() < 1e-6, 'an 8.0 mm screw head passes the entry hole')
-shank = cyl(4.0/2, -60, 60, 32, centre=(HANG_R, 0))
-ck((mHB ^ shank).volume() < 1e-6, 'a 4.0 mm shank sits in the slot')
-head_at_slot = cyl(8.0/2, Z_REAR-1, Z_REAR+PLATE_T-0.2, 48, centre=(HANG_R, 0))
-v = (mHB ^ head_at_slot).volume()
-ck(v > 20.0, 'the head is CAPTURED at the top of the slot (that is what holds it up)', f'{v:.1f} mm3 of overlap')
-# The real criterion is not "drop >= head diameter". It is that the shank,
-# once dropped, cannot get back through the entry hole without lifting the
-# clock -- and how far it must be lifted.
-min_drop = (KEY_ENTRY_D + KEY_SLOT_W)/2
-ck(KEY_DROP > min_drop, 'drop exceeds the geometric minimum',
-   f'{KEY_DROP:.2f} > {min_drop:.2f} mm')
-lift = KEY_DROP - (KEY_ENTRY_D - 8.0)/2      # head must re-centre on the entry hole
-ck(lift >= 5.0, 'clock must be lifted this far to come off the screw', f'{lift:.2f} mm')
-
-print('\n7. Battery pocket and cradle')
-Z0b = Z_DECK - (PLATE_T + POCKET_BATTERY)
-ZF  = Z0b + PLATE_T                      # pocket floor
-# lifted 0.01 off the floor: the battery rests ON it, and testing two
-# coincident planes just measures floating point
-bat = box_lwh(BAT_CX-BAT_L/2, BAT_CX+BAT_L/2, -BAT_W/2, BAT_W/2, ZF+0.01, ZF+BAT_T)
-ck((mHB ^ bat).volume() < 1e-6, f'the {BAT_L}x{BAT_W}x{BAT_T} battery fits the pocket',
-   f'{(mHB ^ bat).volume():.4f} mm3')
-batL = bat.translate([0, 0, -ZF - 0.01])
-for sy, lbl in ((+1, '+y'), (-1, '-y')):
-    shp = mCR if sy > 0 else mCR.mirror([0.0, 1.0, 0.0])
-    ck((shp ^ batL).volume() < 1e-6, f'shim on the {lbl} side clears the battery',
-       f'{(shp ^ batL).volume():.4f} mm3')
-    # and stays inside the pocket
-    sv = to_trimesh(shp).vertices
-    ck(np.hypot(sv[:,0], sv[:,1]).max() <= R_INNER, f'shim on the {lbl} side fits the pocket',
-       f'max r = {np.hypot(sv[:,0],sv[:,1]).max():.2f}')
-# the wall screw's head sweeps this zone as the clock drops onto it
-headzone = box_lwh(HANG_R-KEY_DROP-4.5, HANG_R+4.5, -4.5, 4.5, ZF-1.0, ZF+3.2)
-ck((bat ^ headzone).volume() < 1e-6, 'the battery clears the hanging screw head',
-   f'{(bat ^ headzone).volume():.3f} mm3')
-ck((mCR ^ headzone).volume() < 1e-6, 'the shim clears it too',
-   f'{(mCR ^ headzone).volume():.3f} mm3')
-# and the cradle stays inside the pocket wall
-cb = to_trimesh(mCR).vertices
-ck(np.hypot(cb[:,0], cb[:,1]).max() <= R_INNER + 1e-6, 'shim stays inside the pocket wall',
-   f'max r = {np.hypot(cb[:,0],cb[:,1]).max():.3f} vs {R_INNER:.3f}')
-ck(math.hypot(BAT_L, BAT_W) < 2*R_INNER, 'battery diagonal fits the interior circle',
-   f'{math.hypot(BAT_L,BAT_W):.1f} < {2*R_INNER:.1f} mm')
-for sx in (-1,1):
-    for sy in (-1,1):
-        r = math.hypot(BAT_CX + sx*BAT_L/2, sy*BAT_W/2)
-        ck(r < R_INNER, f'battery corner ({sx:+d},{sy:+d}) inside the wall', f'r={r:.2f} < {R_INNER:.2f}')
-ck(POCKET_BATTERY - BAT_T >= 1.4, 'air above the battery', f'{POCKET_BATTERY-BAT_T:.2f} mm')
-
-# what this pocket will actually take, and how the real candidates score.
-# Sharp-cornered is the conservative reading; every retail bank is radiused,
-# and 2 mm of corner radius is worth ~0.7 mm of length here.
-print('\n   maximum battery, by width:')
-print(f'      {"width":>6s}  {"sharp":>7s}  {"r=2mm":>7s}   (x {POCKET_BATTERY-1.4:.1f} mm thick)')
-for W in (36, 38, 40, 45, 50, 55, 60):
-    print(f'      {W:6.1f}  {max_battery(W, 0.0):7.1f}  {max_battery(W, 2.0):7.1f}')
-print('\n   the candidates that were verified:')
-CANDIDATES = [
-    ('Anker Nano A1653          A$49  Scorptec',      76.96, 36.83, 24.89),
-    ('Baseus Compact Type-C 5K  A$46  baseus.com.au', 80.00, 40.20, 25.60),
-    ('UGREEN PB503              no AU stock',         79.00, 38.00, 26.00),
-    ('Anker PowerCore 10000',                         92.00, 60.00, 22.00),
-    ('Anker Nano A1259 10000    wrong part',         103.90, 52.30, 25.90),
-]
-for name, L, W, T in CANDIDATES:
-    ok, why = fits(L, W, T)
-    print(f'      {"FITS" if ok else "no  "}  {name:44s} {L:5.1f}x{W:4.1f}x{T:4.1f}  {why}')
-ck(fits(BAT_L, BAT_W, BAT_T)[0], 'the battery the shim is cut for fits',
-   fits(BAT_L, BAT_W, BAT_T)[1])
-
-print('\n8. Room for the battery\'s own connectors')
-# A 77 mm bank in a 102 mm circle leaves ~25 mm split between its two ends, and
-# the -x end is spoken for. Which way round the battery goes in is therefore not
-# a free choice, and it is the kind of thing that ruins an evening at the bench.
-def wall_x(y): return math.sqrt(max(R_INNER**2 - y**2, 0.0))
-end_neg = wall_x(0) - (BAT_L/2 - BAT_CX)
-end_pos = wall_x(0) - (BAT_CX + BAT_L/2)
-print(f'         -x (6 o\'clock) end: {end_neg:5.2f} mm     +x (12 o\'clock) end: {end_pos:5.2f} mm')
-ck(end_neg < 12.0, 'the 6 o\'clock end has NO room for a plug (so the ports must face 12)',
-   f'{end_neg:.2f} mm')
-# off the screw head's centreline, at y = 6..18, how much is there?
-PLUG_RA = 15.0                      # a slim right-angle USB-C plug, mating face to cable
-worst = min(wall_x(y) - (BAT_CX + BAT_L/2) for y in (6.0, 12.0, 18.0))
-ck(worst >= PLUG_RA, f'a {PLUG_RA:.0f} mm right-angle plug fits at 12 o\'clock, off centre',
-   f'{worst:.2f} mm at y = 6..18')
-side = min(math.sqrt(max(R_INNER**2 - x**2, 0.0)) - BAT_W/2 for x in (-30, -15, 0, 15))
-ck(side >= 12.0, 'room beside the battery to route the mains lead up to it',
-   f'{side:.2f} mm each side')
-ck(POCKET_BATTERY - BAT_T >= 1.4, 'air above the battery', f'{POCKET_BATTERY-BAT_T:.2f} mm')
-
-print('\n9. Cable exit takes a USB-C plug')
-plug = box_lwh(-70, -R_INNER+3.0, -9.0/2, 9.0/2, ZF+2.0, ZF+2.0+4.5)
-ck((mHB ^ plug).volume() < 1e-6, 'a 9.0 x 4.5 mm USB-C plug body passes the exit',
-   f'{(mHB ^ plug).volume():.4f} mm3')
-
-print('\n10. Will the hanger hold it?')
-PLA_RHO, PETG_RHO = 1.24e-3, 1.27e-3          # g/mm3
-parts_g = {
-    'base':          to_trimesh(mBASE).volume * PLA_RHO,
-    'rear housing':  to_trimesh(mHB).volume * PETG_RHO,
-    'shims x2':      2 * to_trimesh(mCR).volume * PLA_RHO,
-}
-fitted_g = {'battery (Anker A1653)': 100.0, 'display module': 25.0,
-            'LED ring': 12.0, 'S3 devkit': 9.0, 'plywood face': 16.0,
-            'wiring + screws': 15.0}
-total = sum(parts_g.values()) + sum(fitted_g.values())
-for k, v in {**parts_g, **fitted_g}.items():
-    print(f'         {k:24s} {v:6.1f} g')
-print(f'         {"TOTAL":24s} {total:6.1f} g')
-W = total * 9.81e-3                            # newtons
-# the shank bears on the slot walls through the plate's thickness
-bearing = KEY_SLOT_W * PLATE_T
-sigma = W / bearing
-ck(sigma < 5.0, 'bearing stress on the keyhole slot is nowhere near PLA yield',
-   f'{sigma:.3f} MPa on {bearing:.1f} mm2, against ~50 MPa')
-# and the plate must not tear out between the slot and the outer wall
-lig = R_INNER - (HANG_R + KEY_SLOT_W/2)
-ck(lig >= 1.5, 'ligament between the slot and the outer wall', f'{lig:.2f} mm')
-shear = W / (2 * lig * PLATE_T)
-ck(shear < 5.0, 'shear on that ligament', f'{shear:.3f} MPa')
-ck(total < 600, 'total hanging mass is sane for one wall screw', f'{total:.0f} g')
-
-print('\n11. Overall stack')
-tb = to_trimesh(mBASE).bounds; hb = to_trimesh(mHB).bounds; hs = to_trimesh(mHS).bounds
-ck(True, 'clock depth, battery variant', f'{tb[1][2]-hb[0][2]:.2f} mm')
-ck(True, 'clock depth, slim variant', f'{tb[1][2]-hs[0][2]:.2f} mm')
-ck(tb[1][2]-hb[0][2] < 60.0, 'battery variant stays under 60 mm deep')
+    print('\n7. The wall hanger')
+    # the head ends up INSIDE the compartment once the clock is dropped on it
+    head = cyl(KEY_HEAD_CLR/2, ZP, ZP + KEY_HEAD_H, 32, centre=(HANG_R, 0))
+    ck((HOUS ^ head).volume() < 1e-3, 'an 8 mm screw head clears the keyhole pocket',
+       f'{(HOUS ^ head).volume():.5f} mm3')
+    ck(KEY_DROP >= 6.0, 'and the clock has to be lifted to come off', f'{KEY_DROP:.1f} mm')
 
 print()
 if FAIL:
-    print(f'PASS 2: {len(FAIL)} FAILURES'); [print('   -',f) for f in FAIL]; sys.exit(1)
-print('PASS 2: every fit and clearance check holds')
+    print(f'PASS 2: {len(FAIL)} FAILURES'); [print('   -', f) for f in FAIL]; sys.exit(1)
+print('PASS 2: every fit and clearance check holds, on both bodies')

@@ -20,14 +20,14 @@ def stack(parts, sep=0.0):
 
 EXPLODE = 26.0
 sets = {
- 'assembled': [('mini-round-clock-base-v2.stl',0,0,False),
-               ('mini-round-clock-rearhousing-battery.stl',0,0,False),
-               ('mini-round-clock-battery-shim-x2.stl', Z_REAR+PLATE_T, 0, False),
-               ('mini-round-clock-battery-shim-x2.stl', Z_REAR+PLATE_T, 0, True)],
- 'exploded':  [('mini-round-clock-base-v2.stl', EXPLODE,0,False),
-               ('mini-round-clock-rearhousing-battery.stl',0,0,False),
-               ('mini-round-clock-battery-shim-x2.stl', Z_REAR+PLATE_T-EXPLODE*1.6, 0, False),
-               ('mini-round-clock-battery-shim-x2.stl', Z_REAR+PLATE_T-EXPLODE*1.6, 0, True)],
+ 'assembled': [('mini-round-clock-base.stl',0,0,False),
+               ('mini-round-clock-housing.stl',0,0,False),
+               ('mini-round-clock-battery-shelf-x2.stl', Z_REAR+PLATE_T, 0, False),
+               ('mini-round-clock-battery-shelf-x2.stl', Z_REAR+PLATE_T, 0, True)],
+ 'exploded':  [('mini-round-clock-base.stl', EXPLODE,0,False),
+               ('mini-round-clock-housing.stl',0,0,False),
+               ('mini-round-clock-battery-shelf-x2.stl', Z_REAR+PLATE_T-EXPLODE*1.6, 0, False),
+               ('mini-round-clock-battery-shelf-x2.stl', Z_REAR+PLATE_T-EXPLODE*1.6, 0, True)],
 }
 A = stack(sets['assembled']); E = stack(sets['exploded'])
 

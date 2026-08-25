@@ -25,7 +25,8 @@ MIN_WALL    = 1.20     # three perimeters at 0.4 mm
 # Sam's base already carries this much shallow sloped overhang: the lead-in ramp
 # at the top of the display-tab slot, 33-40 deg from horizontal. Measured off
 # the uploaded file, not assumed. It is his geometry and it is unchanged.
-INHERITED = {'mini-round-clock-base-v2.stl': 409.1}
+INHERITED = {'mini-round-clock-base.stl': 409.1,
+             'mini-round-clock-base-32.stl': 409.1}
 
 # Sam's base also feathers out to nothing where the tab-slot ramp runs into the
 # ring-pocket floor and the display-pocket wall. Rather than hand-draw boxes
@@ -33,8 +34,10 @@ INHERITED = {'mini-round-clock-base-v2.stl': 409.1}
 # recomputed from the uploaded file at run time and compared cluster to
 # cluster. A slicer will not lay a bead below one extrusion width, so a feather
 # edge is a non-event -- but it must be HIS feather edge, not one I added.
-BASELINE = {'mini-round-clock-base-v2.stl': 'sam-base',
-            'mini-round-clock-diffuser-v3.stl': 'sam-diffuser'}
+BASELINE = {'mini-round-clock-base.stl': 'sam-base',
+            'mini-round-clock-base-32.stl': 'sam-base',
+            'mini-round-clock-diffuser.stl': 'sam-diffuser',
+            'mini-round-clock-diffuser-32.stl': 'sam-diffuser'}
 
 def overlaps(a, b, pad=0.6):
     """Do two thin regions occupy the same (r, z) band?"""
@@ -50,12 +53,15 @@ _samd = csg.to_trimesh(load_sams_diffuser()); _samd.merge_vertices()
 # 0.20 -- that is the whole point of it -- so it is held to that, not to 1.20,
 # and its membrane and cell walls are measured explicitly in check4 instead.
 PARTS = [
-    ('mini-round-clock-base-v2.stl',             'deck face down',  MIN_WALL),
-    ('mini-round-clock-rearhousing-slim.stl',    'rear plate down', MIN_WALL),
-    ('mini-round-clock-rearhousing-battery.stl', 'rear plate down', MIN_WALL),
-    ('mini-round-clock-battery-shim-x2.stl',     'flat',            MIN_WALL),
-    ('mini-round-clock-board-keeper.stl',        'plate down',      MIN_WALL),
-    ('mini-round-clock-diffuser-v3.stl',         'membrane face down', 0.18),
+    ('mini-round-clock-base.stl',                'deck face down',  MIN_WALL),
+    ('mini-round-clock-housing.stl',             'rear plate down', MIN_WALL),
+    ('mini-round-clock-deskstand.stl',           'flat on the desk face', MIN_WALL),
+    ('mini-round-clock-base-32.stl',             'deck face down',  MIN_WALL),
+    ('mini-round-clock-housing-32.stl',          'rear plate down', MIN_WALL),
+    ('mini-round-clock-deskstand-32.stl',        'flat on the desk face', MIN_WALL),
+    ('mini-round-clock-battery-shelf-x2.stl',    'flat',            MIN_WALL),
+    ('mini-round-clock-diffuser.stl',            'face down',       0.18),
+    ('mini-round-clock-diffuser-32.stl',         'face down',       0.18),
 ]
 
 def bridge_span(m, face_idx):
@@ -155,7 +161,12 @@ for fn, orient, min_wall in PARTS:
        f'{foot:.0f} mm2 ({100*foot/bbox:.0f}% of its own footprint)')
 
     # --- sloped overhangs: cannot be bridged, judged by angle ----------------
-    slope = above & (n[:,2] < -1e-6) & (n[:,2] > -0.999) \
+    # A face within 15 degrees of horizontal is a BRIDGE, not a slope -- the
+    # extruder spans it the same way whether it is dead flat or tipped 8 degrees
+    # by a stand's tilt. Judge those by span, below, and only treat the genuinely
+    # sloped band as an overhang.
+    FLAT = -0.966                       # cos(15 deg)
+    slope = above & (n[:,2] < -1e-6) & (n[:,2] > FLAT) \
             & (n[:,2] < -math.sin(math.radians(SLOPE_MIN)))
     a_slope = ar[slope].sum()
     inh = INHERITED.get(fn, 0.0)
@@ -167,11 +178,11 @@ for fn, orient, min_wall in PARTS:
               f'z {zc[slope].min():.1f} to {zc[slope].max():.1f})')
 
     # --- flat ceilings: bridges, judged by how far the extruder is unsupported
-    ceil = above & (n[:,2] < -0.999)
+    ceil = above & (n[:,2] <= FLAT)
     worst, worst_at = 0.0, None
     if ceil.any():
-        for z in np.unique(np.round(zc[ceil], 2)):
-            sel = np.nonzero(ceil & (np.abs(zc - z) < 1e-2))[0]
+        for z in np.unique(np.round(zc[ceil], 0)):
+            sel = np.nonzero(ceil & (np.abs(zc - z) < 3.0))[0]
             if len(sel) < 1: continue
             w, at = bridge_span(m, sel)
             if w > worst: worst, worst_at = w, (z, at)

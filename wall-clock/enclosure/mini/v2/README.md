@@ -1,58 +1,55 @@
-# mini-round-clock enclosure — v2 rear end
+# mini-round-clock enclosure — v6
 
-What this adds to the base and diffuser Sam remodelled: a bay for the ESP32-S3
-that holds it down, a USB-C inlet through the wall, a wall hanger, and a pocket
-for a USB-C power bank.
-
-Everything here is generated from `build_v2.py`, which reads Sam's uploaded
-`base_in.stl` and adds to it. It never redraws his geometry: above z = 0 the
-only differences are four screw pilot holes bored into it and four posts added
-to locate the board, plus the USB-C bay and two more pilots — `check2_fit.py`
-proves that as a boolean difference against a named envelope for each one, not
-by eye.
+Built on top of the base and diffuser Sam remodelled. Two clock sizes now: the
+**24-LED** body at 107.99 mm, which is his, and a **32-LED** body at 119.85 mm,
+which the bigger ring forces. Both get a rear housing that carries the ESP32-S3,
+and both get a desk stand.
 
 ```
 python3 measure_uploaded.py    # re-derive every number in params.py from his STLs
-python3 measure_fit.py         # the tab slot and diffuser features specifically
 python3 build_v2.py            # write the STLs and 3MFs
-./runchecks.sh                 # all five verification passes
+./runchecks.sh                 # five verification passes, both bodies
 python3 render.py              # picture sheets
-python3 viz.py                 # cross-section atlas of the uploaded parts
 ```
 
 `base_in.stl` and `diffuser_in.stl` are Sam's uploads, kept so the whole thing
-re-derives from source. `measure_uploaded.py` prints the table that `params.py`
-holds — if he sends new files, run it and diff.
+re-derives from source. `measure_uploaded.py` prints the table `params.py` holds
+— if he sends new files, run it and diff.
 
 ---
 
 ## Print these
 
-| File | Print orientation | Support | PLA | Time (est.) |
-|---|---|---|---|---|
-| `mini-round-clock-base-v2` | **deck face down** | see note | ~132 g | ~5 h |
-| `mini-round-clock-rearhousing-battery` | **rear plate down** | none | ~73 g | ~3 h |
-| *or* `mini-round-clock-rearhousing-slim` | rear plate down | none | ~57 g | ~2.5 h |
-| `mini-round-clock-battery-shim-x2` | flat | none | ~11 g each, **print 2** | ~20 min |
-| `mini-round-clock-board-keeper` | plate down | none | ~1 g | ~5 min |
-| `mini-round-clock-diffuser-v3` | **face down** | none | ~17 g white PLA | ~55 min |
+Pick a body. Everything in one column goes together; nothing crosses over.
 
-Both `.stl` and `.3mf` are provided, and for these files they carry **identical
-geometry** — `finalise()` quantises to float32 before writing, so the STL round
-trip has already happened and been healed by the time either file is saved. Use
-whichever you prefer; the 3MF just carries units and metadata that Bambu Studio
-likes.
+| | 24-LED (108 mm) | 32-LED (120 mm) |
+|---|---|---|
+| base | `mini-round-clock-base` | `mini-round-clock-base-32` |
+| housing | `mini-round-clock-housing` | `mini-round-clock-housing-32` |
+| diffuser | `mini-round-clock-diffuser` | `mini-round-clock-diffuser-32` |
+| desk stand *(optional)* | `mini-round-clock-deskstand` | `mini-round-clock-deskstand-32` |
+| battery shelves *(optional)* | `mini-round-clock-battery-shelf-x2` — **print two**, either body | |
 
-**Support note for the base.** The part is designed to need none, and the checker
-confirms it introduces none. But Sam's own geometry carries 409 mm² of shallow
-overhang at 33–40° from horizontal — the lead-in ramp at the top of the
-display-tab slot, at z 10.7–17.9. Whether that needs support depends on the
-threshold you slice at; at Bambu's usual settings it will want a little, inside
-the tab slot, which is open and easy to pick out. It is the same in the file Sam
-uploaded, so nothing has changed here.
+| File | Orientation | Support | Solid volume |
+|---|---|---|---|
+| base | **deck face down** | see note | 105 cm³ (24) / 142 cm³ (32) |
+| housing | **rear plate down** | none | 80 cm³ (24) / 95 cm³ (32) |
+| diffuser | **face down, 0.20 mm layers** | none | 13 cm³ (24) / 20 cm³ (32) |
+| desk stand | flat on its desk face | none | 248 cm³ (24) / 296 cm³ (32) |
+| battery shelf ×2 | flat | none | 13 cm³ |
+
+**Those are solid volumes, not filament.** The stand is a big blocky part —
+print it at 8–10% infill with 3 walls and it lands around 60–80 g. Mass is not a
+problem there; it is the counterweight for a 74 mm deep clock.
+
+**Support note for the base.** The part is designed to need none and the checker
+confirms it introduces none, but Sam's own geometry carries 409 mm² of shallow
+overhang at 33–40° — the lead-in ramp at the top of the display-tab slot. That
+is the same in the file he uploaded. It is inside the slot, which is open and
+easy to pick out.
 
 **Material.** PETG rather than PLA if a lithium cell is going in. PLA's glass
-transition is ~55–60 °C; PETG's is ~80 °C. See §5.
+transition is ~55–60 °C; PETG's is ~80 °C. See §7.
 
 ---
 
@@ -127,13 +124,29 @@ across ±41.8°, leaving the ring unsupported over a 83° arc at 12 o'clock. The
 walls put that floor back everywhere the tab is not — the checker measures it at
 100% of the sector outboard of the slot.
 
-### The diffuser is now a press fit
+### The diffuser is a press fit — crush ribs, not a tighter wall
 
-It was **46.000** in a **46.3516** pocket: 0.35 mm radial, **0.70 mm on
-diameter**. It is now **46.4016** — a **0.10 mm diametral interference**.
+v3 grew the diffuser's wall to a **0.10 mm interference on diameter** and Sam
+reported it still loose. That is the right diagnosis to take seriously: 0.10 mm
+is inside a printer's own tolerance, so on a given day the part comes out with
+clearance instead. Making the wall tighter still would just move the coin toss.
 
-If it will not go in, set `DIFF_FIT = 0.00` in `params.py` and rebuild for a
-slip fit. That is the one number.
+v6 does what injection moulders do about exactly this problem:
+
+```
+wall        0.10 mm of CLEARANCE on diameter, so it starts square
+8 crush ribs  1.60 mm wide, 0.35 mm proud
+net           0.60 mm of interference on diameter, at 8 narrow places
+lead-in       a cone takes 0.30 mm off the wall and the ribs over the first
+              1.20 mm, so nothing has to deform until it is already aligned
+```
+
+Eight ribs of 1.6 mm are 4.4% of the circumference, so what has to yield is a
+small amount of plastic in a place that can yield, not the whole ring. It goes
+in with hand pressure and it does not come back out.
+
+**One knob if it is wrong.** `DIFF_RIB_H` in `params.py`. Still loose → raise it
+to 0.45. Will not start → drop it to 0.25. Nothing else changes.
 
 ### One layer over the LEDs
 
@@ -245,135 +258,87 @@ Either way it is one number and a 45-minute print — but the caliper is cheaper
 
 ---
 
-## 2. The ESP32-S3 bay
+## 2. The ESP32-S3 lives in the housing now
 
-The board is the official Espressif outline: **62.74 × 25.40 mm**, from
-`DXF_ESP32-S3-DevKitC-1_V1_20210312CB.pdf`.
+> *"I dont want to use a breakout board for power, move the board more towards
+> the edge so that the power can be connected easily. Also, at the current
+> moment, the new housing is not deep enough to account for the cables coming
+> out of the screen and ESP32. Update the case so that it is at least 50mm deep
+> and the ESP32 sits in the other mini rear round clock housing."*
 
-It does not get a box of its own. Sam's base already has a dog-bone shaped void
-running along the x axis — the rear bore, plus his wire slot at 6 o'clock, plus
-the display-tab window at 12 o'clock — and along the strip |y| ≤ 12.7 that void
-is open from x = −43 to x = +40.7. That is 83.7 mm of clear length for a
-62.74 mm board. So the deck simply gives it a floor.
+All three of those, and they undo most of v5a. The board is out of the base's
+deck bay; the deck is an annular floor again; the beam, the keeper and the
+USB-C breakout are gone.
 
 ```
-deck window   63.64 x 26.30 mm  (0.45 clearance per side)
-board sits at x -24.00 .. +38.74, y +/-12.70
-  -x corner r = 27.15  (bore wall is at 27.78)
-  +x corner r = 40.77  (tab window reaches 42.66)
-PCB occupies z -0.80 .. +0.80, tallest parts reach z +4.00
-display seat is at z +8.60                        -> 4.60 mm of air above
+housing            50.00 mm deep, 46.50 mm of clear pocket
+clock overall      74.40 mm  (22.00 base + 2.40 deck + 50.00 housing)
+board              62.74 x 25.40, on 4.00 mm posts off the pocket floor
+                   x -48.50 .. +14.24, tops out 8.80 mm above the floor
+battery, if fitted on its two shelves at 12.00 mm, so 24.89 mm of cell
+still free         11.31 mm for the display's ribbon and the ring's leads
 ```
 
-**It loads from the rear, tilted +x end up.** This is the part v5a fixes: with a
-3.00 mm ledge at *both* ends the opening was 57.64 mm against a 62.74 mm board,
-and no tilt gets a rigid board through that — the old instruction "push it up
-until it meets the ledges" could not actually be carried out. The ledges are now
-**1.50 mm**, which leaves a 60.19 mm gap, so the board goes in at 17.9° and
-swings flat. `check5_v5a.py` walks the real mesh through that motion in
-half-degree steps and proves every pose is clear of the base.
+That last line is the point of the whole change. The old 15.0 and 27.5 mm
+pockets had the board *and* the cables competing for the same space behind the
+display; there is now a floor for the board, a shelf for the battery, and 11 mm
+of nothing above both of them.
 
-It has to go **+x end up**: at 17.9° the raised end needs z = 8.87, and the tab
-window at that end is open to 11.80 while the bore at the other end stops at
-8.60.
+### Its own connector, straight out through the wall
 
-The ledges are at the two **short** ends only — the DevKitC-1 carries its pad
-rows down both long edges, 1.27 mm in, and a ledge there would foul any soldered
-header.
+The board sits as far out at 6 o'clock as its own corners allow. At
+|y| = 13.15 the pocket wall is at x = −49.27, so the board's end is at
+**−48.50** — 0.77 mm of margin at the corners — and its connector looks straight
+out through a **22 × 6 mm window** in the rim.
 
-### What holds it, now that something does
+The window is that generous on purpose. **Which connector the board carries is
+still not a settled fact**: Espressif's own DevKitC-1 v1.1 user guide calls both
+ports Micro-USB, while the boards widely sold under that name have two USB-C.
+22 × 6 clears either, in either position, and nothing else in the design depends
+on knowing.
 
-Three things, and between them the board has 0.20 mm of movement in every
-direction:
+A plug's overmold ends up about **1 mm outside the rim**, so ~19 mm of it stands
+proud and can be gripped. On a wall the lead hangs straight down. On the desk
+stand that 19 mm is the number that sets how high the stand holds the clock —
+see §5.
 
-| | what stops it | float left |
+**No breakout board, and nothing to buy.** BOM item 11 (Adafruit ADA4090) is
+withdrawn.
+
+### What holds the board
+
+| | what stops it | float |
 |---|---|---:|
-| out the back (−z) | the two 1.50 mm ledges | 0 |
-| into the clock (+z), USB end | the **beam** at z 4.20 | 0.20 mm |
-| into the clock (+z), far end | the **keeper's tongue** at z 1.00 | 0.20 mm |
-| sideways | the window walls, 0.45 mm per side | 0.45 mm |
+| down | four posts under it, inboard of the pad rows | — |
+| up, +x end | a hook 0.20 mm over the bare end of the board | 0.20 mm |
+| up, −x end | two arms **above everything the board carries** | 3.4 mm |
+| sideways | the posts and the pocket wall | — |
 
-**The beam** spans the board's USB end at z 4.20 — 0.20 mm above the tallest
-thing the board carries (BOARD_TALL = 3.20 on a PCB whose top is at 0.80). It is
-deliberately *above* everything rather than *on* the PCB edge, so it cannot foul
-a connector or a soldered header whatever the board's exact layout. Its pillars
-stand at x = −20 rather than over the board's end at −24 for a measured reason:
-the bore is r = 27.78, so at x = −24 it is only open to |y| < 13.99 against a
-deck window that already reaches 13.15 — 0.84 mm of landing. At x = −20 the bore
-opens to |y| < 19.30 and the pillars get a 3 mm footprint.
+The two ends are held differently for a reason. The last 2.50 mm of the board's
+**+x** end is bare PCB — the two 22-pin rows are 21 × 2.54 = 53.34 mm on a
+62.74 mm board, so 4.70 mm is clear at each end — so a hook there can sit 0.2 mm
+over it and take the float out. At the **−x** end the wall is the USB window and
+the long edges are the pad rows, so that pair sits above the tallest thing the
+board carries instead. It cannot foul a connector or a soldered header whatever
+your board's layout; it leaves 3.4 mm of lift at that end, which does not matter
+when gravity acts in the board's own plane.
 
-**The keeper** is a separate printed part, 1 g, two M3 screws, and it goes on
-*after* the board. It has to be separate: a fixed tongue over the +x end would
-block the tilt-in, and a fixed tongue over the −x end would land on the USB
-connectors. Its pilots sit at r = 46.76 — outside the tab window (42.66), outside
-the tab-slot walls (43.50) and outside the ring pocket (46.35) — so they bite
-solid base for their whole 6 mm rather than self-tapping a 2.4 mm deck.
-
-The tongue covers the last 2.00 mm of the board's +x end, ±9.00 in y. **One
-assumption, and one caliper glance to check it:** that strip is bare PCB. On the
-DevKitC-1 the two 22-pin rows are 21 × 2.54 = 53.34 mm long on a 62.74 mm board,
-which leaves 4.70 mm clear at each end. If your board puts something there, set
-`KEEP_TONGUE_Z0 = 4.20` and it clamps over the top of it instead, with the same
-0.20 mm of float.
-
-**If your board has male headers soldered pointing down**, snip them or it will
-not seat — there is 1.6 mm under the PCB, which takes solder joints but not pins.
-
-### Powering it, and the USB-C inlet
-
-> *"make sure ... the USB connector can be connected externally from the outside
-> of the wall. I may or may not use a USB battery or USB power supply."*
-
-Feed the board's **5V and GND pins**, not its own USB port. Two reasons, and the
-second one is new:
-
-1. A USB-C plug is ~20 mm long, and from the board's connector at x = −24 it
-   would end 30 mm short of the rim — the plug would be swallowed inside the
-   clock with no way to grip it.
-2. **Which connector the board even has is not settled.** Espressif's own v1.1
-   user guide calls both ports *Micro-USB*; the boards widely sold as
-   "ESP32-S3-DevKitC-1" carry two Type-C. Nothing that depends on the board's own
-   connector is safe to design around, so nothing here does.
-
-So the inlet is its own USB-C socket at 6 o'clock, wired to the 5V and GND pins:
-
-```
-plug channel  13.00 x 7.20 mm through the wall, z 0.30 .. 7.50
-socket mouth  x = -47.00, i.e. 6.99 mm inside the rim
-breakout bay  20.40 x 14.20 x 5.00, PCB on a shelf at z 0.60
-lips          z 2.50 .. 4.00, reaching to +/-5.50 -- over the PCB, clear of the
-              8.94 mm connector shell by 1.03 mm
-```
-
-Two things make that safe to pull on. The channel is **13.00 mm wide and the
-breakout PCB is 14.20**, so the PCB butts a 0.60 mm shoulder each side and
-pulling the plug cannot drag the breakout out through the wall. And the socket
-sits 6.99 mm in, so about 13 mm of a 20 mm overmold stands proud of the rim —
-enough to get hold of.
-
-**The part.** Adafruit **ADA4090**, "USB C Breakout Board – Downstream
-Connection", 20.4 × 14.2 × 5.0 mm, with **two 5.1 kΩ resistors on CC1**.
-A$5.40 inc GST at Core Electronics, on backorder when I checked. **Nothing has
-been ordered.** The CC resistors are not optional: without them a USB-C charger
-or power bank never turns 5 V on at all.
-
-Wire VBUS → the board's 5V pin and GND → GND. It powers the clock from a USB
-supply *or* from a power bank, and both work whether or not the battery pocket is
-used — which is what "I may or may not" needed.
-
-For flashing, take the rear housing off (4 screws), undo the keeper's two M3s and
-the board lifts straight out. After the first flash it is OTA over WiFi anyway.
-
----
+It goes in tilted, and that is easy now: there is 37 mm of empty pocket above it.
 
 ## 3. The rear housing
 
-Two variants, identical apart from pocket depth:
+One housing now, not two. It is the electronics box: the S3, the battery if you
+want one, the cables, the hanger and the vents.
 
-| | pocket | housing | clock overall |
-|---|---:|---:|---:|
-| `-slim` | 15.0 mm | 18.5 mm | **44.4 mm** |
-| `-battery` | 27.5 mm | 31.0 mm | **55.4 mm** |
+| | |
+|---|---:|
+| depth | **50.00 mm** |
+| clear pocket | 46.50 mm |
+| clock overall | **74.40 mm** |
+| screws to the base | 4 × M3 self-tapping, **M3 × 60** |
+
+The slim and battery variants are gone. Sam asked for at least 50 mm and the
+board now lives in here, so there is nothing left for a shallower one to do.
 
 ### Wall hanger
 
@@ -432,27 +397,96 @@ sealed oven.
 
 ## 4. Assembly order
 
-1. Print the base, the housing you want, **two** shims and the keeper.
-2. **USB-C breakout first.** From inside the bore, slide it −x along the bay's
-   rails and under the lips until its PCB edge butts the channel shoulder at
-   x = −47. Nothing else fits past it once the S3 is in.
-3. Fit the display and ring to the base, front side.
-4. **S3 in from the rear, tilted +x end up**, about 18°: put the raised end up
-   into the tab window, swing it flat, and let it settle onto the two ledges.
-5. Keeper on: tongue over the board's +x end, 2 × M3 × 12 self-tapping.
-6. Solder the ring and display leads to the board. Run the breakout's VBUS and
-   GND to the board's **5V and GND pins**.
-7. If you are fitting a battery: in the housing with a shim either side, output
-   lead up through the deck port at 6 o'clock (the slot at y +10 … +13) to the
-   same 5V/GND pins, and its input from the USB-C inlet.
-8. Screw the housing on, 4 × M3.
-9. One screw in the wall, 4 mm shank, head no more than 8 mm. Hang it.
-10. Plug a USB-C cable into the inlet at the bottom of the clock. No opening it
-    up to power it, ever again.
+1. Print a base, a housing, a diffuser — all from the **same column** of the
+   table at the top — and the two battery shelves if you are fitting a cell.
+2. Ring and display into the base from the front. Diffuser pressed in after
+   them: it goes square, then the eight crush ribs bite.
+3. **S3 into the housing**, tilted: slide the +x end under its hook, drop the
+   −x end, and it settles onto its four posts with its connector facing the
+   window at 6 o'clock.
+4. Battery, if you are fitting one: a shelf either side, cell on top of the
+   pair — it never rests on the board.
+5. Solder the ring and display leads to the board. They come down through the
+   deck's openings: the ribbon at 12 o'clock, the ring's leads at 6.
+6. Housing on: 4 × M3 × 60 self-tapping.
+7. Either hang it — one screw in the wall, 4 mm shank, head no wider than 8 mm
+   — or drop it in the desk stand.
+8. Plug a USB lead into the window at the bottom of the rim.
 
 ---
 
-## 5. The battery — read this before buying anything
+## 5. The desk stand
+
+> *"build a stand for the clock to go in so that it can sit on a desk too. But
+> the stand is another print that the clock sits in."*
+
+A separate print. The clock drops into a cylindrical cradle cut to the body's
+own radius plus 0.35 mm, so it contacts along an arc rather than at points,
+and leans back 8°.
+
+```
+cradle      coaxial with the clock, wrapping +/-55 deg about bottom dead centre
+stop wall   inner r 46, behind the clock's rear face -- it cannot slide back
+arch        a 45-degree gable through it front to back: halves the filament and
+            is the cable route
+footprint   108 x 85 mm (24) / 120 x 85 mm (32), stands 59 / 61 mm tall
+tips at     22 deg backwards, 29 deg forwards
+```
+
+**The one number that is not a style choice is the height.** The clock's USB
+socket is at 6 o'clock — exactly where a cradle wants to hold it — and a plug's
+overmold stands about 19 mm proud, pointing at the desk, 64 mm back from the
+front face where the 8° tilt has already dropped the rim 8.8 mm. So the clock
+sits **36 mm off the desk** and there is a slot right through the stand for the
+plug and its lead, opening at the back.
+
+If you will use a **right-angle** USB lead, that only needs about 8 mm: set
+`STAND_LIFT = 24` and rebuild for a stand 12 mm shorter.
+
+The cradle deliberately misses everything on the clock: it wraps 125–235°, the
+vents are at 43–107° and 253–317°, and the wall keyhole is at 12 o'clock. Two of
+the four housing screws end up behind the stop wall — recessed, so nothing
+binds, but take the clock out of the stand to reach them.
+
+---
+
+## 6. The 32-LED body
+
+> *"make another version for an LED ring of the same brand that has 32 LED's.
+> The outside width is 111.85mm and the inside is 96mm"*
+
+**That ring does not fit the clock.** 111.85 mm across against a 107.99 mm body
+— it is 3.86 mm too wide, and the pocket it needs reaches r = 56.42 against an
+outer wall at 53.99. So the body grows to **119.85 mm**.
+
+Everything inside **r = 46** is Sam's and is kept exactly: the bore, the display
+pocket and seat, the display-tab window, his wire slot. Only the outer ring is
+replaced — his ring pocket, outer wall and face recess — and `check2` proves that
+as a boolean difference, not by eye.
+
+```
+ring pocket   r 47.50 .. 56.42, floor still at z = 11.80
+LED circle    r 51.96
+outer wall    3.50 mm, body r 59.93
+face recess   r <= 57.93, still 3 mm deep at z = 19
+screws        moved to r 44.00 at 60/120/240/300 deg -- at 49 they would have
+              bored straight into the new ring pocket
+ring leads    a slot at 6 o'clock from the pocket down to the deck
+```
+
+His old ring pocket is filled in to **z = 17.00**, which becomes the shelf the
+new diffuser's face lands on. The display tab's slot is cut back out of that
+fill, or the tab could not be got in.
+
+**One thing to know before you commit to it.** With the LEDs out at r = 52 and
+the 2.1″ display ending at r = 30, there is a **22 mm wide blank annulus**
+between the screen and the lit ring. The plywood face covers it, and it is a
+different look from the 24-LED version — much more ring, much less screen. Worth
+holding the printed face plate up before cutting plywood for it.
+
+---
+
+## 7. The battery — read this before buying anything
 
 **A battery this size cannot run this clock. It is a UPS for outages.**
 
@@ -535,48 +569,45 @@ the alternative if the Anker fails its test — is in **`docs/BATTERY.md`**.
 
 ---
 
-## 6. What is verified and what is not
+## 8. What is verified and what is not
 
-**Verified here, by running it:**
+**Verified here, by running it — nine parts, two bodies, five passes:**
 
-- Every part is a closed, single-body, self-intersection-free solid (`check1`)
-- Sam's geometry above z = 0 differs by exactly six screw pilots, two posts, the
-  beam, the tab-slot walls and the USB-C bay, and nothing else — measured as a
-  boolean difference against a named envelope for each, not eyeballed (`check2`)
-- The diffuser is watertight, one body, 0 non-manifold edges — the first version
-  of it that is, because the LED band is rebuilt rather than patched (`check1`)
-- The S3 can physically be got in: the tilt-in is walked through on the real mesh
-  in half-degree steps, and every pose is clear (`check5`)
-- The board has 0.20 mm of float in every direction once the keeper is on, and
-  neither the beam nor the tongue touches the PCB or anything on it (`check5`)
-- A full-size USB-C overmold — 12.35 × 6.50 mm, the USB-IF maximum — reaches the
-  socket from outside the rim without touching the base (`check5`)
-- The board, the battery, an M3 shank, an 8 mm screw head and a USB-C plug body
-  each fit where they have to, with the clearances printed (`check2`)
-- The base and the housing touch only at the mating plane — zero interference
-  volume (`check2`)
-- No part introduces a sloped overhang below 45°, a flat ceiling over 25 mm, or
-  a wall thinner than 1.2 mm that is not already in Sam's file (`check3`)
+- Every part is a closed, single-body, self-intersection-free solid, and the two
+  volume calculations agree to 0.0000% (`check1`)
+- Inside r = 46 nothing of Sam's is removed but the screw pilots, and nothing is
+  added but the tab-slot walls — measured as a boolean difference against a
+  named envelope, not eyeballed (`check2`)
+- Each ring drops into its own pocket with the pocket bracketing it on both
+  edges and a real wall outboard (`check2`)
+- The board fits the housing, its posts are under it, its hooks are over it, the
+  window is bored right through the wall and a plug reaches the board from
+  outside (`check2`)
+- Base and housing touch only at the mating plane — zero interference volume —
+  and the clock is 74.40 mm deep with 11.31 mm of cable room left after a board
+  and a battery (`check2`)
+- No part introduces a sloped overhang below 45°, a flat ceiling spanning more
+  than 25 mm, or a wall thinner than 1.2 mm that is not already in Sam's file
+  (`check3`)
+- Every cell has a tick, every wall is full height, the hours are debossed, and
+  the crush ribs are all there and chamfered (`check4`)
+- The clock sits in the stand without interference, lifts straight out over
+  40 mm, is stopped from sliding back, and a full-size plug clears the desk by
+  7.9 mm with the lead running out the back (`check5`)
 
 **Not verified — these need hands or a purchase:**
 
-- Nothing has been sliced. Print time and mass are estimates from volume.
-- The display module's 4 mm thickness is Sam's measurement of the whole module,
-  not of the rim the collar lands on. §1 turns on it.
-- The USB-C breakout (ADA4090, A$5.40 at Core Electronics) is priced and
-  dimensioned from the vendor's own listing, but **nothing has been ordered** and
-  I have not had one in my hand. The bay is drawn to the published
-  20.4 × 14.2 × 5.0 mm.
-- Which USB connector the ESP32-S3 board itself carries is *not* settled — see
-  §2. Nothing in the design depends on it, which is the point.
-- The keeper's tongue assumes the last 2.00 mm of the board's +x end is bare
-  PCB. Derived, not measured: 22-pin rows are 53.34 mm on a 62.74 mm board.
-- The 95 mA display figure is the weakest number in the budget — it is
-  extrapolated from a smaller GC9A01 module, because the 2.1" drawing lists
-  luminance as "TBA" and gives no LED current. An inline meter settles it in ten
-  minutes and could change the battery decision.
-- The ring's die revision is unknown; V5 versus original silicon is a 2×
-  difference in per-channel current. Power the ring alone, write all zeros, read
-  the supply current: ~14 mA means V5, ~24–36 mA means older.
-- The interior temperature rise is an estimate, and the safety argument in §5
+- Nothing has been sliced. Print times and masses are from volume.
+- **Which USB connector the ESP32-S3 board carries.** Espressif's v1.1 guide
+  says Micro-USB; the boards sold as DevKitC-1 have two Type-C. The 22 × 6 mm
+  window is sized to make it not matter, but I have not held one.
+- The +x hook assumes the last 2.50 mm of that end of the board is bare PCB.
+  Derived from the 22-pin row length, not measured.
+- The display module's rim thickness at r = 29, which sets `COLLAR_EXTEND`.
+- The 32-LED ring itself: 111.85 / 96 mm and 32 LEDs are Sam's numbers, taken as
+  given. Nothing about that ring has been checked against a listing.
+- Crush-rib interference of 0.60 mm on diameter is a judgement from moulding
+  practice, not a measurement on this printer. `DIFF_RIB_H` is the one knob.
+- The 95 mA display figure is still the weakest number in the power budget.
+- The interior temperature rise is an estimate, and the safety argument in §7
   rests on it. Worth a probe before a cell goes in.

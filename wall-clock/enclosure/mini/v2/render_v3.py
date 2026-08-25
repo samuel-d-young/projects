@@ -39,9 +39,9 @@ def segs_plane(m, ax_u):
     return np.array(o) if o else np.zeros((0,2,2))
 
 OLD_B = csg.to_trimesh(load_sams_base())
-NEW_B = trimesh.load('mini-round-clock-base-v2.stl'); NEW_B.merge_vertices()
+NEW_B = trimesh.load('mini-round-clock-base.stl'); NEW_B.merge_vertices()
 OLD_D = csg.to_trimesh(load_sams_diffuser())
-NEW_D = trimesh.load('mini-round-clock-diffuser-v3.stl'); NEW_D.merge_vertices()
+NEW_D = trimesh.load('mini-round-clock-diffuser.stl'); NEW_D.merge_vertices()
 
 fig = plt.figure(figsize=(16, 10.5))
 gs = fig.add_gridspec(2, 2, hspace=0.22, wspace=0.16)
