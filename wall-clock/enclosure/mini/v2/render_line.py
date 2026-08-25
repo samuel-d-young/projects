@@ -54,19 +54,15 @@ def face(ax, B, title, sub):
         for k, (gr, ga) in enumerate(halo):
             tick_patch(ax, a, B.tick_ri, B.tick_ro, TICK_W, col,
                        ga*(alpha if on else 1.0), 3+k, gr)
-    for h in range(12):
-        a = 90.0 - h*30.0
-        key = int(round(a)) % 360
-        if key in NUMERALS:
-            ax.text(B.num_r*math.cos(math.radians(a)), B.num_r*math.sin(math.radians(a)),
-                    NUMERALS[key], ha='center', va='center', fontsize=8.5,
-                    color=INK, zorder=6, family='DejaVu Sans', weight='bold')
-            continue
-        ri, ro = (B.mark_ri_maj, B.mark_ro_maj) if h % 3 == 0 else (B.mark_ri, B.mark_ro)
-        lw = (MARK_W_MAJ if h % 3 == 0 else MARK_W) * 1.6
-        r_ = math.radians(a)
-        ax.plot([ri*math.cos(r_), ro*math.cos(r_)], [ri*math.sin(r_), ro*math.sin(r_)],
-                color=INK, lw=lw, zorder=6, solid_capstyle='round')
+    # All twelve now, and no plain marks. Drawn in the VIEWER's frame: on the
+    # clock +x is up and -y is right, so the whole face is the model turned 90
+    # degrees, and hour h -- at model angle -30h -- lands at 90 - 30h here.
+    for h in range(1, 13):
+        a = 90.0 - (h % 12)*30.0
+        ax.text(B.num_r*math.cos(math.radians(a)), B.num_r*math.sin(math.radians(a)),
+                NUMERALS[h], ha='center', va='center',
+                fontsize=8.5*(B.num_h/NUM_H_24),
+                color=INK, zorder=6, family='DejaVu Sans', weight='bold')
     ax.add_patch(Circle((0,0), DISP_ACTIVE_D/2, fc='#0b0d10', ec='#2a2e35', lw=1.0, zorder=7))
     ax.text(0, 3.5, '10:09', ha='center', va='center', fontsize=17,
             color='#dfe3ea', zorder=8, family='DejaVu Sans')

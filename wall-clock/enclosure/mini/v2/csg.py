@@ -110,7 +110,7 @@ def slab_chamfer(dx, dy, z0, z1, chamfer, centre=(0,0)):
     return (lo + hi).hull().translate([centre[0], centre[1], 0])
 
 # ---------------------------------------------------------------- text
-def text_polys(txt, height, family='DejaVu Sans', weight='bold'):
+def text_polys(txt, height, family='DejaVu Sans', weight='bold', fontfile=None):
     """Glyph outlines for `txt`, scaled to `height` and centred on the origin.
 
     Returns a list of contours; the counters in 6, 9 and 0 come back as their
@@ -118,8 +118,9 @@ def text_polys(txt, height, family='DejaVu Sans', weight='bold'):
     """
     from matplotlib.textpath import TextPath
     from matplotlib.font_manager import FontProperties
-    tp = TextPath((0, 0), txt, size=100.0,
-                  prop=FontProperties(family=family, weight=weight))
+    prop = (FontProperties(fname=fontfile) if fontfile
+            else FontProperties(family=family, weight=weight))
+    tp = TextPath((0, 0), txt, size=100.0, prop=prop)
     polys = [np.asarray(p, dtype=np.float64) for p in tp.to_polygons() if len(p) >= 3]
     if not polys:
         raise ValueError(f'no outline for {txt!r}')
@@ -130,12 +131,27 @@ def text_polys(txt, height, family='DejaVu Sans', weight='bold'):
     return [(p - c) * k for p in polys]
 
 
-def text_prism(txt, height, centre, z0, z1, angle_deg=0.0, **kw):
-    """Extruded text, centred on `centre`, rotated `angle_deg` about its centre."""
+def text_prism(txt, height, centre, z0, z1, angle_deg=0.0, mirror=False, **kw):
+    """Extruded text, centred on `centre`, rotated `angle_deg` about its centre.
+
+    `mirror` swaps the glyph's own x and y before placing it. That is a
+    reflection, and it is there for text that will be READ FROM THE OTHER SIDE:
+    the diffuser is modelled with its visible face at z=0 and everything else
+    behind it, so it is installed turned over, and text laid out the ordinary
+    way comes out back to front. Reflecting it in the model and then viewing it
+    from the far side cancels out -- including the digit order, so "12" still
+    reads 12 and not 21. It also swaps the axes: with mirror on, the glyph's
+    "up" is +x and its "right" is +y.
+    """
     a = math.radians(angle_deg)
     ca, sa = math.cos(a), math.sin(a)
-    cs = CrossSection([[(x*ca - y*sa + centre[0], x*sa + y*ca + centre[1])
-                        for x, y in p]
+
+    def place(x, y):
+        if mirror:
+            x, y = y, x
+        return (x*ca - y*sa + centre[0], x*sa + y*ca + centre[1])
+
+    cs = CrossSection([[place(x, y) for x, y in p]
                        for p in text_polys(txt, height, **kw)],
                       fillrule=FillRule.EvenOdd)
     return Manifold.extrude(cs, z1 - z0).translate([0.0, 0.0, z0])

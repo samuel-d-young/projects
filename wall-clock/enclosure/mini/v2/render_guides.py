@@ -70,18 +70,13 @@ for k in range(B.n):
         b.add_patch(Polygon([(x*(1+gr/100), y*(1+gr/100)) for x,y in P],
                             closed=True, fc=col, alpha=al, ec='none',
                             zorder=3, lw=0))
-for h in range(12):
-    ang = 90.0 - h*30.0
-    key = int(round(ang)) % 360
-    if key in NUMERALS:
-        b.text(NUM60_R*math.cos(math.radians(ang)), NUM60_R*math.sin(math.radians(ang)),
-               NUMERALS[key], ha='center', va='center', fontsize=11, color='#8d8778',
-               zorder=6, weight='bold')
-        continue
-    ri, ro = (MARK60_RI_MAJ, MARK60_RO_MAJ) if h%3==0 else (MARK60_RI, MARK60_RO)
-    r_ = math.radians(ang)
-    b.plot([ri*math.cos(r_), ro*math.cos(r_)], [ri*math.sin(r_), ro*math.sin(r_)],
-           color='#8d8778', lw=2.6 if h%3==0 else 1.7, zorder=6, solid_capstyle='round')
+# All twelve, in the viewer's frame -- see render_line.py
+NR = BV.BODY60.num_r
+for h in range(1, 13):
+    ang = 90.0 - (h % 12)*30.0
+    b.text(NR*math.cos(math.radians(ang)), NR*math.sin(math.radians(ang)),
+           NUMERALS[h], ha='center', va='center', fontsize=11, color='#8d8778',
+           zorder=6, weight='bold')
 b.add_patch(Circle((0,0), DISP_ACTIVE_D/2, fc='#0b0d10', ec='#2a2e35', lw=1.0, zorder=7))
 b.text(0, 3.5, '10:09', ha='center', va='center', fontsize=17, color='#dfe3ea', zorder=8)
 b.set_xlim(-128,128); b.set_ylim(-128,128); b.set_aspect('equal'); b.axis('off')

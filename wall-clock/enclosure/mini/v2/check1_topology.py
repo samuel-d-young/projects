@@ -15,6 +15,13 @@ def check(cond, msg, detail=''):
 _src = trimesh.load('diffuser_in.stl', process=False); _src.merge_vertices()
 SOURCE_AMBIGUITY = abs(to_manifold(_src).volume() - _src.volume) / _src.volume * 100
 
+# the numeral inlays are twelve separate solids (and the two-digit ones are two
+# each), so "exactly one connected body" is the wrong question for them -- every
+# shell is checked on its own instead
+MULTI = {'mini-round-clock-numerals.stl',
+         'mini-round-clock-numerals-32.stl',
+         'mini-round-clock-numerals-60.stl'}
+
 PARTS = [('mini-round-clock-base.stl', True),
          ('mini-round-clock-housing.stl', True),
          ('mini-round-clock-diffuser.stl', True),
@@ -28,6 +35,9 @@ PARTS = [('mini-round-clock-base.stl', True),
          ('mini-round-clock-diffuser-60.stl', True),
          ('mini-round-clock-deskstand-60.stl', True),
          ('mini-round-clock-light-guides-60.stl', True),
+         ('mini-round-clock-numerals.stl', True),
+         ('mini-round-clock-numerals-32.stl', True),
+         ('mini-round-clock-numerals-60.stl', True),
          ('mini-round-clock-battery-shelf-x2.stl', True)]
 
 for name, strict in PARTS:
@@ -37,7 +47,13 @@ for name, strict in PARTS:
     if strict: check(m.is_watertight, 'watertight (no holes in the surface)')
     check(m.is_winding_consistent, 'winding consistent')
     check(m.volume > 0, 'positive volume (normals point outward)', f'{m.volume:.1f} mm3')
-    check(m.body_count == 1, 'exactly one connected body', f'got {m.body_count}')
+    if name in MULTI:
+        shells = m.split(only_watertight=False)
+        ok = all(p.is_watertight and p.volume > 0 for p in shells)
+        check(ok, f'all {len(shells)} shells closed and positive',
+              'twelve numerals; the two-digit ones are two shells each')
+    else:
+        check(m.body_count == 1, 'exactly one connected body', f'got {m.body_count}')
     # every edge used exactly twice
     cnt = collections.Counter(map(tuple, m.edges_sorted))
     bad = sum(1 for v in cnt.values() if v != 2)

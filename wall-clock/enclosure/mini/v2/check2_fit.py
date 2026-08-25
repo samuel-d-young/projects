@@ -41,19 +41,22 @@ for B, tg in BODIES:
         c = cyl(SCREW_PILOT/2 + 0.05, -1, Z_BACK+SCREW_DEPTH+0.05, 48, centre=(x, y))
         allow_rm = c if allow_rm is None else allow_rm + c
     if B.n != 24:
-        allow_rm += box_lwh(-B.r_ring_o - 1.0, WIRE_SLOT_END + 3.1,
-                            -WIRE32_HW - 0.05, WIRE32_HW + 0.05,
-                            Z_DECK - 1.0, Z_RING_FLOOR + 0.05)
+        # the wire gap -- the same +/-13.00 mm channel Sam's own base has, but
+        # carried out to the bigger ring's inner edge and open to the shelf
+        allow_rm += box_lwh(-B.r_ring_o - 2.05, -R_BORE + 4.05,
+                            -WIRE_SLOT_HW - 0.05, WIRE_SLOT_HW + 0.05,
+                            Z_DECK - 1.0, Z_RECESS - B.band_top + FACE_T + 0.05)
     ck((removed - allow_rm).volume() < 0.05,
        f'inside r={keep_r:.0f} nothing is removed but the pilots'
-       + ('' if B.n == 24 else ' and the ring-lead slot'),
+       + ('' if B.n == 24 else ' and the wire gap'),
        f'{(removed - allow_rm).volume():.4f} mm3 outside them')
     wall_env = (wedge(TAB_WALL_RI - 0.10, TAB_WALL_RO + 0.10, Z_BACK - 0.05,
                       TAB_WALL_TOP + 0.10, -TAB_WALL_AHALF - 0.2, TAB_WALL_AHALF + 0.2)
                 - box_lwh(-1.0, 60.0, -TAB_SLOT_HW, TAB_SLOT_HW, Z_BACK - 1.0, TAB_CHAMF_Z))
     allow_add = wall_env
     if B.n != 24:
-        allow_add += tube(34.50, KEEP_R32, 10.30, 17.10, SEG)
+        allow_add += tube(34.50, KEEP_R32, 10.30,
+                          Z_RECESS - B.band_top + FACE_T + 0.10, SEG)
     ck((added - allow_add).volume() < 0.05,
        'and nothing is added but the tab-slot walls'
        + ('' if B.n == 24 else ' and the pocket fill'),
@@ -143,6 +146,54 @@ for B, tg in BODIES:
     left = POCKET_DEEP - (BRD_POST_H + BOARD_T + BOARD_TALL) - BAT_T - 1.5
     ck(left > 8.0, 'with the board and a battery in, there is still cable room',
        f'{left:.2f} mm above the battery')
+
+    print('\n8. The wire gap, from the ring to the middle')
+    # Sam: "there is a gap between the LED and the middle to fit the wires going
+    # to the centre from the LED rings". His own 108 mm base has it as a shaft at
+    # 6 o'clock, open TOP TO BOTTOM -- so a lead leaves the ring at ring level,
+    # travels inward, and drops, without being bent flat against the floor first.
+    ring_top = B.ring_floor + PCB_T + LED_H
+    LEAD_HW = 4.0                       # an 8 mm bundle: three wires and slack
+    at_ring = box_lwh(-(B.ring_id/2 - 0.5), -(R_BORE + 0.5),
+                      -LEAD_HW, LEAD_HW, B.ring_floor, ring_top)
+    ck((BASE ^ at_ring).volume() < 1e-3,
+       'a lead can leave the ring and run inward at ring level',
+       f'{2*LEAD_HW:.0f} mm wide, r {R_BORE+0.5:.1f}..{B.ring_id/2-0.5:.1f}, '
+       f'{(BASE ^ at_ring).volume():.5f} mm3 in the way')
+    shaft = box_lwh(-(B.ring_id/2 - 0.5), -(R_BORE + 0.5),
+                    -LEAD_HW, LEAD_HW, Z_DECK, ring_top)
+    ck((BASE ^ shaft).volume() < 1e-3,
+       '...and then straight down to the deck, with nothing to bend round',
+       f'open z {Z_DECK:.1f}..{ring_top:.1f}, {(BASE ^ shaft).volume():.5f} mm3 in the way')
+
+    print('\n9. How much of the diffuser is actually inside the bore')
+    # The diffuser is modelled face-at-z=0 and goes in turned over. Find where it
+    # comes to rest -- the deepest position at which nothing but the crush ribs
+    # is touching -- and measure the contact from the built files.
+    def place(C):
+        d = load(f'mini-round-clock-diffuser{tg}.stl')
+        d.apply_transform(np.diag([1.0, -1.0, -1.0, 1.0]))
+        d.apply_translation([0, 0, C])
+        return to_manifold(d)
+    def ribs_only(C):
+        ov = BASE ^ place(C)
+        if ov.volume() < 0.01: return True
+        t = to_trimesh(ov)
+        return np.hypot(*t.vertices[:, :2].T).min() > B.diff_outer - 0.05
+    lo, hi = Z_RECESS - 2.0, Z_RECESS + 6.0
+    for _ in range(18):
+        mid = (lo + hi) / 2
+        if ribs_only(mid): hi = mid
+        else: lo = mid
+    seat = hi
+    ov = to_trimesh(BASE ^ place(seat))
+    grip = ov.bounds[1][2] - ov.bounds[0][2] if ov.volume > 1e-9 else 0.0
+    ck(grip >= 2.0, 'the crush ribs grip over a real length, not a lip',
+       f'{grip:.2f} mm of contact, z {ov.bounds[0][2]:.2f}..{ov.bounds[1][2]:.2f}, '
+       f'face resting at z={seat:.2f}')
+    ck(seat - B.band_top > ring_top,
+       'and the band still stops short of the LEDs',
+       f'band bottom z={seat - B.band_top:.2f} against a ring top of {ring_top:.2f}')
 
     print('\n7. The wall hanger')
     # the head ends up INSIDE the compartment once the clock is dropped on it

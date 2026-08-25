@@ -67,6 +67,11 @@ PARTS = [
     ('mini-round-clock-deskstand-60.stl',        'flat on the desk face', MIN_WALL),
     ('mini-round-clock-light-guides-60.stl',     'flat',            MIN_WALL),
     ('mini-round-clock-battery-shelf-x2.stl',    'flat',            MIN_WALL),
+    # 0.45, not 1.20: these are 0.50 mm inlays meant to be loaded as a second
+    # part in the slicer, not printed on their own
+    ('mini-round-clock-numerals.stl',            'a part, not a print', 0.45),
+    ('mini-round-clock-numerals-32.stl',         'a part, not a print', 0.45),
+    ('mini-round-clock-numerals-60.stl',         'a part, not a print', 0.45),
     ('mini-round-clock-diffuser.stl',            'face down',       0.18),
     ('mini-round-clock-diffuser-32.stl',         'face down',       0.18),
     ('mini-round-clock-diffuser-60.stl',         'face down',       0.18),
@@ -105,6 +110,29 @@ def bridge_span(m, face_idx):
         best[i:i+512] = np.linalg.norm(s[:,None,:] - proj, axis=2).min(axis=1)
     k = int(np.argmax(best))
     return 2.0 * best[k], tuple(np.round(S[k], 1))
+
+
+def inlay_strokes(m, nozzle, n=12000, seed=0):
+    """How wide are the glyph strokes, and how much of the part is under a bead?
+
+    Same ray probe as thin_clusters, but only on the SIDE walls -- the top and
+    bottom faces of a 0.50 mm slab just measure the slab, which says nothing
+    about whether a stroke can be printed. Returns (fraction under a nozzle
+    width, median stroke width).
+    """
+    pts, fid = trimesh.sample.sample_surface(m, n, seed=seed)
+    nrm = m.face_normals[fid]
+    side = np.abs(nrm[:, 2]) < 0.5
+    pts, nrm = pts[side], nrm[side]
+    org = pts - nrm*1e-4
+    loc, ri, _ = m.ray.intersects_location(org, -nrm, multiple_hits=True)
+    best = {}
+    d = np.linalg.norm(loc - org[ri], axis=1)
+    for i, dist in zip(ri, d):
+        if dist > 1e-4 and dist < best.get(i, 1e9): best[i] = dist
+    v = np.array(list(best.values()))
+    if len(v) == 0: return 0.0, np.inf
+    return float((v < nozzle).mean()), float(np.median(v))
 
 
 def thin_clusters(m, thr=MIN_WALL, n=12000, seed=0, min_pts=5):
@@ -148,6 +176,16 @@ for k, v in SAM_THIN.items():
         print(f"   {s_['n']:3d} pts, {s_['tmin']:.2f}-{s_['tmax']:.2f} mm, "
               f"r {s_['r'][0]:.1f}-{s_['r'][1]:.1f}, z {s_['z'][0]:.1f}-{s_['z'][1]:.1f}")
 
+# The numeral inlays are not prints. They are the second filament of the
+# diffuser: loaded as a part alongside it in the slicer, laid down inside the
+# same layers, in pockets whose walls are the diffuser itself. They never touch
+# the plate on their own and they are never a free-standing wall, so the
+# plate-adhesion and thin-wall tests written for a print do not apply to them --
+# they get their own, below.
+INLAY = {'mini-round-clock-numerals.stl', 'mini-round-clock-numerals-32.stl',
+         'mini-round-clock-numerals-60.stl'}
+NOZZLE = 0.42       # narrowest bead a 0.4 mm nozzle will actually lay down
+
 for fn, orient, min_wall in PARTS:
     m = trimesh.load(fn, process=False); m.merge_vertices()
     zmin = m.bounds[0][2]
@@ -165,8 +203,12 @@ for fn, orient, min_wall in PARTS:
     # well seated on 206 mm2 and would fail a flat threshold written for a
     # 108 mm disc. Both mean the same thing: it will not come off the plate.
     foot, bbox = ar[first].sum(), m.extents[0] * m.extents[1]
-    ck(foot > 400.0 or foot > 0.40 * bbox, 'first layer has a generous footprint',
-       f'{foot:.0f} mm2 ({100*foot/bbox:.0f}% of its own footprint)')
+    if fn in INLAY:
+        ck(foot > 10.0, 'sits flat, and is held by the diffuser around it',
+           f'{foot:.0f} mm2 of glyph on the diffuser\'s own first layer')
+    else:
+        ck(foot > 400.0 or foot > 0.40 * bbox, 'first layer has a generous footprint',
+           f'{foot:.0f} mm2 ({100*foot/bbox:.0f}% of its own footprint)')
 
     # --- sloped overhangs: cannot be bridged, judged by angle ----------------
     # A face within 15 degrees of horizontal is a BRIDGE, not a slope -- the
@@ -218,8 +260,21 @@ for fn, orient, min_wall in PARTS:
         print(f"         thin region: {c_['n']:3d} pts, {c_['tmin']:.2f}-{c_['tmax']:.2f} mm, "
               f"r {c_['r'][0]:.1f}-{c_['r'][1]:.1f}, z {c_['z'][0]:.1f}-{c_['z'][1]:.1f}"
               f"{'   [same place in Sam''s file]' if ok else '   << NEW'}")
-    ck(not unexplained, f'no NEW region thinner than {min_wall} mm',
-       f'1st percentile {p1:.2f} mm, {len(cl)} thin region(s), {len(unexplained)} new')
+    if fn in INLAY:
+        # A glyph is not a wall. Every letterform has corners and stroke ends
+        # that taper to nothing, and they cluster here however fat the stems
+        # are, so the question is not "is anything thin" but "how much of it".
+        # Anything under a nozzle width simply does not get extruded: the black
+        # stops a fraction of a millimetre short in a glyph corner, inside a
+        # pocket whose floor is 1.50 mm of solid white. Nothing is at risk.
+        frac, stem = inlay_strokes(m, NOZZLE)
+        ck(stem >= 2*NOZZLE, 'the numeral stems are two beads wide or more',
+           f'median stroke {stem:.2f} mm, against a {NOZZLE:.2f} mm bead')
+        ck(frac < 0.03, 'and only glyph corners fall under a nozzle width',
+           f'{100*frac:.1f}% of the surface, which just will not be extruded')
+    else:
+        ck(not unexplained, f'no NEW region thinner than {min_wall} mm',
+           f'1st percentile {p1:.2f} mm, {len(cl)} thin region(s), {len(unexplained)} new')
 
 print()
 if FAIL:

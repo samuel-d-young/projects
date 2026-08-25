@@ -113,16 +113,16 @@ for B, tg in BODIES:
                         column_top(DIFF, *at((B.tick_ri+B.tick_ro)/2, B.wall_a0 + (i+0.5)*B.pitch))))
         ck(ticks == B.n, f'all {B.n} cells have a tick', f'{ticks} of {B.n}')
         walls = sum(1 for i in range(B.n)
-                    if (lambda t: t is not None and abs(t - BAND_TOP) < 0.02)(
+                    if (lambda t: t is not None and abs(t - B.band_top) < 0.02)(
                         column_top(DIFF, *at((B.wall_ri + B.rib_o_ri)/2,
                                              B.wall_a0 + i*B.pitch), e=0.02)))
-        ck(walls == B.n, f'all {B.n} cell walls reach {BAND_TOP:.2f} mm', f'{walls} of {B.n}')
+        ck(walls == B.n, f'all {B.n} cell walls reach {B.band_top:.2f} mm', f'{walls} of {B.n}')
         for r in (B.rib_i_ri + 0.5, B.rib_o_ri + 0.5):
             t = column_top(DIFF, *at(r, a_cell))
-            ck(t is not None and abs(t - BAND_TOP) < 0.02, f'the rib at r={r:.2f} is continuous',
+            ck(t is not None and abs(t - B.band_top) < 0.02, f'the rib at r={r:.2f} is continuous',
                f'{t:.3f} mm' if t else 'n/a')
-        ck(BAND_TOP - FACE_T >= 1.5, 'the cell wall runs the full depth of the cell',
-           f'{BAND_TOP-FACE_T:.2f} mm from the face to the PCB')
+        ck(B.band_top - FACE_T >= 1.5, 'the cell wall runs the full depth of the cell',
+           f'{B.band_top-FACE_T:.2f} mm from the face to the PCB')
 
         print('\n3. The tick is perpendicular to the circle, and sized to the LED')
         ck(B.tick_ro - B.tick_ri > TICK_W, 'it is radial, not tangential',
@@ -136,44 +136,83 @@ for B, tg in BODIES:
         ck(gap > 2*TICK_W, 'the ticks read as separate marks, not a ring',
            f'{TICK_W:.2f} mm lit, {gap:.2f} mm dark between them')
 
-    print('\n4. The hours are written on the face')
+    print('\n4. All twelve hours, written on the face and cut for a second colour')
+    INLAY = to_manifold(load(f'mini-round-clock-numerals{tg}.stl'))
     def column_bottom(man, x, y, e=0.05):
         col = man ^ box_lwh(x-e, x+e, y-e, y+e, -50.0, 50.0)
         if col.volume() < 1e-9: return None
         return to_trimesh(col).bounds[0][2]
-    hit = 0
-    for h in range(12):
-        a = 90.0 - h*30.0
-        if int(round(a)) % 360 in NUMERALS: continue
-        ri, ro = (B.mark_ri_maj, B.mark_ro_maj) if h % 3 == 0 else (B.mark_ri, B.mark_ro)
-        b_ = column_bottom(DIFF, *at((ri+ro)/2, a), e=0.02)
-        if b_ is not None and abs(b_ - MARK_DEPTH) < 0.02: hit += 1
-    ck(hit == 8, 'the 8 plain hour marks are debossed', f'{hit} of 8, {MARK_DEPTH:.2f} mm deep')
-    for ang, txt in sorted(NUMERALS.items()):
-        cx, cy = at(B.num_r, ang)
-        w = NUM_H*1.6
-        probe = box_lwh(cx-w, cx+w, cy-NUM_H*0.75, cy+NUM_H*0.75, 0.0, MARK_DEPTH)
-        cut = probe.volume() - (DIFF ^ probe).volume()
-        ck(cut > 0.5, f'"{txt}" is engraved at {ang} deg', f'{cut:.2f} mm3 removed')
+
+    # Probed inside an annulus that is nothing but flat face, so "empty" can only
+    # mean a numeral pocket -- a square probe would reach past the ticks and
+    # inside the bore and count that space as pocket too.
+    nri, nro = B.num_r - B.num_h/2 - 0.5, B.num_r + B.num_h/2 + 0.5
+    for h in range(1, 13):
+        ang = 30.0 * (h % 12)
+        seg = wedge(nri, nro, 0.0, NUM_DEPTH, ang - 12.0, ang + 12.0)
+        pocket = seg.volume() - (DIFF ^ seg).volume()
+        fill   = (INLAY ^ seg).volume()
+        ck(pocket > 0.5 and abs(pocket - fill) < 0.02*max(pocket, 1e-9),
+           f'"{NUMERALS[h]}" is debossed at {ang:.0f} deg and the inlay fills it',
+           f'{pocket:.2f} mm3 pocket, {fill:.2f} mm3 of filament 2')
+    band = tube(nri, nro, 0.0, NUM_DEPTH, 192)
+    ck((band - (DIFF + INLAY)).volume() < 0.02,
+       'and together they leave no hole anywhere in the numeral band',
+       f'{(band - (DIFF + INLAY)).volume():.4f} mm3 still open')
+    ck((DIFF ^ INLAY).volume() < 1e-3, 'and the two parts never occupy the same space',
+       f'{(DIFF ^ INLAY).volume():.5f} mm3 overlap')
+    ck(abs(to_trimesh(INLAY).bounds[1][2] - NUM_DEPTH) < 1e-3
+       and abs(to_trimesh(INLAY).bounds[0][2]) < 1e-3,
+       'the inlay is exactly as deep as the pocket, so it finishes flush',
+       f'z {to_trimesh(INLAY).bounds[0][2]:.2f}..{to_trimesh(INLAY).bounds[1][2]:.2f} '
+       f'against a {NUM_DEPTH:.2f} mm pocket')
+
+    # THE ONE THAT MATTERS: they must not come out back to front. The diffuser
+    # is modelled face-at-z=0 and installed turned over, so it is read from -z,
+    # where +x is up and +y is right. Take the "10": its left digit is a 1 and
+    # its right digit is a 0, and only the 0 has a hole in the middle. If the
+    # layout were not mirrored those two would swap.
+    ang10 = 30.0 * 10
+    cx, cy = at(B.num_r, ang10)
+    off = B.num_h * 0.30                      # half a digit either side of centre
+    lx, ly = cx - off*math.sin(math.radians(0)), cy - off      # left  = -y
+    rx, ry = cx, cy + off                                       # right = +y
+    e = B.num_h * 0.06
+    solid_left  = (INLAY ^ box_lwh(lx-e, lx+e, ly-e, ly+e, 0.0, NUM_DEPTH)).volume() > 1e-6
+    solid_right = (INLAY ^ box_lwh(rx-e, rx+e, ry-e, ry+e, 0.0, NUM_DEPTH)).volume() > 1e-6
+    ck(solid_left and not solid_right,
+       'the numerals read the right way round once the diffuser is turned over',
+       f'"10": left digit solid={solid_left} (the 1), right digit solid={solid_right} '
+       f'(the 0, hollow)')
+
     ck(FACE_T - NUM_DEPTH >= 1.0, 'and the face stays opaque under the engraving',
        f'{FACE_T-NUM_DEPTH:.2f} mm left')
-    ck(max(B.mark_ro, B.mark_ro_maj, B.num_r + NUM_H/2) < B.tick_ri,
+    ck(B.num_r + B.num_h/2 < B.tick_ri,
        'the hours stay clear of the lit ticks',
-       f'outermost {max(B.mark_ro, B.mark_ro_maj, B.num_r+NUM_H/2):.2f}, ticks start {B.tick_ri:.2f}')
+       f'outermost {B.num_r + B.num_h/2:.2f}, ticks start {B.tick_ri:.2f}')
+    ck(B.num_r - B.num_h/2 > COLLAR_EXT_RO + 0.5,
+       'and clear of the collar, so every pocket has a flat floor',
+       f'innermost {B.num_r - B.num_h/2:.2f}, collar out to {COLLAR_EXT_RO:.2f}')
 
     print('\n5. Crush ribs, and the collar')
     r_out = np.hypot(Dt.vertices[:,0], Dt.vertices[:,1]).max()
     n_rib = 0
+    zmid = B.band_top / 2.0
     for k in range(DIFF_RIB_N):
         a = 360.0/DIFF_RIB_N*(k+0.5)
-        p = box_lwh(-0.4, 0.4, -0.4, 0.4, BAND_TOP-1.0, BAND_TOP-0.5)
         px, py = at(B.diff_outer + DIFF_RIB_H/2, a)
         if (DIFF ^ box_lwh(px-0.4, px+0.4, py-0.4, py+0.4,
-                           BAND_TOP-1.0, BAND_TOP-0.5)).volume() > 1e-6: n_rib += 1
+                           zmid-0.25, zmid+0.25)).volume() > 1e-6: n_rib += 1
     ck(n_rib == DIFF_RIB_N, f'all {DIFF_RIB_N} crush ribs are there', f'{n_rib} of {DIFF_RIB_N}')
-    lead = np.hypot(*Dt.vertices[np.abs(Dt.vertices[:,2]) < 1e-3][:, :2].T).max()
-    ck(lead < r_out - 0.2, 'and they are chamfered at the entry face',
-       f'{lead:.2f} at z=0 against a {r_out:.2f} crest')
+    # the lead-in is at the END THAT GOES IN FIRST, which is z = band_top: the
+    # face at z=0 is the side that ends up outermost on the finished clock
+    top = np.hypot(*Dt.vertices[np.abs(Dt.vertices[:,2] - B.band_top) < 1e-3][:, :2].T).max()
+    ck(top < r_out - 0.2, 'and tapered at the end that goes into the bore first',
+       f'{top:.2f} at z={B.band_top:.2f} against a {r_out:.2f} crest')
+    rim = np.hypot(*Dt.vertices[np.abs(Dt.vertices[:,2]) < 1e-3][:, :2].T).max()
+    ck(abs(rim - (r_out - DIFF_RIM_BEVEL)) < 0.05,
+       'with a small bevel on the visible rim, for a squashed first layer',
+       f'{rim:.2f} at z=0, {DIFF_RIM_BEVEL:.2f} mm inside the crest')
     h = column_top(DIFF, 29.0, 0.0)
     ck(h is not None and abs(h - (DIFF_COLLAR_H + COLLAR_EXTEND)) < 0.05,
        'the collar still reaches 10.20 mm', f'{h:.2f} mm')

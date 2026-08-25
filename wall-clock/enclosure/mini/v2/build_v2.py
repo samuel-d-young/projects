@@ -307,6 +307,10 @@ class Body:
         self.deck_ri, self.screw_r = deck_ri, screw_r
         self.screw_ang, self.vent_ang = screw_ang, vent_ang
         self.guides  = guides
+        # the numerals sit just inboard of the LED apertures, which is where the
+        # Echo has them. num_r is set at the END of __init__, once tick_ri is
+        # known -- it differs on a guide body -- see NUM_MARGIN in params.
+        self.num_h = NUM_H_60 if guides else (NUM_H_24 if n == CELL_N else NUM_H_32)
         self.ring_floor = Z_RING_FLOOR60 if guides else Z_RING_FLOOR
         self.band_top   = BAND_TOP60 if guides else BAND_TOP
         self.r_inner = r_body - WALL_T
@@ -324,7 +328,6 @@ class Body:
         self.mark_ro = self.tick_ri - (TICK_RI - MARK_RO)
         self.mark_ri_maj = self.tick_ri - (TICK_RI - MARK_RI_MAJ)
         self.mark_ro_maj = self.tick_ri - (TICK_RI - MARK_RO_MAJ)
-        self.num_r = self.tick_ri - (TICK_RI - NUM_R)
         self.wall_a0 = CELL_WALL_A0 if n == CELL_N else self.pitch / 2
         # the cells sit in the ring pocket. On the 24 body that is Sam's own
         # inner rib at 35.50; on the 32 the pocket has moved out, so they move
@@ -335,13 +338,17 @@ class Body:
             self.tick_ri, self.tick_ro = APER_RI, APER_RO
             self.mark_ri, self.mark_ro = MARK60_RI, MARK60_RO
             self.mark_ri_maj, self.mark_ro_maj = MARK60_RI_MAJ, MARK60_RO_MAJ
-            self.num_r = NUM60_R
         elif n == CELL_N:
             self.rib_i_ri, self.rib_i_ro = RIB_I_RI, RIB_I_RO
             self.wall_ri = CELL_WALL_RI
         else:
             self.rib_i_ri, self.rib_i_ro = r_ring_i + 0.15, r_ring_i + 1.35
             self.wall_ri = self.rib_i_ri + 0.40
+        # --- where the numerals go, on every body, by one rule
+        # Their OUTER edge sits NUM_MARGIN inboard of the aperture's inner edge,
+        # so they read as a ring of hours just inside the dots -- the Echo's
+        # layout -- and they can never break into a 0.20 mm aperture membrane.
+        self.num_r = self.tick_ri - NUM_MARGIN - self.num_h / 2
 
 BODY24 = Body('', 24, RING_OD, RING_ID, R_BODY, R_RING_I, R_RING_O, R_LIP_I,
               DECK_RI, SCREW_R, SCREW_ANG, [50, 75, 100, 260, 285, 310])
@@ -383,6 +390,43 @@ def build_light_guides(B):
         g += prism(rot_rect(cx, cy, GUIDE_RO - GUIDE_RI + 1.0, GUIDE_W, a),
                    0.0, GUIDE_T)
     return g
+
+
+def numerals(B, z0, z1):
+    """All twelve, upright, inboard of the ring. One call makes both the pockets
+    in the diffuser and the solids that fill them, so they cannot drift apart.
+
+    The face is Liberation Sans Bold, not Amazon Ember -- Ember is Amazon's own
+    proprietary brand typeface and is not installable here. Point NUM_FONT_FILE
+    at a .ttf if you have something closer.
+    """
+    out = None
+    for h in range(1, 13):
+        # In the DIFFUSER's own frame, looking at its face from outside (from
+        # -z, because the part is installed turned over), +x reads as up and +y
+        # reads as right. So the hours run 12 at +x, 3 at +y, 6 at -x, 9 at -y:
+        # a = 30*h anticlockwise from +x, which is clockwise on the finished
+        # clock. Once it is flipped into the base, 12 lands on the base's +x --
+        # the keyhole end -- which is the top of the clock on the wall.
+        a = 30.0 * (h % 12)
+        cx = B.num_r * math.cos(math.radians(a))
+        cy = B.num_r * math.sin(math.radians(a))
+        m = text_prism(NUMERALS[h], B.num_h, (cx, cy), z0, z1, mirror=True,
+                       family=NUM_FONT, weight=NUM_WEIGHT, fontfile=NUM_FONT_FILE)
+        out = m if out is None else out + m
+    return out
+
+
+def build_numerals(B):
+    """The numerals as their OWN part, 0.50 mm thick, exactly filling the pockets
+    debossed into the diffuser. Load the diffuser in Bambu Studio, then
+    right-click -> Add part -> Load this, and assign it filament 2. Same
+    coordinates, so it lands in register.
+
+    This is a multi-shell STL by nature -- twelve numerals, and the two-digit
+    ones are two shells each. That is correct, not a defect.
+    """
+    return numerals(B, 0.0, NUM_INLAY_T)
 
 
 # =============================================================================
@@ -432,31 +476,42 @@ def build_diffuser(B):
             ap = s_ if ap is None else ap + s_
         d -= ap
     if not B.guides:
-        d += tube(B.rib_i_ri, B.rib_i_ro, 0.0, BAND_TOP, SEG)
-        d += tube(B.rib_o_ri, B.diff_outer, 0.0, BAND_TOP, SEG)
+        d += tube(B.rib_i_ri, B.rib_i_ro, 0.0, B.band_top, SEG)
+        d += tube(B.rib_o_ri, B.diff_outer, 0.0, B.band_top, SEG)
     if not B.guides:
         rm = (B.wall_ri + B.rib_o_ri + 0.60) / 2
         ln = (B.rib_o_ri + 0.60) - B.wall_ri
         for k in range(B.n):
             a = B.wall_a0 + k * B.pitch
             cx, cy = rm * math.cos(math.radians(a)), rm * math.sin(math.radians(a))
-            d += prism(rot_rect(cx, cy, ln, CELL_WALL_T, a), 0.0, BAND_TOP)
+            d += prism(rot_rect(cx, cy, ln, CELL_WALL_T, a), 0.0, B.band_top)
 
     # --- 2b. crush ribs on the outside --------------------------------------
-    # tangential blocks standing DIFF_RIB_H proud, with a lead-in so the
-    # diffuser starts square in the pocket before anything has to deform
+    # tangential blocks standing DIFF_RIB_H proud of the wall, over the wall's
+    # whole height, so every millimetre that is inside the bore is gripping
     for k in range(DIFF_RIB_N):
         a = 360.0 / DIFF_RIB_N * (k + 0.5)
         # buried 1.00 mm into the wall: a rib whose inner face sits exactly on
         # the wall's outer surface separates from it in float32
         rr = B.diff_outer + DIFF_RIB_H / 2 - 0.50
         cx, cy = rr * math.cos(math.radians(a)), rr * math.sin(math.radians(a))
-        d += prism(rot_rect(cx, cy, DIFF_RIB_H + 1.0, DIFF_RIB_W, a), 0.0, BAND_TOP)
-    # one conical cut takes a lead-in off the ribs AND off the wall itself, so
-    # the diffuser starts square in the pocket before anything has to deform
-    d -= (cyl(B.diff_outer + DIFF_RIB_H + 2.0, -0.10, DIFF_RIB_LEAD, SEG)
-          - cone(B.diff_outer - 0.30, B.diff_outer + DIFF_RIB_H,
-                 -0.10, DIFF_RIB_LEAD, SEG))
+        d += prism(rot_rect(cx, cy, DIFF_RIB_H + 1.0, DIFF_RIB_W, a), 0.0, B.band_top)
+    # THE LEAD-IN, on the end that goes in first. z=0 is the face -- the side
+    # that ends up outermost on the finished clock -- so the leading edge is the
+    # TOP of the band, and that is where the taper has to be. Up to v7 it was at
+    # z=0, on the trailing end, where it did nothing: the diffuser met the bore
+    # square with full-height ribs and no run-up at all.
+    d -= (cyl(B.diff_outer + DIFF_RIB_H + 2.0, B.band_top - DIFF_RIB_LEAD,
+              B.band_top + 0.10, SEG)
+          - cone(B.diff_outer + DIFF_RIB_H, B.diff_outer - 0.30,
+                 B.band_top - DIFF_RIB_LEAD, B.band_top + 0.10, SEG))
+    # and a small bevel on the visible rim, so a squashed first layer cannot
+    # leave a lip standing proud of the face
+    # 45 degrees: r = (crest - bevel) + z, so it is exactly (crest - bevel) at
+    # z=0 and back to full crest at z=bevel
+    d -= (cyl(B.diff_outer + DIFF_RIB_H + 2.0, -0.10, DIFF_RIM_BEVEL, SEG)
+          - cone(B.diff_outer + DIFF_RIB_H - DIFF_RIM_BEVEL - 0.10,
+                 B.diff_outer + DIFF_RIB_H, -0.10, DIFF_RIM_BEVEL, SEG))
 
     # --- 3. one radial tick per cell, thinned to a single layer --------------
     ticks = None
@@ -465,30 +520,13 @@ def build_diffuser(B):
         cx = (B.tick_ri + B.tick_ro) / 2 * math.cos(math.radians(a))
         cy = (B.tick_ri + B.tick_ro) / 2 * math.sin(math.radians(a))
         t = prism(rot_rect(cx, cy, B.tick_ro - B.tick_ri, TICK_W, a, TICK_END_R),
-                  DIFF_MEM_T, BAND_TOP + 0.60)
+                  DIFF_MEM_T, B.band_top + 0.60)
         ticks = t if ticks is None else ticks + t
     if ticks is not None:
         d -= ticks
 
-    # --- 4. the hours, written on the face ----------------------------------
-    marks = None
-    for h in range(12):
-        a = 90.0 - h * 30.0                       # 12 at the top, clockwise
-        major = (h % 3 == 0)
-        ri, ro = ((B.mark_ri_maj, B.mark_ro_maj) if major else (B.mark_ri, B.mark_ro))
-        w = MARK_W_MAJ if major else MARK_W
-        key = int(round(a)) % 360
-        if key in NUMERALS:
-            cx = B.num_r * math.cos(math.radians(a))
-            cy = B.num_r * math.sin(math.radians(a))
-            m = text_prism(NUMERALS[key], NUM60_H if B.guides else NUM_H,
-                           (cx, cy), -0.10, NUM_DEPTH)
-        else:
-            cx = (ri + ro) / 2 * math.cos(math.radians(a))
-            cy = (ri + ro) / 2 * math.sin(math.radians(a))
-            m = prism(rot_rect(cx, cy, ro - ri, w, a, w / 2 * 0.9), -0.10, MARK_DEPTH)
-        marks = m if marks is None else marks + m
-    d -= marks
+    # --- 4. all twelve hours, written on the face ---------------------------
+    d -= numerals(B, -0.10, NUM_DEPTH)
 
     # --- 5. a taller collar --------------------------------------------------
     if COLLAR_EXTEND > 0:
@@ -513,11 +551,13 @@ def build_base(B, sam):
     # diffuser's face lands on. It starts at 10.40 -- inside solid material, not
     # butted onto the pocket floor -- and the display tab's slot is cut back out
     # of it, or the tab could not be got in.
-    keep += (tube(34.60, KEEP_R32 - 0.50, 10.40, 17.00, SEG) - tab_slot_keep())
+    # up to the SHELF THIS BODY USES, not a hardcoded 17.00. On the 60-LED body
+    # the diffuser is 5.35 thick rather than 4.00, so its face lands at 15.65 --
+    # a fill to 17.00 collided with it by 1.35 mm, and left a shelf across the
+    # wire gap at 6 o'clock as well.
+    shelf = Z_RECESS - B.band_top + FACE_T
+    keep += (tube(34.60, KEEP_R32 - 0.50, 10.40, shelf, SEG) - tab_slot_keep())
 
-    shelf = Z_FRONT - FACE_T - B.band_top + B.band_top   # top of the face shelf
-    shelf = Z_RECESS - (B.band_top - FACE_T) - FACE_T + FACE_T
-    shelf = Z_RECESS - B.band_top + FACE_T                # 17.00 / 15.65
     ann = tube(KEEP_R32 - 1.00, B.r_body, Z_BACK, Z_FRONT, SEG)
     ann -= tube(B.r_ring_i, B.r_ring_o, B.ring_floor, Z_FRONT + 1.0, SEG)
     # inboard of the pocket the diffuser's face sits on a shelf...
@@ -605,8 +645,9 @@ def build_deck_for(B):
     d -= box_lwh(WIRE_SLOT_END - 1.0, -20.0,
                  -WIRE_SLOT_HW - 0.40, WIRE_SLOT_HW + 0.40, Z_DECK - 1.0, Z_BACK + 1.0)
     if B.n != 24:
-        d -= box_lwh(-B.r_ring_o + 1.0, WIRE_SLOT_END + 3.0,
-                     -WIRE32_HW, WIRE32_HW, Z_DECK - 1.0, Z_BACK + 1.0)
+        d -= box_lwh(-(B.r_ring_o - 2.0), -R_BORE + 4.0,
+                     -WIRE_SLOT_HW - 0.40, WIRE_SLOT_HW + 0.40,
+                     Z_DECK - 1.0, Z_BACK + 1.0)
     return d
 
 
@@ -623,9 +664,20 @@ def assemble_base(B, sam):
     out = build_base(B, sam) + build_deck_for(B) + tab_slot_walls()
     out = out - screw_pilots_for(B)
     if B.n != 24:
-        # the ring's leads need a way down from the new pocket to the housing
-        out -= box_lwh(-B.r_ring_o + 1.0, WIRE_SLOT_END + 3.0, -WIRE32_HW, WIRE32_HW,
-                       Z_DECK - 1.0, Z_RING_FLOOR)
+        # THE WIRE GAP. Sam: "there is a gap between the LED and the middle to
+        # fit the wires going to the centre from the LED rings ... update all the
+        # sizes for this." On his own 108 mm base that gap is his wire slot at 6
+        # o'clock, and it is open TOP TO BOTTOM from the bore right out into the
+        # ring pocket -- so a lead can leave the ring at ring level and travel
+        # inward without dropping first.
+        #
+        # The bigger bodies only had a shallow channel under the pocket floor,
+        # which meant a duck-under. This is the same gap his base has: the same
+        # +/-13.00 mm half width, from the bore out past the ring's inner edge,
+        # and open all the way up to the shelf the diffuser's face lands on.
+        shelf = Z_RECESS - B.band_top + FACE_T
+        out -= box_lwh(-(B.r_ring_o - 2.0), -R_BORE + 4.0,
+                       -WIRE_SLOT_HW, WIRE_SLOT_HW, Z_DECK - 1.0, shelf)
     drop = seat_drop(SEAT_DROP)
     if drop is not None:
         out = out - drop
@@ -712,6 +764,7 @@ if __name__ == '__main__':
             (build_diffuser(B),              f'mini-round-clock-diffuser{tg}',  True),
             (build_stand(B, Z_FRONT - (Z_DECK - HOUSING_DEEP)),
                                              f'mini-round-clock-deskstand{tg}', True),
+            (build_numerals(B),              f'mini-round-clock-numerals{tg}',  False),
         ]
     parts.append((build_shelf(BAT_W), 'mini-round-clock-battery-shelf-x2', True))
     parts.append((build_light_guides(BODY60), 'mini-round-clock-light-guides-60', True))

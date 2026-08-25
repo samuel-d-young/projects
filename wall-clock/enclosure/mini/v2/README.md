@@ -1,4 +1,4 @@
-# mini-round-clock enclosure — v6
+# mini-round-clock enclosure — v8
 
 Built on top of the base and diffuser Sam remodelled. Three clock sizes: the
 **24-LED** body at 107.99 mm, which is his; a **32-LED** body at 119.85 mm,
@@ -28,6 +28,7 @@ Pick a body. Everything in one column goes together; nothing crosses over.
 | base | `-base` | `-base-32` | `-base-60` |
 | housing | `-housing` | `-housing-32` | `-housing-60` |
 | diffuser | `-diffuser` | `-diffuser-32` | `-diffuser-60` |
+| **numerals** (2nd colour, §9) | `-numerals` | `-numerals-32` | `-numerals-60` |
 | light guides *(optional)* | — | — | `-light-guides-60`, or cut perspex — §7 |
 | desk stand *(optional)* | `-deskstand` | `-deskstand-32` | `-deskstand-60` (a very big print) |
 | battery shelves *(optional)* | `-battery-shelf-x2` — **print two**, any body | | |
@@ -36,9 +37,10 @@ Every filename is prefixed `mini-round-clock`.
 
 | File | Orientation | Support | Solid volume (24 / 32 / 60) |
 |---|---|---|---|
-| base | **deck face down** | see note | 105 / 142 / 514 cm³ |
+| base | **deck face down** | see note | 105 / 132 / 502 cm³ |
 | housing | **rear plate down** | none | 80 / 95 / 264 cm³ |
-| diffuser | **face down, 0.20 mm layers** | none | 13 / 20 / 109 cm³ |
+| diffuser | **face down, 0.20 mm layers** | none | 15 / 22 / 109 cm³ |
+| numerals | *not printed alone* — see §9 | none | 0.07 / 0.10 / 0.21 cm³ |
 | desk stand | flat on its desk face | none | 259 / 315 / 1047 cm³ |
 | light guides | flat, **clear or natural PETG** | none | — / — / 31 cm³ |
 | battery shelf ×2 | flat | none | 13 cm³ |
@@ -153,6 +155,34 @@ in with hand pressure and it does not come back out.
 **One knob if it is wrong.** `DIFF_RIB_H` in `params.py`. Still loose → raise it
 to 0.45. Will not start → drop it to 0.25. Nothing else changes.
 
+#### v8: why it was still loose, and it was not the diameter
+
+Sam said "it's still too loose" twice, and v6 answered both times by arguing
+about diameter. That was the wrong axis. Measured on the built files:
+
+```
+ring pocket's outer wall stops at            z = 19.00
+diffuser comes to rest with its face at      z = 21.52
+diffuser's band was                          4.00 mm tall
+=> inside the bore                           21.52 - 4.00 = 17.52 up to 19.00
+                                             1.40 mm
+```
+
+The other 2.60 mm of the band was hanging in the 3 mm recess across the front of
+the clock, where the wall is **5.3 mm away radially** and grips nothing at all.
+No diameter fixes that: a 1.4 mm-deep press fit on a 108 mm part rocks.
+
+There is 4.00 mm of clear space above the LED ring inside that pocket, so v8
+takes the band to **6.00 mm**. It now lands at z = 15.52, keeps 0.52 mm off the
+ring, and the checker measures **2.9 mm of rib contact** instead of 1.4.
+
+And the lead-in was on the wrong end. z = 0 in the diffuser's file is its
+**visible face** — the part goes in turned over — so the end that meets the bore
+first is the top of the band, not z = 0. Up to v7 the taper was at z = 0, on the
+trailing edge, doing nothing; the diffuser met the bore square with full-height
+ribs and no run-up. v8 puts the 1.20 mm taper where it goes in, and leaves a
+0.25 mm bevel on the visible rim for a squashed first layer.
+
 ### One layer over the LEDs
 
 The membrane was 0.80 mm. It is now **0.20 mm** — a single layer at 0.20 mm
@@ -200,19 +230,57 @@ the next LED never enters this cell at all. The aperture is 1.80 mm deep and
 ### The hours are written on the diffuser
 
 > *"Write the clock times on the difuser too."*
+> *"add the numbers from 1 to 12 on the diffuser that I can print in black on
+> the 3D printer. Make them the same font as the Amazon Echo wall clock."*
 
-Debossed 0.50 mm into the face, in the 3.5 mm band between the plywood window's
-inner edge (r = 35.0) and where the ticks start (r = 38.75):
+All twelve, debossed 0.50 mm into the face, in the band just inboard of the lit
+ticks — which is where the Echo has them. The plain marks that used to stand in
+for the eight non-quarter hours are gone.
 
-- **12, 3, 6, 9** as numerals, 3.40 mm tall, upright — read from across a room,
-  not rotated with the dial
-- the other eight hours as marks: 1.00 × 2.60 mm, with the quarters at
-  1.60 × 3.20 mm so they read as majors
+| | 24-LED | 32-LED | 60-LED |
+|---|---|---|---|
+| cap height | 5.00 mm | 6.00 mm | 9.00 mm |
+| centre radius | 35.05 | 45.76 | 74.30 |
+| clear of the ticks by | 1.20 mm | 1.20 mm | 1.20 mm |
 
-They are **debossed, not thinned**, because the Echo's markings are printed on a
-white face and the LEDs are what lights up. 1.50 mm of PLA is left under a
-0.50 mm deboss, so they stay opaque. If you would rather they lit, set
-`MARK_DEPTH = 0` and cut them to 0.20 mm instead — one line in `params.py`.
+They are **debossed, not thinned** — the Echo's markings are printed on a white
+face and the LEDs are what lights up. 1.50 mm of filament is left under a
+0.50 mm deboss, so they stay opaque.
+
+**On the font, plainly: it is not Amazon Ember.** Ember is Amazon's proprietary
+brand typeface. It is not installable here — matplotlib's font manager raises
+`ValueError` when asked for it, which I checked rather than assumed. What is
+available is Liberation Sans (Arial metrics), FreeSans (Helvetica metrics) and
+DejaVu Sans. Ember is a humanist sans, so of those three **Liberation Sans Bold**
+is the closest neutral match, and that is what is cut. It is not the same face
+and I am not going to pretend it is. If you have an Ember licence, drop the
+`.ttf` anywhere and set `NUM_FONT_FILE` in `params.py` to its path — that is the
+only line that changes, and everything re-derives.
+
+Why 5.00 mm on the small clock and not something daintier: at 3.60 mm Liberation
+Sans Bold has a **0.66 mm stem**, which is 1.6 beads from a 0.4 mm nozzle — one
+perimeter plus a gap-fill, and a visible seam down every stroke in a second
+colour. At 5.00 mm the stem is 0.92 mm, two clean beads. `check3` measures this
+on the built file rather than trusting the type designer.
+
+### They come out the right way round, and that is not free
+
+The diffuser is modelled with its **visible face at z = 0** and everything else
+behind it, so it goes into the base **turned over**. Text laid out the ordinary
+way is therefore read from the far side and comes out back to front — "12" would
+print as a mirrored 21.
+
+So the numerals are mirrored in the model (`text_prism(..., mirror=True)`), and
+the two reflections cancel. Which way is up was not assumed either: **+x is 12
+o'clock on the base**, and two independent features say so — the keyhole's entry
+hole is at r = 38.5 and its narrow end at r = 46.0 on the +x axis, so the clock
+is lifted and dropped onto the screw, which only works if +x is up; and the
+ring's lead slot and the USB window are both at −x, which is where a cable
+should leave a wall clock.
+
+`check4` tests this without anyone having to squint at a render: it probes the
+**"10"**, whose left digit is a 1 and whose right digit is a 0, and only the 0
+has a hole in the middle. If the layout were not mirrored those two would swap.
 
 ### The LED band is rebuilt, not patched
 
@@ -687,15 +755,84 @@ the alternative if the Anker fails its test — is in **`docs/BATTERY.md`**.
 
 ---
 
-## 9. What is verified and what is not
+## 9. Printing the numerals in a second colour
 
-**Verified here, by running it — nine parts, two bodies, five passes:**
+> *"I will 3d print the diffuser with the numbers printed in a different colour
+> on the same printer."*
+
+That is exactly what these files are for. The numerals are debossed into the
+diffuser **and** written out again as their own STL — a set of solids 0.50 mm
+thick that fill those pockets exactly. Both come out of one function, so they
+cannot drift apart, and both are exported in the same coordinates, so they land
+in register with nothing to line up by hand.
+
+**In Bambu Studio (or PrusaSlicer / OrcaSlicer — same idea):**
+
+1. Add `mini-round-clock-diffuser.stl` (or `-32` / `-60`). Leave it where it
+   lands — **face down**, which is how it arrives.
+2. Right-click it → **Add part → Load…** → `mini-round-clock-numerals.stl`
+   (matching suffix). It must be added *as a part of the diffuser object*, not
+   as a separate object, or the slicer will move it.
+3. Select the numerals part and assign it **filament 2** — black, or whatever
+   you want the hours to be.
+4. Slice at **0.20 mm layer height**. Nothing else changes.
+
+The pockets are 0.50 mm deep and the inlay is 0.50 mm thick, so the numerals
+finish **flush with the face** — 2½ layers of the second colour at the very
+bottom of the print, against the plate, where the finish is best.
+
+`check4` proves the fit rather than assuming it: every one of the twelve pockets
+is measured against the solid meant to fill it (within 2%), the two parts are
+shown never to occupy the same space, and the whole numeral band is shown to
+have **no hole left anywhere** once the two are put together.
+
+**If you have no AMS or second extruder**, this cannot be done as a filament
+change at a layer: the black and the white are in the *same* layers, not
+stacked. Your options are to print the diffuser in one colour and leave the
+hours as a plain 0.50 mm deboss (they read perfectly well as a shadow), or to
+print the numerals part on its own and glue them in — it is 0.07 cm³ of
+filament, and the pockets locate them.
+
+---
+
+## 10. The wire gap between the middle and the ring
+
+> *"update the main clock bases so that there is a gap between the middle and
+> the LEd ring so that the cables connecting the LED ring dont need to bend
+> straight down. The 24LED looks like this ... UPdate all the sizes for this."*
+
+Sam's own 108 mm base has this and I had not carried it across. Measured on his
+upload: at 6 o'clock his base is open **top to bottom** from r = 28 out to
+r = 41 — so a lead leaves the ring at ring level, runs inward, and only then
+drops. The 32 and 60 bodies had a shallow channel *under* the ring-pocket floor
+instead, which means the lead has to be bent flat against the floor first and
+then ducked under. That is the bend he is talking about.
+
+Both bigger bodies now have the same gap he does: **±13.00 mm** at 6 o'clock,
+from the bore out past the ring's inner edge, open all the way up to the shelf
+the diffuser's face lands on. The deck under it is cut to match.
+
+`check2` §8 probes it on all three bodies, as a solid an 8 mm cable bundle would
+occupy: it runs inward at ring level from the ring's inner edge to the bore with
+nothing in the way, and then straight down to the deck.
+
+While fixing this I found the pocket fill on the 32 and 60 bases was pinned to
+`z = 17.00` when the 60's shelf is at 15.65 — a real **1.35 mm collision with
+the 60 diffuser's face**, and it left a shelf blocking the new gap at r = 40.
+Both now derive from the body's own shelf height.
+
+---
+
+## 11. What is verified and what is not
+
+**Verified here, by running it — 17 parts, three bodies, five passes:**
 
 - Every part is a closed, single-body, self-intersection-free solid, and the two
   volume calculations agree to 0.0000% (`check1`)
-- Inside r = 46 nothing of Sam's is removed but the screw pilots, and nothing is
-  added but the tab-slot walls — measured as a boolean difference against a
-  named envelope, not eyeballed (`check2`)
+- Inside r = 46 nothing of Sam's is removed but the screw pilots and the wire
+  gap, and nothing is added but the tab-slot walls and the pocket fill —
+  measured as a boolean difference against a named envelope, not eyeballed
+  (`check2`)
 - Each ring drops into its own pocket with the pocket bracketing it on both
   edges and a real wall outboard (`check2`)
 - The board fits the housing, its posts are under it, its hooks are over it, the
@@ -707,8 +844,22 @@ the alternative if the Anker fails its test — is in **`docs/BATTERY.md`**.
 - No part introduces a sloped overhang below 45°, a flat ceiling spanning more
   than 25 mm, or a wall thinner than 1.2 mm that is not already in Sam's file
   (`check3`)
-- Every cell has a tick, every wall is full height, the hours are debossed, and
-  the crush ribs are all there and chamfered (`check4`)
+- A lead can leave each ring at ring level, run inward to the bore, and drop
+  to the deck, on all three bodies, with an 8 mm bundle's worth of room
+  (`check2` §8)
+- The diffuser comes to rest with **2.9 mm of crush-rib contact** inside the
+  bore — measured by finding the deepest position at which nothing but the ribs
+  is touching, on the built files — and its band still stops short of the LEDs
+  (`check2` §9)
+- Every cell has a tick, every wall is full height, all twelve hours are
+  debossed, the inlay part fills every pocket to within 2% and leaves no hole in
+  the numeral band, and the numerals **read the right way round** once the
+  diffuser is turned over (`check4`)
+- The numeral stems are two nozzle beads wide or more — 0.92 / 1.11 / 1.68 mm
+  measured on the built inlays — and only glyph corners fall under a bead
+  (`check3`)
+- The crush ribs are all there, tapered at the end that goes into the bore
+  first, and bevelled on the visible rim (`check4`)
 - The clock sits in the stand without interference, lifts straight out over
   40 mm, is stopped from sliding back, and a full-size plug clears the desk by
   7.9 mm with the lead running out the back (`check5`)
@@ -726,6 +877,12 @@ the alternative if the Anker fails its test — is in **`docs/BATTERY.md`**.
   given. Nothing about that ring has been checked against a listing.
 - Crush-rib interference of 0.60 mm on diameter is a judgement from moulding
   practice, not a measurement on this printer. `DIFF_RIB_H` is the one knob.
+- **The typeface is Liberation Sans Bold, not Amazon Ember.** Ember is Amazon's
+  proprietary brand face and is not installable here — checked, not assumed.
+  `NUM_FONT_FILE` is the one line to change if you have a licensed .ttf.
+- Nothing has been printed in two colours. The register between the pockets and
+  the inlay is exact in the geometry; whether your slicer and AMS hold it on the
+  plate is a bench question.
 - The 95 mA display figure is still the weakest number in the power budget.
 - The interior temperature rise is an estimate, and the safety argument in §7
   rests on it. Worth a probe before a cell goes in.

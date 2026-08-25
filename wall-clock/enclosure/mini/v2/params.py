@@ -341,7 +341,19 @@ MARK_DEPTH       = 0.50
 NUM_R            = 37.00             # numerals at 12, 3, 6 and 9
 NUM_H            = 3.40
 NUM_DEPTH        = 0.50
-NUMERALS         = {0: '3', 90: '12', 180: '9', 270: '6'}   # angle -> what to write
+# All twelve, not four. Sam: "add the numbers from 1 to 12 on the diffuser that
+# I can print in black on the 3D printer."
+#
+# Keyed by the HOUR, not by an angle. Where each hour lands is worked out in
+# build_v2.numerals() from two facts that were measured, not assumed:
+#   * +x is 12 o'clock on the BASE. Two independent features say so -- the
+#     keyhole's entry hole is at r=38.5 and its narrow end at r=46.0 on the +x
+#     axis, so the clock is lifted and dropped onto the screw, which only works
+#     if +x is up; and the ring's lead slot and the USB window are both at -x,
+#     which is where a cable should leave a wall clock.
+#   * the diffuser is modelled face-at-z=0 and is installed TURNED OVER, so the
+#     face reads from the far side -- hence mirror=True. See text_prism.
+NUMERALS = {h: str(h) for h in range(1, 13)}              # hour -> what to write
 
 # --- v5b: the LED band is REBUILT, not patched --------------------------------
 # Sam's diffuser carries 183 non-manifold edges, and every one of them is in the
@@ -361,7 +373,19 @@ NUMERALS         = {0: '3', 90: '12', 180: '9', 270: '6'}   # angle -> what to w
 BAND_CUT_R    = 35.00       # Sam's mesh kept only inside this
 BAND_FACE_RI  = 34.50       # new face starts 0.5 mm inside the cut, so the seam
                             # is an overlap inside solid material, not a butt
-BAND_TOP      = 4.00        # rib and wall tops
+# BAND_TOP was 4.00 -- Sam's own height -- and that is why the diffuser kept
+# coming out loose however much the diameter was tightened. MEASURED on the
+# built files: the ring pocket's outer wall stops at Z_RECESS (19.00) and the
+# diffuser seats with its face at z=21.60, so a 4.00 mm wall put only
+# 21.60-4.00=17.60 up to 19.00 -- 1.40 mm -- inside the bore. The other 2.60 mm
+# was floating in the 3 mm front recess, where the wall is 5.3 mm away radially
+# and grips nothing.
+# There is 4.00 mm of clear space above the LED ring (top at 15.00) inside that
+# pocket, so the band is taken to 6.00: it lands at 15.60, keeps 0.60 mm off the
+# ring, and engages 15.60..19.00 = 3.40 mm. Two and a half times the grip, and
+# it drops the cell walls down beside the LEDs instead of leaving them 3 mm
+# above the ring where they were barely masking anything.
+BAND_TOP      = 6.00        # rib, wall and cell-wall tops
 RIB_I_RI, RIB_I_RO = 35.50, 36.70
 RIB_O_RI      = 44.80       # outer rib now runs out to DIFF_OUTER_NEW
 CELL_N        = 24
@@ -526,7 +550,9 @@ DECK_RI       = 30.00
 DIFF_RIB_N    = 8
 DIFF_RIB_W    = 1.60         # tangential
 DIFF_RIB_H    = 0.35         # radial, proud of the nominal wall
-DIFF_RIB_LEAD = 1.20         # lead-in at the entry end, so it starts square
+DIFF_RIB_LEAD = 1.20         # lead-in at the entry end -- the TOP of the band,
+                             # z = BAND_TOP, since z=0 is the visible face
+DIFF_RIM_BEVEL = 0.25        # cosmetic only, on the visible rim at z=0
 # net at a rib: 0.35 - 0.05 = 0.30 radial, 0.60 on diameter, over 8 x 1.60 mm.
 # If it is still loose raise DIFF_RIB_H; if it will not start, lower it.
 
@@ -636,3 +662,49 @@ HOLLOW_FLOOR  = 3.00         # floor plate under the whole annulus
 HOLLOW_RIBS   = 12           # radial ribs tying floor to walls
 HOLLOW_RIB_W  = 3.00
 HOLLOW_WALL   = 2.50         # either side of the ring pocket
+
+
+# =============================================================================
+# v8 — the wire gap on every size, and all twelve numerals in two colours
+# =============================================================================
+# Sam: "update the main clock bases so that there is a gap between the middle and
+#       the LED ring so that the cables connecting the LED ring dont need to bend
+#       straight down ... update all the sizes for this."
+#       "add the numbers from 1 to 12 on the diffuser that I can print in black
+#       on the 3D printer. Make them the same font as the Amazon Echo wall clock."
+#
+# THE FONT. The Echo Wall Clock is set in Amazon Ember, Amazon's own brand
+# typeface. It is proprietary, licensed to Amazon, and not installed here -- I
+# checked rather than guessed, and matplotlib cannot find it. What is available
+# is Liberation Sans (Arial-metric), FreeSans (Helvetica-metric) and DejaVu Sans.
+# Ember is a humanist sans, so of those three Liberation Sans is the closest
+# neutral match; it is NOT the same face and I am not going to pretend it is.
+# If you have an Ember licence, or want any other face, drop the .ttf somewhere
+# and put its path in NUM_FONT_FILE -- it is the only line that changes.
+NUM_FONT        = 'Liberation Sans'
+NUM_FONT_FILE   = None        # e.g. '/path/to/AmazonEmber-Medium.ttf'
+NUM_WEIGHT      = 'bold'      # at these sizes a regular weight prints too thin
+                              # to hold a second filament cleanly
+
+# The numerals sit just INBOARD of the LED apertures, which is where the Echo
+# has them. Their outer edge is NUM_MARGIN inside the aperture's inner edge, on
+# every body, so they never break into the 0.20 mm aperture membrane -- and on
+# the 32 that is the only band wide enough anyway: between its ring ID (96) and
+# the LED circle there is only 2 mm.
+NUM_MARGIN      = 1.20        # clear space between a numeral and the dots
+# 5.00, not 3.60. MEASURED on the built inlay: at 3.60 mm cap height Liberation
+# Sans Bold has a 0.66 mm stem, which is 1.6 beads from a 0.4 mm nozzle -- one
+# perimeter and a gap-fill, and a visible seam down every stroke in a second
+# colour. At 5.00 the stem is 0.92 mm, two clean beads. It is 4.6% of a 108 mm
+# face against the Echo's 3.2% of a 203 mm one, and a small clock needs the
+# proportionally bigger numeral anyway. The band inboard of the ticks runs
+# 30.95..37.55, so 5.00 still leaves 2.55 mm clear of the collar.
+NUM_H_24        = 5.00
+NUM_H_32        = 6.00
+NUM_H_60        = 9.00
+# printed in black: the numerals are ALSO written as their own STL, a set of
+# solids 0.50 mm thick that exactly fill the debossed pockets. Load the diffuser
+# in Bambu Studio, right-click -> Add part -> Load the numerals file, and assign
+# it filament 2. Both are exported in the same coordinates, so they land in
+# register with no moving about.
+NUM_INLAY_T     = NUM_DEPTH   # 0.50 -- at 0.20 mm layers that is 2 layers +.5

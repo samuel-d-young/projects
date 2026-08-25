@@ -2253,3 +2253,128 @@ footprint tips at 11°. It now grows a low plinth behind the stop wall, sized
 from the geometry to bring that back over 20°.
 
 Five passes, fourteen parts, three bodies, all green.
+
+---
+
+## 2026-08-25 — v8: the wire gap, all twelve numerals, and why the diffuser was really loose
+
+Two asks. Both landed, and chasing the second one turned up a third thing that
+had been wrong since v6.
+
+### The gap between the middle and the ring
+
+> *"update the main clock bases so that there is a gap between the middle and
+> the LEd ring so that the cables connecting the LED ring dont need to bend
+> straight down. The 24LED looks like this ... UPdate all the sizes for this."*
+
+He attached a base to show me. I measured it before assuming anything, and the
+attachment turned out to be **my own v5a base returned unmodified** — 109,229.9
+mm³, byte-for-byte the geometry I had sent. So it was not an edit to merge; it
+was a pointer at a feature already in his 108 mm base that I had not carried
+across to the bigger ones.
+
+The feature: at 6 o'clock his base is open **top to bottom** from r = 28 out to
+r = 41. A lead leaves the ring at ring level, runs inward, and only then drops.
+What the 32 and 60 bodies had instead was a shallow channel *under* the
+ring-pocket floor — which means the lead must be pressed flat against the floor
+and ducked under. That is exactly the bend he is describing.
+
+Both bigger bodies now get the same gap: ±13.00 mm at 6 o'clock, from the bore
+out past the ring's inner edge, open to the shelf the diffuser's face lands on,
+with the deck cut to match. `check2` §8 probes it as the solid an 8 mm bundle
+would occupy, on all three bodies.
+
+**And it caught a live collision.** The pocket fill on the 32 and 60 bases was
+hardcoded to z = 17.00 while the 60's shelf is at 15.65 — a real 1.35 mm
+interference with the 60 diffuser's face, plus a shelf sitting right across the
+new gap at r = 40. Both now derive from the body's own shelf height.
+
+### All twelve hours, in a second colour
+
+> *"add the numbers from 1 to 12 on the diffuser that I can print in black on
+> the 3D printer. Make them the same font as the Amazon Echo wall clock."*
+> *"I will 3d print the diffuser with the numbers printed in a different colour
+> on the same printer."*
+
+The plain marks are gone; there are twelve numerals, and a second STL per body
+of solids 0.50 mm thick that fill those pockets exactly. One function emits both,
+so they cannot drift apart. Add the diffuser in Bambu Studio, right-click → Add
+part → the `-numerals` file, assign filament 2.
+
+**The font is not Ember, and the log should say so plainly.** Amazon Ember is
+Amazon's proprietary brand typeface. I checked rather than assumed — matplotlib's
+font manager raises `ValueError` for it. Liberation Sans Bold is the closest
+neutral sans available and that is what is cut. `NUM_FONT_FILE` is a one-line
+swap for anyone with a licensed .ttf.
+
+### Three things that were quietly wrong, found by checking rather than by luck
+
+**1. `num_r` was assigned three times.** I added the v8 rule at the top of
+`Body.__init__` and left two legacy assignments below it, so the legacy value
+won. Result: the numerals sat *on top of the LED apertures* — the 32's reached
+r = 52.86 against a tick inner edge of 49.96. One rule now, set once, at the end
+of `__init__`, after `tick_ri` is known: outer edge 1.20 mm inboard of the
+apertures, on every body.
+
+**2. They would have printed mirrored.** The diffuser is modelled with its
+visible face at z = 0 and everything else behind it, so it goes into the base
+**turned over** — text laid out the ordinary way is read from the far side and
+comes out back to front. That was not a guess: the aperture membrane is at
+z = 0..0.20 with the cavity above it, which only prints if z = 0 is the face and
+the part goes on the plate face-down; and a placement scan against the base
+finds the diffuser seats flipped, at C = 21.6, with the only interference being
+3.9 mm³ at r = 46.30..46.66 — the crush ribs, which is the press fit.
+
+Which way is up was not assumed either. **+x is 12 o'clock**, and two features
+say so independently: the keyhole's entry hole is at r = 38.5 and its narrow end
+at r = 46.0 on the +x axis, so the clock is lifted and dropped onto the screw,
+which only works if +x is up; and the ring's lead slot and the USB window are
+both at −x. The old numeral code used `a = 90 - 30h`, which is 90° out.
+
+`text_prism` gained a `mirror` flag that swaps the glyph's x and y. Two
+reflections cancel, digit order included, so "12" reads 12 and not 21. `check4`
+tests it without anyone squinting at a render: it probes the **"10"**, whose left
+digit is a 1 and whose right digit is a 0, and only the 0 is hollow in the
+middle. Mirrored the wrong way, those swap.
+
+**3. The diffuser was loose because of DEPTH, not diameter.**
+
+Sam said "it's still too loose" twice. v6 answered both times by arguing about
+interference on diameter. Measured on the built files:
+
+```
+ring pocket's outer wall stops at         z = 19.00
+diffuser comes to rest with its face at   z = 21.52
+band was                                  4.00 mm tall
+=> actually inside the bore               1.40 mm
+```
+
+The other 2.60 mm was hanging in the 3 mm front recess, where the wall is
+**5.3 mm away radially**. No amount of diameter fixes a 1.4 mm-deep press fit on
+a 108 mm part; it rocks. There is 4.00 mm of clear space above the LED ring
+inside that pocket, so the band goes to 6.00 mm: it lands at 15.52, keeps
+0.52 mm off the ring, and the checker now measures **2.9 mm of rib contact**. It
+also drops the cell walls down beside the LEDs, where they were sitting 3 mm
+above the ring doing very little masking.
+
+And the lead-in taper was on the **wrong end** — at z = 0, the visible face,
+which is the trailing edge. The diffuser was meeting the bore square with
+full-height ribs and no run-up at all. It is now at the top of the band, with a
+0.25 mm bevel left on the visible rim for a squashed first layer.
+
+### The check that was wrong, again
+
+`check3`'s thin-wall test failed the numeral inlays, and the honest answer was
+not to lower the threshold. A glyph is not a wall: every letterform has corners
+that taper to nothing, and they cluster there however fat the stems are. The
+inlays now get their own two tests — median stroke width against a nozzle bead,
+and what fraction of the surface falls under one — and the plate-adhesion test
+is skipped for them, because they never touch the plate on their own.
+
+That test then earned its keep immediately: at 3.60 mm cap height Liberation
+Sans Bold has a **0.66 mm stem**, 1.6 beads from a 0.4 mm nozzle — one perimeter
+and a gap-fill, and a visible seam down every stroke in a second colour. The
+24-LED numerals went to 5.00 mm, where the stem is 0.92 mm. The band inboard of
+the ticks runs 30.95..37.55, so that still leaves 2.55 mm clear of the collar.
+
+Five passes, seventeen parts, three bodies, all green.

@@ -33,6 +33,7 @@ All in `enclosure/mini/v2/`, all prefixed `mini-round-clock`.
 | base | `-base` | `-base-32` | `-base-60` |
 | housing | `-housing` | `-housing-32` | `-housing-60` |
 | diffuser | `-diffuser` | `-diffuser-32` | `-diffuser-60` |
+| **numerals** (2nd colour) | `-numerals` | `-numerals-32` | `-numerals-60` |
 | light guides *(optional)* | — | — | `-light-guides-60` |
 | desk stand *(optional)* | `-deskstand` | `-deskstand-32` | `-deskstand-60` |
 | battery shelves *(optional)* | `-battery-shelf-x2` — **print two**, any body | | |
@@ -42,6 +43,7 @@ All in `enclosure/mini/v2/`, all prefixed `mini-round-clock`.
 | base | PETG (PLA fine) | **Deck face down.** 0.2 mm, 3 walls, 15% gyroid |
 | housing | **PETG** if a cell goes in | **Rear plate down.** No supports |
 | diffuser | **White PLA** | Face **down**. **0.20 mm layers.** 0% infill, no supports |
+| numerals | **Black PLA** (filament 2) | Not a print of its own — added *as a part of the diffuser* and assigned filament 2. See below |
 | desk stand | anything | Flat on its desk face. **8–10% infill** — it is a big blocky part and the volume figures are solid volume, not filament |
 | battery shelf ×2 | anything | Flat. **Print two** |
 | light guides (60 only) | **clear or natural PETG** | Flat. White PLA is opaque and would do nothing |
@@ -68,10 +70,23 @@ goes straight onto the plate and there is nothing to bridge. White PLA
 specifically — natural pipes light along the layer lines and bleeds between
 cells.
 
-**The diffuser is a proper press fit now.** 0.10 mm of clearance on the wall so
-it starts square, then eight crush ribs give 0.60 mm of interference on
-diameter. If it is still loose raise `DIFF_RIB_H` in `v2/params.py` to 0.45; if
-it will not start, drop it to 0.25.
+**The hours, in a second colour.** In Bambu Studio: load the diffuser, then
+right-click it → **Add part → Load…** → the matching `-numerals` file, and
+assign that part **filament 2**. It has to go in as a *part of the diffuser
+object*, not as a separate object, or the slicer will move it and the register
+is lost. The pockets are 0.50 mm deep and the inlay is 0.50 mm thick, so the
+numerals finish flush with the face, right against the plate where the finish is
+best. No AMS? Print the diffuser in one colour — the hours still read perfectly
+well as a 0.50 mm shadow — or print the numerals separately and glue them in.
+
+**The diffuser press fit, fixed properly in v8.** v6 argued about diameter; the
+problem was depth. The ring pocket's wall stops at z = 19.00 and the diffuser
+rests with its face at z = 21.52, so a 4.00 mm band had only **1.40 mm** inside
+the bore and 2.60 mm hanging in the front recess gripping nothing. The band is
+6.00 mm now — **2.9 mm of measured rib contact** — and the lead-in taper has
+moved to the end that actually goes in first. Wall clearance 0.10 mm, eight
+crush ribs, 0.60 mm of interference on diameter. Still loose → raise
+`DIFF_RIB_H` in `v2/params.py` to 0.45; will not start → drop it to 0.25.
 
 **Before you print the diffuser, measure the display module's rim thickness** at
 the r = 29 mm circle and set `COLLAR_EXTEND = 2.20 - t` in `v2/params.py`.
