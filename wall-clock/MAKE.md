@@ -41,7 +41,7 @@ All in `enclosure/mini/v2/`, all prefixed `mini-round-clock`.
 |---|---|---|
 | base | PETG (PLA fine) | **Deck face down.** 0.2 mm, 3 walls, 15% gyroid |
 | housing | **PETG** if a cell goes in | **Rear plate down.** No supports |
-| diffuser | **White PLA** | Face **down**. **0.20 mm layers.** 0% infill, no supports |
+| diffuser | **White PLA** | Face **down**. **0.20 mm layers.** **SOLID face — 100% infill**, no supports |
 | numerals | **Black PLA** (filament 2) | Not a print of its own — added *as a part of the diffuser* and assigned filament 2. See below |
 | desk stand | anything | Flat on its desk face. **8–10% infill** — it is a big blocky part and the volume figures are solid volume, not filament |
 | light guides (60 only) | **clear or natural PETG** | Flat. White PLA is opaque and would do nothing |
@@ -90,21 +90,38 @@ numerals finish flush with the face, right against the plate where the finish is
 best. No AMS? Print the diffuser in one colour — the hours still read perfectly
 well as a 0.50 mm shadow — or print the numerals separately and glue them in.
 
-**The diffuser press fit is on the INSIDE now.** Sam: *"I want the press fit to
-be on the inside where the screen is not the outside."* The outer wall drops
-into the ring pocket with 0.40 mm of clearance on diameter and grips nothing;
-six crush ribs on the collar — the part that goes down around the screen — give
-0.30 mm of interference on diameter over 4.50 mm of bore. One knob if it is
-wrong: `COLLAR_RIB_H` in `v2/params.py`. Too tight → 0.10. Falls out → 0.22.
+**The diffuser press fit is on the INSIDE, and the collar is turned down.** Sam:
+*"I want the press fit to be on the inside where the screen is not the outside."*
+The outer wall drops into the ring pocket with 0.40 mm of clearance and grips
+nothing. Six crush ribs on the collar give 0.20 mm of interference on diameter
+over 5.00 mm of bore.
 
-**And v8 had made it too tight — that was my error.** It measured the seat by
-pushing the diffuser into a bare base, with no LED ring and no screen in it, so
-the crush ribs were the only thing stopping it, and it grew the band from 4.00
-to 6.00 mm on the strength of that. The real stop is the diffuser's face landing
-on the base's inner wall at z = 19.03. At a 6.00 band that leaves **0.03 mm**
-between the band and the LED ring, so it jams proud and rocks. Back to 4.00,
-which clears the ring by 2.03 mm. If you printed a v8 or v9 diffuser, that is
-why it fought you — reprint it.
+It took three goes to get this right. The first two left Sam's own 30.108 mm
+collar OD in a 30.19 mm bore — 0.164 mm on diameter, which is *not clearance on
+a printed part*: an external cylinder prints 0.10–0.20 over and a bore 0.10–0.30
+under, so that pair can come out as a full-surface interference before a single
+rib is involved. The collar is 29.90 now — 0.58 mm of clearance — so the ribs
+are the only thing touching. **One knob: `COLLAR_RIB_H` in `v2/params.py`. Too
+tight → 0.05. Falls out → 0.16.**
+
+**The collar reaches the screen now.** It was 0.63 mm short of the module's face
+and not touching it at all. Its length is derived, not typed, and it is a
+ceiling rather than a preference — a collar that reaches past the module holds
+the diffuser off its seat and the clock sits proud. If your module's rim at
+r = 29 mm is thicker than a bare 1.60 mm PCB, take the difference off
+`COLLAR_TRIM` or off the base with `SEAT_DROP`.
+
+**SLICE THE DIFFUSER'S FACE SOLID.** Sam: *"there is bleed and you can see
+through where you're not meant to."* The model was already 2.00 mm everywhere
+but the aperture — checked, not assumed — so the bleed was light coming through
+the PLA, and at 0% infill a face is a shell with air in it. Set the diffuser to
+100% infill. The face is also 2.90 mm now, up from 2.00, which is the most the
+front recess will take, and the aperture flares behind its membrane so the
+thicker face does not turn each dot into the bottom of a narrow slot.
+
+If it still bleeds after that, the answer is material, not geometry: white PLA
+passes light at any thickness a clock face can carry, and the real fix is an
+opaque body with translucent lens inserts at the dots.
 
 **Before you print the diffuser, measure the display module's rim thickness** at
 the r = 29 mm circle and set `COLLAR_EXTEND = 2.20 - t` in `v2/params.py`.

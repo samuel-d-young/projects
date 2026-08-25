@@ -503,6 +503,40 @@ def build_diffuser(B):
     # --- 1. Sam's collar and inner face, which are defect-free ---------------
     d = load_sams_diffuser() ^ cyl(BAND_CUT_R, -1.0, 12.0, SEG)
 
+    # --- 1b. thicken HIS face too -------------------------------------------
+    # Raising FACE_T only thickens the band this file rebuilds, from r=34.50
+    # out. Inside that it is Sam's mesh and it stays 2.00 mm, which would leave
+    # a step and a thin ring you can still see the screen's surround through.
+    # Fill it out to the same FACE_T, from the window's edge to the band.
+    # Radii chosen so neither wall lands ON one of his surfaces: the inner one
+    # is 0.07 inside the window edge so it is buried in his face rather than
+    # coincident with its bore, and the outer one stops 0.20 short of the band
+    # this file adds at 34.50, so it is buried in that. Two curved surfaces at
+    # the same nominal radius but different tessellations is how you get
+    # NotManifold.
+    # ...and 0.05 short of FACE_T at the back, so that where it overlaps the
+    # band this file adds it is not ALSO landing on that band's own top plane.
+    # Overlapping into a coplanar face is the one thing float32 does not survive;
+    # the 0.05 step is on the hidden side of the face.
+    d += tube(DIFF_BORE_RI + 0.07, BAND_FACE_RI + 0.30, 0.0, FACE_T - 0.05, SEG)
+
+    # --- 1b2. the taller collar ----------------------------------------------
+    # Added BEFORE the turn-down below, so the same cut sizes the collar and its
+    # extension and they come out as one flush cylinder.
+    if COLLAR_EXTEND > 0:
+        d += tube(COLLAR_EXT_RI, COLLAR_EXT_RO,
+                  DIFF_COLLAR_H - 1.0, DIFF_COLLAR_H + COLLAR_EXTEND, SEG)
+
+    # --- 1c. turn the collar down -------------------------------------------
+    # Sam's collar is 30.108 in a 30.19 bore: 0.164 mm on diameter, which is not
+    # clearance on a printed part. At COLLAR_OD there is 0.58, and the six ribs
+    # added below are the only thing that touches. Done HERE, before the ribs
+    # exist -- doing it at the end took the ribs off with it.
+    # Cut from just above the face, and stopping short of the band at 34.50, so
+    # it can only ever see the collar.
+    d -= tube(COLLAR_OD, 34.00, FACE_T + 0.001,
+              DIFF_COLLAR_H + COLLAR_EXTEND + 1.0, SEG)
+
     # --- 2. the band, rebuilt clean -----------------------------------------
     d += tube(BAND_FACE_RI, B.diff_outer, 0.0, FACE_T, SEG)
     if B.guides:
@@ -561,7 +595,7 @@ def build_diffuser(B):
     # onto its face -- a rib sitting exactly on the surface it grows from comes
     # away as its own shell in float32.
     r_crest = R_DISP_BORE + COLLAR_RIB_H
-    r_in = DIFF_COLLAR_RO - COLLAR_RIB_BURY
+    r_in = COLLAR_OD - COLLAR_RIB_BURY
     for k in range(COLLAR_RIB_N):
         a = 360.0 / COLLAR_RIB_N * (k + 0.5)
         rm = (r_crest + r_in) / 2
@@ -573,8 +607,12 @@ def build_diffuser(B):
     # COLLAR_RIB_Z1 -- not at Z0, which is the trailing end.
     d -= (cyl(r_crest + 2.0, COLLAR_RIB_Z1 - COLLAR_RIB_LEAD,
               COLLAR_RIB_Z1 + 0.10, SEG)
-          - cone(r_crest, DIFF_COLLAR_RO - 0.30,
+          - cone(r_crest + 0.40, COLLAR_OD - 0.30,
                  COLLAR_RIB_Z1 - COLLAR_RIB_LEAD, COLLAR_RIB_Z1 + 0.10, SEG))
+    # ^ the cone starts 0.40 OUTSIDE the crest, not on it. Starting it exactly at
+    # r_crest makes its surface tangent to each rib's crest along one line, and
+    # in float32 that leaves a sliver at every rib -- 6 bad edges, all at
+    # r=30.29, z=6.00. Offset, it crosses the crest cleanly partway up.
 
     # --- 3. one radial tick per cell, thinned to a single layer --------------
     ticks = None
@@ -582,8 +620,16 @@ def build_diffuser(B):
         a = B.wall_a0 + (i + 0.5) * B.pitch
         cx = (B.tick_ri + B.tick_ro) / 2 * math.cos(math.radians(a))
         cy = (B.tick_ri + B.tick_ro) / 2 * math.sin(math.radians(a))
-        t = prism(rot_rect(cx, cy, B.tick_ro - B.tick_ri, TICK_W, a, TICK_END_R),
-                  DIFF_MEM_T, B.band_top + 0.60)
+        # A 3.00 mm face would otherwise leave each dot at the bottom of a
+        # 2.80 mm deep, 2.00 mm wide slot -- visible head-on and nowhere else.
+        # So the hole opens out behind the membrane: 2.00 x 4.00 at the front,
+        # APER_FLARE wider on every side by the time it reaches the cell.
+        lo = prism(rot_rect(cx, cy, B.tick_ro - B.tick_ri, TICK_W, a, TICK_END_R),
+                   DIFF_MEM_T, DIFF_MEM_T + 0.01)
+        hi = prism(rot_rect(cx, cy, B.tick_ro - B.tick_ri + 2*APER_FLARE,
+                            TICK_W + 2*APER_FLARE, a, TICK_END_R),
+                   B.band_top + 0.59, B.band_top + 0.60)
+        t = (lo + hi).hull()
         ticks = t if ticks is None else ticks + t
     if ticks is not None:
         d -= ticks
@@ -591,10 +637,6 @@ def build_diffuser(B):
     # --- 4. all twelve hours, written on the face ---------------------------
     d -= numerals(B, -0.10, NUM_DEPTH)
 
-    # --- 5. a taller collar --------------------------------------------------
-    if COLLAR_EXTEND > 0:
-        d += tube(COLLAR_EXT_RI, COLLAR_EXT_RO,
-                  DIFF_COLLAR_H - 1.0, DIFF_COLLAR_H + COLLAR_EXTEND, SEG)
     return d
 
 

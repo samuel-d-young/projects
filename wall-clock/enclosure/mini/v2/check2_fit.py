@@ -339,6 +339,20 @@ for B, tg in BODIES:
     ck((DP ^ BASE).volume() < 200.0,
        'the only thing it touches in the base is that land and the bore',
        f'{(DP ^ BASE).volume():.1f} mm3, which is the collar ribs crushing')
+    # The two ceilings. Both of these were frozen constants once and both drifted
+    # silently when something upstream of them moved, so they are asserted now.
+    ck(DIFF_SEAT_Z <= Z_FRONT + 0.001,
+       'the face fits inside the front recess rather than standing proud',
+       f'face top z={DIFF_SEAT_Z:.2f} against a front face at {Z_FRONT:.2f}; '
+       f'FACE_T {FACE_T:.2f} of a possible {Z_FRONT - DIFF_WALL_CREST:.2f}')
+    ck(abs((DIFF_SEAT_Z - FACE_T) - DIFF_WALL_CREST) < 1e-9,
+       '...and its underside is exactly on the land, by construction',
+       f'{DIFF_SEAT_Z - FACE_T:.2f} = {DIFF_WALL_CREST:.2f}')
+    tip = DIFF_SEAT_Z - (DIFF_COLLAR_H + COLLAR_EXTEND)
+    ck(tip >= Z_SEAT + DISP_TAB_T - 1e-9,
+       'the collar reaches the screen but does not push past it',
+       f'tip z={tip:.2f}, the module\'s face at {Z_SEAT + DISP_TAB_T:.2f} '
+       f'(seat {Z_SEAT:.2f} + {DISP_TAB_T:.2f} of PCB)')
 
     print('\n7. The wall hanger')
     # the head ends up INSIDE the compartment once the clock is dropped on it

@@ -2795,3 +2795,105 @@ Moving the floor to 12.48 finally pushed the probe into the floor and made it
 fail. It was wrong the whole time; it just had slack to hide in.
 
 Five passes, sixteen parts, three bodies, all green.
+
+---
+
+## 2026-08-25 — v11: the collar had no clearance, the collar was short, and the face was thin
+
+> *"its still too tight and the inside ring that goes onto the screen can be
+> longer."*
+> *"update the diffusers so that only the part that is meant to be seen through
+> the LED is thin, otherwise there is bleed and you can see through where you're
+> not meant to."*
+
+### Third "too tight", so stop guessing at the number
+
+v10 moved the press fit to the collar and put six crush ribs on it. What it did
+NOT do is give the collar underneath any clearance. Sam's collar is **30.108**
+OD; the bore measures **30.19** across the flats. That is **0.164 mm on
+diameter**.
+
+On an FDM printer that is not clearance. An external cylinder comes out
+0.10-0.20 over on diameter; a bore comes out 0.10-0.30 under. So the pair can
+easily print as an *interference across the whole 190 mm of circumference* --
+and six ribs on top of that were never a crush fit, they were a solid
+interference fit with lumps on it. Turning `COLLAR_RIB_H` down would not have
+helped, because the interference was underneath the ribs, not in them.
+
+The collar is turned to **29.90**: 0.58 mm of clearance on diameter, and the
+ribs are now the only thing that touches. Interference down 0.30 -> 0.20, ribs
+narrowed 1.60 -> 1.20 (a narrow rib crushes more easily than a wide one), lead-in
+1.00 -> 2.00. And the knob means something now: with real clearance underneath
+it, turning `COLLAR_RIB_H` down cannot leave a hidden interference behind it.
+
+**The general lesson, which is the same shape as v8's:** a crush-rib fit is only
+a crush-rib fit if the surface the ribs stand on is genuinely clear. Ribs on a
+line-to-line surface are just a rougher press fit.
+
+### The collar was not touching the screen at all
+
+The module sits on its seat at 8.60 with a 1.60 mm PCB, so the face the collar
+is meant to hold down is at **10.20**. The collar's tip reached **10.83**. It
+was 0.63 mm short and the screen was free to lift -- exactly what Sam felt.
+
+`COLLAR_EXTEND` is derived now rather than typed:
+
+```
+COLLAR_EXTEND = DIFF_SEAT_Z - (Z_SEAT + DISP_TAB_T) - DIFF_COLLAR_H
+              = 21.93 - 10.20 - 8.20 = 3.53
+```
+
+And it is a CEILING, not a preference: the diffuser's face rests on the base's
+land, so a collar reaching past the module holds it off that land and the clock
+sits proud. `check2` asserts the tip never goes past the module's face.
+
+### The bleed was not a hole in the model
+
+First thing was to check rather than assume. Probed across the built face with a
+ray cast, it was a flat 2.00 mm everywhere except the aperture at 0.20 -- so the
+model was already doing what Sam asked for. The bleed was 2.00 mm of white PLA
+passing light.
+
+Three answers, one of which is not geometry at all:
+
+* **The face is 2.90 mm**, up from 2.00. That is the most that fits: it sits in
+  the front recess between the wall crest it rests on at 19.03 and the front of
+  the clock at 22.00, which is 2.97 and no more. At 2.90 it finishes 0.07 inside
+  the front -- effectively flush, which it never was before.
+* **His inner face is filled out to match.** Raising FACE_T only thickens the
+  band this project rebuilds, from r=34.50 out; inside that it is his mesh and
+  it stayed 2.00. There was a step and a thin ring around the screen window.
+* **The aperture flares behind the membrane** -- 2.00 x 4.00 at the front,
+  opening 0.80 a side by the time it reaches the cell. Without that, a 2.90 mm
+  face turns every dot into the bottom of a deep narrow slot you can only see
+  head-on.
+* **And the face has to be sliced SOLID.** At 0% infill -- which is what MAKE.md
+  had been saying -- a 2.90 mm face is a shell with air in it, and air does not
+  block light. That is very likely a large part of what he was seeing, and it is
+  a settings change, not a reprint of anything.
+
+Said plainly in the docs: if it still bleeds after all that, the answer is
+material rather than geometry. White PLA passes light at any thickness a clock
+face can carry, and the real fix is an opaque body with translucent lens inserts
+at the dots -- the same two-filament workflow as the numerals, but it needs the
+aperture to become a through-hole and a third part. Offered, not assumed.
+
+### Two frozen constants and two tangencies
+
+* **DIFF_SEAT_Z was frozen at 21.03** with a comment saying "= crest + FACE_T".
+  It stopped tracking the moment FACE_T moved, and the first attempt at a 3.00 mm
+  face drove 774 mm3 of diffuser into the base. Derived now, along with BAND_TOP
+  and COLLAR_EXTEND -- and `check2` asserts the face fits the recess and its
+  underside is on the land.
+* **The rib lead-in cone started exactly at the crest radius**, so its surface
+  was tangent to each rib along one line: 6 bad edges at r=30.29, z=6.00, and
+  NotManifold after the float32 round trip. Started 0.40 outside the crest it
+  crosses cleanly partway up.
+* **The face fill's top plane landed on the rebuilt band's top plane.** Overlap
+  into a coplanar face, which is the one thing float32 does not survive. Ends
+  0.05 short, on the hidden side.
+* **The collar extension was inset 0.10 inside the turned-down collar**, leaving
+  a 0.10 mm ledge ringing it. The extension is added before the turn-down now,
+  so one cut sizes both and they finish flush.
+
+Five passes, sixteen parts, three bodies, all green.

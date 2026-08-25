@@ -1,4 +1,4 @@
-# mini-round-clock enclosure — v10
+# mini-round-clock enclosure — v11
 
 Built on top of the base and diffuser Sam remodelled. Three clock sizes: the
 **24-LED** body at 107.99 mm, which is his; a **32-LED** body at 119.85 mm,
@@ -38,7 +38,7 @@ Every filename is prefixed `mini-round-clock`.
 |---|---|---|---|
 | base | **deck face down** | see note | 105 / 138 / 521 cm³ |
 | housing | **rear plate down** | none | 55 / 66 / 210 cm³ |
-| diffuser | **face down, 0.20 mm layers** | none | 13 / 20 / 107 cm³ |
+| diffuser | **face down, 0.20 mm layers, SOLID face** | none | 16 / 26 / 140 cm³ |
 | numerals | *not printed alone* — see §9 | none | 0.07 / 0.10 / 0.21 cm³ |
 | desk stand | flat on its desk face | none | 219 / 264 / 1003 cm³ |
 | light guides | flat, **clear or natural PETG** | none | — / — / 31 cm³ |
@@ -166,38 +166,109 @@ there, so this cannot happen again quietly.
 
 #### And the fit itself moves inside
 
-The outer wall grips **nothing** now. It drops into the ring pocket with
-**0.40 mm of clearance on diameter** and the eight outer crush ribs are gone.
+The outer wall grips **nothing**. It drops into the ring pocket with **0.40 mm
+of clearance on diameter** and the eight outer crush ribs are gone.
 
-The press fit is six crush ribs on the **collar** — the part that reaches down
-around the screen:
+#### Why v10 was STILL too tight — the collar had no clearance to begin with
+
+Third report of "too tight", so the answer was not another tolerance guess. v10
+put six crush ribs on the collar but left the collar itself at Sam's own
+**30.108** OD in a **30.19** bore. That is **0.164 mm on diameter** — and on an
+FDM printer that is not clearance at all:
+
+| | typical FDM error |
+|---|---|
+| an external cylinder | comes out **0.10–0.20 over** on diameter |
+| an internal bore | comes out **0.10–0.30 under** on diameter |
+
+So that pair can easily print as an *interference across the whole 190 mm of
+circumference*, before a single rib is involved. Six ribs on top of that were
+never a crush fit — they were a solid interference fit with lumps on it.
+
+**The collar is turned down to 29.90.** That is 0.58 mm of clearance on
+diameter, enough to swallow what both printers do, and the ribs are now the only
+thing that touches anything:
 
 ```
-bore            30.19 measured across the flats. R_DISP_POCKET (30.2788) is the
-                circumradius of a 144-gon; a round collar touches the flats.
-collar OD       30.108, so 0.16 mm of clearance on diameter -- it starts square
-6 crush ribs    1.60 mm wide, crest at 30.34
-interference    0.30 mm on diameter
-engagement      4.50 mm of bore, z 3.00..7.50 in the diffuser's own frame,
-                which is entirely above the display module
-lead-in         1.00 mm taper at the HIGH z end -- the collar goes in tip first
+bore            30.19 measured across the flats
+collar OD       29.90  ->  0.58 mm of clearance on diameter
+6 crush ribs    1.20 mm wide (was 1.60 -- narrower crushes more easily)
+crest           30.29  ->  0.20 mm of interference on diameter (was 0.30)
+engagement      5.00 mm of bore, z 3.00..8.00 in the diffuser's frame
+lead-in         2.00 mm taper at the end that meets the bore first
 ```
 
-It is the better place for it regardless of preference. The outer wall is 92 mm
-around on the small body and **233 mm** on the 60-LED one, so one interference
-figure is a completely different fit on each — and on the big one it is smaller
-than a printer's own error across that span. The collar is 60 mm around on **all
-three**. One fit, three clocks.
+**One knob, and now it is the whole fit.** `COLLAR_RIB_H` in `params.py`. Too
+tight → 0.05. Falls out → 0.16. Because the collar underneath has real
+clearance, turning that knob down cannot leave a hidden interference behind it —
+which is exactly what went wrong before.
 
-Each rib has to crush 0.15 mm. The old outer ribs were asked for 0.35 mm each.
+#### The collar reaches the screen now
 
-**One knob.** `COLLAR_RIB_H` in `params.py`. Too tight → 0.10. Falls out → 0.22.
+> *"the inside ring that goes onto the screen can be longer."*
 
-**Getting it back out:** the face sits about 1 mm down in the front recess with a
-5.6 mm annular gap out to the lip, so there is somewhere to get a fingernail or
-a thin blade in all the way round.
+It was 0.63 mm short, and the geometry says so exactly: the module sits on its
+seat at 8.60 with a 1.60 mm PCB, so the face the collar is meant to hold down is
+at **10.20** — and the collar stopped at 10.83. It was not touching the screen
+at all.
 
-### One layer over the LEDs
+`COLLAR_EXTEND` is derived now rather than typed:
+
+```
+COLLAR_EXTEND = DIFF_SEAT_Z − (Z_SEAT + DISP_TAB_T) − DIFF_COLLAR_H
+              = 21.93 − 10.20 − 8.20 = 3.53
+```
+
+**This is a ceiling, not a preference.** The diffuser's face rests on the base's
+land; a collar that reaches *past* the module holds the diffuser off that land
+and the whole thing sits proud — which is one of the ways it has felt too tight.
+If your module's rim at the r = 29 circle is thicker than the 1.60 mm bare PCB
+assumed here, take the difference off `COLLAR_TRIM`, or off the base instead
+with `SEAT_DROP`. `check2` asserts the tip never goes past the module.
+
+### The face is thicker, and only the aperture is thin
+
+> *"update the diffusers so that only the part that is meant to be seen through
+> the LED is thin, otherwise there is bleed and you can see through where you're
+> not meant to."*
+
+First thing was to check whether the model was actually thin somewhere it
+shouldn't be. Probed across the built face, it was not: a flat 2.00 mm
+everywhere except the aperture at 0.20. So the bleed was not a hole in the
+model — it was 2.00 mm of white PLA still passing light.
+
+Two things changed, and one of them is a slicer setting rather than geometry.
+
+**The face is 2.90 mm.** That is 45% more material in the way, and it is the
+most that will fit: the face sits in the base's front recess between the wall
+crest it rests on at 19.03 and the front of the clock at 22.00, which is 2.97 mm
+and no more. At 2.90 it finishes 0.07 mm inside the front — effectively flush,
+which it never was before. `DIFF_SEAT_Z` and `BAND_TOP` are both derived from
+`FACE_T` now, so nothing downstream can drift when it moves.
+
+**Sam's own inner face is filled out too.** Raising `FACE_T` only thickens the
+band this project rebuilds, from r = 34.50 out; inside that it is his mesh and it
+stayed 2.00. It is filled to the same thickness now, so there is no step and no
+thin ring around the screen window.
+
+**The aperture flares behind the membrane.** A 2.90 mm face would otherwise
+leave each dot at the bottom of a deep narrow slot, visible head-on and nowhere
+else. The hole is 2.00 × 4.00 mm at the membrane and opens out 0.80 mm on every
+side by the time it reaches the cell, so the viewing angle survives the thicker
+face.
+
+**And slice the face SOLID.** At 0% infill a 2.90 mm face is a shell with air in
+it, and air does not block light. This is very likely a large part of what you
+were seeing. Set the diffuser to 100% infill, or enough top and bottom shells
+that 2.90 mm is solid at your layer height.
+
+**If it still bleeds**, the remaining answer is material rather than geometry:
+white PLA is translucent at any thickness a clock face can carry. The fix is an
+opaque body with translucent lens inserts at the dots — the same two-filament
+workflow as the numerals, but it needs the aperture to become a through-hole and
+a third part. Say the word and I will add it.
+
+### One layer over the LEDs### One layer over the LEDs
 
 The membrane was 0.80 mm. It is now **0.20 mm** — a single layer at 0.20 mm
 layer height, and the diffuser prints membrane side **down**, so it is the first
@@ -963,11 +1034,16 @@ Both now derive from the body's own shelf height.
   there, **clears the LED ring by 2.03 mm** on every body — measured as a
   boolean against the ring's own solid, which is the check v8 did not have
   (`check2` §9)
-- The press fit is **on the collar and nowhere else**: 0.30 mm of interference
-  on diameter over six 1.60 mm ribs with 4.50 mm of bore engagement, the collar
-  itself clear by 0.16 mm so it starts square, the ribs tapered at the end that
-  meets the bore first, and the outer wall clear by 0.40 mm all round
-  (`check2` §3, `check4` §5)
+- The press fit is **on the collar and nowhere else**: 0.20 mm of interference
+  on diameter over six 1.20 mm ribs with 5.00 mm of bore engagement, the collar
+  **turned down** so it is clear by 0.58 mm and only the ribs touch, the ribs
+  tapered at the end that meets the bore first and dropping back to nominal
+  between them, and the outer wall clear by 0.40 mm all round (`check2` §3,
+  `check4` §5)
+- The face fits inside the front recess rather than standing proud, its
+  underside is exactly on the land by construction, and the collar reaches the
+  screen's face without pushing past it — the three numbers that silently
+  drifted before are now asserted (`check2` §9)
 - Every cell has a tick, every wall is full height, all twelve hours are
   debossed, the inlay part fills every pocket to within 2% and leaves no hole in
   the numeral band, and the numerals **read the right way round** once the

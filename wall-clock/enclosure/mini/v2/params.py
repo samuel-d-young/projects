@@ -23,7 +23,8 @@ R_DISP_POCKET = 30.2788
 # deep the diffuser goes. Everything that has to line up with the diffuser is
 # derived from DIFF_SEAT_Z.
 DIFF_WALL_CREST = 19.0300
-DIFF_SEAT_Z     = DIFF_WALL_CREST + 2.0000   # 21.03, = crest + FACE_T
+# DIFF_SEAT_Z = DIFF_WALL_CREST + FACE_T, defined with FACE_T further down --
+# it was frozen at 21.03 here, which silently stopped tracking when FACE_T moved.
 R_RING_I      = 35.1080     # ring pocket
 R_RING_O      = 46.3516
 Z_RING_FLOOR  = 11.8000
@@ -280,6 +281,8 @@ DIFF_WALL_RI  = 44.900
 DIFF_MEM_RI   = 39.000
 DIFF_MEM_RO   = 44.900
 DIFF_WALL_H   = 4.000
+DIFF_BORE_RI  = 27.6300      # MEASURED: the window you look at the screen
+                             # through -- the diffuser's own inner radius
 DIFF_COLLAR_RI, DIFF_COLLAR_RO = 27.9164, 30.1080
 DIFF_COLLAR_H = 8.200
 
@@ -308,10 +311,11 @@ DIFF_BAFFLE_KEEP = 2.60     # degrees of membrane kept at full 0.8 either side
 # Sam: "the inside of the diffuser can be 2 mm tall to go further into the LED
 # screen area to hold it in too" -- the collar grows 2 mm so it reaches the
 # module's front face and clamps it. See README for what that implies.
-COLLAR_EXTEND = 2.00
-COLLAR_EXT_RI, COLLAR_EXT_RO = 28.05, 29.95     # inset both faces 0.13/0.16 so
-                            # the extension does not share a surface with the
-                            # collar it grows from
+COLLAR_EXT_RI, COLLAR_EXT_RO = 28.05, 29.95     # RO is deliberately OVER
+                            # COLLAR_OD: the extension is added before the collar
+                            # is turned down, so one cut makes both surfaces and
+                            # they finish flush. Insetting it instead left a
+                            # 0.10 mm ledge ringing the collar at z=8.20.
 
 # --- v4: the lit band becomes a LINE ------------------------------------------
 # Sam: "more of a line where the LED shows through like the echo wall clock."
@@ -338,7 +342,46 @@ TICK_RI      = 38.75        # a 5050 spans r 38.25..43.25, so the tick sits
 TICK_RO      = 42.75        # inside the LED, centred on it, and is evenly lit
                             # end to end with 0.50 mm of LED beyond either end
 TICK_END_R   = 0.85         # radiused ends
-FACE_T       = 2.00         # the face either side of a tick. 0.20 glows, 2.00 does not.
+# Sam: "update the diffusers so that only the part that is meant to be seen
+# through the LED is thin, otherwise there is bleed and you can see through where
+# you're not meant to."
+#
+# The geometry was already doing that -- probed across the built face, it is a
+# flat 2.00 mm everywhere except the aperture, which is 0.20. So the bleed is
+# not a hole in the model; it is 2.00 mm of white PLA still passing light. The
+# answer is more of it. 3.00 mm is half again as much material in the way, and
+# it is the most that fits: the walled cell behind it keeps its full 2.00 mm
+# depth and the band still clears the LED ring by 1.03 mm.
+#
+# Two things have to come with it, or thickening the face makes the clock worse:
+#   * the aperture FLARES behind the membrane (APER_FLARE), so a 3 mm face does
+#     not turn each dot into the bottom of a deep narrow slot you can only see
+#     head-on;
+#   * the face has to be SLICED SOLID. At 0% infill a 3 mm face is a shell with
+#     air in it, and air does not block light. See MAKE.md.
+# 2.90, not 3.00, and the ceiling is not a preference: the diffuser's face sits
+# in the base's front recess, between the wall crest it rests on at 19.03 and
+# the front of the clock at 22.00. That is 2.97 mm and no more. At 2.90 the face
+# finishes 0.07 mm inside the front -- effectively flush, which it never was
+# before -- and it is 45% more material in the way of the light than 2.00 was.
+FACE_T       = 2.90         # the face either side of a tick. 0.20 glows.
+DIFF_SEAT_Z  = DIFF_WALL_CREST + FACE_T      # 21.93, where the face's top lands
+CELL_DEPTH   = 2.00         # walled cell behind the face, unchanged
+
+# Sam: "the inside ring that goes onto the screen can be longer." It was too
+# short, and by a number the geometry gives exactly: the module sits on its seat
+# at 8.60 and its PCB is 1.60 thick, so the face the collar is meant to hold down
+# is at 10.20. Reach the collar's tip to precisely that.
+#
+# THIS IS A CEILING, not a preference. The diffuser's face rests on the base's
+# land; a collar that reaches PAST the module holds the diffuser off that land
+# and the whole thing sits proud again -- which is one of the ways it has felt
+# too tight. If your module's rim at the r=29 circle is thicker than the 1.60 mm
+# bare PCB assumed here, take the difference off COLLAR_TRIM, or off the base
+# instead with SEAT_DROP.
+COLLAR_EXTEND = DIFF_SEAT_Z - (Z_SEAT + DISP_TAB_T) - DIFF_COLLAR_H
+APER_FLARE   = 0.80         # the aperture opens out this much on every side
+                            # behind the membrane, so the viewing angle survives
 
 # --- and the hours, written on the face ---------------------------------------
 # Debossed, not thinned: the Echo's markings are printed on a white face and its
@@ -408,7 +451,9 @@ BAND_FACE_RI  = 34.50       # new face starts 0.5 mm inside the cut, so the seam
 # exactly what Sam reported: "now too tight and doesn't fit properly". At 4.00
 # it clears the ring by 2.03 and the face seats on its land. check4 measures
 # that clearance now, so this cannot happen again quietly.
-BAND_TOP      = 4.00        # rib, wall and cell-wall tops
+BAND_TOP      = FACE_T + CELL_DEPTH   # 4.90. Derived, so the cell keeps its
+                            # depth and the band keeps its clearance to the LED
+                            # ring whatever FACE_T is set to.
 RIB_I_RI, RIB_I_RO = 35.50, 36.70
 RIB_O_RI      = 44.80       # outer rib now runs out to DIFF_OUTER_NEW
 CELL_N        = 24
@@ -669,18 +714,28 @@ DECK_RI       = 30.00
 # frame -- which is 4.50 mm of engagement, entirely inside the bore and entirely
 # above the display module.
 R_DISP_BORE     = 30.19      # MEASURED across the flats, not the param radius
+# THE COLLAR IS TURNED DOWN. v10 left Sam's own 30.108 OD, which is 0.164 mm of
+# clearance on diameter against a 30.19 bore -- and on an FDM printer that is not
+# clearance at all. An external cylinder comes out 0.10-0.20 over on diameter and
+# a bore 0.10-0.30 under, so that pair can easily print as an INTERFERENCE across
+# the whole 190 mm of circumference. Six ribs on top of that were not a crush
+# fit; they were a solid interference fit with lumps on it. Hence "still too
+# tight" a third time.
+# Turned to 29.90 there is 0.58 mm of clearance on diameter -- enough to swallow
+# what both parts' printers do -- and the ribs are the only thing touching.
+COLLAR_OD       = 29.90      # was Sam's 30.108
 COLLAR_RIB_N    = 6
-COLLAR_RIB_W    = 1.60       # tangential
-COLLAR_RIB_H    = 0.15       # radial interference -> 0.30 mm on diameter
+COLLAR_RIB_W    = 1.20       # tangential. Narrower crushes more easily than wide
+COLLAR_RIB_H    = 0.10       # radial interference -> 0.20 mm on diameter
 COLLAR_RIB_Z0   = 3.00       # in the diffuser's frame
-COLLAR_RIB_Z1   = 7.50
-COLLAR_RIB_LEAD = 1.00       # taper at the end that enters the bore first, which
+COLLAR_RIB_Z1   = 8.00
+COLLAR_RIB_LEAD = 2.00       # taper at the end that enters the bore first, which
                              # is the HIGH z end: the collar goes in tip first
 COLLAR_RIB_BURY = 0.60       # into the collar, so the rib does not sit on a face
                              # coincident with it -- that does not survive float32
-# ONE KNOB. Too tight -> drop COLLAR_RIB_H to 0.10. Falls out -> raise it to 0.22.
-# 0.30 mm on diameter over six 1.60 mm ribs is a sixth of what the old outer fit
-# asked each rib to crush.
+# ONE KNOB. Too tight -> drop COLLAR_RIB_H to 0.05. Falls out -> raise it to 0.16.
+# Because the collar underneath now has real clearance, that knob is the WHOLE
+# fit -- turning it down cannot leave a hidden interference behind it.
 GUIDE_LED_CLR   = 0.40       # 60-LED only. Its band comes right down to the guide
                              # shelf, which is level with the LED tops by design --
                              # that is how an LED fires into the end of its strip.
