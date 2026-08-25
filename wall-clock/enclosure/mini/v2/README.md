@@ -44,7 +44,7 @@ Every filename is prefixed `mini-round-clock`.
 | numerals | *not printed alone* — see §9 | none | 0.07 / 0.10 / 0.21 cm³ |
 | desk stand | flat on its desk face | none | 219 / 264 / 1003 cm³ |
 | light guides | flat, **clear or natural PETG** | none | — / — / 31 cm³ |
-| board gauge | plate down | none | 13 cm³, any body |
+| board gauge | plate down | none | 12 cm³, any body |
 
 **Those are solid volumes, not filament.** The stand is a big blocky part —
 print it at 8–10% infill with 3 walls and it lands around 60–80 g. Mass is not a
@@ -226,7 +226,7 @@ answer is a negative figure — try −0.05.
 
 #### And print the board gauge first too
 
-`mini-round-clock-board-gauge` — **the S3 frame on a plate, about 16 g.** Same
+`mini-round-clock-board-gauge` — **the S3 frame on a plate, about 15 g.** Same
 reason, different fit: see §2. Between the two of them, the only two fits in
 this design that have ever come back wrong can both be settled in half an hour
 of printing before anything large goes on the plate.
@@ -481,7 +481,7 @@ housing            25.00 mm deep, 21.50 mm of clear pocket   (was 50.00 / 46.50)
 clock overall      49.40 mm  (22.00 base + 2.40 deck + 25.00 housing)
 board              62.865 x 25.400, on 4.00 mm posts off the pocket floor
                    x -48.50 .. +14.37; board and frame top out at 7.40
-                   (the frame takes 61.3-64.0 long, up to 25.7 wide)
+                   (the frame takes 62.4-63.3 long, up to 25.7 wide)
 still free         14.10 mm for the display's ribbon and the ring's leads
 battery            DOES NOT FIT ANY MORE -- see below
 ```
@@ -557,7 +557,7 @@ What the *sellers* say is another matter. Boards sold as
 different vendors — all confidently, all different. The 0.900 in pad rows are
 the one thing every DevKitC-1-shaped board has to keep, and they force the
 width; so the frame **trusts the width and gives the length room**, and takes
-anything **61.3–64.0 long and up to 25.7 wide**.
+anything **62.4–63.3 long and up to 25.7 wide**.
 
 #### Second: why it did not fit, which was not the dimensions
 
@@ -577,7 +577,7 @@ assert that rather than trusting the drawing.
 
 ```
 rail slot     26.20 drawn  ->  25.80 .. 26.20 printed   0.40 .. 0.80 clear
-end to end    64.67 drawn  ->  64.27 .. 64.67 printed   1.40 .. 1.80 clear
+end to end    63.87 drawn  ->  63.47 .. 63.87 printed   0.60 .. 1.00 clear
 ```
 
 #### What stops it now
@@ -585,7 +585,7 @@ end to end    64.67 drawn  ->  64.27 .. 64.67 printed   1.40 .. 1.80 clear
 | | what stops it | |
 |---|---|---:|
 | sideways | two **rails**, touching only the board's 1.60 mm edge | 0.80–1.20 mm total, deliberately |
-| along, +x | an **end wall** — the plug's insertion load goes here | 1.40–1.80 mm |
+| along, +x | an **end wall** — the plug's insertion load goes here | 0.60–0.90 mm |
 | along, −x | two **corner stops** against the board's end face | the datum |
 | down | three pairs of **posts** at \|y\| = 6.50 | — |
 | up, connector end | two **snap fingers** | 0.20 mm |
@@ -607,20 +607,35 @@ board held down at one end cannot lift at the other. But the lips have 0.20 mm
 of slack over a 4.00 mm base, and 62.865/4.00 is a 15.7:1 lever — so 0.20 mm at
 the lips is **3.1 mm of lift** at the far end. It rattled.
 
-So the antenna end gets a hood: a wedge hanging off the end wall whose underside
-climbs at 47°. That shape buys three things at once —
+So the antenna end gets a hood: a **flat 2.00 mm ledge** hanging off the end
+wall, underside 0.20 mm over the board, landing at \|y\| ≤ 9.80 on that bare
+7.53 × 21.16 mm patch — 0.38 mm clear of the pad rows even with the board
+sitting as far over as the rails let it.
 
-- its lowest point is a single **1.40 mm land**, so the board still **drops
-  straight down** past it. No tilting it in, no sliding it under anything.
-- a 47° underside is **self-supporting**, so there is no bridge and no overhang
-  to print.
-- the land sits 4.00 mm in from the wall, so **any** board from 61.3 to 64.0
-  still passes under it — 0.63 mm of engagement at the short end, 2.20 mm at
-  Espressif's own length.
+It was drawn once as something cleverer and it did not print. Sam caught it:
 
-It lands at \|y\| ≤ 9.80, on that bare 7.53 × 21.16 mm patch, which is 0.38 mm
-clear of the pad rows even with the board sitting as far over as the rails let
-it.
+> *"Remember the constraints of 3d printing when creating 3d files. The board
+> gauge has overhangs that can[']t be printed."*
+
+The first hood was a **wedge** with a 47° underside climbing away from the wall,
+so that its lowest point was a land out over the board and the board could drop
+straight past it. 47° is steeper than the 45° rule and it is still unprintable,
+because **a sloped face is only self-supporting when the material it grows from
+is BELOW it** — that ramp climbed the wrong way, so the hood's first layer was a
+**31 mm² island 5.80 mm up in mid-air**. Both the slope test and the bridge test
+passed it, because neither asks whether the layer that starts there is standing
+on anything. `check3` asks that now, layer by layer, on every part.
+
+A flat ledge has no such problem: it is the same shape as the two snap lips,
+which is the point. Every layer above it is carried by the one below, and the
+only unsupported thing in it is that first 2.00 mm of ledge — 0.40 mm more than
+each snap lip already asks for.
+
+**Two things are the price of that, and both are real.** A flat ledge cannot be
+dropped past, so the board goes in antenna-end first. And the reach has to come
+out of the end clearance, so the length window is **62.4–63.3 mm** rather than
+the 61.3–64.0 the wedge promised. Espressif's drawing says 62.865, which sits
+nicely in the middle of that — but it is ±0.5 mm, so **print the board gauge**.
 
 **It works with or without headers soldered on, pointing either way.** The rails
 only ever touch the board's edge; the posts sit at \|y\| = 6.50 with 4.00 mm of
@@ -629,24 +644,28 @@ before any copper; and the hood lands between the pad rows.
 
 #### Fitting it, and getting it out again
 
-1. Drop the board in between the rails, connector end first, square.
-2. Press it down. The two fingers cam outward — about 3 N each — and click over
-   the connector end's clear strips.
-3. It is done. The hood is already over the antenna end; nothing has to be slid
-   or tilted.
+1. Hold the board nearly flat and slide its **antenna end** in under the hood,
+   until its end face touches the end wall.
+2. Lower the connector end. At 6° of tilt it clears the fingers entirely, and
+   the last few millimetres press them outward — about 3 N each — until they
+   click over the connector end's clear strips.
+3. Push the board back toward 6 o'clock until its end face meets the corner
+   stops. It travels 0.6–0.9 mm, and the hood keeps ≥ 1.00 mm of the antenna
+   end covered the whole time.
 
 To get it out: push both fingers outward — a fingernail or a small screwdriver
-on each — and lift the connector end, then draw the board back out from under
-the hood. The lips' retaining faces are horizontal, so nothing lets go on its
+on each — lift the connector end, then draw the board back out from under the
+hood. The lips' retaining faces are horizontal, so nothing lets go on its
 own, which is the point.
 
 #### If you are not sure your board is the one in the drawing
 
 Print **`mini-round-clock-board-gauge`** first. It is this exact frame — same
 rails, same fingers, same stops, same hood, same posts — on a 2.5 mm plate
-instead of inside a clock. About **16 g and twenty minutes**. If the board
-clicks into that, it clicks into the housing; the plate carries a 5 mm scale off
-the connector end and deeper marks at 61.3 / 62.865 / 64.0, so if it does not,
+instead of inside a clock. About **15 g and twenty minutes**. Slide its antenna end
+under the hood, then press the connector end down; if it clicks into that, it
+clicks into the housing. the plate carries a 5 mm scale off
+the connector end and deeper marks at 62.4 / 62.865 / 63.3, so if it does not,
 you can read the length straight off it and `BOARD_L` is the one number to
 change.
 

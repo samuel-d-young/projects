@@ -20,6 +20,10 @@ def ck(cond, msg, detail=''):
 LAYER, NOZZLE = 0.20, 0.40
 SLOPE_MIN   = 45.0     # a sloped face flatter than this wants support
 MAX_BRIDGE  = 25.0     # a flat ceiling wider than this wants support
+LEDGE_MAX   = 2.50     # and a ledge off ONE edge cannot reach this far
+                       # (asserted against the design in check2 sec 5,
+                       #  where the reach is a parameter rather than a
+                       #  measurement -- bridge_span covers the rest)
 MIN_WALL    = 1.20     # three perimeters at 0.4 mm
 
 # Sam's base already carries this much shallow sloped overhang: the lead-in ramp
@@ -169,6 +173,49 @@ def thin_clusters(m, thr=MIN_WALL, n=12000, seed=0, min_pts=5):
                         xy=(q[:,0].min(), q[:,0].max(), q[:,1].min(), q[:,1].max())))
     return out, np.percentile(allv, 1.0)
 
+def unsupported(m, z, layer=LAYER, tol=1.05):
+    """At a ceiling, is the new material actually standing on anything?
+
+    THE TEST v13 WAS MISSING, and the one that matters most. The slope test
+    above asks whether a downward face is steeper than 45 degrees; the bridge
+    test asks how far a flat ceiling has to reach. Neither asks the prior
+    question -- whether the layer that starts here has anything under it at all.
+    A wedge whose 47 degree underside climbs AWAY from its wall passes both and
+    still begins as an island in mid-air, because a sloped face is only
+    self-supporting when the material it grows from is BELOW it. That shipped.
+
+    So: slice the layer above z and the layer below it, grow the lower one by
+    one layer height (which is exactly what a 45 degree face is allowed to
+    overhang), and look at what is left over.
+
+    Returns (area, sides) for each leftover piece; sides = 0 means nothing is
+    under it anywhere -- an ISLAND, unprintable, full stop. How FAR a supported
+    ledge or bridge then has to reach is bridge_span's question, not this one.
+    """
+    from shapely.ops import unary_union
+
+    def sl(zz):
+        try:
+            sec = m.section(plane_origin=[0, 0, zz], plane_normal=[0, 0, 1])
+            pl, _ = sec.to_2D(to_2D=np.eye(4))
+        except Exception:
+            return None
+        ps = [p for p in pl.polygons_full if p.area > 1e-9]
+        return unary_union(ps) if ps else None
+
+    cur, prev = sl(z + layer/2), sl(z - layer/2)
+    if cur is None or prev is None: return []
+    sup = prev.buffer(layer*tol)
+    left = cur.difference(sup)
+    if left.is_empty: return []
+    out = []
+    for g in (left.geoms if left.geom_type == 'MultiPolygon' else [left]):
+        if g.area < 0.5: continue
+        touch = g.buffer(layer*0.25).intersection(sup)
+        out.append((g.area, 0 if touch.is_empty else 1))
+    return out
+
+
 def layer_width(m, c, min_wall=MIN_WALL, layer=LAYER, cap=6.0, step=0.05):
     """The narrowest thing a slicer actually has to lay down in this region.
 
@@ -288,6 +335,17 @@ for fn, orient, min_wall in PARTS:
             if w > worst: worst, worst_at = w, (z, at)
     ck(worst <= MAX_BRIDGE, f'every flat ceiling bridges <= {MAX_BRIDGE:.0f} mm',
        f'worst {worst:.1f} mm' + (f' at z={worst_at[0]:.1f}' if worst_at else ''))
+
+    # --- and, at every one of those ceilings, does it stand on anything?
+    # An island can only START at a flat ceiling, so checking the ceilings is
+    # enough -- and it is a handful of slices rather than the whole part.
+    isl = []
+    for z in (np.unique(np.round(zc[ceil], 1)) if ceil.any() else []):
+        for area, sides in unsupported(m, float(z)):
+            if sides == 0: isl.append((area, z))
+    ck(not isl, 'and every one of them stands on something',
+       'no island: nothing starts in mid-air' if not isl else
+       f'{len(isl)} FLOATING: worst {max(isl)[0]:.1f} mm2 at z={max(isl)[1]:.1f}')
     # The span test above is the one that carries the meaning -- a bridge either
     # crosses or it does not. Total area only says "how much bridging", and a
     # deliberately hollowed part is mostly bridging by design: the 240 mm base

@@ -3138,3 +3138,91 @@ nothing was exempted by name.
 Changed: `params.py`, `build_v2.py`, `check2_fit.py`, `check3_print.py`,
 `render_fit.py`. New part: `mini-round-clock-board-gauge`. All five passes green
 on all three bodies, eighteen parts.
+
+---
+
+## 2026-08-25 — v13a: the hood was 47° and still unprintable
+
+> *"Remember the constraints of 3d printing when creating 3d files. The board
+> gauge has overhangs that can[']t be printed."*
+
+He is right, and it was in the housing too, not just the gauge.
+
+### What I got wrong
+
+The v13 hood was a **wedge** hanging off the end wall with a 47° underside that
+**climbed away from the wall**, so its lowest point was a 1.40 mm land standing
+out over the board. The reasoning was: a single low edge means the board can
+still drop straight down past it, and 47° is steeper than 45°, so it is
+self-supporting.
+
+The second half of that is wrong, and it is wrong in a way worth writing down:
+
+> **A sloped face is self-supporting only when the material it grows from is
+> BELOW it.** The angle is necessary and not sufficient.
+
+That ramp climbed the wrong way. The hood's first layer was therefore the land
+alone — a **31 mm² island 5.80 mm up in mid-air**, three millimetres from the
+nearest wall, with nothing under it. It would have printed as a bird's nest.
+
+### Why five checks missed it
+
+Because none of them asked the question. `check3` had:
+
+- a **slope** test — is any downward face flatter than 45°? The hood's was 47°,
+  so: no.
+- a **bridge** test — how far does a flat ceiling reach before it is supported?
+  Measured as twice the greatest distance from a point on the patch to that
+  patch's own **boundary** — which quietly assumes the boundary is supported.
+  For an island, nothing is. 1.40 mm of land scored 1.40 mm and passed.
+
+Two tests about *how* material is unsupported, and no test asking *whether* it
+is. That is the hole.
+
+### The check that closes it
+
+`check3.unsupported()`. An island can only begin at a flat ceiling, so at every
+z where the part has one: slice the layer above and the layer below, grow the
+lower slice by one layer height — which is exactly what a 45° face is allowed
+to overhang — and look at what is left over. Anything left that touches the
+grown lower slice **nowhere** is an island, and that is a hard failure.
+
+It is a handful of slices per part rather than the whole part, so it costs about
+a second each. Results on the seventeen parts: **no islands anywhere** now, and
+the only unsupported patches left are the USB window's ceiling, the vents, the
+two snap lips and the hood ledge — all anchored.
+
+I also wrote and then deleted a companion test for how far a one-sided ledge
+reaches. It duplicated `bridge_span`, my distance metric was a symmetric
+Hausdorff where it needed a directed one, and it re-flagged Sam's own inherited
+tab-slot ramps as new defects. The right home for that rule is `check2` §5,
+where the reach is a parameter rather than a measurement:
+`LEDGE_MAX = 2.50`, against 1.60 for the snap lips and 2.00 for the hood.
+
+### The hood now
+
+A **flat 2.00 mm ledge** off the end wall, underside at `BRD_LIP_Z0` — the same
+shape as the two snap lips, which is the whole point: short, off a wall, every
+layer above it carried by the one below.
+
+Two things are the price, and both are real:
+
+- **A flat ledge cannot be dropped past.** The board now goes in antenna-end
+  first: slide it under the hood, lower the connector end, press until the
+  fingers click, push it back onto the corner stops. At 6° of tilt the
+  connector end clears the fingers entirely.
+- **The reach comes out of the end clearance**, so `BRD_END_CLR` fell from 1.80
+  to 1.00 and the length window narrowed from the 61.3–64.0 the wedge promised
+  to **62.4–63.3**. That is about ±0.5 mm around Espressif's 62.865.
+
+Which makes the board gauge the load-bearing part of this delivery rather than a
+nicety. It is 15 g and it answers the only question the window leaves open.
+
+### The lesson, stated plainly
+
+I replaced a fit I could not verify with a shape I had not verified, and shipped
+it because it passed the tests I had. "It's 45°" is a rule of thumb about a
+face; printability is a property of a **layer** and its neighbours. Both of the
+checks added this week — `layer_width` for chamfers and `unsupported` for
+islands — are the same correction: stop reasoning about faces, measure the
+layers.

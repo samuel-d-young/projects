@@ -156,13 +156,15 @@ def board_mount(z_floor, RB=None, RI=None):
       posts        three pairs, at |y| = 6.50: between the USB shells' end tabs
                    at the connector end, mid-board, and under the antenna end.
 
-      hood         a wedge over the antenna end. v9 argued that a board held
-                   at one end cannot lift at the other; that was wrong. The
+      hood         a flat ledge over the antenna end. v9 argued that a board
+                   held at one end cannot lift at the other; that was wrong. The
                    lips have BRD_LIP_CLR of slack over a 4.00 mm base and the
                    board is 62.87 long, so 0.20 mm at the lips is 3.1 mm of
                    lift at the far end. The hood lands on the bare 7.53 x
                    21.16 mm patch between the pad rows, behind the WROOM
-                   module, so headers make no difference to it.
+                   module, so headers make no difference to it. The board
+                   goes in antenna-end first because of it: slide it under the
+                   ledge, then press the connector end down past the fingers.
 
     WHY v9 DID NOT FIT, which is the actual repair here. The rails were drawn
     0.10 mm a side clear of the board and the end wall 0.30 mm clear of its
@@ -209,24 +211,20 @@ def board_mount(z_floor, RB=None, RI=None):
     add(box_lwh(x_end, x_end + RT, -(RY + RT), RY + RT, z0, z_top))
 
     # --- the hood over the antenna end.
-    # A wedge hanging off the end wall whose underside climbs at 45 degrees
-    # going +x. The lowest thing on it is therefore a single edge, standing
-    # BRD_HOOD_L in from the wall -- so the board drops STRAIGHT DOWN past it
-    # instead of having to be tilted or slid under anything, and a 45 degree
-    # underside needs no support. Built as the hull of two thin slices so the
-    # ramp is one straight surface, and buried BRD_FING_BURY into the wall
-    # rather than butted against its face.
+    # A flat ledge hanging off the end wall, underside at z_lip, reaching
+    # BRD_HOOD_L back over the board -- the same shape as the snap lips, which
+    # is the point: it is a short unsupported ledge off a wall, and every layer
+    # above it is carried by the one below.
+    #
+    # It was first drawn as a wedge with a 47 degree underside CLIMBING away
+    # from the wall, so its low edge stood out over the board and the board
+    # could drop straight past it. That is 47 degrees and still unprintable:
+    # the ramp climbed the wrong way, so the hood's first layer was an island
+    # in mid-air with nothing under it. A sloped face is self-supporting only
+    # when the material it grows from is BELOW it. Buried BRD_FING_BURY into
+    # the wall rather than butted against its face.
     HY, x_low = BRD_HOOD_Y, x_end - BRD_HOOD_L
-    # The ramp is measured to the FAR corner of the buried end, because that is
-    # the corner the hull's lower chain actually runs to.
-    run    = (x_end + BRD_FING_BURY) - (x_low + BRD_HOOD_LAND)
-    z_ramp = z_lip + run*math.tan(math.radians(BRD_HOOD_RAMP))
-    z_hood = z_ramp + BRD_HOOD_ROOT
-    # the wall has to grow to meet it, or the wedge is a second body
-    add(box_lwh(x_end, x_end + RT, -HY, HY, z0, z_hood))
-    lo = box_lwh(x_low, x_low + BRD_HOOD_LAND, -HY, HY, z_lip, z_hood)
-    hi = box_lwh(x_end - 0.01, x_end + BRD_FING_BURY, -HY, HY, z_ramp, z_hood)
-    add((lo + hi).hull())
+    add(box_lwh(x_low, x_end + BRD_FING_BURY, -HY, HY, z_lip, z_top))
 
     # --- snap fingers
     for sy in (1, -1):
@@ -259,7 +257,7 @@ def board_mount(z_floor, RB=None, RI=None):
     # --- posts under it
     # the far pair sits directly under the hood's low edge, so the hood
     # presses the board onto a post rather than onto a span of nothing
-    for px in (BRD_X0 + 3.0, (BRD_X0 + BRD_X1)/2, x_end - BRD_HOOD_L):
+    for px in (BRD_X0 + 3.0, (BRD_X0 + BRD_X1)/2, x_end - BRD_HOOD_L - 1.0):
         for py in (BRD_POST_HY, -BRD_POST_HY):
             add(cyl(BRD_POST_D/2, z0, zt, 32, centre=(px, py)))
 

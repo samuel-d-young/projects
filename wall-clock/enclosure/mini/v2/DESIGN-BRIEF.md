@@ -191,7 +191,8 @@ Two hard ceilings, both asserted by `check2` §9:
 - **Vendor dimensions for this board are worthless.** The same part is published
   as 70 × 28, 67 × 31 and 55 × 35 by different sellers. The 0.900 in pad rows
   force the width, so the width is trusted; the length is not, and the frame
-  takes **61.3–64.0**. `mini-round-clock-board-gauge` settles it in 16 g.
+  takes **62.4–63.3**, a window only about ±0.5 mm wide.
+  `mini-round-clock-board-gauge` settles it in 15 g.
 - **Sam's own meshes are inputs, not outputs.** `base_in.stl` and
   `diffuser_in.stl` are his; the build keeps his geometry where it is good and
   rebuilds only what it must. His diffuser carries 183 non-manifold edges, all in

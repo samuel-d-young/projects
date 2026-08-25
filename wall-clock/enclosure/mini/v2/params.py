@@ -642,7 +642,7 @@ BOARD_CLEAR_ANT_Y = BOARD_PAD_ROW/2 - BOARD_PAD_OD/2                   # 10.58
 # other flatly (70x28, 67x31, 55x35 -- all published, all different). The 0.900
 # in pad rows are the one thing every DevKitC-1-shaped board must keep, and
 # they force the width, so the width is trusted and the LENGTH is given room.
-BOARD_L_MIN, BOARD_L_MAX = 61.30, 64.00
+BOARD_L_MIN, BOARD_L_MAX = 62.40, 63.30
 BOARD_W_MAX = 25.70
 
 # The two numbers that made v9's mount unbuildable. An FDM slot comes out
@@ -688,15 +688,15 @@ BRD_RAIL_CLR  = 0.40         # per side. The rails touch only the board's 1.6 mm
                              # fillets are irrelevant to them.
 BRD_RAIL_Y    = BOARD_W/2 + BRD_RAIL_CLR                    # 13.10
 BRD_RAIL_T    = 2.00
-BRD_END_CLR   = 1.80         # board's antenna end to the end wall. Was 0.30,
+BRD_END_CLR   = 1.00         # board's antenna end to the end wall. Was 0.30,
                              # which printed as 0.00 .. 0.20 -- the second
-                             # reason nothing would go in. At 1.80 the worst
-                             # printed slot is still 64.27, so it swallows
-                             # anything up to BOARD_L_MAX, and the board floats
-                             # 1.40-1.70 in x. That float is the price of not
-                             # knowing the length: it recesses the USB port by
-                             # that much when a plug is pushed home, and a
-                             # Type-C plug has about 6.5 mm of tongue to give.
+                             # reason nothing would go in. At 1.00 the worst
+                             # printed slot is 63.47, which still clears the
+                             # board by 0.60, and the board floats 0.60-0.90 in
+                             # x. It cannot be more generous than that: every
+                             # millimetre of end clearance is a millimetre the
+                             # hood's ledge has to give back, and the ledge can
+                             # only reach BRD_HOOD_L before it stops printing.
 BRD_SHIFT_Y   = BRD_RAIL_CLR # worst the board can sit off centre, either way
 BRD_LIP_CLR   = 0.20         # over the board's top face
 BRD_LIP_Z0    = BRD_POST_H + BOARD_T + BRD_LIP_CLR          # 5.80
@@ -746,32 +746,29 @@ BRD_STOP_RI    = 11.50       # corner stops at the connector end: they butt the
 # one end cannot lift at the other. That argument is wrong: the connector-end
 # lips have BRD_LIP_CLR of slack over a 4.00 mm base, and 62.865/4.00 is a
 # 15.7:1 lever, so 0.20 mm of slack at the lips is 3.1 mm of lift at the far
-# end. It rattles.
+# end. It rattles. So the far end gets a hood.
 #
-# So the far end gets a hood. It is a WEDGE hanging off the end wall whose
-# underside rises at 45 degrees going +x, which buys three things at once:
-#   * its lowest point is a single edge, so the board still drops STRAIGHT
-#     DOWN -- no tilting it in, no sliding it under anything;
-#   * a 45 degree underside is self-supporting, so there is no bridge and no
-#     overhang to print;
-#   * the low edge sits 4.00 mm in from the wall, so any board from
-#     BOARD_L_MIN to BOARD_L_MAX still passes under it.
-# It lands between the pad rows, on the 7.53 x 21.16 mm patch of bare board
-# behind the WROOM module, so it works with headers soldered on or off, and
-# pointing either way.
-BRD_HOOD_L     = 4.00        # how far the low edge stands in from the end wall
+# v13a: the hood was first drawn as a WEDGE with a 47 degree underside climbing
+# away from the wall, so that its lowest point was a land out over the board and
+# the board could drop straight in. That shape is 47 degrees and still
+# unprintable, and Sam caught it: the ramp climbed the wrong way, so the hood's
+# first layer was a 31 mm2 island 5.80 mm up in mid-air with nothing under it.
+# A 45 degree face is only self-supporting when the material it grows from is
+# BELOW it. check3 now measures exactly that, layer by layer.
+#
+# What it is instead is the same shape as the snap lips, which do print: a FLAT
+# ledge hanging off the end wall, its underside at BRD_LIP_Z0, reaching back
+# over the board. Every layer above it is carried by the one below and the only
+# unsupported thing in it is that first BRD_HOOD_L of ledge -- 0.40 mm more than
+# each snap lip already asks for.
+#
+# The price is the assembly move. A flat ledge cannot be dropped past, so the
+# board goes in antenna-end first: slide it under the hood, then press the
+# connector end down past the two fingers. And the reach has to be paid for out
+# of BRD_END_CLR, so the length envelope is narrower than the wedge promised --
+# 62.4 to 63.3 rather than 61.3 to 64.0. That is what the board gauge is for.
+BRD_HOOD_L     = 2.00        # the ledge's flat reach back over the board
 BRD_HOOD_Y     = 9.80        # |y| it spans -- inside the pad rows, worst shift
-BRD_HOOD_ROOT  = 2.00        # its height where it meets the wall
-BRD_HOOD_LAND  = 1.40        # and the flat it presents to the board. Without
-                             # it the wedge comes to a knife edge, which is a
-                             # sub-wall-thickness feather and a poor thing to
-                             # bear on; with it the hood has a real 1.40 mm
-                             # land, and check3 stops finding a thin region.
-BRD_HOOD_RAMP  = 47.0        # degrees from horizontal, taken to the FAR corner
-                             # of the buried end -- the hull's lower chain runs
-                             # to that corner, not to the near one, so sizing
-                             # off the near one lands you at 45.06 deg and one
-                             # float32 rounding away from an unprintable face.
 
 # the window the power lead comes in through, at 6 o'clock. 22 x 6 because
 # which connector the board carries is still not a settled fact -- Espressif's

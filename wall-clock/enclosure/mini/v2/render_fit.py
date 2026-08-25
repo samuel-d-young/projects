@@ -91,12 +91,14 @@ a.annotate(f'rails — a GUIDE, not a fit.\n'
            f'against {BOARD_W:.2f} of board.  v9 drew {BOARD_W + 0.20:.2f} —\n'
            f'an interference fit wearing the word "clearance".',
            (-2.0, BRD_RAIL_Y + BRD_RAIL_T), (6, 46), ha='center', **lab)
-a.annotate(f'hood — a {BRD_HOOD_RAMP:.0f}° wedge off the end wall.\n'
-           f'low edge {x_hood - BRD_X0:.1f} mm along the board, on the bare\n'
-           f'{BOARD_CLEAR_ANT_L:.1f} x {2*BOARD_CLEAR_ANT_Y:.1f} patch behind the module.\n'
-           f'{BRD_LIP_CLR:.2f} mm over the top face, so the far end cannot\n'
-           f'lift — and the board still drops straight in.',
-           (x_hood + 1.5, -BRD_HOOD_Y), (2, -52), ha='center', **lab)
+a.annotate(f'hood — a FLAT {BRD_HOOD_L:.2f} mm ledge off the end wall,\n'
+           f'{BRD_LIP_CLR:.2f} mm over the board, on the bare '
+           f'{BOARD_CLEAR_ANT_L:.1f} x {2*BOARD_CLEAR_ANT_Y:.1f} mm\n'
+           f'patch behind the module. Drawn first as a 47° wedge with\n'
+           f'its low edge out over the board — which is 47° and still\n'
+           f'prints on nothing, because the ramp climbed AWAY from\n'
+           f'the wall. Slide the board under it, then press down.',
+           (x_hood + 1.0, -BRD_HOOD_Y), (2, -54), ha='center', **lab)
 a.annotate('corner stops — the datum in x', (BRD_X0 - 0.5, BRD_STOP_RI + 1.5),
            (-40, 30), ha='center', **lab)
 a.annotate('pad rows — copper to within\n0.42 mm of the edge, so nothing\n'
@@ -170,10 +172,12 @@ txt = (f'straight cantilever\n'
        f'plane. A finger standing up in Z would bend across\n'
        f'the layer bonds, which is where printed snaps break.\n\n'
        f'the frame takes a board {BOARD_L_MIN:.1f}-{BOARD_L_MAX:.1f} long and up\n'
-       f'to {BOARD_W_MAX:.1f} wide. Espressif\'s v1.1 drawing says\n'
-       f'{BOARD_L:.3f} x {BOARD_W:.3f}. If yours might differ, print\n'
-       f'mini-round-clock-board-gauge first — it is this\n'
-       f'frame on a plate, 16 g, and it settles it.')
+       f'to {BOARD_W_MAX:.1f} wide. That window is narrow because a\n'
+       f'ledge can only reach {BRD_HOOD_L:.2f} mm before it stops\n'
+       f'printing, and every millimetre of end clearance is\n'
+       f'one the ledge gives back. Espressif\'s v1.1 drawing\n'
+       f'says {BOARD_L:.3f} x {BOARD_W:.3f} -- but PRINT THE BOARD\n'
+       f'GAUGE FIRST. It is this frame on a plate, 15 g.')
 b.text(BRD_X0 + 0.5, -12.0, txt, fontsize=8.3, family='monospace',
        va='top', color='#2b2b2b',
        bbox=dict(boxstyle='round,pad=0.5', fc='#fbfaf6', ec='#c9c2ac'))

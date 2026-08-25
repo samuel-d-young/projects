@@ -109,14 +109,16 @@ bore under — try −0.05.
 
 **PRINT `mini-round-clock-board-gauge.stl` BEFORE THE HOUSING.** It is the S3
 frame — same rails, same snap fingers, same corner stops, same hood, same posts
-— on a 2.5 mm plate instead of inside a clock. About 16 g, twenty minutes.
+— on a 2.5 mm plate instead of inside a clock. About 15 g, twenty minutes.
 
-Drop your ESP32-S3 in between the rails and press the connector end down until
-the two fingers click over it. If it goes in, it goes in the housing.
+Slide the board's antenna end in under the hood first, then lower the connector
+end and press until the two fingers click over it. If it goes in, it goes in the
+housing.
 
 If it does not, the plate has a 5 mm scale off the connector end with deeper
-marks at **61.3 / 62.865 / 64.0** — the shortest board the frame takes,
-Espressif's own length, and the longest. Read yours off it and put it in
+marks at **62.4 / 62.865 / 63.3** — the shortest board the frame takes,
+Espressif's own length, and the longest. That window is only about ±0.5 mm
+wide, which is exactly why this gauge is worth twenty minutes. Read yours off it and put it in
 `BOARD_L` in `v2/params.py`, then rebuild. If it is wider than the slot rather
 than longer, raise `BRD_RAIL_CLR`.
 

@@ -225,17 +225,15 @@ for B, tg in BODIES:
        f'{HW - BRD_SHIFT_Y - BRD_FING_YI:.2f} mm of board edge under the lip, worst case')
 
     # --- (d2) the hood over the antenna end
-    x_low = x_end - BRD_HOOD_L                      # the hood's lowest edge
+    x_low = x_end - BRD_HOOD_L                      # the hood's inner edge
     gap = box_lwh(x_low - 0.3, x_end, -BRD_HOOD_Y, BRD_HOOD_Y,
                   ztp, ztp + BRD_LIP_CLR - 0.05)
     ck(solid(gap)[0] < 1e-3, 'the hood never actually touches the board',
        f'{BRD_LIP_CLR:.2f} mm of clearance over its top face, at the closest point')
-    # hugging the low edge, because the hood is a WEDGE: the solid fraction is
-    # meant to fall away going +x, and the ramp probe below is what proves it
     near = box_lwh(x_low, x_low + 0.4, -3.0, 3.0,
                    ztp + BRD_LIP_CLR + 0.02, ztp + BRD_LIP_CLR + 0.50)
     ck(solid(near)[1] > 0.30, '...but closes over it, so the far end cannot lift',
-       f'{100*solid(near)[1]:.0f}% solid in the 0.48 mm right above the low edge, '
+       f'{100*solid(near)[1]:.0f}% solid in the 0.48 mm above its inner edge, '
        f'{x_low - BRD_X0:.2f} mm along the board')
     ck(BRD_HOOD_Y + BRD_SHIFT_Y < BOARD_CLEAR_ANT_Y,
        '...between the pad rows, so headers make no difference to it',
@@ -249,12 +247,13 @@ for B, tg in BODIES:
        '...and the shortest board the frame claims to take still reaches it',
        f'{BOARD_L_MIN - (x_end - BRD_HOOD_L - BRD_X0):.2f} mm of engagement at '
        f'L={BOARD_L_MIN:.2f}, {BOARD_L - (x_end - BRD_HOOD_L - BRD_X0):.2f} at {BOARD_L:.2f}')
-    # its underside must be a ramp, not a roof: probe just under the wall end,
-    # where a flat lip would be solid and a 45 deg wedge is air
-    far = box_lwh(x_end - 0.9, x_end - 0.3, -3.0, 3.0, ztp + 0.05, ztp + 1.0)
-    ck(solid(far)[1] < 0.15, '...on a 45 deg underside, so it drops in and prints unsupported',
-       f'{100*solid(far)[1]:.0f}% solid at the wall end against '
-       f'{100*solid(box_lwh(x_end - BRD_HOOD_L + 0.3, x_end - BRD_HOOD_L + 0.9, -3.0, 3.0, ztp + 0.05, ztp + 1.0))[1]:.0f}% at the low edge')
+    # it is a FLAT ledge off the wall, so it must be solid all the way from its
+    # inner edge to the wall -- a wedge here is what did not print
+    flat = box_lwh(x_low + 0.1, x_end - 0.1, -BRD_HOOD_Y + 0.5, BRD_HOOD_Y - 0.5,
+                   ztp + BRD_LIP_CLR + 0.05, ztp + BRD_LIP_CLR + 0.50)
+    ck(solid(flat)[1] > 0.95, '...and it is a flat ledge the whole way back to the wall',
+       f'{100*solid(flat)[1]:.0f}% solid across its {BRD_HOOD_L:.2f} mm reach, so every '
+       f'layer of it sits on the one below')
 
     # --- (d3) THE ONE THAT v9 FAILED. Every clearance here is checked against
     # what the printer will actually leave, not against what was drawn. A slot
@@ -273,6 +272,15 @@ for B, tg in BODIES:
     ck(2*BRD_RAIL_CLR > FDM_SLOT_UNDER,
        '...so the rails are a guide and not a press fit',
        f'{2*BRD_RAIL_CLR:.2f} mm of drawn slop against {FDM_SLOT_UNDER:.2f} of shrink')
+
+    # --- (d4) every ledge in the frame hangs off ONE edge, so its reach is the
+    # whole overhang, not half a span. check3 catches a ledge that stands on
+    # nothing; this one keeps the ones that do stand on something short enough
+    # to print. 2.50 is the ceiling -- the snap lips ask 1.60 and the hood 2.00.
+    LEDGE_MAX = 2.50
+    ck(BRD_FING_OVER <= LEDGE_MAX and BRD_HOOD_L <= LEDGE_MAX,
+       'no ledge in the frame reaches further than a nozzle will carry it',
+       f'snap lips {BRD_FING_OVER:.2f}, hood {BRD_HOOD_L:.2f}, ceiling {LEDGE_MAX:.2f}')
 
     # --- (e) the finger can actually flex, and prints in the strong direction
     gap = box_lwh(x_tip + 1.0, x_root - 1.0,
