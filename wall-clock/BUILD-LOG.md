@@ -2256,6 +2256,137 @@ Five passes, fourteen parts, three bodies, all green.
 
 ---
 
+## 2026-08-25 — Edge-to-edge analog face, and the dashboard goes multi-clock
+
+### The dial had to reach the rim, and dots cannot
+
+First cut drew the outer marks as dots at r=170. Sam: *"make sure the analog
+clock goes right to the edge."* A dot fundamentally cannot: **its own radius
+has to fit inside the panel**, so a 4 px dot centred at 175 already overhangs
+179 and gets clipped. Pushing the centre outward makes it worse, not better.
+
+Marks are now **radial lines** — a line lying along the radius ends exactly
+where you tell it to. Every tick runs out to r=179, one pixel inside the panel.
+That matters more than it sounds: the whole point is that the drawn dial and
+the LED ring beyond the bezel read as **one instrument**, and a visible dead
+band between them is the one flaw nothing else compensates for.
+
+Also flashed, and confirmed live:
+`face options = ['digital', 'minimal', 'analog', 'analog ring']`.
+
+### Multi-clock: why the dashboard has to be generated
+
+*"Select which clock is being customised… there will be more than one."*
+
+The obstacle is that **every control is an ESPHome entity, and ESPHome derives
+entity ids from the device `name:`**. Two clocks therefore have two disjoint
+sets of entities — `mini_round_clock_hour_hue` and `kitchen_clock_hour_hue` are
+unrelated — and no Home Assistant card abstracts over that natively. There is
+no "device" variable a card can be pointed at.
+
+So the view carries **one set of cards per clock and shows only the selected
+one**, using card-level `visibility` against `input_select.wall_clock_target`.
+That is core HA; no HACS card is involved.
+
+Written by hand that is N copies of ~60 rows to keep in sync, and it will drift
+the first time a control is added — which has now happened three times in two
+days. So `dashboards/build_clock_dashboard.py` generates it. Adding a clock is:
+
+1. a different `name:` in ESPHome (sets entity prefix, hostname, OTA target)
+2. one line in `CLOCKS`, re-run the script
+3. one option in the input_select
+
+**The label is only a label** — rename it freely. The entity prefix is the real
+identity, and changing that means renaming the device and reflashing.
+
+**Timers stay outside the switching.** The `wall_clock_1..5` pool belongs to
+Home Assistant and is shared by every clock, so it is a global card. Getting
+that wrong would have produced five timer cards for five clocks, all showing
+the same five timers.
+
+Verified after install: `input_select.wall_clock_target = Mini Round Clock`,
+options `['Mini Round Clock']`, per-clock cards rendering, Timers global.
+
+### Flashing through a flaky link
+
+The device kept dropping off wifi mid-session, and an OTA that fails wastes the
+whole compile. The working pattern:
+
+1. Kick off the install even while the device is down. The **compile still
+   succeeds** and the binary is cached; only the upload fails.
+2. Poll `3232` from outside until it opens.
+3. Hit **Retry** — the build is cached, so it goes straight to upload and lands
+   in seconds rather than minutes.
+
+That turned a several-minute window requirement into a few-second one, and is
+how both of today's flashes actually got on.
+
+---
+
+## 2026-08-25 — Stands lean back 10 deg; a digital readout on the analogue faces
+
+### The stand tilt is bounded at both ends, and it fought back
+
+Sam: *"update the angle of the stands so they have a slight tilt back."* It
+already leaned 8 deg — enough to read as "not quite straight" rather than as a
+deliberate lean. Went for 12. Both existing checks pushed back, which is
+exactly what they are for:
+
+**Plug clearance.** The clock's USB plug points at the desk 64 mm behind the
+front face, so every extra degree of tilt drops it `64*sin` — about 1.1 mm per
+degree. 8 -> 12 costs 4.4 mm of the 7.9 mm the plug had.
+
+**Stability.** Raising `STAND_LIFT` to buy that clearance back raises the
+centre of mass, and leaning further back moves it toward the heels. **The two
+fixes fight each other.** At 12 deg with LIFT 38.5, `check5` measured the
+backward tip margin at **19 deg against a 20 deg floor** and failed the 240 mm
+body.
+
+Settled at **10 deg on the original 36 mm lift** — but that still measured
+exactly **20.0 deg** on the 60-LED stand, a hair under. Rather than give the
+lean back, the fix went where the design already had a lever: the **tail
+plinth** behind the stop wall, which exists precisely to buy tip margin on the
+big bodies. Its sizing uses a *design* angle (the crude `depth/2` CoM estimate
+lands several degrees optimistic), tuned to 27 when the clock leaned 8. Raised
+to 30.
+
+Result — every stand now has **more** margin than it did at 8 deg:
+
+| body | was (8 deg) | now (10 deg) |
+|---|---|---|
+| 24-LED | — | 25 deg back, 30 fwd |
+| 32-LED | — | 24 back, 29 fwd |
+| 60-LED | 21 back, 21 fwd | **23 back, 22 fwd** |
+
+Plug clears the desk by 5.7 mm on all three, against a 3.0 floor. All five
+verification passes clean.
+
+### An ana-digi complication
+
+*"add a digital clock to the analog face too."* New switch **Digital time on
+analog face**, off by default — an analogue face is chosen for the shape of the
+time, so a number in the middle of it is an addition, not something to inflict
+on everyone.
+
+It applies to **both** analogue faces. Time low, date high, on opposite sides
+of the hub so no combination of the three switches can collide, and both sit
+inside the sweep of the hands rather than fighting the dial at the rim. Drawn
+**last**, after the hands — legibility is the entire reason for adding it, so a
+hand passing over must not hide it.
+
+While there: `Show date` and `Show day of week` now work on the analogue faces
+too. They existed and silently did nothing there, which reads as a bug.
+
+### Toolchain note for the next session
+
+The geometry checks need more than trimesh: `numpy trimesh manifold3d networkx
+scipy matplotlib shapely lxml rtree`. Missing `rtree` made `check3_print` look
+like a geometry failure when it was an import error, and missing `networkx`
+made trimesh's `split()` fail with "no graph engines available". Install the
+lot before believing any check result.
+
+---
+
 ## 2026-08-25 — v8: the wire gap, all twelve numerals, and why the diffuser was really loose
 
 Two asks. Both landed, and chasing the second one turned up a third thing that

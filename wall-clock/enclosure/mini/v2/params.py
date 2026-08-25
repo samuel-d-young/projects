@@ -570,7 +570,24 @@ WIRE32_HW     = 6.50         # slot from the new ring pocket down to the deck
 RING32_PITCH  = 360.0 / RING32_N                     # 11.25 deg
 
 # --- 5. the desk stand --------------------------------------------------------
-STAND_TILT    = 8.00         # degrees back from vertical
+STAND_TILT    = 10.00        # degrees back from vertical. 8 was upright enough
+                             # to read as "not quite straight" rather than as a
+                             # deliberate lean; 12 is unambiguous without
+                             # looking like it is falling over.
+                             #
+                             # Tilt is not free: the clock's USB plug points at
+                             # the desk 64 mm behind the front face, so every
+                             # extra degree drops it 64*sin -- about 1.1 mm per
+                             # degree here.
+                             #
+                             # 12 was tried first and check5 rejected it: the
+                             # backward tip margin fell to 19 deg against a
+                             # 20 deg floor. Leaning a clock back moves its
+                             # centre of mass toward the heels, and raising
+                             # STAND_LIFT to buy plug clearance raises the CoM
+                             # and makes that worse -- the two fixes fight.
+                             # 10 deg keeps both: the margin holds and the plug
+                             # still clears on the original lift.
 STAND_CLR     = 0.35         # on the clock's rim
 STAND_WRAP    = 55.00        # half angle of the cradle, from bottom dead centre
 STAND_LIFT    = 36.00        # air under the clock at the front face, and not a
@@ -578,8 +595,9 @@ STAND_LIFT    = 36.00        # air under the clock at the front face, and not a
                              # inside the rim, so a plug's 20 mm overmold stands
                              # about 21 mm proud -- at 6 o'clock, pointing at the
                              # desk, 64 mm back from the front face where the
-                             # 8 degree tilt has already dropped the rim 8.8 mm.
-                             # 36 leaves 6 mm under the plug. A right-angle USB
+                             # 10 degree tilt has already dropped the rim
+                             # 11.1 mm. 36 still leaves about 5.7 mm under the
+                             # plug -- check5 measures it. A right-angle USB
                              # lead only needs about 8 mm of that: drop this to
                              # 24 if that is what you will use.
 STAND_NOTCH_BACK = 28.00     # the cable slot only opens over the last 28 mm +

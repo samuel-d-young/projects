@@ -713,9 +713,18 @@ def build_stand(B, depth):
     # A 240 mm clock puts its centre of mass 155 mm up. On the footprint the
     # cradle alone gives, that tips at 11 degrees -- so the big bodies get a low
     # plinth behind the stop wall, sized to bring the measured angle back over 20.
+    #
+    # TAIL_TARGET is a DESIGN angle, not the measured one: the real centre of
+    # mass sits further back than the crude depth/2 estimate used here, so the
+    # measured result lands several degrees below it. 27 was tuned when the
+    # clock leaned 8 degrees. Leaning it back further moves the CoM toward the
+    # heels, and at 10 degrees that same 27 produced exactly 20.0 measured on
+    # the 240 mm body -- a hair under the floor. 30 restores the margin by
+    # lengthening the plinth rather than by giving back the lean.
+    TAIL_TARGET = 30.0
     h_com = STAND_LIFT + B.r_body*math.cos(math.radians(t))
     com_back = depth/2 * math.cos(math.radians(t))
-    tail = max(0.0, com_back + h_com*math.tan(math.radians(27.0))
+    tail = max(0.0, com_back + h_com*math.tan(math.radians(TAIL_TARGET))
                     - (depth*math.cos(math.radians(t)) + STAND_STOP_T))
 
     prof = [( x_out, y_top), ( hw, y_top - STAND_FLARE), ( hw, Y_LOW),
