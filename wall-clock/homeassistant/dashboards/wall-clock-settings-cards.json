@@ -99,6 +99,10 @@
         "label": "Timer + status"
       },
       {
+        "entity": "select.mini_round_clock_timer_countdown_style",
+        "name": "Countdown style"
+      },
+      {
         "entity": "select.mini_round_clock_timer_arc_direction",
         "name": "Arc direction"
       },
@@ -234,6 +238,26 @@
       {
         "entity": "switch.mini_round_clock_24_hour_time",
         "name": "24 hour time"
+      },
+      {
+        "entity": "select.mini_round_clock_digital_time_size",
+        "name": "Digital time size"
+      },
+      {
+        "type": "section",
+        "label": "On an analogue face"
+      },
+      {
+        "entity": "select.mini_round_clock_digital_time_on_analog",
+        "name": "Digital time"
+      },
+      {
+        "type": "section",
+        "label": "While a timer runs"
+      },
+      {
+        "entity": "select.mini_round_clock_screen_during_a_timer",
+        "name": "Screen shows"
       },
       {
         "type": "section",
