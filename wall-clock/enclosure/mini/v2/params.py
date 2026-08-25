@@ -17,6 +17,13 @@ Z_FRONT       = 22.0
 R_BORE        = 27.7800     # rear bore, behind the display
 Z_SEAT        = 8.6000      # display module rests here
 R_DISP_POCKET = 30.2788
+# MEASURED on the built base: the inner wall between the screen bore and the ring
+# pocket tops out here, a 4.9 mm wide annular land at r 30.19..35.11. The
+# diffuser's face lands on it, and that -- not the press fit -- is what sets how
+# deep the diffuser goes. Everything that has to line up with the diffuser is
+# derived from DIFF_SEAT_Z.
+DIFF_WALL_CREST = 19.0300
+DIFF_SEAT_Z     = DIFF_WALL_CREST + 2.0000   # 21.03, = crest + FACE_T
 R_RING_I      = 35.1080     # ring pocket
 R_RING_O      = 46.3516
 Z_RING_FLOOR  = 11.8000
@@ -193,7 +200,8 @@ def summary():
   its own USB port looks out through a {USB_WIN_W:.0f} x {USB_WIN_H:.0f} mm window at 6 o'clock
   battery on its shelves {BAT_L:.0f} x {BAT_W:.0f} x {BAT_T:.0f} mm, and still
   {POCKET_DEEP - (BRD_POST_H + BOARD_T + BOARD_TALL) - BAT_T - 1.5:.2f} mm left over for the display and ring leads
-  diffuser press fit    {2*(R_RING_O + DIFF_FIT + DIFF_RIB_H - R_RING_O):.2f} mm on diameter at {DIFF_RIB_N} crush ribs
+  diffuser press fit    {2*COLLAR_RIB_H:.2f} mm on diameter at {COLLAR_RIB_N} collar ribs, INSIDE
+  outer wall            {-2*DIFF_FIT:.2f} mm of clearance on diameter -- it grips nothing
   desk stand            clock {STAND_LIFT:.0f} mm off the desk, leaning back {STAND_TILT:.0f} deg
 """
 
@@ -275,11 +283,17 @@ DIFF_WALL_H   = 4.000
 DIFF_COLLAR_RI, DIFF_COLLAR_RO = 27.9164, 30.1080
 DIFF_COLLAR_H = 8.200
 
-# press fit: the ring pocket wall is at 46.3516 and the diffuser was 46.000, so
-# it had 0.35 mm of radial slop -- 0.70 on diameter. This takes it to a light
-# interference. Back it off to 0.00 for a slip fit if it will not go in.
-DIFF_FIT      = -0.05        # radial interference, i.e. 0.10 mm on diameter
-DIFF_OUTER_NEW = R_RING_O + DIFF_FIT            # 46.4016
+# THE OUTER WALL IS A CLEARANCE FIT NOW. Sam: "I want the press fit to be on the
+# inside where the screen is not the outside." So nothing out here grips: the
+# wall drops into the ring pocket with 0.40 mm of clearance on diameter and the
+# eight outer crush ribs are gone entirely.
+#
+# It is the better place for it anyway. The outer wall is 92 mm around on the
+# small body and 233 on the 60-LED one, so the same interference is a completely
+# different fit on each, and on the big one it is smaller than the printer's own
+# error. The collar is 60 mm around on all three -- one fit, three clocks.
+DIFF_FIT      = -0.20        # radial CLEARANCE, i.e. 0.40 mm on diameter
+DIFF_OUTER_NEW = R_RING_O + DIFF_FIT            # 46.1516
 
 # one layer over the LEDs. At 0.20 mm layers this is a single bottom layer, and
 # the diffuser prints membrane-side DOWN so it is the first layer -- no bridging.
@@ -373,19 +387,28 @@ NUMERALS = {h: str(h) for h in range(1, 13)}              # hour -> what to writ
 BAND_CUT_R    = 35.00       # Sam's mesh kept only inside this
 BAND_FACE_RI  = 34.50       # new face starts 0.5 mm inside the cut, so the seam
                             # is an overlap inside solid material, not a butt
-# BAND_TOP was 4.00 -- Sam's own height -- and that is why the diffuser kept
-# coming out loose however much the diameter was tightened. MEASURED on the
-# built files: the ring pocket's outer wall stops at Z_RECESS (19.00) and the
-# diffuser seats with its face at z=21.60, so a 4.00 mm wall put only
-# 21.60-4.00=17.60 up to 19.00 -- 1.40 mm -- inside the bore. The other 2.60 mm
-# was floating in the 3 mm front recess, where the wall is 5.3 mm away radially
-# and grips nothing.
-# There is 4.00 mm of clear space above the LED ring (top at 15.00) inside that
-# pocket, so the band is taken to 6.00: it lands at 15.60, keeps 0.60 mm off the
-# ring, and engages 15.60..19.00 = 3.40 mm. Two and a half times the grip, and
-# it drops the cell walls down beside the LEDs instead of leaving them 3 mm
-# above the ring where they were barely masking anything.
-BAND_TOP      = 6.00        # rib, wall and cell-wall tops
+# BAND_TOP is 4.00 -- Sam's own height -- and v8 was WRONG to raise it to 6.00.
+#
+# v8 measured where the diffuser comes to rest by pushing it into the BARE base,
+# with no LED ring and no display module in it, and found the crush ribs
+# stopping it at z=21.52. From that it concluded the band had only 1.40 mm
+# inside the bore and needed to be taller. Both halves of that were wrong.
+#
+# MEASURED properly, on the built files: the base's inner wall -- the one between
+# the screen bore and the ring pocket -- tops out at z=19.03, and the diffuser's
+# face lands on it. That is the axial stop, a 4.9 mm wide annular land at
+# r 30.19..35.11. So the face sits at 19.03..21.03 and z_base = 21.03 - z_diff.
+# Which puts the band's underside at:
+#
+#     band 4.00  ->  lands at z=17.03, LED ring top 15.00, clear by  2.03 mm
+#     band 6.00  ->  lands at z=15.03, LED ring top 15.00, clear by  0.03 mm
+#
+# 0.03 mm is nothing. At 6.00 the band reaches the LED ring before the face
+# reaches its stop, so the diffuser jams proud and rocks on the ring -- which is
+# exactly what Sam reported: "now too tight and doesn't fit properly". At 4.00
+# it clears the ring by 2.03 and the face seats on its land. check4 measures
+# that clearance now, so this cannot happen again quietly.
+BAND_TOP      = 4.00        # rib, wall and cell-wall tops
 RIB_I_RI, RIB_I_RO = 35.50, 36.70
 RIB_O_RI      = 44.80       # outer rib now runs out to DIFF_OUTER_NEW
 CELL_N        = 24
@@ -635,14 +658,39 @@ DECK_RI       = 30.00
 # 0.10 mm on diameter is inside a printer's own tolerance, which is why it still
 # drops in. Crush ribs are the fix: clearance on the wall so it starts easily,
 # interference only at eight narrow ribs that deform as it goes home.
-DIFF_RIB_N    = 8
-DIFF_RIB_W    = 1.60         # tangential
-DIFF_RIB_H    = 0.35         # radial, proud of the nominal wall
-DIFF_RIB_LEAD = 1.20         # lead-in at the entry end -- the TOP of the band,
-                             # z = BAND_TOP, since z=0 is the visible face
-DIFF_RIM_BEVEL = 0.25        # cosmetic only, on the visible rim at z=0
-# net at a rib: 0.35 - 0.05 = 0.30 radial, 0.60 on diameter, over 8 x 1.60 mm.
-# If it is still loose raise DIFF_RIB_H; if it will not start, lower it.
+# --- THE PRESS FIT, on the collar, inside, where the screen is ------------------
+# MEASURED on the built base: R_DISP_POCKET (30.2788) is the circumradius of a
+# 144-gon, so the flats -- which is what a round collar actually touches -- are
+# at 30.19 at the mouth, opening very slightly to 30.24 further down. Sam's
+# collar is 30.108 OD, so it has 0.08 mm of radial clearance in there.
+#
+# Six crush ribs take that to an interference. They are on the MAIN collar, not
+# the 2 mm extension, and they sit between z 3.00 and 7.50 in the diffuser's own
+# frame -- which is 4.50 mm of engagement, entirely inside the bore and entirely
+# above the display module.
+R_DISP_BORE     = 30.19      # MEASURED across the flats, not the param radius
+COLLAR_RIB_N    = 6
+COLLAR_RIB_W    = 1.60       # tangential
+COLLAR_RIB_H    = 0.15       # radial interference -> 0.30 mm on diameter
+COLLAR_RIB_Z0   = 3.00       # in the diffuser's frame
+COLLAR_RIB_Z1   = 7.50
+COLLAR_RIB_LEAD = 1.00       # taper at the end that enters the bore first, which
+                             # is the HIGH z end: the collar goes in tip first
+COLLAR_RIB_BURY = 0.60       # into the collar, so the rib does not sit on a face
+                             # coincident with it -- that does not survive float32
+# ONE KNOB. Too tight -> drop COLLAR_RIB_H to 0.10. Falls out -> raise it to 0.22.
+# 0.30 mm on diameter over six 1.60 mm ribs is a sixth of what the old outer fit
+# asked each rib to crush.
+GUIDE_LED_CLR   = 0.40       # 60-LED only. Its band comes right down to the guide
+                             # shelf, which is level with the LED tops by design --
+                             # that is how an LED fires into the end of its strip.
+                             # This relieves the band's underside over the ring's
+                             # own radius so it rests on the shelf and not on the
+                             # LEDs.
+DIFF_SEAT_CLR   = 0.20       # air between the 32/60 pocket fill and the underside
+                             # of the diffuser's band, so they never share a face
+DIFF_CHAMF      = 0.60       # chamfer where the band enters the ring pocket, and
+                             # a matching one on the visible rim
 
 # --- 4. the 32-LED ring, and the body it needs --------------------------------
 RING32_OD, RING32_ID, RING32_N = 111.85, 96.00, 32
@@ -764,8 +812,12 @@ GUIDE_T        = 3.00        # the perspex: 3 mm sheet, the same as the plywood
 GUIDE_W        = 6.00
 GUIDE_CLR      = 0.35
 BAND_TOP60     = FACE_T + GUIDE_T + GUIDE_CLR     # 5.35 of diffuser
-GUIDE_SHELF    = Z_RECESS - BAND_TOP60            # 13.65, what the strips rest on
-Z_RING_FLOOR60 = GUIDE_SHELF - (PCB_T + LED_H)    # 10.45, so the LED tops are
+# Derived from DIFF_SEAT_Z, not from Z_RECESS. The 60's whole vertical stack
+# hangs off where the diffuser's face actually comes to rest, and that is
+# 21.03 -- its underside on the base's inner wall crest at 19.03 -- not 19.00.
+# Getting that wrong by 2.03 mm would have left every perspex strip rattling.
+GUIDE_SHELF    = DIFF_SEAT_Z - BAND_TOP60         # 15.68, what the strips rest on
+Z_RING_FLOOR60 = GUIDE_SHELF - (PCB_T + LED_H)    # 12.48, so the LED tops are
                                                   # level with the strip's underside
 GUIDE_CH_RI    = 79.00       # the CHANNEL starts inboard of the LED circle, so
                              # the LED at r=82 fires into the space above it

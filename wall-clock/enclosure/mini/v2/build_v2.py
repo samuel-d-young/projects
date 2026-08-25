@@ -528,6 +528,10 @@ def build_diffuser(B):
                             DIFF_MEM_T, FACE_T + 0.60)
             ap = s_ if ap is None else ap + s_
         d -= ap
+        # relief over the LED ring itself: the band lands on the guide shelf,
+        # which is outboard at r >= r_ring_o, and must not come down on the LEDs
+        d -= tube(B.rib_i_ri - 1.0, B.r_ring_o, B.band_top - GUIDE_LED_CLR,
+                  B.band_top + 1.0, SEG)
     if not B.guides:
         d += tube(B.rib_i_ri, B.rib_i_ro, 0.0, B.band_top, SEG)
         d += tube(B.rib_o_ri, B.diff_outer, 0.0, B.band_top, SEG)
@@ -539,32 +543,38 @@ def build_diffuser(B):
             cx, cy = rm * math.cos(math.radians(a)), rm * math.sin(math.radians(a))
             d += prism(rot_rect(cx, cy, ln, CELL_WALL_T, a), 0.0, B.band_top)
 
-    # --- 2b. crush ribs on the outside --------------------------------------
-    # tangential blocks standing DIFF_RIB_H proud of the wall, over the wall's
-    # whole height, so every millimetre that is inside the bore is gripping
-    for k in range(DIFF_RIB_N):
-        a = 360.0 / DIFF_RIB_N * (k + 0.5)
-        # buried 1.00 mm into the wall: a rib whose inner face sits exactly on
-        # the wall's outer surface separates from it in float32
-        rr = B.diff_outer + DIFF_RIB_H / 2 - 0.50
-        cx, cy = rr * math.cos(math.radians(a)), rr * math.sin(math.radians(a))
-        d += prism(rot_rect(cx, cy, DIFF_RIB_H + 1.0, DIFF_RIB_W, a), 0.0, B.band_top)
-    # THE LEAD-IN, on the end that goes in first. z=0 is the face -- the side
-    # that ends up outermost on the finished clock -- so the leading edge is the
-    # TOP of the band, and that is where the taper has to be. Up to v7 it was at
-    # z=0, on the trailing end, where it did nothing: the diffuser met the bore
-    # square with full-height ribs and no run-up at all.
-    d -= (cyl(B.diff_outer + DIFF_RIB_H + 2.0, B.band_top - DIFF_RIB_LEAD,
-              B.band_top + 0.10, SEG)
-          - cone(B.diff_outer + DIFF_RIB_H, B.diff_outer - 0.30,
-                 B.band_top - DIFF_RIB_LEAD, B.band_top + 0.10, SEG))
-    # and a small bevel on the visible rim, so a squashed first layer cannot
-    # leave a lip standing proud of the face
-    # 45 degrees: r = (crest - bevel) + z, so it is exactly (crest - bevel) at
-    # z=0 and back to full crest at z=bevel
-    d -= (cyl(B.diff_outer + DIFF_RIB_H + 2.0, -0.10, DIFF_RIM_BEVEL, SEG)
-          - cone(B.diff_outer + DIFF_RIB_H - DIFF_RIM_BEVEL - 0.10,
-                 B.diff_outer + DIFF_RIB_H, -0.10, DIFF_RIM_BEVEL, SEG))
+    # --- 2b. the outer wall grips NOTHING -----------------------------------
+    # Sam: "I want the press fit to be on the inside where the screen is not the
+    # outside." The eight outer crush ribs are gone; the wall drops into the ring
+    # pocket with DIFF_FIT of clearance and does nothing but keep light in.
+    # A chamfer at each end: one where it enters the pocket, one on the visible
+    # rim so a squashed first layer cannot leave a lip standing proud.
+    d -= (cyl(B.diff_outer + 2.0, B.band_top - DIFF_CHAMF, B.band_top + 0.10, SEG)
+          - cone(B.diff_outer, B.diff_outer - DIFF_CHAMF,
+                 B.band_top - DIFF_CHAMF, B.band_top + 0.10, SEG))
+    d -= (cyl(B.diff_outer + 2.0, -0.10, DIFF_CHAMF, SEG)
+          - cone(B.diff_outer - DIFF_CHAMF - 0.10, B.diff_outer, -0.10, DIFF_CHAMF, SEG))
+
+    # --- 2c. THE PRESS FIT, on the collar, inside, where the screen is -------
+    # Six crush ribs on the main collar, standing COLLAR_RIB_H proud of the
+    # measured bore. Buried COLLAR_RIB_BURY into the collar rather than butted
+    # onto its face -- a rib sitting exactly on the surface it grows from comes
+    # away as its own shell in float32.
+    r_crest = R_DISP_BORE + COLLAR_RIB_H
+    r_in = DIFF_COLLAR_RO - COLLAR_RIB_BURY
+    for k in range(COLLAR_RIB_N):
+        a = 360.0 / COLLAR_RIB_N * (k + 0.5)
+        rm = (r_crest + r_in) / 2
+        cx, cy = rm * math.cos(math.radians(a)), rm * math.sin(math.radians(a))
+        d += prism(rot_rect(cx, cy, r_crest - r_in, COLLAR_RIB_W, a),
+                   COLLAR_RIB_Z0, COLLAR_RIB_Z1)
+    # The lead-in goes on the end that meets the bore first. The collar enters
+    # tip first, and the tip is the HIGH z end of this part, so the taper is at
+    # COLLAR_RIB_Z1 -- not at Z0, which is the trailing end.
+    d -= (cyl(r_crest + 2.0, COLLAR_RIB_Z1 - COLLAR_RIB_LEAD,
+              COLLAR_RIB_Z1 + 0.10, SEG)
+          - cone(r_crest, DIFF_COLLAR_RO - 0.30,
+                 COLLAR_RIB_Z1 - COLLAR_RIB_LEAD, COLLAR_RIB_Z1 + 0.10, SEG))
 
     # --- 3. one radial tick per cell, thinned to a single layer --------------
     ticks = None
@@ -608,7 +618,7 @@ def build_base(B, sam):
     # the diffuser is 5.35 thick rather than 4.00, so its face lands at 15.65 --
     # a fill to 17.00 collided with it by 1.35 mm, and left a shelf across the
     # wire gap at 6 o'clock as well.
-    shelf = Z_RECESS - B.band_top + FACE_T
+    shelf = DIFF_SEAT_Z - B.band_top - DIFF_SEAT_CLR
     keep += (tube(34.60, KEEP_R32 - 0.50, 10.40, shelf, SEG) - tab_slot_keep())
 
     ann = tube(KEEP_R32 - 1.00, B.r_body, Z_BACK, Z_FRONT, SEG)
@@ -728,7 +738,7 @@ def assemble_base(B, sam):
         # which meant a duck-under. This is the same gap his base has: the same
         # +/-13.00 mm half width, from the bore out past the ring's inner edge,
         # and open all the way up to the shelf the diffuser's face lands on.
-        shelf = Z_RECESS - B.band_top + FACE_T
+        shelf = DIFF_SEAT_Z - B.band_top - DIFF_SEAT_CLR
         out -= box_lwh(-(B.r_ring_o - 2.0), -R_BORE + 4.0,
                        -WIRE_SLOT_HW, WIRE_SLOT_HW, Z_DECK - 1.0, shelf)
     drop = seat_drop(SEAT_DROP)

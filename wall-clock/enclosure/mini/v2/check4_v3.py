@@ -194,25 +194,41 @@ for B, tg in BODIES:
        'and clear of the collar, so every pocket has a flat floor',
        f'innermost {B.num_r - B.num_h/2:.2f}, collar out to {COLLAR_EXT_RO:.2f}')
 
-    print('\n5. Crush ribs, and the collar')
-    r_out = np.hypot(Dt.vertices[:,0], Dt.vertices[:,1]).max()
-    n_rib = 0
-    zmid = B.band_top / 2.0
-    for k in range(DIFF_RIB_N):
-        a = 360.0/DIFF_RIB_N*(k+0.5)
-        px, py = at(B.diff_outer + DIFF_RIB_H/2, a)
-        if (DIFF ^ box_lwh(px-0.4, px+0.4, py-0.4, py+0.4,
-                           zmid-0.25, zmid+0.25)).volume() > 1e-6: n_rib += 1
-    ck(n_rib == DIFF_RIB_N, f'all {DIFF_RIB_N} crush ribs are there', f'{n_rib} of {DIFF_RIB_N}')
-    # the lead-in is at the END THAT GOES IN FIRST, which is z = band_top: the
-    # face at z=0 is the side that ends up outermost on the finished clock
-    top = np.hypot(*Dt.vertices[np.abs(Dt.vertices[:,2] - B.band_top) < 1e-3][:, :2].T).max()
-    ck(top < r_out - 0.2, 'and tapered at the end that goes into the bore first',
-       f'{top:.2f} at z={B.band_top:.2f} against a {r_out:.2f} crest')
-    rim = np.hypot(*Dt.vertices[np.abs(Dt.vertices[:,2]) < 1e-3][:, :2].T).max()
-    ck(abs(rim - (r_out - DIFF_RIM_BEVEL)) < 0.05,
-       'with a small bevel on the visible rim, for a squashed first layer',
-       f'{rim:.2f} at z=0, {DIFF_RIM_BEVEL:.2f} mm inside the crest')
+    print('\n5. The collar, which is where the press fit lives now')
+    r_out = np.hypot(Dt.vertices[:, 0], Dt.vertices[:, 1]).max()
+    ck(r_out < (B.r_lip_i if B.guides else B.r_ring_o),
+       'nothing on the outside grips anything',
+       f'outer r {r_out:.3f}, pocket wall '
+       f'{(B.r_lip_i if B.guides else B.r_ring_o):.3f}')
+    zc = (COLLAR_RIB_Z0 + COLLAR_RIB_Z1) / 2
+    crest = R_DISP_BORE + COLLAR_RIB_H
+    # Probed in the annulus BETWEEN the collar's nominal OD and the rib crest --
+    # a square probe out there clips the collar itself and reads solid whether
+    # there is a rib or not.
+    def band(a0, a1):
+        return wedge(DIFF_COLLAR_RO + 0.06, crest - 0.02, zc - 0.3, zc + 0.3, a0, a1)
+    n_rib = sum(1 for k in range(COLLAR_RIB_N)
+                if (lambda w: (DIFF ^ w).volume() > 0.5*w.volume())(
+                    band(360.0/COLLAR_RIB_N*(k + 0.5) - 1.0,
+                         360.0/COLLAR_RIB_N*(k + 0.5) + 1.0)))
+    ck(n_rib == COLLAR_RIB_N, f'all {COLLAR_RIB_N} collar ribs are there',
+       f'{n_rib} of {COLLAR_RIB_N}, standing to r={crest:.3f}')
+    # and between them the collar must drop back to its nominal size, or this is
+    # a solid interference fit and not a crush fit at all
+    gaps = sum(1 for k in range(COLLAR_RIB_N)
+               if (DIFF ^ band(360.0/COLLAR_RIB_N*k - 2.0,
+                               360.0/COLLAR_RIB_N*k + 2.0)).volume() < 1e-6)
+    ck(gaps == COLLAR_RIB_N, '...and the collar drops back between them',
+       f'{gaps} of {COLLAR_RIB_N} gaps clear, so only {COLLAR_RIB_N} x '
+       f'{COLLAR_RIB_W:.2f} mm has to yield')
+    lead = np.hypot(*Dt.vertices[np.abs(Dt.vertices[:, 2] - COLLAR_RIB_Z1) < 1e-3][:, :2].T)
+    ck(len(lead) == 0 or lead.max() < crest - 0.1,
+       'tapered at the end that meets the bore first -- the collar goes in tip first',
+       f'r={lead.max():.3f} at z={COLLAR_RIB_Z1:.2f}' if len(lead) else 'nothing at crest there')
+    rim = np.hypot(*Dt.vertices[np.abs(Dt.vertices[:, 2]) < 1e-3][:, :2].T).max()
+    ck(abs(rim - (r_out - DIFF_CHAMF)) < 0.05,
+       'and the visible rim is chamfered, for a squashed first layer',
+       f'{rim:.2f} at z=0, {DIFF_CHAMF:.2f} mm inside {r_out:.2f}')
     h = column_top(DIFF, 29.0, 0.0)
     ck(h is not None and abs(h - (DIFF_COLLAR_H + COLLAR_EXTEND)) < 0.05,
        'the collar still reaches 10.20 mm', f'{h:.2f} mm')

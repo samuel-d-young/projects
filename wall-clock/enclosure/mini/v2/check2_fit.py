@@ -63,7 +63,9 @@ for B, tg in BODIES:
        f'{(added - allow_add).volume():.3f} mm3 outside them')
 
     print('\n2. The LED ring drops into its pocket')
-    ring = tube(B.ring_id/2, B.ring_od/2, Z_RING_FLOOR, Z_RING_FLOOR + PCB_T + LED_H, 192)
+    # B.ring_floor, not the global: the 60's pocket floor is 12.48, not 11.80,
+    # and probing at the wrong height is how a pocket looks empty when it is not
+    ring = tube(B.ring_id/2, B.ring_od/2, B.ring_floor, B.ring_floor + PCB_T + LED_H, 192)
     ck((BASE ^ ring).volume() < 1e-3, f'the {B.ring_od} / {B.ring_id} ring is clear of the base',
        f'{(BASE ^ ring).volume():.5f} mm3')
     ck((ring - BASE).volume() > 0.99*ring.volume(), '...and the pocket is actually empty',
@@ -74,20 +76,41 @@ for B, tg in BODIES:
     ck(B.r_body - B.r_ring_o >= 3.0, 'and there is a real wall outboard of it',
        f'{B.r_body - B.r_ring_o:.2f} mm')
 
-    print('\n3. The diffuser is a press fit')
-    r_out = np.hypot(*load(f'mini-round-clock-diffuser{tg}.stl').vertices[:, :2].T).max()
-    nominal = B.diff_outer
-    # on a guide body the diffuser is the whole face and presses into the lip,
-    # not into the ring pocket
+    print('\n3. The press fit is on the INSIDE, and the outside grips nothing')
+    Dt = load(f'mini-round-clock-diffuser{tg}.stl')
+    r_out = np.hypot(*Dt.vertices[:, :2].T).max()
     press_r = B.r_lip_i if B.guides else B.r_ring_o
-    ck(abs(r_out - (nominal + DIFF_RIB_H)) < 0.02, 'the crush ribs stand proud of the wall',
-       f'crest r {r_out:.3f}, wall {nominal:.3f}')
-    ck(nominal < press_r, 'the wall itself has clearance, so it starts square',
-       f'{2*(press_r - nominal):.2f} mm on diameter, into r={press_r:.2f}')
-    ck(r_out > press_r, 'and the ribs interfere, so it does not fall out',
-       f'{2*(r_out - press_r):.2f} mm on diameter at {DIFF_RIB_N} ribs')
-    ck(0.35 <= 2*(r_out - press_r) <= 0.90, '...by an amount a printer can actually crush',
-       f'{2*(r_out - press_r):.2f} mm')
+    ck(r_out < press_r, 'the outer wall drops into its pocket with clearance',
+       f'{2*(press_r - r_out):.2f} mm on diameter, into r={press_r:.2f}')
+    ck(0.20 <= 2*(press_r - r_out) <= 1.00,
+       '...enough to clear a printer\'s error, not enough to rattle',
+       f'{2*(press_r - r_out):.2f} mm')
+    # and the collar carries it instead
+    crest = R_DISP_BORE + COLLAR_RIB_H
+    zc = (COLLAR_RIB_Z0 + COLLAR_RIB_Z1) / 2
+    # in the annulus between the collar's OD and the crest, so it can only read
+    # solid if a rib is really there
+    probe = sum(1 for k in range(COLLAR_RIB_N)
+                if (lambda w: (DIFF ^ w).volume() > 0.5*w.volume())(
+                    wedge(DIFF_COLLAR_RO + 0.06, crest - 0.02, zc - 0.3, zc + 0.3,
+                          360.0/COLLAR_RIB_N*(k + 0.5) - 1.0,
+                          360.0/COLLAR_RIB_N*(k + 0.5) + 1.0)))
+    ck(probe == COLLAR_RIB_N, f'all {COLLAR_RIB_N} collar ribs stand proud of the bore',
+       f'{probe} of {COLLAR_RIB_N}, crest r={crest:.3f} against a bore of {R_DISP_BORE:.2f}')
+    ck(DIFF_COLLAR_RO < R_DISP_BORE,
+       'the collar itself has clearance, so it starts square',
+       f'{2*(R_DISP_BORE - DIFF_COLLAR_RO):.2f} mm on diameter')
+    ck(0.20 <= 2*COLLAR_RIB_H <= 0.50, 'and the ribs interfere by an amount a rib can crush',
+       f'{2*COLLAR_RIB_H:.2f} mm on diameter over {COLLAR_RIB_N} x {COLLAR_RIB_W:.2f} mm')
+    ck(COLLAR_RIB_Z1 - COLLAR_RIB_Z0 >= 3.0, '...over a real length of bore',
+       f'{COLLAR_RIB_Z1 - COLLAR_RIB_Z0:.2f} mm of engagement')
+    # the ribs have to be tapered at the end that enters the bore FIRST, and the
+    # collar goes in tip first, so that is the HIGH z end
+    lead = np.hypot(*Dt.vertices[np.abs(Dt.vertices[:, 2] - COLLAR_RIB_Z1) < 1e-3][:, :2].T)
+    ck(len(lead) == 0 or lead.max() < crest - 0.1,
+       '...and tapered at the end that meets the bore first',
+       f'r={lead.max():.3f} at z={COLLAR_RIB_Z1:.2f} against a {crest:.3f} crest'
+       if len(lead) else 'nothing at full crest there')
 
     print('\n4. The display module and its tab')
     module = cyl(DISP_PCB_D/2, Z_SEAT, Z_SEAT + 4.0, 128)
@@ -276,34 +299,46 @@ for B, tg in BODIES:
        '...and then straight down to the deck, with nothing to bend round',
        f'open z {Z_DECK:.1f}..{ring_top:.1f}, {(BASE ^ shaft).volume():.5f} mm3 in the way')
 
-    print('\n9. How much of the diffuser is actually inside the bore')
-    # The diffuser is modelled face-at-z=0 and goes in turned over. Find where it
-    # comes to rest -- the deepest position at which nothing but the crush ribs
-    # is touching -- and measure the contact from the built files.
-    def place(C):
-        d = load(f'mini-round-clock-diffuser{tg}.stl')
-        d.apply_transform(np.diag([1.0, -1.0, -1.0, 1.0]))
-        d.apply_translation([0, 0, C])
-        return to_manifold(d)
-    def ribs_only(C):
-        ov = BASE ^ place(C)
-        if ov.volume() < 0.01: return True
-        t = to_trimesh(ov)
-        return np.hypot(*t.vertices[:, :2].T).min() > B.diff_outer - 0.05
-    lo, hi = Z_RECESS - 2.0, Z_RECESS + 6.0
-    for _ in range(18):
-        mid = (lo + hi) / 2
-        if ribs_only(mid): hi = mid
-        else: lo = mid
-    seat = hi
-    ov = to_trimesh(BASE ^ place(seat))
-    grip = ov.bounds[1][2] - ov.bounds[0][2] if ov.volume > 1e-9 else 0.0
-    ck(grip >= 2.0, 'the crush ribs grip over a real length, not a lip',
-       f'{grip:.2f} mm of contact, z {ov.bounds[0][2]:.2f}..{ov.bounds[1][2]:.2f}, '
-       f'face resting at z={seat:.2f}')
-    ck(seat - B.band_top > ring_top,
-       'and the band still stops short of the LEDs',
-       f'band bottom z={seat - B.band_top:.2f} against a ring top of {ring_top:.2f}')
+    print('\n9. Where the diffuser comes to rest, and what it clears there')
+    # v8 got this wrong and Sam felt it. It measured the seat by pushing the
+    # diffuser into the BARE base -- no LED ring, no display module -- so the
+    # crush ribs were the only thing stopping it, and it concluded the band
+    # needed to be 2 mm taller. At the real seat that drove the band 2.00 mm
+    # into the LED ring. So the seat is now asserted against the base's own
+    # geometry, and the ring clearance is measured there.
+    seat = DIFF_SEAT_Z
+    Dp = load(f'mini-round-clock-diffuser{tg}.stl')
+    Dp.apply_transform(np.diag([1.0, -1.0, -1.0, 1.0]))
+    Dp.apply_translation([0, 0, seat])
+    DP = to_manifold(Dp)
+    ring = tube(B.ring_id/2, B.ring_od/2, B.ring_floor, B.ring_floor + PCB_T + LED_H, 192)
+    ck((DP ^ ring).volume() < 1e-3,
+       'at its seat the diffuser is nowhere near the LED ring',
+       f'{(DP ^ ring).volume():.4f} mm3; band underside z='
+       f'{seat - B.band_top:.2f}, ring top z={B.ring_floor + PCB_T + LED_H:.2f}, '
+       f'clear by {seat - B.band_top - (B.ring_floor + PCB_T + LED_H):.2f} mm')
+    gap = seat - B.band_top - (B.ring_floor + PCB_T + LED_H)
+    if B.guides:
+        # On a guide body the band is SUPPOSED to come down to the shelf -- that
+        # is what traps the perspex -- so the LED tops are level with it by
+        # construction. The relief is what keeps it off the LEDs themselves.
+        ck(abs(gap) < 0.01, 'the band lands on the guide shelf, as it must',
+           f'{gap:+.3f} mm, and the strips are trapped between it and the shelf')
+        ck(GUIDE_LED_CLR >= 0.30, '...with the band relieved over the LEDs',
+           f'{GUIDE_LED_CLR:.2f} mm of relief across r '
+           f'{B.rib_i_ri:.2f}..{B.r_ring_o:.2f}')
+    else:
+        ck(gap >= 1.0, '...with room for a printer to be wrong about it',
+           f'{gap:.2f} mm of margin')
+    # the land it actually rests on
+    land = tube(R_DISP_BORE + 0.2, 35.0, DIFF_WALL_CREST - 0.4, DIFF_WALL_CREST - 0.1, 192)
+    ck((BASE ^ land).volume() > 0.8*land.volume(),
+       'and it rests on a real land, not on a lip',
+       f'annular land r {R_DISP_BORE + 0.2:.2f}..35.00 with its top at z='
+       f'{DIFF_WALL_CREST:.2f}')
+    ck((DP ^ BASE).volume() < 200.0,
+       'the only thing it touches in the base is that land and the bore',
+       f'{(DP ^ BASE).volume():.1f} mm3, which is the collar ribs crushing')
 
     print('\n7. The wall hanger')
     # the head ends up INSIDE the compartment once the clock is dropped on it

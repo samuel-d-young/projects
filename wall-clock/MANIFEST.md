@@ -41,7 +41,7 @@ Repo: `samuel-d-young/projects`, branch `claude/home-assistant-wall-clock-om42v2
 | `enclosure/mini/build.py` | Regenerates all of the above from measured dimensions |
 | `enclosure/mini/mesh.py` | The STL builder (revolve + boxes, volume-validated) |
 
-## Print — mini v9, the current parts
+## Print — mini v10, the current parts
 
 Built on top of Sam's remodelled `base_in.stl` / `diffuser_in.stl`, which are
 kept in the folder so everything re-derives from source. **These supersede

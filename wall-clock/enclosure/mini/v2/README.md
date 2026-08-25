@@ -1,4 +1,4 @@
-# mini-round-clock enclosure — v9
+# mini-round-clock enclosure — v10
 
 Built on top of the base and diffuser Sam remodelled. Three clock sizes: the
 **24-LED** body at 107.99 mm, which is his; a **32-LED** body at 119.85 mm,
@@ -36,9 +36,9 @@ Every filename is prefixed `mini-round-clock`.
 
 | File | Orientation | Support | Solid volume (24 / 32 / 60) |
 |---|---|---|---|
-| base | **deck face down** | see note | 105 / 132 / 502 cm³ |
+| base | **deck face down** | see note | 105 / 138 / 521 cm³ |
 | housing | **rear plate down** | none | 55 / 66 / 210 cm³ |
-| diffuser | **face down, 0.20 mm layers** | none | 15 / 22 / 109 cm³ |
+| diffuser | **face down, 0.20 mm layers** | none | 13 / 20 / 107 cm³ |
 | numerals | *not printed alone* — see §9 | none | 0.07 / 0.10 / 0.21 cm³ |
 | desk stand | flat on its desk face | none | 219 / 264 / 1003 cm³ |
 | light guides | flat, **clear or natural PETG** | none | — / — / 31 cm³ |
@@ -129,57 +129,73 @@ across ±41.8°, leaving the ring unsupported over a 83° arc at 12 o'clock. The
 walls put that floor back everywhere the tab is not — the checker measures it at
 100% of the sector outboard of the slot.
 
-### The diffuser is a press fit — crush ribs, not a tighter wall
+### The press fit is on the collar, inside, where the screen is
 
-v3 grew the diffuser's wall to a **0.10 mm interference on diameter** and Sam
-reported it still loose. That is the right diagnosis to take seriously: 0.10 mm
-is inside a printer's own tolerance, so on a given day the part comes out with
-clearance instead. Making the wall tighter still would just move the coin toss.
+> *"The diffuser is now too tight and dones't fit properly. Also I want the
+> press fit to be on the inside where the screen is not the outside."*
 
-v6 does what injection moulders do about exactly this problem:
+Both of those, and the first one was my fault. Here is what happened, because it
+matters for trusting the rest of this.
+
+#### Why v8 made it too tight
+
+v8 measured where the diffuser comes to rest by pushing it into the **bare
+base** — no LED ring in the pocket, no display module in the bore. With nothing
+else in there, the outer crush ribs were the only thing stopping it, so it read
+a seat of z = 21.52, concluded the band had only 1.40 mm inside the bore, and
+took it from Sam's 4.00 mm to 6.00.
+
+The seat is not set by the ribs at all. The base's inner wall — the one between
+the screen bore and the ring pocket — tops out at **z = 19.03**, a 4.9 mm wide
+annular land at r 30.19–35.11, and the diffuser's face lands on it. So the face
+sits at 19.03–21.03 and everything on the diffuser is at `z = 21.03 − z_diff`.
+Which puts the band's underside at:
+
+| band | lands at | LED ring top | clearance |
+|---|---:|---:|---:|
+| 4.00 mm — Sam's | 17.03 | 15.00 | **+2.03 mm** |
+| 6.00 mm — v8's | 15.03 | 15.00 | **+0.03 mm** |
+
+0.03 mm is nothing. At 6.00 the band reaches the LED ring before the face
+reaches its stop, so the diffuser jams proud and rocks on the ring instead of
+seating. That is what "too tight and doesn't fit properly" feels like.
+**The band is back to 4.00.**
+
+`check2` §9 now places the diffuser at that seat and measures the ring clearance
+there, so this cannot happen again quietly.
+
+#### And the fit itself moves inside
+
+The outer wall grips **nothing** now. It drops into the ring pocket with
+**0.40 mm of clearance on diameter** and the eight outer crush ribs are gone.
+
+The press fit is six crush ribs on the **collar** — the part that reaches down
+around the screen:
 
 ```
-wall        0.10 mm of CLEARANCE on diameter, so it starts square
-8 crush ribs  1.60 mm wide, 0.35 mm proud
-net           0.60 mm of interference on diameter, at 8 narrow places
-lead-in       a cone takes 0.30 mm off the wall and the ribs over the first
-              1.20 mm, so nothing has to deform until it is already aligned
+bore            30.19 measured across the flats. R_DISP_POCKET (30.2788) is the
+                circumradius of a 144-gon; a round collar touches the flats.
+collar OD       30.108, so 0.16 mm of clearance on diameter -- it starts square
+6 crush ribs    1.60 mm wide, crest at 30.34
+interference    0.30 mm on diameter
+engagement      4.50 mm of bore, z 3.00..7.50 in the diffuser's own frame,
+                which is entirely above the display module
+lead-in         1.00 mm taper at the HIGH z end -- the collar goes in tip first
 ```
 
-Eight ribs of 1.6 mm are 4.4% of the circumference, so what has to yield is a
-small amount of plastic in a place that can yield, not the whole ring. It goes
-in with hand pressure and it does not come back out.
+It is the better place for it regardless of preference. The outer wall is 92 mm
+around on the small body and **233 mm** on the 60-LED one, so one interference
+figure is a completely different fit on each — and on the big one it is smaller
+than a printer's own error across that span. The collar is 60 mm around on **all
+three**. One fit, three clocks.
 
-**One knob if it is wrong.** `DIFF_RIB_H` in `params.py`. Still loose → raise it
-to 0.45. Will not start → drop it to 0.25. Nothing else changes.
+Each rib has to crush 0.15 mm. The old outer ribs were asked for 0.35 mm each.
 
-#### v8: why it was still loose, and it was not the diameter
+**One knob.** `COLLAR_RIB_H` in `params.py`. Too tight → 0.10. Falls out → 0.22.
 
-Sam said "it's still too loose" twice, and v6 answered both times by arguing
-about diameter. That was the wrong axis. Measured on the built files:
-
-```
-ring pocket's outer wall stops at            z = 19.00
-diffuser comes to rest with its face at      z = 21.52
-diffuser's band was                          4.00 mm tall
-=> inside the bore                           21.52 - 4.00 = 17.52 up to 19.00
-                                             1.40 mm
-```
-
-The other 2.60 mm of the band was hanging in the 3 mm recess across the front of
-the clock, where the wall is **5.3 mm away radially** and grips nothing at all.
-No diameter fixes that: a 1.4 mm-deep press fit on a 108 mm part rocks.
-
-There is 4.00 mm of clear space above the LED ring inside that pocket, so v8
-takes the band to **6.00 mm**. It now lands at z = 15.52, keeps 0.52 mm off the
-ring, and the checker measures **2.9 mm of rib contact** instead of 1.4.
-
-And the lead-in was on the wrong end. z = 0 in the diffuser's file is its
-**visible face** — the part goes in turned over — so the end that meets the bore
-first is the top of the band, not z = 0. Up to v7 the taper was at z = 0, on the
-trailing edge, doing nothing; the diffuser met the bore square with full-height
-ribs and no run-up. v8 puts the 1.20 mm taper where it goes in, and leaves a
-0.25 mm bevel on the visible rim for a squashed first layer.
+**Getting it back out:** the face sits about 1 mm down in the front recess with a
+5.6 mm annular gap out to the lip, so there is somewhere to get a fingernail or
+a thin blade in all the way round.
 
 ### One layer over the LEDs
 
@@ -943,10 +959,15 @@ Both now derive from the body's own shelf height.
 - A lead can leave each ring at ring level, run inward to the bore, and drop
   to the deck, on all three bodies, with an 8 mm bundle's worth of room
   (`check2` §8)
-- The diffuser comes to rest with **2.9 mm of crush-rib contact** inside the
-  bore — measured by finding the deepest position at which nothing but the ribs
-  is touching, on the built files — and its band still stops short of the LEDs
+- The diffuser rests on the base's own annular land at z = 19.03 and, placed
+  there, **clears the LED ring by 2.03 mm** on every body — measured as a
+  boolean against the ring's own solid, which is the check v8 did not have
   (`check2` §9)
+- The press fit is **on the collar and nowhere else**: 0.30 mm of interference
+  on diameter over six 1.60 mm ribs with 4.50 mm of bore engagement, the collar
+  itself clear by 0.16 mm so it starts square, the ribs tapered at the end that
+  meets the bore first, and the outer wall clear by 0.40 mm all round
+  (`check2` §3, `check4` §5)
 - Every cell has a tick, every wall is full height, all twelve hours are
   debossed, the inlay part fills every pocket to within 2% and leaves no hole in
   the numeral band, and the numerals **read the right way round** once the
@@ -971,8 +992,11 @@ Both now derive from the body's own shelf height.
 - The display module's rim thickness at r = 29, which sets `COLLAR_EXTEND`.
 - The 32-LED ring itself: 111.85 / 96 mm and 32 LEDs are Sam's numbers, taken as
   given. Nothing about that ring has been checked against a listing.
-- Crush-rib interference of 0.60 mm on diameter is a judgement from moulding
-  practice, not a measurement on this printer. `DIFF_RIB_H` is the one knob.
+- Collar-rib interference of 0.30 mm on diameter is a judgement from moulding
+  practice, not a measurement on this printer. `COLLAR_RIB_H` is the one knob.
+- The bore figure of **30.19** is measured on the generated base, so it carries
+  whatever your printer does to a 30 mm hole. If the collar will not start, that
+  is the number to suspect first.
 - **The snap fingers have not been printed and flexed.** The strain and force
   numbers are beam theory with E ≈ 2500 MPa for PLA; the real modulus depends
   on your filament, infill and layer height. If they feel stiff, drop

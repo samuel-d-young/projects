@@ -2638,3 +2638,91 @@ Plug clearance on the stand went the other way and doubled, from 5.7 mm to
 so the 10° lean drops it less.
 
 Five passes, sixteen parts, three bodies, all green.
+
+---
+
+## 2026-08-25 — v10: the press fit moves inside, and v8's band was my mistake
+
+> *"The diffuser is now too tight and dones't fit properly. Also I want the
+> press fit to be on the inside where the screen is not the outside."*
+
+Two asks, one root cause between them, and the first one was mine.
+
+### What v8 got wrong
+
+v8 set out to fix "it's still too loose" and decided the problem was engagement
+depth rather than diameter. To find the engagement it measured where the
+diffuser comes to rest — by bisecting its position against the **bare base**.
+No LED ring in the pocket. No display module in the bore. With nothing else in
+there the outer crush ribs were the only thing that could stop it, so the
+measurement returned a seat of z = 21.52, an engagement of 1.40 mm, and the
+conclusion that the band had to grow. It went 4.00 → 6.00 mm.
+
+The seat is not set by the ribs. Measured against the base's actual geometry:
+the inner wall between the screen bore and the ring pocket tops out at
+**z = 19.03** — a 4.9 mm wide annular land at r 30.19..35.11 — and the
+diffuser's face lands on it. So the face occupies 19.03..21.03 and everything on
+the diffuser sits at `z = 21.03 - z_diff`:
+
+```
+band 4.00 (Sam's)  -> underside at 17.03, LED ring top 15.00, clear by +2.03
+band 6.00 (v8's)   -> underside at 15.03, LED ring top 15.00, clear by +0.03
+```
+
+0.03 mm. At 6.00 the band reaches the LED ring before the face reaches its stop,
+so the diffuser jams proud and rocks on the ring rather than seating. That is
+precisely what Sam reported, and dropping a 1618 mm3 boolean of diffuser into
+the ring's own solid says it without any argument.
+
+**The lesson worth keeping:** a fit measurement taken against one part of an
+assembly is not a fit measurement. The bisection was careful, repeatable and
+wrong, because the thing it was searching for -- "where does it stop" -- was
+being answered by the only obstacle present rather than by the real one.
+`check2` §9 now places the diffuser at the seat the base defines and measures
+the ring clearance as a boolean against the ring, on every body.
+
+### The fit moves to the collar
+
+Which he asked for independently, and which is the better place anyway.
+
+The outer wall now grips nothing: 0.40 mm of clearance on diameter into the ring
+pocket, and the eight outer crush ribs are gone. The press fit is six ribs on
+the collar, the part that reaches down around the screen:
+
+```
+bore          30.19  MEASURED across the flats. R_DISP_POCKET (30.2788) is the
+              circumradius of the 144-gon; a round collar touches flats.
+collar OD     30.108 -> 0.16 mm clearance on diameter, so it starts square
+6 ribs        1.60 mm wide, crest 30.34 -> 0.30 mm interference on diameter
+engagement    4.50 mm of bore, z 3.00..7.50, entirely above the display module
+lead-in       1.00 mm taper at the HIGH z end -- the collar goes in tip first
+```
+
+The argument for it, beyond preference: the outer wall is 92 mm around on the
+108 mm body and **233 mm** on the 240 mm one, so a single interference figure is
+three different fits — and on the big one it is smaller than the printer's own
+error across that span. The collar is 60 mm around on all three. One fit, three
+clocks. Each rib crushes 0.15 mm where the old outer ribs were asked for 0.35.
+
+### Two things that fell out of moving the seat
+
+The 60-LED body derives its entire vertical stack from where the diffuser's face
+lands — the guide shelf is `seat - BAND_TOP60`, and the ring floor is that minus
+the LED height, so the LED tops end up level with the shelf and fire into the
+end of their perspex strip. That was built on a seat of 19.00. With the real
+seat at 21.03 the whole stack moves up 2.03 mm: shelf 13.65 -> 15.68, ring floor
+10.45 -> 12.48. Left alone, every strip would have rattled in a 2 mm gap.
+
+And with the shelf level with the LED tops by construction, the 60's band came
+down on the LEDs themselves. It now has a 0.40 mm relief across the ring's own
+radius, so it rests on the shelf outboard of the ring and clears the LEDs.
+
+### A check that was reading the wrong height
+
+`check2` §2 -- "the LED ring drops into its pocket" -- probed at the global
+`Z_RING_FLOOR` rather than the body's own. On the 60, whose floor was 10.45, it
+had been testing a ring floating 1.35 mm above the real pocket and passing.
+Moving the floor to 12.48 finally pushed the probe into the floor and made it
+fail. It was wrong the whole time; it just had slack to hide in.
+
+Five passes, sixteen parts, three bodies, all green.

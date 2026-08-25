@@ -90,14 +90,21 @@ numerals finish flush with the face, right against the plate where the finish is
 best. No AMS? Print the diffuser in one colour — the hours still read perfectly
 well as a 0.50 mm shadow — or print the numerals separately and glue them in.
 
-**The diffuser press fit, fixed properly in v8.** v6 argued about diameter; the
-problem was depth. The ring pocket's wall stops at z = 19.00 and the diffuser
-rests with its face at z = 21.52, so a 4.00 mm band had only **1.40 mm** inside
-the bore and 2.60 mm hanging in the front recess gripping nothing. The band is
-6.00 mm now — **2.9 mm of measured rib contact** — and the lead-in taper has
-moved to the end that actually goes in first. Wall clearance 0.10 mm, eight
-crush ribs, 0.60 mm of interference on diameter. Still loose → raise
-`DIFF_RIB_H` in `v2/params.py` to 0.45; will not start → drop it to 0.25.
+**The diffuser press fit is on the INSIDE now.** Sam: *"I want the press fit to
+be on the inside where the screen is not the outside."* The outer wall drops
+into the ring pocket with 0.40 mm of clearance on diameter and grips nothing;
+six crush ribs on the collar — the part that goes down around the screen — give
+0.30 mm of interference on diameter over 4.50 mm of bore. One knob if it is
+wrong: `COLLAR_RIB_H` in `v2/params.py`. Too tight → 0.10. Falls out → 0.22.
+
+**And v8 had made it too tight — that was my error.** It measured the seat by
+pushing the diffuser into a bare base, with no LED ring and no screen in it, so
+the crush ribs were the only thing stopping it, and it grew the band from 4.00
+to 6.00 mm on the strength of that. The real stop is the diffuser's face landing
+on the base's inner wall at z = 19.03. At a 6.00 band that leaves **0.03 mm**
+between the band and the LED ring, so it jams proud and rocks. Back to 4.00,
+which clears the ring by 2.03 mm. If you printed a v8 or v9 diffuser, that is
+why it fought you — reprint it.
 
 **Before you print the diffuser, measure the display module's rim thickness** at
 the r = 29 mm circle and set `COLLAR_EXTEND = 2.20 - t` in `v2/params.py`.
