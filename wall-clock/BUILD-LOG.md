@@ -2641,6 +2641,75 @@ Five passes, sixteen parts, three bodies, all green.
 
 ---
 
+## 2026-08-25 — Echo timer counting flashed; a duplicate card resource found
+
+### The timer now counts minutes, then reverses
+
+Deployed and flashed. Config hash `445c50ad → aae74ede`, compile 6m38s, upload
+13s, exit 0 both. All eleven selects came up in Home Assistant, including the
+new `select.mini_round_clock_timer_countdown_style` (`minutes`), and the stored
+preferences survived this flash — theme still `cool`, face still `analog ring`.
+
+Behaviour, verified against the ring lambda:
+
+```
+  90s ->  2 LEDs   minutes phase     "larger than 1 minute shows 2 LED's"
+ 121s ->  3 LEDs   minutes phase
+  60s -> 24 LEDs   final minute      blooms to full ring
+  30s -> 12 LEDs   final minute
+   1s ->  1 LED    final minute
+```
+
+### The direction flip needed a setting change, not a code change
+
+The final minute deliberately runs the OPPOSITE way to the minutes phase — that
+reversal is the signal that you are inside the last minute. But `arc_dir` was
+set to `anticlockwise`, which made the minutes run anticlockwise and therefore
+the final minute run *clockwise* — the opposite of what was asked for.
+
+Set `arc_dir` to `clockwise`. Minutes now accumulate clockwise and the final
+minute unwinds anticlockwise. Worth writing down because the two controls
+compose rather than stack: `arc_dir` names the direction of the MINUTES phase,
+and the last minute is always its mirror. Nothing in the firmware pins the final
+minute to one absolute direction.
+
+### The Settings dashboard is blocked by someone else's card
+
+New cards installed into `/config/.storage/lovelace.wall_clock_build` (backup
+`.bak-preEcho`), all four new controls present in the file. But the view renders
+half empty: `switch` and `light` rows appear, while every `number`, `select` and
+`markdown` row is blank.
+
+Not a dashboard bug. The console shows:
+
+```
+DOMException: Failed to execute 'define' on 'CustomElementRegistry':
+the name "flightradar24-card" has already been used with this registry
+    at /flightradar24/flightradar24-card.js?v=v2.1.0:1687
+```
+
+`lovelace_resources` holds TWO resources that define the same element:
+
+- `/hacsfiles/flightradar24-card/home-assistant-flightradar24-card.js?hacstag=812212177030`
+- `/flightradar24/flightradar24-card.js?v=v2.1.0`
+
+The second throws, and the exception aborts the frontend's lazy element
+loading, so `hui-number-entity-row`, `hui-select-entity-row` and
+`hui-markdown-card` are never defined. Switch and light rows survive only
+because they are already defined by the time it throws.
+
+**This is system-wide, not clock-specific.** Home HQ shows it too — the empty
+Cameras card, the "NaN W" power draw stuck behind a spinner.
+
+`/config/www/flightradar24/` does not exist, so the second resource is served by
+the Flightradar24 custom integration's own static path, not by `www`. No
+dashboard references `custom:flightradar24-card` at all right now (zero matches
+across every `lovelace.*` file), so dropping one resource breaks nothing that is
+currently drawn. Left for Sam to choose which, since the integration is likely
+to re-register its own on restart.
+
+---
+
 ## 2026-08-25 — v10: the press fit moves inside, and v8's band was my mistake
 
 > *"The diffuser is now too tight and dones't fit properly. Also I want the

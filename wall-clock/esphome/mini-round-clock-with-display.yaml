@@ -748,8 +748,36 @@ select:
     optimistic: true
     restore_value: true
 
+  # How the ring counts a timer down.
+  #
+  # "minutes" is the Echo Wall Clock's model and it is a COUNT, not a
+  # proportion: one LED per whole minute remaining, so a 2 minute timer lights
+  # 2 LEDs and a 10 minute timer lights 10. Inside the last minute it switches
+  # to seconds and drains the other way round.
+  #
+  # That direction flip is the useful part, not decoration: it is how you can
+  # tell from across the room that you are inside the final minute, without
+  # counting anything.
+  #
+  # "proportion" is the older behaviour — the whole ring means the whole timer,
+  # however long it is. Fine for one timer, but it makes a 2 minute and a
+  # 2 hour timer look identical, which is exactly what the Echo avoids.
+  - platform: template
+    id: timer_style
+    name: "Timer countdown style"
+    entity_category: config
+    icon: mdi:timer-sand
+    options:
+      - "minutes"
+      - "proportion"
+    initial_option: "minutes"
+    optimistic: true
+    restore_value: true
+
   # Which way the timer arc drains. Clockwise reads as "time passing"; some
   # people read a shrinking anticlockwise arc as "time left" instead.
+  # In "minutes" style this sets the direction the MINUTES accumulate; the
+  # final minute always runs the other way, which is the point.
   - platform: template
     id: arc_dir
     name: "Timer arc direction"
@@ -1170,21 +1198,50 @@ light:
               if (mode == "auto" || mode == "clock only") {
                 const float fin = id(timer_finish_epoch).state;
                 const float tot = id(timer_total_seconds).state;
-                if (!std::isnan(fin) && fin > 0 && !std::isnan(tot) && tot > 0) {
+                if (!std::isnan(fin) && fin > 0) {
                   const float left = fin - (float) now.timestamp;
                   if (left > 0) {
                     timer_running = true;
-                    float ratio = left / tot;
-                    if (ratio > 1.0f) ratio = 1.0f;   // "add 5 minutes" clamp
-                    const int lit = (int) ceilf(ratio * N);
                     // Teal by default, so it can never be mistaken for a hand.
                     // P() normalises negatives, so running the index backwards
                     // is all "anticlockwise" needs.
                     const bool acw =
                       id(arc_dir).current_option().str() == "anticlockwise";
-                    for (int i = 0; i < lit; i++)
-                      add(P(acw ? -(float) i / N : (float) i / N),
-                          timerC[0], timerC[1], timerC[2]);
+                    const bool mins_style =
+                      id(timer_style).current_option().str() == "minutes";
+
+                    if (mins_style) {
+                      if (left > 60.0f) {
+                        // ---- MINUTES: a COUNT, not a proportion ------------
+                        // One LED per whole minute remaining, rounded up, so
+                        // 61 s already reads as 2. It needs no total at all,
+                        // which is why the `tot` guard above was dropped:
+                        // "add five minutes" simply lights another LED instead
+                        // of silently rescaling the whole ring.
+                        int mins = (int) ceilf(left / 60.0f);
+                        if (mins > N) mins = N;      // ring full past N minutes
+                        for (int i = 0; i < mins; i++)
+                          add(P(acw ? -(float) i / N : (float) i / N),
+                              timerC[0], timerC[1], timerC[2]);
+                      } else {
+                        // ---- FINAL MINUTE: seconds, draining the OTHER way -
+                        // The reversal is the signal. You do not have to count
+                        // pixels to know you are inside the last minute; the
+                        // arc simply starts unwinding backwards.
+                        const int lit = (int) ceilf((left / 60.0f) * N);
+                        for (int i = 0; i < lit; i++)
+                          add(P(acw ? (float) i / N : -(float) i / N),
+                              timerC[0], timerC[1], timerC[2]);
+                      }
+                    } else if (!std::isnan(tot) && tot > 0) {
+                      // ---- PROPORTION: whole ring = whole timer ------------
+                      float ratio = left / tot;
+                      if (ratio > 1.0f) ratio = 1.0f;   // "add 5 minutes" clamp
+                      const int lit = (int) ceilf(ratio * N);
+                      for (int i = 0; i < lit; i++)
+                        add(P(acw ? -(float) i / N : (float) i / N),
+                            timerC[0], timerC[1], timerC[2]);
+                    }
                   }
                 }
 
@@ -1690,14 +1747,31 @@ display:
           }
 
           // ---- timer echo: a band at the very rim, draining with the LEDs ---
+          // Deliberately the same model as the ring, including the final
+          // minute's reversal. If the screen and the LEDs disagreed about what
+          // a timer looks like, the two would stop reading as one instrument —
+          // which is the whole point of this face.
           if (left > 0) {
+            const bool acw =
+              id(arc_dir).current_option().str() == "anticlockwise";
             const float tot = id(timer_total_seconds).state;
-            if (!std::isnan(tot) && tot > 0.0f) {
+            if (id(timer_style).current_option().str() == "minutes") {
+              if (left > 60) {
+                int mins = (int) ceilf(left / 60.0f);
+                if (mins > RN) mins = RN;
+                for (int i = 0; i < mins; i++)
+                  radial(acw ? -(float) i / RN : (float) i / RN,
+                         172, RIM, 3, dim(c_timer, 0.85f));
+              } else {
+                const int lit = (int) ceilf((left / 60.0f) * RN);
+                for (int i = 0; i < lit; i++)
+                  radial(acw ? (float) i / RN : -(float) i / RN,
+                         172, RIM, 3, dim(c_timer, 0.85f));
+              }
+            } else if (!std::isnan(tot) && tot > 0.0f) {
               float ratio = left / tot;
               if (ratio > 1.0f) ratio = 1.0f;
               const int lit = (int) ceilf(ratio * RN);
-              const bool acw =
-                id(arc_dir).current_option().str() == "anticlockwise";
               for (int i = 0; i < lit; i++)
                 radial(acw ? -(float) i / RN : (float) i / RN,
                        172, RIM, 3, dim(c_timer, 0.85f));
