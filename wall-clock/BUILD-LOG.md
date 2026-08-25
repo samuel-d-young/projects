@@ -1937,3 +1937,77 @@ device page, which is what scattered each hue/saturation/intensity trio between
 "Mode" and "Ring LED count" and made them impossible to find. Inserted with
 `jq` (backup `.bak-preOptions`); the entities read unavailable until the device
 is flashed.
+
+---
+
+## 2026-08-25 — Options flashed; "analog ring" face written; the device keeps dropping off wifi
+
+### Flashed and verified live
+
+The eleven-option build went on and every control reported back:
+
+```
+second hand style tick | hour markers twelve | marker brightness 100
+arc direction clockwise | alert pattern pulse | alert hue 20
+status brightness 100 | show date off | show day of week off
+weather tint 100 | blank at night off
+totals: numbers 22, selects 7, switches 10 — none unavailable
+```
+
+Zero dropouts across a two-minute poll immediately after.
+
+**Note for next time: a flash resets stored preferences.** ESPHome keys them by
+a hash of the config, so changing the config invalidates them. The colour theme
+came back as `default` rather than the `custom` it had been set to. Nothing is
+lost — the HSV numbers are the default preset's own values — but the theme
+select has to be put back to `custom`.
+
+### "analog ring" — a fourth screen face
+
+Sam: *"the outside of the screen shows the analog clock that follows the LEDs
+on the outside."* So the dial is pushed out to r=170, and the screen and the
+physical ring are meant to read as **one instrument**, not two clocks that agree.
+
+**Quantisation is the whole trick.** A smoothly drawn hand and a ring that can
+only light whole LEDs disagree by up to half a pixel-step, and the eye catches
+it instantly — the screen looks right and the ring looks broken. So every outer
+mark snaps to the ring's own grid, `round(f * N) / N`, and each screen dot sits
+radially inward of a real LED.
+
+**No `twelve_oclock_offset` is applied on screen, deliberately.** The offset
+renumbers *which LED* is twelve; it does not move where twelve physically sits.
+Twelve is the top of the object on both surfaces, so both use frac 0 -> -90°
+and they line up by construction. Applying the offset twice would break them
+apart — an easy and very confusing mistake to make later.
+
+Hands stop short of the dial so they point *at* it, which is what lets the LED
+beyond read as the continuation of the hand. Hands are drawn as several
+parallel offset lines because ESPHome lines are one pixel and one pixel
+vanishes at 360 px. The timer arc is echoed on the same track and honours the
+arc-direction option.
+
+Written, YAML-validated, deployed to `/config/esphome/` (1720 lines) —
+**not flashed.** The device went off the network before the install.
+
+### The device is intermittently dropping off wifi
+
+This is the real blocker now, and it is not the firmware.
+
+- It vanished for ~15 min, came back on its own, took the option flash fine,
+  ran clean for several minutes, then vanished again for 8+ min.
+- When gone it is **completely** gone: no ARP entry, no ICMP, nothing on 6053
+  or 3232 anywhere in a full `/24` sweep — and **no `mini-round-clock` fallback
+  AP** in a wifi scan either, so it is not falling back to its captive portal.
+- When present, ping RTT is **69–563 ms, averaging 164 ms, on a LAN**. That is
+  terrible for a local wifi device and is the strongest clue: a marginal link,
+  not a crash. A crashing device reboots and comes back in seconds; this one
+  disappears for many minutes at a time.
+
+Suspects, in order: weak signal where it currently sits, then marginal power
+(USB from a PC while the LED ring is also drawing), then the AP steering it
+between the 2.4 and 5 GHz SSIDs.
+
+**Unrelated but worth chasing:** something at `192.168.1.32` opens and drops
+the device's API roughly every 15 seconds — `[api.connection] Socket operation
+failed CONNECTION_CLOSED errno=128` fills the log. `.32` is also the host that
+answers ICMP-unreachable for `.80`. Whatever it is, it is noise at best.
