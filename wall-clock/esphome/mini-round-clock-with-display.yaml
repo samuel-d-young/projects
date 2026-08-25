@@ -675,6 +675,30 @@ select:
     optimistic: true
     restore_value: true
 
+  # How big the time is drawn. ESPHome compiles fonts at fixed sizes, so this
+  # picks between real fonts rather than scaling one — a slider would imply a
+  # smoothness that does not exist.
+  #
+  # Each surface gets its own ladder, because "large" means different things in
+  # the two places the time appears:
+  #   digital / minimal face   72 / 96 / 118 px   — it IS the face
+  #   digital on an analog face 32 / 48 / 72 px   — it is a complication, and
+  #                                                 must not swamp the dial
+  # "large" is the default so the digital face looks exactly as it did before
+  # this control existed.
+  - platform: template
+    id: digi_size
+    name: "Digital time size"
+    entity_category: config
+    icon: mdi:format-size
+    options:
+      - "small"
+      - "medium"
+      - "large"
+    initial_option: "large"
+    optimistic: true
+    restore_value: true
+
   # What the SCREEN does while a timer runs. The ring drains either way — that
   # is the ring's job and it is not affected by this.
   #
@@ -1297,6 +1321,30 @@ font:
     size: 32
     bpp: 4
     glyphs: "0123456789.:-°% abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  # Extra sizes for the time, DIGITS AND COLON ONLY. A 4bpp glyph costs about
+  # size^2/2 bytes, so a full alphabet at 96 px would be ~320 KB while eleven
+  # glyphs is ~51 KB. Nothing here ever prints a letter, so the alphabet would
+  # be pure waste.
+  #
+  # 132 px is deliberately absent. Roboto digits run about 0.55*size wide and
+  # the colon about 0.28, so "12:34" is roughly 2.48*size: 293 px at 118, which
+  # fits 360 with room to spare, but 327 px at 132 — and on a ROUND screen the
+  # full width only exists on the centre line. 118 is the largest honest size.
+  - file: "gfonts://Roboto"
+    id: font_t48
+    size: 48
+    bpp: 4
+    glyphs: "0123456789:"
+  - file: "gfonts://Roboto"
+    id: font_t72
+    size: 72
+    bpp: 4
+    glyphs: "0123456789:"
+  - file: "gfonts://Roboto"
+    id: font_t96
+    size: 96
+    bpp: 4
+    glyphs: "0123456789:"
   - file: "gfonts://Roboto"
     id: font_small
     size: 22
@@ -1690,14 +1738,20 @@ display:
           // reason for putting a number on an analogue face.
           {
             const std::string dp = id(digi_pos).current_option().str();
+            const std::string dz = id(digi_size).current_option().str();
             const int OFF = 96;
             if (dp != "off") {
+              // A complication, not the face: this ladder tops out at 72 so it
+              // stays inside the dial instead of colliding with the ticks.
+              auto *fc = dz == "small"  ? id(font_med)
+                       : dz == "medium" ? id(font_t48)
+                                        : id(font_t72);
               const int ty = (dp == "top") ? -OFF : OFF;
               if (h24)
-                it.strftime(CX, CY + ty, id(font_med), Color(236, 241, 250),
+                it.strftime(CX, CY + ty, fc, Color(236, 241, 250),
                             TextAlign::CENTER, "%H:%M", now);
               else
-                it.printf(CX, CY + ty, id(font_med), Color(236, 241, 250),
+                it.printf(CX, CY + ty, fc, Color(236, 241, 250),
                           TextAlign::CENTER, "%d:%02d", hour12(now.hour), now.minute);
             }
             const bool dd = id(show_date).state, ww = id(show_dow).state;
@@ -1744,14 +1798,20 @@ display:
           // reason for putting a number on an analogue face.
           {
             const std::string dp = id(digi_pos).current_option().str();
+            const std::string dz = id(digi_size).current_option().str();
             const int OFF = 88;
             if (dp != "off") {
+              // A complication, not the face: this ladder tops out at 72 so it
+              // stays inside the dial instead of colliding with the ticks.
+              auto *fc = dz == "small"  ? id(font_med)
+                       : dz == "medium" ? id(font_t48)
+                                        : id(font_t72);
               const int ty = (dp == "top") ? -OFF : OFF;
               if (h24)
-                it.strftime(CX, CY + ty, id(font_med), Color(236, 241, 250),
+                it.strftime(CX, CY + ty, fc, Color(236, 241, 250),
                             TextAlign::CENTER, "%H:%M", now);
               else
-                it.printf(CX, CY + ty, id(font_med), Color(236, 241, 250),
+                it.printf(CX, CY + ty, fc, Color(236, 241, 250),
                           TextAlign::CENTER, "%d:%02d", hour12(now.hour), now.minute);
             }
             const bool dd = id(show_date).state, ww = id(show_dow).state;
@@ -1768,11 +1828,15 @@ display:
 
         } else {
           // digital and minimal share the big numerals
+          const std::string dsz = id(digi_size).current_option().str();
+          auto *ftime = dsz == "small"  ? id(font_t72)
+                      : dsz == "medium" ? id(font_t96)
+                                        : id(font_big);
           if (h24)
-            it.strftime(CX, CY - 22, id(font_big), Color(255, 255, 255),
+            it.strftime(CX, CY - 22, ftime, Color(255, 255, 255),
                         TextAlign::CENTER, "%H:%M", now);
           else
-            it.printf(CX, CY - 22, id(font_big), Color(255, 255, 255),
+            it.printf(CX, CY - 22, ftime, Color(255, 255, 255),
                       TextAlign::CENTER, "%d:%02d", hour12(now.hour), now.minute);
 
           if (face == "digital") {
