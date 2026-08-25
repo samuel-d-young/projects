@@ -100,8 +100,24 @@ for B, tg in BODIES:
     ck(DIFF_COLLAR_RO < R_DISP_BORE,
        'the collar itself has clearance, so it starts square',
        f'{2*(R_DISP_BORE - DIFF_COLLAR_RO):.2f} mm on diameter')
-    ck(0.20 <= 2*COLLAR_RIB_H <= 0.50, 'and the ribs interfere by an amount a rib can crush',
+    ck(0.0 < 2*COLLAR_RIB_H <= 0.50, 'and the ribs interfere, but only just',
        f'{2*COLLAR_RIB_H:.2f} mm on diameter over {COLLAR_RIB_N} x {COLLAR_RIB_W:.2f} mm')
+    # THE invariant, and the one that was missing while this was being tuned
+    # three times: the wall behind the ribs must have so much more clearance than
+    # the ribs have interference that the wall can never become the fit itself.
+    # That is the failure a rib-height knob cannot tune away.
+    wall_clr = 2*(R_DISP_BORE - COLLAR_OD)
+    ck(wall_clr >= 0.80 and wall_clr >= 4 * 2*COLLAR_RIB_H,
+       '...on a wall that has far more clearance than they have interference',
+       f'wall {wall_clr:.2f} mm clear on diameter against {2*COLLAR_RIB_H:.2f} of '
+       f'interference, {wall_clr/max(2*COLLAR_RIB_H,1e-9):.0f}x -- the ribs stand '
+       f'{R_DISP_BORE + COLLAR_RIB_H - COLLAR_OD:.2f} mm proud and can crush most '
+       f'of that before anything else touches')
+    ck(os.path.exists('mini-round-clock-collar-gauges.stl')
+       and min(GAUGE_HS) <= COLLAR_RIB_H <= max(GAUGE_HS),
+       '...and a printed gauge brackets the figure being shipped',
+       f'gauges at {", ".join(f"{h:.2f}" for h in GAUGE_HS)}, '
+       f'shipping {COLLAR_RIB_H:.2f}')
     ck(COLLAR_RIB_Z1 - COLLAR_RIB_Z0 >= 3.0, '...over a real length of bore',
        f'{COLLAR_RIB_Z1 - COLLAR_RIB_Z0:.2f} mm of engagement')
     # the ribs have to be tapered at the end that enters the bore FIRST, and the

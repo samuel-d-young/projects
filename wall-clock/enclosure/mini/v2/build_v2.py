@@ -470,6 +470,49 @@ def numerals(B, z0, z1):
     return out
 
 
+def build_collar_gauges():
+    """Three short rings of the collar, at three rib heights, side by side.
+
+    Sam has now called the collar fit too tight three times running, which says
+    his printer's error on a 30 mm bore and a 30 mm boss is bigger than the
+    numbers being argued over. No amount of choosing a figure here settles that
+    -- only a print does. This is that print: five minutes, and whichever ring
+    goes into the base's screen bore with a firm push is the number to put in
+    COLLAR_RIB_H.
+
+    Each ring is the real collar section -- same OD, same wall, same rib width,
+    same lead-in -- just 8 mm of it, with its rib height in hundredths of a
+    millimetre debossed on the top face.
+    """
+    out = None
+    for i, h in enumerate(GAUGE_HS):
+        cx = (i - (len(GAUGE_HS) - 1) / 2.0) * GAUGE_PITCH
+        crest = R_DISP_BORE + h
+        g = tube(DIFF_COLLAR_RI, COLLAR_OD, 0.0, GAUGE_H, SEG)
+        # every ring gets ribs, including the 0.00 one -- there the crest is
+        # exactly the bore size, which is the datum that says whether the
+        # printer is running over or under before any interference is asked for
+        r_in = COLLAR_OD - COLLAR_RIB_BURY
+        for k in range(COLLAR_RIB_N):
+            a = 360.0 / COLLAR_RIB_N * (k + 0.5)
+            rm = (crest + r_in) / 2
+            g += prism(rot_rect(rm*math.cos(math.radians(a)),
+                                rm*math.sin(math.radians(a)),
+                                crest - r_in, COLLAR_RIB_W, a), 0.0, GAUGE_H - 1.5)
+        # lead-in on the end that goes into the bore, same as the real collar
+        g -= (cyl(crest + 2.0, GAUGE_H - COLLAR_RIB_LEAD, GAUGE_H + 0.10, SEG)
+              - cone(crest + 0.40, COLLAR_OD - 0.30,
+                     GAUGE_H - COLLAR_RIB_LEAD, GAUGE_H + 0.10, SEG))
+        # its number, debossed in the top face
+        g -= text_prism(f'{int(round(h*100)):d}', GAUGE_NUM_H,
+                        (0.0, (DIFF_COLLAR_RI + COLLAR_OD) / 2),
+                        GAUGE_H - NUM_DEPTH, GAUGE_H + 0.10,
+                        family=NUM_FONT, weight=NUM_WEIGHT, fontfile=NUM_FONT_FILE)
+        g = g.translate([cx, 0.0, 0.0])
+        out = g if out is None else out + g
+    return out
+
+
 def build_numerals(B):
     """The numerals as their OWN part, 0.50 mm thick, exactly filling the pockets
     debossed into the diffuser. Load the diffuser in Bambu Studio, then
@@ -915,6 +958,7 @@ if __name__ == '__main__':
               f'{BATTERY_MIN_HOUSING:.2f} mm housing and this one is '
               f'{HOUSING_DEEP:.2f}. No internal battery in this build.')
     parts.append((build_light_guides(BODY60), 'mini-round-clock-light-guides-60', True))
+    parts.append((build_collar_gauges(), 'mini-round-clock-collar-gauges', False))
     for man, fn, strict in parts:
         t = csg.finalise(man, fn, strict=strict)
         t.export(fn + '.stl')

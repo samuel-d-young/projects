@@ -41,7 +41,7 @@ Repo: `samuel-d-young/projects`, branch `claude/home-assistant-wall-clock-om42v2
 | `enclosure/mini/build.py` | Regenerates all of the above from measured dimensions |
 | `enclosure/mini/mesh.py` | The STL builder (revolve + boxes, volume-validated) |
 
-## Print — mini v11, the current parts
+## Print — mini v12, the current parts
 
 Built on top of Sam's remodelled `base_in.stl` / `diffuser_in.stl`, which are
 kept in the folder so everything re-derives from source. **These supersede
@@ -56,6 +56,7 @@ All in `enclosure/mini/v2/`, prefixed `mini-round-clock`.
 | housing — rear plate down. **Holds the S3** | `-housing` | `-housing-32` | `-housing-60` |
 | diffuser — **white PLA, 0.20 mm layers, face down** | `-diffuser` | `-diffuser-32` | `-diffuser-60` |
 | numerals — **filament 2**, added as a part of the diffuser | `-numerals` | `-numerals-32` | `-numerals-60` |
+| collar fit gauge — **print first**, 3 rings, ~9 g | `-collar-gauges` | same part | same part |
 | light guides — **clear/natural PETG**, or cut perspex | — | — | `-light-guides-60` |
 | desk stand — flat, 8–10% infill | `-deskstand` | `-deskstand-32` | `-deskstand-60` |
 

@@ -34,6 +34,7 @@ All in `enclosure/mini/v2/`, all prefixed `mini-round-clock`.
 | housing | `-housing` | `-housing-32` | `-housing-60` |
 | diffuser | `-diffuser` | `-diffuser-32` | `-diffuser-60` |
 | **numerals** (2nd colour) | `-numerals` | `-numerals-32` | `-numerals-60` |
+| **fit gauge** — print this FIRST | `-collar-gauges` — one part, any body | | |
 | light guides *(optional)* | — | — | `-light-guides-60` |
 | desk stand *(optional)* | `-deskstand` | `-deskstand-32` | `-deskstand-60` |
 
@@ -90,26 +91,38 @@ numerals finish flush with the face, right against the plate where the finish is
 best. No AMS? Print the diffuser in one colour — the hours still read perfectly
 well as a 0.50 mm shadow — or print the numerals separately and glue them in.
 
-**The diffuser press fit is on the INSIDE, and the collar is turned down.** Sam:
-*"I want the press fit to be on the inside where the screen is not the outside."*
-The outer wall drops into the ring pocket with 0.40 mm of clearance and grips
-nothing. Six crush ribs on the collar give 0.20 mm of interference on diameter
-over 5.00 mm of bore.
+**PRINT `mini-round-clock-collar-gauges.stl` BEFORE THE DIFFUSER.** Three 8 mm
+rings of the real collar section at three rib heights — five minutes, about 9 g,
+each marked with its figure in hundredths of a millimetre on top:
 
-It took three goes to get this right. The first two left Sam's own 30.108 mm
-collar OD in a 30.19 mm bore — 0.164 mm on diameter, which is *not clearance on
-a printed part*: an external cylinder prints 0.10–0.20 over and a bore 0.10–0.30
-under, so that pair can come out as a full-surface interference before a single
-rib is involved. The collar is 29.90 now — 0.58 mm of clearance — so the ribs
-are the only thing touching. **One knob: `COLLAR_RIB_H` in `v2/params.py`. Too
-tight → 0.05. Falls out → 0.16.**
+| marked | crest | against the 30.19 bore |
+|---|---:|---:|
+| **0** | 30.194 | +0.01 mm on diameter — line to line |
+| **5** | 30.244 | +0.11 mm — what ships |
+| **10** | 30.295 | +0.21 mm — what the last version shipped |
 
-**The collar reaches the screen now.** It was 0.63 mm short of the module's face
-and not touching it at all. Its length is derived, not typed, and it is a
-ceiling rather than a preference — a collar that reaches past the module holds
-the diffuser off its seat and the clock sits proud. If your module's rim at
-r = 29 mm is thicker than a bare 1.60 mm PCB, take the difference off
-`COLLAR_TRIM` or off the base with `SEAT_DROP`.
+Push each into the base's screen bore. Whichever wants a firm push and stays put
+is your printer's answer: put its number over 100 into `COLLAR_RIB_H` in
+`v2/params.py`. If even **0** is tight, your printer runs the boss over or the
+bore under — try −0.05.
+
+**The diffuser press fit is on the INSIDE, on the collar.** The outer wall drops
+into the ring pocket with 0.40 mm of clearance and grips nothing. On the collar,
+the wall has **1.18 mm** of clearance on diameter and six 1.00 mm ribs standing
+0.64 mm proud of it give **0.10 mm** of interference. The wall has twelve times
+as much clearance as the ribs have interference, so a printer would have to be
+over half a millimetre out before the wall itself became the fit — which is the
+failure that kept bringing this back. The fit can be light: the clock hangs with
+the diffuser's axis horizontal, so gravity never pulls it out.
+
+**The collar's length is back to what it was.** One version reached it to where
+a bare 1.60 mm PCB would put the screen's face; it over-reached, so the real rim
+is thicker than that. A collar that touches the module before the diffuser's
+face reaches its land holds the whole thing proud — **too long is worse than too
+short**. It is set by `COLLAR_LEN` in `v2/params.py`, which is what you measure
+on the part: how far the ring stands proud of the back of the face, 8.20 mm.
+Every 0.10 on it is 0.10 mm of reach. Measure your module's rim at the r = 29 mm
+circle and the number you want is `COLLAR_LEN = 19.03 − (8.60 + that rim)`.
 
 **SLICE THE DIFFUSER'S FACE SOLID.** Sam: *"there is bleed and you can see
 through where you're not meant to."* The model was already 2.00 mm everywhere

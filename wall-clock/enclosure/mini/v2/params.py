@@ -368,18 +368,27 @@ FACE_T       = 2.90         # the face either side of a tick. 0.20 glows.
 DIFF_SEAT_Z  = DIFF_WALL_CREST + FACE_T      # 21.93, where the face's top lands
 CELL_DEPTH   = 2.00         # walled cell behind the face, unchanged
 
-# Sam: "the inside ring that goes onto the screen can be longer." It was too
-# short, and by a number the geometry gives exactly: the module sits on its seat
-# at 8.60 and its PCB is 1.60 thick, so the face the collar is meant to hold down
-# is at 10.20. Reach the collar's tip to precisely that.
+# Sam, v12: "The inside it now too long, make it the same length it was before."
 #
-# THIS IS A CEILING, not a preference. The diffuser's face rests on the base's
-# land; a collar that reaches PAST the module holds the diffuser off that land
-# and the whole thing sits proud again -- which is one of the ways it has felt
-# too tight. If your module's rim at the r=29 circle is thicker than the 1.60 mm
-# bare PCB assumed here, take the difference off COLLAR_TRIM, or off the base
-# instead with SEAT_DROP.
-COLLAR_EXTEND = DIFF_SEAT_Z - (Z_SEAT + DISP_TAB_T) - DIFF_COLLAR_H
+# v11 derived this from where the display module's face was ASSUMED to be --
+# seat 8.60 plus a bare 1.60 mm PCB -- and reached the collar to exactly there.
+# It over-reached, which means the module's rim at the r=29 circle is thicker
+# than a bare PCB. That matters more than it sounds: the diffuser's face rests on
+# the base's land, so a collar that touches the module first holds the whole
+# thing off that land and the clock sits proud. Reverted.
+#
+# COLLAR_LEN is what you actually measure on the printed part: how far the ring
+# stands proud of the BACK of the face. It was 8.20 mm before v11 and v11 made it
+# 8.83. Expressed this way it no longer moves when FACE_T does, which is how it
+# drifted in the first place.
+COLLAR_LEN    = 8.20         # ring protruding beyond the back of the face
+COLLAR_EXTEND = COLLAR_LEN + FACE_T - DIFF_COLLAR_H          # 2.90
+# If you want it to actually TOUCH the screen, this is the knob and the
+# arithmetic is one to one: every 0.10 on COLLAR_LEN is 0.10 mm of reach. It sits
+# at z=10.83 now; measure your module's rim at r=29 and the number you want is
+#     COLLAR_LEN = 19.03 - (8.60 + that rim thickness)
+# Too long is worse than too short: too short leaves the screen unclamped, too
+# long stops the diffuser seating at all.
 APER_FLARE   = 0.80         # the aperture opens out this much on every side
                             # behind the membrane, so the viewing angle survives
 
@@ -723,25 +732,46 @@ R_DISP_BORE     = 30.19      # MEASURED across the flats, not the param radius
 # tight" a third time.
 # Turned to 29.90 there is 0.58 mm of clearance on diameter -- enough to swallow
 # what both parts' printers do -- and the ribs are the only thing touching.
-COLLAR_OD       = 29.90      # was Sam's 30.108
+COLLAR_OD       = 29.60      # was Sam's 30.108, then 29.90
 COLLAR_RIB_N    = 6
-COLLAR_RIB_W    = 1.20       # tangential. Narrower crushes more easily than wide
-COLLAR_RIB_H    = 0.10       # radial interference -> 0.20 mm on diameter
+COLLAR_RIB_W    = 1.00       # tangential. Narrower crushes more easily than wide
+COLLAR_RIB_H    = 0.05       # radial interference -> 0.10 mm on diameter
 COLLAR_RIB_Z0   = 3.00       # in the diffuser's frame
 COLLAR_RIB_Z1   = 8.00
 COLLAR_RIB_LEAD = 2.00       # taper at the end that enters the bore first, which
                              # is the HIGH z end: the collar goes in tip first
 COLLAR_RIB_BURY = 0.60       # into the collar, so the rib does not sit on a face
                              # coincident with it -- that does not survive float32
-# ONE KNOB. Too tight -> drop COLLAR_RIB_H to 0.05. Falls out -> raise it to 0.16.
-# Because the collar underneath now has real clearance, that knob is the WHOLE
-# fit -- turning it down cannot leave a hidden interference behind it.
+# v12, third time of asking: looser again. 29.90 with 0.20 mm of interference was
+# still tight in Sam's hands, which says his printer is running the boss over
+# and/or the bore under by more than the nominal figures allow for. So:
+#   * the collar goes to 29.60 -- 1.18 mm of clearance on diameter. A printer
+#     would have to be over half a millimetre out before the WALL touches
+#     anything, which is the failure that cannot be tuned away by rib size.
+#   * the ribs drop to 0.10 mm of interference on diameter, on 1.00 mm ribs, and
+#     they now stand 0.64 mm proud of the wall -- a tall crush rib that can
+#     deform a long way before anything binds.
+# The clock hangs with the diffuser's axis horizontal, so gravity never pulls it
+# out; the fit only has to resist being knocked. Light is fine.
+#
+# ONE KNOB. Too tight -> COLLAR_RIB_H = 0.00 (a slip fit on the ribs alone).
+# Falls out -> 0.12. And print mini-round-clock-collar-gauges.stl first: three
+# rings at 0.00 / 0.05 / 0.10, five minutes, and it tells you which one YOUR
+# printer wants without committing a whole diffuser to it.
 GUIDE_LED_CLR   = 0.40       # 60-LED only. Its band comes right down to the guide
                              # shelf, which is level with the LED tops by design --
                              # that is how an LED fires into the end of its strip.
                              # This relieves the band's underside over the ring's
                              # own radius so it rests on the shelf and not on the
                              # LEDs.
+# --- the fit gauge -------------------------------------------------------------
+# Three short rings of the collar, at three rib heights, so the fit can be found
+# on a five-minute print instead of a whole diffuser. Each carries its own
+# hundredths-of-a-mm number debossed on the top.
+GAUGE_H         = 8.00       # tall enough to feel the fit, short enough to be quick
+GAUGE_HS        = (0.00, 0.05, 0.10)     # radial rib heights to try
+GAUGE_PITCH     = 68.00      # centres on the plate
+GAUGE_NUM_H     = 4.00       # the number on top of each
 DIFF_SEAT_CLR   = 0.20       # air between the 32/60 pocket fill and the underside
                              # of the diffuser's band, so they never share a face
 DIFF_CHAMF      = 0.60       # chamfer where the band enters the ring pocket, and

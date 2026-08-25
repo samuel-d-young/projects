@@ -1,4 +1,4 @@
-# mini-round-clock enclosure — v11
+# mini-round-clock enclosure — v12
 
 Built on top of the base and diffuser Sam remodelled. Three clock sizes: the
 **24-LED** body at 107.99 mm, which is his; a **32-LED** body at 119.85 mm,
@@ -29,6 +29,7 @@ Pick a body. Everything in one column goes together; nothing crosses over.
 | housing | `-housing` | `-housing-32` | `-housing-60` |
 | diffuser | `-diffuser` | `-diffuser-32` | `-diffuser-60` |
 | **numerals** (2nd colour, §9) | `-numerals` | `-numerals-32` | `-numerals-60` |
+| **fit gauge** — print FIRST, §2 | `-collar-gauges` — one part, any body | | |
 | light guides *(optional)* | — | — | `-light-guides-60`, or cut perspex — §7 |
 | desk stand *(optional)* | `-deskstand` | `-deskstand-32` | `-deskstand-60` (a very big print) |
 
@@ -169,62 +170,97 @@ there, so this cannot happen again quietly.
 The outer wall grips **nothing**. It drops into the ring pocket with **0.40 mm
 of clearance on diameter** and the eight outer crush ribs are gone.
 
-#### Why v10 was STILL too tight — the collar had no clearance to begin with
+#### Why it kept being too tight — and what v12 does about it
 
-Third report of "too tight", so the answer was not another tolerance guess. v10
-put six crush ribs on the collar but left the collar itself at Sam's own
-**30.108** OD in a **30.19** bore. That is **0.164 mm on diameter** — and on an
-FDM printer that is not clearance at all:
+Three rounds of "too tight" in a row, so the answer stopped being a choice of
+number.
 
-| | typical FDM error |
-|---|---|
-| an external cylinder | comes out **0.10–0.20 over** on diameter |
-| an internal bore | comes out **0.10–0.30 under** on diameter |
+**v10's mistake** was leaving the collar itself at Sam's own **30.108** OD in a
+**30.19** bore. That is 0.164 mm on diameter, and on an FDM printer that is not
+clearance at all — an external cylinder comes out 0.10–0.20 over and a bore
+0.10–0.30 under, so the pair can print as an interference across the whole
+190 mm of circumference. Six ribs on top of that were never a crush fit.
 
-So that pair can easily print as an *interference across the whole 190 mm of
-circumference*, before a single rib is involved. Six ribs on top of that were
-never a crush fit — they were a solid interference fit with lumps on it.
+**v11 turned the collar to 29.90** and dropped the interference to 0.20 mm. Still
+too tight in his hands — which is data: his printer is running further out than
+the nominal figures allow for.
 
-**The collar is turned down to 29.90.** That is 0.58 mm of clearance on
-diameter, enough to swallow what both printers do, and the ribs are now the only
-thing that touches anything:
+**v12 stops arguing about the number and separates the two things:**
 
 ```
 bore            30.19 measured across the flats
-collar OD       29.90  ->  0.58 mm of clearance on diameter
-6 crush ribs    1.20 mm wide (was 1.60 -- narrower crushes more easily)
-crest           30.29  ->  0.20 mm of interference on diameter (was 0.30)
-engagement      5.00 mm of bore, z 3.00..8.00 in the diffuser's frame
-lead-in         2.00 mm taper at the end that meets the bore first
+collar OD       29.60  ->  1.18 mm of CLEARANCE on diameter
+6 crush ribs    1.00 mm wide, standing 0.64 mm proud of that wall
+crest           30.24  ->  0.10 mm of interference on diameter
 ```
 
-**One knob, and now it is the whole fit.** `COLLAR_RIB_H` in `params.py`. Too
-tight → 0.05. Falls out → 0.16. Because the collar underneath has real
-clearance, turning that knob down cannot leave a hidden interference behind it —
-which is exactly what went wrong before.
+The wall now has **twelve times** as much clearance as the ribs have
+interference. A printer would have to be more than half a millimetre out before
+the wall itself touches anything — and *that* is the failure a rib-height knob
+cannot tune away, which is why it kept coming back. `check2` asserts that ratio
+now, not just the interference.
 
-#### The collar reaches the screen now
+The fit can afford to be light: the clock hangs with the diffuser's axis
+horizontal, so gravity never pulls it out. It only has to resist being knocked.
 
-> *"the inside ring that goes onto the screen can be longer."*
+#### Print the gauge first
 
-It was 0.63 mm short, and the geometry says so exactly: the module sits on its
-seat at 8.60 with a 1.60 mm PCB, so the face the collar is meant to hold down is
-at **10.20** — and the collar stopped at 10.83. It was not touching the screen
-at all.
+`mini-round-clock-collar-gauges` — **three rings, five minutes, about 9 g.**
 
-`COLLAR_EXTEND` is derived now rather than typed:
+Each is a real 8 mm section of the collar — same OD, same wall, same rib width,
+same lead-in — at a different rib height, with its figure in hundredths of a
+millimetre debossed on top:
+
+| marked | crest | against the 30.19 bore |
+|---|---:|---:|
+| **0** | 30.194 | +0.01 mm on diameter — line to line |
+| **5** | 30.244 | +0.11 mm — what ships |
+| **10** | 30.295 | +0.21 mm — what v11 shipped |
+
+Push each into the base's screen bore. Whichever wants a firm push and stays put
+is your printer's answer; put its number over 100 into `COLLAR_RIB_H`. If even
+**0** is tight, your printer is running the boss over or the bore under, and the
+answer is a negative figure — try −0.05.
+
+This is what should have been shipped three rounds ago instead of another
+guess.
+
+#### How long the collar is, and why v11 overshot
+
+> v11: *"the inside ring that goes onto the screen can be longer."*
+> v12: *"The inside it now too long, make it the same length it was before."*
+
+v11 derived the length from where the module's face was *assumed* to be — its
+seat at 8.60 plus a bare 1.60 mm PCB — and reached the collar to exactly there.
+It over-reached, which means the rim at the r = 29 circle is thicker than a bare
+PCB.
+
+That matters more than it sounds. The diffuser's face rests on the base's land;
+a collar that touches the module **first** holds the whole diffuser off that land
+and the clock sits proud — which is another of the ways this has felt tight.
+**Too long is worse than too short.**
+
+It is back to exactly what it was, expressed as the thing you can actually put
+calipers on:
 
 ```
-COLLAR_EXTEND = DIFF_SEAT_Z − (Z_SEAT + DISP_TAB_T) − DIFF_COLLAR_H
-              = 21.93 − 10.20 − 8.20 = 3.53
+COLLAR_LEN = 8.20        the ring, standing proud of the BACK of the face
+                         (8.20 before v11, 8.83 in v11)
+COLLAR_EXTEND = COLLAR_LEN + FACE_T − DIFF_COLLAR_H = 2.90
 ```
 
-**This is a ceiling, not a preference.** The diffuser's face rests on the base's
-land; a collar that reaches *past* the module holds the diffuser off that land
-and the whole thing sits proud — which is one of the ways it has felt too tight.
-If your module's rim at the r = 29 circle is thicker than the 1.60 mm bare PCB
-assumed here, take the difference off `COLLAR_TRIM`, or off the base instead
-with `SEAT_DROP`. `check2` asserts the tip never goes past the module.
+Expressed that way it no longer moves when `FACE_T` does, which is how it
+drifted in the first place. The tip is back at z = 10.83.
+
+**If you want it to actually touch the screen**, `COLLAR_LEN` is the knob and it
+is one-for-one: every 0.10 on it is 0.10 mm of reach. Measure your module's rim
+at the r = 29 circle and the number you want is
+
+```
+COLLAR_LEN = 19.03 − (8.60 + that rim thickness)
+```
+
+Send me that measurement and I will set it exactly rather than bracketing it.
 
 ### The face is thicker, and only the aperture is thin
 
@@ -1034,12 +1070,12 @@ Both now derive from the body's own shelf height.
   there, **clears the LED ring by 2.03 mm** on every body — measured as a
   boolean against the ring's own solid, which is the check v8 did not have
   (`check2` §9)
-- The press fit is **on the collar and nowhere else**: 0.20 mm of interference
-  on diameter over six 1.20 mm ribs with 5.00 mm of bore engagement, the collar
-  **turned down** so it is clear by 0.58 mm and only the ribs touch, the ribs
-  tapered at the end that meets the bore first and dropping back to nominal
-  between them, and the outer wall clear by 0.40 mm all round (`check2` §3,
-  `check4` §5)
+- The press fit is **on the collar and nowhere else**: 0.10 mm of interference
+  on diameter over six 1.00 mm ribs with 5.00 mm of bore engagement, on a wall
+  that is clear by **1.18 mm** — twelve times the interference, so the wall can
+  never become the fit itself whatever the printer does. The ribs are tapered at
+  the end that meets the bore first and drop back to nominal between them, and
+  the outer wall is clear by 0.40 mm all round (`check2` §3, `check4` §5)
 - The face fits inside the front recess rather than standing proud, its
   underside is exactly on the land by construction, and the collar reaches the
   screen's face without pushing past it — the three numbers that silently
@@ -1073,6 +1109,14 @@ Both now derive from the body's own shelf height.
 - The bore figure of **30.19** is measured on the generated base, so it carries
   whatever your printer does to a 30 mm hole. If the collar will not start, that
   is the number to suspect first.
+- **Nothing here has been printed and fitted by me.** The collar fit has now been
+  called too tight three times running, which is why v12 ships a gauge instead of
+  a fourth guess — 9 g of plastic that measures your printer rather than my
+  arithmetic.
+- **The display module's rim thickness at r = 29 is still unmeasured**, and it is
+  what sets how long the collar should be. v11 assumed a bare 1.60 mm PCB and
+  over-reached, so it is thicker than that. `COLLAR_LEN` is back to its old value
+  until there is a number.
 - **The snap fingers have not been printed and flexed.** The strain and force
   numbers are beam theory with E ≈ 2500 MPa for PLA; the real modulus depends
   on your filament, infill and layer height. If they feel stiff, drop

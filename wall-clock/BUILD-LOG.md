@@ -2920,3 +2920,81 @@ aperture to become a through-hole and a third part. Offered, not assumed.
   so one cut sizes both and they finish flush.
 
 Five passes, sixteen parts, three bodies, all green.
+
+---
+
+## 2026-08-25 — v12: stop guessing the collar fit, ship a gauge
+
+> *"The inside it now too long, make it the same length it was before but adjust
+> the outside dimensions to not be as tight as before."*
+
+### The length: reverted, and expressed so it cannot drift again
+
+v11 derived the collar's length from where the display module's face was
+*assumed* to be -- its seat at 8.60 plus a bare 1.60 mm PCB -- and reached the
+tip to exactly there. It over-reached, which is itself a measurement: the rim at
+the r=29 circle is thicker than a bare PCB.
+
+That is worse than it sounds. The diffuser's face rests on the base's land, so a
+collar that touches the module FIRST holds the whole diffuser off that land and
+the clock sits proud -- another of the ways this has felt "tight". **Too long is
+worse than too short.**
+
+Back to what it was, and now expressed as the thing you can put calipers on:
+
+```
+COLLAR_LEN    = 8.20    the ring standing proud of the BACK of the face
+                        (8.20 before v11, 8.83 in v11)
+COLLAR_EXTEND = COLLAR_LEN + FACE_T - DIFF_COLLAR_H = 2.90
+```
+
+Written that way it stops moving when FACE_T moves -- which is exactly how it
+drifted, since v11 thickened the face by 0.90 in the same change.
+
+### The fit: the number was never the problem
+
+Three rounds of "too tight" in a row:
+
+```
+v10   collar 30.108 in a 30.19 bore (0.164 clearance) + 0.30 interference
+v11   collar 29.90                  (0.58  clearance) + 0.20 interference
+v12   collar 29.60                  (1.18  clearance) + 0.10 interference
+```
+
+The thing v10 and v11 shared is that the *wall behind the ribs* did not have
+enough clearance to be irrelevant. If a printer runs the boss over and the bore
+under by a few tenths -- which Sam's evidently does -- the wall starts touching,
+and then the rib height is no longer the fit and turning it down does nothing.
+That is why it kept coming back.
+
+v12 separates them properly: the wall has **twelve times** as much clearance as
+the ribs have interference, and the ribs stand 0.64 mm proud so they can crush
+most of that before anything else makes contact. `check2` asserts the RATIO now,
+not just the interference -- the invariant that was missing while this was being
+tuned three times.
+
+The fit can afford to be light, too: the clock hangs with the diffuser's axis
+horizontal, so gravity never pulls it out. It only has to resist being knocked.
+
+### And the thing that should have shipped three rounds ago
+
+`mini-round-clock-collar-gauges` -- three 8 mm sections of the real collar at
+three rib heights, side by side, each with its figure in hundredths of a
+millimetre debossed on top. Five minutes, 9 g.
+
+```
+marked  0   crest 30.194   +0.01 mm on diameter -- line to line
+marked  5   crest 30.244   +0.11 mm            -- what ships
+marked 10   crest 30.295   +0.21 mm            -- what v11 shipped
+```
+
+Push each into the base's screen bore; whichever wants a firm push is the
+number. If even 0 is tight, the printer is running over and the answer is
+negative.
+
+The general lesson: after the second time a dimension comes back wrong, the
+useful deliverable stops being a better dimension and becomes a way to measure.
+Three iterations of a whole diffuser were spent finding out what 9 g of test
+print would have said in one.
+
+Five passes, seventeen parts, three bodies, all green.
