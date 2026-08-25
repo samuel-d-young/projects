@@ -749,6 +749,17 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
+  # An ana-digi complication. Off by default: an analogue face is chosen for
+  # the shape of the time, and a number in the middle of it is a deliberate
+  # addition rather than something to inflict on everyone.
+  - platform: template
+    id: digi_on_analog
+    name: "Digital time on analog face"
+    entity_category: config
+    icon: mdi:clock-digital
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
   - platform: template
     id: show_date
     name: "Show date"
@@ -1639,6 +1650,30 @@ display:
           it.filled_circle(CX, CY, 7, Color(220, 220, 220));
           it.filled_circle(CX, CY, 3, Color(40, 44, 54));
 
+          // ---- ana-digi complications, drawn last so hands never hide them --
+          // Time low, date high. They sit on opposite sides of the hub so they
+          // cannot collide with each other whichever combination is switched on,
+          // and both stay inside the sweep of the hands rather than fighting the
+          // dial at the rim.
+          if (id(digi_on_analog).state) {
+            if (h24)
+              it.strftime(CX, CY + 56, id(font_med), Color(236, 241, 250),
+                          TextAlign::CENTER, "%H:%M", now);
+            else
+              it.printf(CX, CY + 56, id(font_med), Color(236, 241, 250),
+                        TextAlign::CENTER, "%d:%02d", hour12(now.hour), now.minute);
+          }
+          {
+            const bool dd = id(show_date).state, ww = id(show_dow).state;
+            const char *df = (dd && ww) ? "%a %d %b"
+                           : dd         ? "%d %b"
+                           : ww         ? "%A"
+                                        : nullptr;
+            if (df)
+              it.strftime(CX, CY - 56, id(font_small), Color(150, 160, 182),
+                          TextAlign::CENTER, df, now);
+          }
+
         } else if (face == "analog") {
           // Drawn hands on the LCD as well as the ring. Deliberately thin and
           // unfilled — the ring is the primary analogue read, this echoes it.
@@ -1662,6 +1697,30 @@ display:
                     c_sec);
           }
           it.filled_circle(CX, CY, 5, Color(220, 220, 220));
+
+          // ---- ana-digi complications, drawn last so hands never hide them --
+          // Time low, date high. They sit on opposite sides of the hub so they
+          // cannot collide with each other whichever combination is switched on,
+          // and both stay inside the sweep of the hands rather than fighting the
+          // dial at the rim.
+          if (id(digi_on_analog).state) {
+            if (h24)
+              it.strftime(CX, CY + 50, id(font_med), Color(236, 241, 250),
+                          TextAlign::CENTER, "%H:%M", now);
+            else
+              it.printf(CX, CY + 50, id(font_med), Color(236, 241, 250),
+                        TextAlign::CENTER, "%d:%02d", hour12(now.hour), now.minute);
+          }
+          {
+            const bool dd = id(show_date).state, ww = id(show_dow).state;
+            const char *df = (dd && ww) ? "%a %d %b"
+                           : dd         ? "%d %b"
+                           : ww         ? "%A"
+                                        : nullptr;
+            if (df)
+              it.strftime(CX, CY - 50, id(font_small), Color(150, 160, 182),
+                          TextAlign::CENTER, df, now);
+          }
 
         } else {
           // digital and minimal share the big numerals

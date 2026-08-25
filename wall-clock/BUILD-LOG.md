@@ -2320,3 +2320,67 @@ whole compile. The working pattern:
 
 That turned a several-minute window requirement into a few-second one, and is
 how both of today's flashes actually got on.
+
+---
+
+## 2026-08-25 — Stands lean back 10 deg; a digital readout on the analogue faces
+
+### The stand tilt is bounded at both ends, and it fought back
+
+Sam: *"update the angle of the stands so they have a slight tilt back."* It
+already leaned 8 deg — enough to read as "not quite straight" rather than as a
+deliberate lean. Went for 12. Both existing checks pushed back, which is
+exactly what they are for:
+
+**Plug clearance.** The clock's USB plug points at the desk 64 mm behind the
+front face, so every extra degree of tilt drops it `64*sin` — about 1.1 mm per
+degree. 8 -> 12 costs 4.4 mm of the 7.9 mm the plug had.
+
+**Stability.** Raising `STAND_LIFT` to buy that clearance back raises the
+centre of mass, and leaning further back moves it toward the heels. **The two
+fixes fight each other.** At 12 deg with LIFT 38.5, `check5` measured the
+backward tip margin at **19 deg against a 20 deg floor** and failed the 240 mm
+body.
+
+Settled at **10 deg on the original 36 mm lift** — but that still measured
+exactly **20.0 deg** on the 60-LED stand, a hair under. Rather than give the
+lean back, the fix went where the design already had a lever: the **tail
+plinth** behind the stop wall, which exists precisely to buy tip margin on the
+big bodies. Its sizing uses a *design* angle (the crude `depth/2` CoM estimate
+lands several degrees optimistic), tuned to 27 when the clock leaned 8. Raised
+to 30.
+
+Result — every stand now has **more** margin than it did at 8 deg:
+
+| body | was (8 deg) | now (10 deg) |
+|---|---|---|
+| 24-LED | — | 25 deg back, 30 fwd |
+| 32-LED | — | 24 back, 29 fwd |
+| 60-LED | 21 back, 21 fwd | **23 back, 22 fwd** |
+
+Plug clears the desk by 5.7 mm on all three, against a 3.0 floor. All five
+verification passes clean.
+
+### An ana-digi complication
+
+*"add a digital clock to the analog face too."* New switch **Digital time on
+analog face**, off by default — an analogue face is chosen for the shape of the
+time, so a number in the middle of it is an addition, not something to inflict
+on everyone.
+
+It applies to **both** analogue faces. Time low, date high, on opposite sides
+of the hub so no combination of the three switches can collide, and both sit
+inside the sweep of the hands rather than fighting the dial at the rim. Drawn
+**last**, after the hands — legibility is the entire reason for adding it, so a
+hand passing over must not hide it.
+
+While there: `Show date` and `Show day of week` now work on the analogue faces
+too. They existed and silently did nothing there, which reads as a bug.
+
+### Toolchain note for the next session
+
+The geometry checks need more than trimesh: `numpy trimesh manifold3d networkx
+scipy matplotlib shapely lxml rtree`. Missing `rtree` made `check3_print` look
+like a geometry failure when it was an import error, and missing `networkx`
+made trimesh's `split()` fail with "no graph engines available". Install the
+lot before believing any check result.
