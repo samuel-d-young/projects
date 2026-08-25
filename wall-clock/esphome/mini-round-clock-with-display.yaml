@@ -655,6 +655,45 @@ select:
     optimistic: true
     restore_value: true
 
+  # An ana-digi complication, and WHERE it sits rather than merely whether.
+  # "bottom" is the default because that is where a watch puts a digital
+  # sub-dial: below the hub, clear of the 12, and out of the way of the hour
+  # hand for most of the day.
+  #
+  # The date takes the opposite end automatically, so the two can never stack
+  # up on each other whichever way round you set this.
+  - platform: template
+    id: digi_pos
+    name: "Digital time on analog"
+    entity_category: config
+    icon: mdi:clock-digital
+    options:
+      - "bottom"
+      - "top"
+      - "off"
+    initial_option: "bottom"
+    optimistic: true
+    restore_value: true
+
+  # What the SCREEN does while a timer runs. The ring drains either way — that
+  # is the ring's job and it is not affected by this.
+  #
+  # "keep clock" is the Amazon Echo Wall Clock's behaviour, and the reason it
+  # works: the ring is already a countdown you can read from across the room,
+  # so spending the screen on the same number twice buys nothing, while the one
+  # thing you lose — the time — is the thing the object is for.
+  - platform: template
+    id: timer_screen
+    name: "Screen during a timer"
+    entity_category: config
+    icon: mdi:timer-outline
+    options:
+      - "keep clock"
+      - "countdown"
+    initial_option: "keep clock"
+    optimistic: true
+    restore_value: true
+
   # A tick moves once a second; a sweep glides between them using the render
   # frame counter. Sweep costs nothing extra — the lambda already runs at 20fps
   # for the alert pulse.
@@ -748,17 +787,6 @@ switch:
     icon: mdi:clock-digital
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
-
-  # An ana-digi complication. Off by default: an analogue face is chosen for
-  # the shape of the time, and a number in the middle of it is a deliberate
-  # addition rather than something to inflict on everyone.
-  - platform: template
-    id: digi_on_analog
-    name: "Digital time on analog face"
-    entity_category: config
-    icon: mdi:clock-digital
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
 
   - platform: template
     id: show_date
@@ -1486,9 +1514,13 @@ display:
 
       it.filled_circle(CX, CY, 180, bg);
 
-      if (left >= 0) {
-        // A timer is running: it gets the big numerals, the clock drops to a
-        // subtitle. The thing you are waiting on should be the readable one.
+      // The Echo Wall Clock leaves the time in the middle and lets the ring do
+      // the counting. That is the default here. `countdown` restores the older
+      // behaviour where the timer takes the screen and the clock drops to a
+      // subtitle. Either way the RING drains — that part is not optional.
+      if (left >= 0 && id(timer_screen).current_option().str() == "countdown") {
+        // A timer is running and has been given the screen: it gets the big
+        // numerals, the clock drops to a subtitle.
         const int m = left / 60, s = left % 60;
         it.printf(CX, CY - 34, id(font_big), c_timer,
                   TextAlign::CENTER, "%d:%02d", m, s);
@@ -1651,27 +1683,33 @@ display:
           it.filled_circle(CX, CY, 3, Color(40, 44, 54));
 
           // ---- ana-digi complications, drawn last so hands never hide them --
-          // Time low, date high. They sit on opposite sides of the hub so they
-          // cannot collide with each other whichever combination is switched on,
-          // and both stay inside the sweep of the hands rather than fighting the
-          // dial at the rim.
-          if (id(digi_on_analog).state) {
-            if (h24)
-              it.strftime(CX, CY + 56, id(font_med), Color(236, 241, 250),
-                          TextAlign::CENTER, "%H:%M", now);
-            else
-              it.printf(CX, CY + 56, id(font_med), Color(236, 241, 250),
-                        TextAlign::CENTER, "%d:%02d", hour12(now.hour), now.minute);
-          }
+          // The readout takes the end you chose and the date takes the other,
+          // so no combination of the two can ever stack up on itself. Both sit
+          // inside the sweep of the hands rather than fighting the dial at the
+          // rim, and both are drawn after the hands — legibility is the whole
+          // reason for putting a number on an analogue face.
           {
+            const std::string dp = id(digi_pos).current_option().str();
+            const int OFF = 96;
+            if (dp != "off") {
+              const int ty = (dp == "top") ? -OFF : OFF;
+              if (h24)
+                it.strftime(CX, CY + ty, id(font_med), Color(236, 241, 250),
+                            TextAlign::CENTER, "%H:%M", now);
+              else
+                it.printf(CX, CY + ty, id(font_med), Color(236, 241, 250),
+                          TextAlign::CENTER, "%d:%02d", hour12(now.hour), now.minute);
+            }
             const bool dd = id(show_date).state, ww = id(show_dow).state;
             const char *df = (dd && ww) ? "%a %d %b"
                            : dd         ? "%d %b"
                            : ww         ? "%A"
                                         : nullptr;
-            if (df)
-              it.strftime(CX, CY - 56, id(font_small), Color(150, 160, 182),
+            if (df) {
+              const int dy = (dp == "top") ? OFF : -OFF;
+              it.strftime(CX, CY + dy, id(font_small), Color(150, 160, 182),
                           TextAlign::CENTER, df, now);
+            }
           }
 
         } else if (face == "analog") {
@@ -1699,27 +1737,33 @@ display:
           it.filled_circle(CX, CY, 5, Color(220, 220, 220));
 
           // ---- ana-digi complications, drawn last so hands never hide them --
-          // Time low, date high. They sit on opposite sides of the hub so they
-          // cannot collide with each other whichever combination is switched on,
-          // and both stay inside the sweep of the hands rather than fighting the
-          // dial at the rim.
-          if (id(digi_on_analog).state) {
-            if (h24)
-              it.strftime(CX, CY + 50, id(font_med), Color(236, 241, 250),
-                          TextAlign::CENTER, "%H:%M", now);
-            else
-              it.printf(CX, CY + 50, id(font_med), Color(236, 241, 250),
-                        TextAlign::CENTER, "%d:%02d", hour12(now.hour), now.minute);
-          }
+          // The readout takes the end you chose and the date takes the other,
+          // so no combination of the two can ever stack up on itself. Both sit
+          // inside the sweep of the hands rather than fighting the dial at the
+          // rim, and both are drawn after the hands — legibility is the whole
+          // reason for putting a number on an analogue face.
           {
+            const std::string dp = id(digi_pos).current_option().str();
+            const int OFF = 88;
+            if (dp != "off") {
+              const int ty = (dp == "top") ? -OFF : OFF;
+              if (h24)
+                it.strftime(CX, CY + ty, id(font_med), Color(236, 241, 250),
+                            TextAlign::CENTER, "%H:%M", now);
+              else
+                it.printf(CX, CY + ty, id(font_med), Color(236, 241, 250),
+                          TextAlign::CENTER, "%d:%02d", hour12(now.hour), now.minute);
+            }
             const bool dd = id(show_date).state, ww = id(show_dow).state;
             const char *df = (dd && ww) ? "%a %d %b"
                            : dd         ? "%d %b"
                            : ww         ? "%A"
                                         : nullptr;
-            if (df)
-              it.strftime(CX, CY - 50, id(font_small), Color(150, 160, 182),
+            if (df) {
+              const int dy = (dp == "top") ? OFF : -OFF;
+              it.strftime(CX, CY + dy, id(font_small), Color(150, 160, 182),
                           TextAlign::CENTER, df, now);
+            }
           }
 
         } else {
