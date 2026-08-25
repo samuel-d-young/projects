@@ -57,6 +57,7 @@ All in `enclosure/mini/v2/`, prefixed `mini-round-clock`.
 | diffuser — **white PLA, 0.20 mm layers, face down** | `-diffuser` | `-diffuser-32` | `-diffuser-60` |
 | numerals — **filament 2**, added as a part of the diffuser | `-numerals` | `-numerals-32` | `-numerals-60` |
 | collar fit gauge — **print first**, 3 rings, ~9 g | `-collar-gauges` | same part | same part |
+| board fit gauge — **print first**, the S3 frame on a plate, ~16 g | `-board-gauge` | same part | same part |
 | light guides — **clear/natural PETG**, or cut perspex | — | — | `-light-guides-60` |
 | desk stand — flat, 8–10% infill | `-deskstand` | `-deskstand-32` | `-deskstand-60` |
 
@@ -99,7 +100,7 @@ get moved around or shared. It holds your WiFi password and API key.
 2. **The display module's rim thickness.** `COLLAR_EXTEND` in `v2/params.py` ships at 2.00, which assumes a 0.20 mm rim. Measure it at the r = 29 circle and set `COLLAR_EXTEND = 2.20 − t` before printing the diffuser.
 3. **Entity IDs** in `packages/wall_clock.yaml` are placeholders — the timer names must match your area IDs exactly.
 
-4. **Which USB connector the ESP32-S3 board carries** — Espressif's v1.1 guide says Micro-USB, the boards sold as DevKitC-1 have two Type-C. The 22 × 6 mm window in the housing rim is sized so it does not matter, but it has not been checked against a board in hand.
+4. **Whether the board in hand is the board in the drawing.** v13 parses Espressif's own v1.1 DXF — 62.865 × 25.400 × 1.60, two USB-C, no mounting holes — and the S3 frame is built to take anything 61.3–64.0 long and up to 25.7 wide around it. But the vendors selling "ESP32-S3-DevKitC-1 N16R8" publish 70 × 28, 67 × 31 and 55 × 35 between them, so **print `mini-round-clock-board-gauge` before the housing**: it is the same frame on a plate, 16 g, and it settles it.
 5. **The 32-LED ring's dimensions** (111.85 / 96 mm, 32 LEDs) are Sam's numbers, taken as given and not checked against a listing. The whole 120 mm body follows from them.
 6. **The 60-LED ring's 172 / 156 mm** is corroborated by three resellers but not by a datasheet — put calipers on it before printing a 240 mm base. And **how far the light carries along a perspex strip** is the one thing in the light-guide design that needs a bench test, not a calculation: `enclosure/mini/v2/README.md` §7 says how to try it in ten minutes.
 

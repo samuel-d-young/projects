@@ -140,23 +140,38 @@ def board_mount(z_floor, RB=None, RI=None):
 
     WHAT HOLDS IT NOW
       rails        two walls at |y| = BRD_RAIL_Y, touching only the board's
-                   1.6 mm EDGE. They locate it across to 0.10 mm a side and
-                   never touch a face, so pads, solder fillets and header
-                   strips are all irrelevant to them.
+                   1.6 mm EDGE, never a face -- so pads, solder fillets and
+                   header strips are all irrelevant to them. They are a GUIDE,
+                   not a fit: 0.40 mm a side, sized so the worst printed slot
+                   still clears the widest board it claims to take.
       end wall     at the antenna end. Takes the USB plug's insertion load,
                    which is the only real force this thing ever sees.
       snap fingers two, at the connector end, clamping the board down onto its
                    posts. Their lips land in the clear strips at |y| 10.54 to
                    12.70, over the last 7.15 mm of board that carries neither
                    the USB shells nor the pad rows -- so they work with or
-                   without headers soldered on.
+                   without headers soldered on. The lip's inner face is an
+                   absolute |y|, because what limits it is the USB-C shell at
+                   |y| = 10.81, not the board's edge.
       posts        three pairs, at |y| = 6.50: between the USB shells' end tabs
                    at the connector end, mid-board, and under the antenna end.
 
-    The antenna end gets no clamp and should not have one: it has 0.55 mm of
-    clear board and the WROOM module sits on it. It does not need one either --
-    a 1.6 mm FR4 board is rigid over 62.74 mm, so an end held top, bottom and
-    sideways cannot let the far end lift.
+      hood         a wedge over the antenna end. v9 argued that a board held
+                   at one end cannot lift at the other; that was wrong. The
+                   lips have BRD_LIP_CLR of slack over a 4.00 mm base and the
+                   board is 62.87 long, so 0.20 mm at the lips is 3.1 mm of
+                   lift at the far end. The hood lands on the bare 7.53 x
+                   21.16 mm patch between the pad rows, behind the WROOM
+                   module, so headers make no difference to it.
+
+    WHY v9 DID NOT FIT, which is the actual repair here. The rails were drawn
+    0.10 mm a side clear of the board and the end wall 0.30 mm clear of its
+    end. Both read as clearances and neither is one: an FDM slot comes off the
+    plate up to FDM_SLOT_UNDER narrower than drawn, so a 25.60 slot prints
+    25.20 to 25.50 around a 25.40 board, and the board is WIDER than the hole
+    it has to enter. It is the collar mistake again -- a nominal clearance that
+    the printer eats -- so the cure is the collar's cure: size it off the worst
+    printed case, and let check2 assert that rather than trusting the drawing.
 
     PRINT ORIENTATION, which is the other half of the question. The housing
     prints rear-plate-down, so this whole frame grows upward off the pocket
@@ -193,6 +208,26 @@ def board_mount(z_floor, RB=None, RI=None):
     # --- end wall: the plug's load path, and the +x stop
     add(box_lwh(x_end, x_end + RT, -(RY + RT), RY + RT, z0, z_top))
 
+    # --- the hood over the antenna end.
+    # A wedge hanging off the end wall whose underside climbs at 45 degrees
+    # going +x. The lowest thing on it is therefore a single edge, standing
+    # BRD_HOOD_L in from the wall -- so the board drops STRAIGHT DOWN past it
+    # instead of having to be tilted or slid under anything, and a 45 degree
+    # underside needs no support. Built as the hull of two thin slices so the
+    # ramp is one straight surface, and buried BRD_FING_BURY into the wall
+    # rather than butted against its face.
+    HY, x_low = BRD_HOOD_Y, x_end - BRD_HOOD_L
+    # The ramp is measured to the FAR corner of the buried end, because that is
+    # the corner the hull's lower chain actually runs to.
+    run    = (x_end + BRD_FING_BURY) - (x_low + BRD_HOOD_LAND)
+    z_ramp = z_lip + run*math.tan(math.radians(BRD_HOOD_RAMP))
+    z_hood = z_ramp + BRD_HOOD_ROOT
+    # the wall has to grow to meet it, or the wedge is a second body
+    add(box_lwh(x_end, x_end + RT, -HY, HY, z0, z_hood))
+    lo = box_lwh(x_low, x_low + BRD_HOOD_LAND, -HY, HY, z_lip, z_hood)
+    hi = box_lwh(x_end - 0.01, x_end + BRD_FING_BURY, -HY, HY, z_ramp, z_hood)
+    add((lo + hi).hull())
+
     # --- snap fingers
     for sy in (1, -1):
         y_in, y_out = sy*RY, sy*(RY + BRD_FING_T)
@@ -202,7 +237,7 @@ def board_mount(z_floor, RB=None, RI=None):
         # flush with the rail, so pressing the board down wedges the finger out.
         # Built buried BRD_FING_BURY into the finger rather than butted against
         # its face -- a coincident face here does not survive float32.
-        y_lip = sy*(BOARD_W/2 - BRD_FING_OVER)
+        y_lip = sy*BRD_FING_YI          # absolute: set by the USB shell, not the edge
         y_bury = sy*(RY + BRD_FING_BURY)
         lo = box_lwh(x_tip, x_tip + BRD_FING_LIP_L,
                      *sorted((y_lip, y_bury)), z_lip, z_lip + 0.01)
@@ -218,11 +253,13 @@ def board_mount(z_floor, RB=None, RI=None):
         # only at x = -51.92, and running the stop out to -RI - 1.0 pushed 0.07
         # mm of it through the outside of the clock. Starting inboard still
         # buries it 0.8-1.7 mm into the wall, which is what fuses it on.
-        add(box_lwh(-RI + 0.5, BRD_X0 - BRD_END_CLR,
+        add(box_lwh(-RI + 0.5, BRD_X0,
                     *sorted((sy*BRD_STOP_RI, sy*(RY + RT))), z0, z_lip))
 
     # --- posts under it
-    for px in (BRD_X0 + 3.0, (BRD_X0 + BRD_X1)/2, BRD_X1 - 4.0):
+    # the far pair sits directly under the hood's low edge, so the hood
+    # presses the board onto a post rather than onto a span of nothing
+    for px in (BRD_X0 + 3.0, (BRD_X0 + BRD_X1)/2, x_end - BRD_HOOD_L):
         for py in (BRD_POST_HY, -BRD_POST_HY):
             add(cyl(BRD_POST_D/2, z0, zt, 32, centre=(px, py)))
 
@@ -468,6 +505,55 @@ def numerals(B, z0, z1):
                        family=NUM_FONT, weight=NUM_WEIGHT, fontfile=NUM_FONT_FILE)
         out = m if out is None else out + m
     return out
+
+
+def build_board_gauge():
+    """The S3 frame on its own, so the fit can be settled before 69 g of housing.
+
+    Sam has now had a mount that "doesn't fit at all", and the numbers the
+    sellers publish for a board called "ESP32-S3-DevKitC-1 N16R8" disagree with
+    each other by more than a centimetre. Espressif's own v1.1 dimension
+    drawing says 62.865 x 25.400 x 1.60 and this frame is built around that,
+    with room either side -- but no figure argued here settles what is in Sam's
+    hand. A print does.
+
+    So: exactly the geometry board_mount() puts in the housing, on a 3 mm plate
+    instead of inside a clock. Same rails, same snap fingers, same corner
+    stops, same hood, same posts. About 12 g and twenty minutes. If the board
+    clicks into this, it clicks into the housing; if it does not, the plate
+    carries a scale off the connector end so the length can be read straight
+    off it, and BOARD_L is the one number to change.
+    """
+    RY, RT = BRD_RAIL_Y, BRD_RAIL_T
+    x_end  = BRD_X1 + BRD_END_CLR
+    x0, x1 = BRD_X0 - 7.0, x_end + RT + 2.0
+    y1     = RY + RT + 7.0    # wide enough that the label is on bare plate
+    t      = 2.5
+    # +0.02, not 0.0: the frame's own base plane is z = 0, and two coplanar
+    # faces meeting across a union is what float32 turns into a bad edge. Two
+    # hundredths of a millimetre of burial costs nothing and settles it.
+    plate  = box_lwh(x0, x1, -y1, y1, -t, 0.02)
+    # board_mount starts its corner stops at -RI + 0.5, meaning to bury them in
+    # the housing's pocket wall. Here RI is chosen so they start 1.00 mm inside
+    # this plate's own end instead -- buried, not butted.
+    frame, _win = board_mount(0.0, RB=60.0, RI=55.0)
+    # board_mount hangs its corner stops off the housing's pocket wall; here
+    # there is no wall, so they are backed by a rib of the plate's own instead
+    frame += box_lwh(BRD_X0 - 4.0, BRD_X0, -y1, y1, 0.0, BRD_LIP_Z0)
+    g = plate + frame
+    # a scale along the plate's edge: a notch every 5 mm from the connector
+    # end, and a deeper one at each end of the range the frame claims to take
+    for d in range(5, int(BOARD_L_MAX) + 1, 5):
+        g -= box_lwh(BRD_X0 + d - 0.25, BRD_X0 + d + 0.25,
+                     -y1 - 1.0, -y1 + 2.0, -0.60, 0.10)
+    for d in (BOARD_L_MIN, BOARD_L, BOARD_L_MAX):
+        g -= box_lwh(BRD_X0 + d - 0.35, BRD_X0 + d + 0.35,
+                     -y1 - 1.0, -y1 + 4.5, -0.60, 0.10)
+    # and the two numbers that matter, debossed where they cannot be lost
+    g -= text_prism(f'{BOARD_L:.1f}x{BOARD_W:.1f}', 4.0,
+                    ((BRD_X0 + x_end)/2, y1 - 3.5), -0.60, 0.10,
+                    family=NUM_FONT, weight=NUM_WEIGHT, fontfile=NUM_FONT_FILE)
+    return g.translate([-(x0 + x1)/2, 0.0, t])
 
 
 def build_collar_gauges():
@@ -959,6 +1045,7 @@ if __name__ == '__main__':
               f'{HOUSING_DEEP:.2f}. No internal battery in this build.')
     parts.append((build_light_guides(BODY60), 'mini-round-clock-light-guides-60', True))
     parts.append((build_collar_gauges(), 'mini-round-clock-collar-gauges', False))
+    parts.append((build_board_gauge(), 'mini-round-clock-board-gauge', True))
     for man, fn, strict in parts:
         t = csg.finalise(man, fn, strict=strict)
         t.export(fn + '.stl')

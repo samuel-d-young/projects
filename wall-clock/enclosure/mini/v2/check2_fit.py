@@ -144,6 +144,7 @@ for B, tg in BODIES:
     HW   = BOARD_W/2
     x_tip  = BRD_X0 + BRD_FING_X0
     x_root = x_tip + BRD_FING_L
+    x_end  = BRD_X1 + BRD_END_CLR
 
     def solid(bx):
         v = (HOUS ^ bx).volume()
@@ -156,7 +157,9 @@ for B, tg in BODIES:
     # the lips DO stand over the board's top -- that is their whole job -- so
     # they are cut out of this probe and measured on their own below
     lips = box_lwh(x_tip - 0.1, x_tip + BRD_FING_LIP_L + 0.1, -HW, HW, ztp, ztop + 1.0)
-    tall = box_lwh(BRD_X0, BRD_X1, -HW, HW, ztp, ztp + BOARD_TALL) - lips
+    hood = box_lwh(x_end - BRD_HOOD_L - 0.1, BRD_X1 + 0.1,
+                   -BRD_HOOD_Y - 0.1, BRD_HOOD_Y + 0.1, ztp, ztp + BOARD_TALL + 12.0)
+    tall = box_lwh(BRD_X0, BRD_X1, -HW, HW, ztp, ztp + BOARD_TALL) - lips - hood
     ck(solid(tall)[0] < 1e-3, 'nor is anything standing on it, the lips aside',
        f'{solid(tall)[0]:.5f} mm3')
     shells = box_lwh(BRD_X0 - BOARD_CONN_OVER, BRD_X0 + BOARD_CONN_L,
@@ -198,13 +201,13 @@ for B, tg in BODIES:
     lip_ok = 0
     for sy in (1, -1):
         pl = box_lwh(x_tip + 0.5, x_tip + BRD_FING_LIP_L - 0.5,
-                     *sorted((sy*(HW - BRD_FING_OVER + 0.15), sy*(HW - 0.15))), zlip, zlip + 0.4)
+                     *sorted((sy*(BRD_FING_YI + 0.15), sy*(HW - 0.15))), zlip, zlip + 0.4)
         if solid(pl)[1] > 0.8: lip_ok += 1
     ck(lip_ok == 2, 'two snap lips close over the board\'s top face',
        f'{lip_ok} of 2, reaching {BRD_FING_OVER:.2f} mm over it, '
        f'{BRD_LIP_CLR:.2f} mm above it')
     ramp = box_lwh(x_tip + 0.5, x_tip + BRD_FING_LIP_L - 0.5,
-                   HW - BRD_FING_OVER + 0.15, HW - 0.15, ztop - 0.25, ztop)
+                   BRD_FING_YI + 0.15, HW - 0.15, ztop - 0.25, ztop)
     ck(solid(ramp)[1] < 0.25, '...with a lead-in ramp, so pressing it down opens them',
        f'{100*solid(ramp)[1]:.0f}% solid at the top against '
        f'{100*solid(box_lwh(x_tip+0.5, x_tip+BRD_FING_LIP_L-0.5, HW-BRD_FING_OVER+0.15, HW-0.15, zlip, zlip+0.4))[1]:.0f}% at the bottom')
@@ -213,9 +216,63 @@ for B, tg in BODIES:
        '...on the strip that carries neither a USB shell nor a pad',
        f'lip ends {x_tip + BRD_FING_LIP_L - BRD_X0:.2f} mm along, copper starts at '
        f'{BOARD_CLEAR_CON:.2f}')
-    ck(HW - BRD_FING_OVER > BOARD_CONN_Y,
-       '...and inboard of nothing it could foul',
-       f'lip reaches |y|={HW - BRD_FING_OVER:.2f}, shells stop at {BOARD_CONN_Y:.2f}')
+    ck(BRD_FING_YI > BOARD_CONN_Y + BRD_SHIFT_Y + 0.20,
+       '...and inboard of nothing it could foul, board sitting as far over as it can',
+       f'lip reaches |y|={BRD_FING_YI:.2f}, a shell shifted {BRD_SHIFT_Y:.2f} '
+       f'reaches {BOARD_CONN_Y + BRD_SHIFT_Y:.2f}')
+    ck(HW - BRD_SHIFT_Y - BRD_FING_YI > 0.50,
+       '...and still catches the board with it shifted the other way',
+       f'{HW - BRD_SHIFT_Y - BRD_FING_YI:.2f} mm of board edge under the lip, worst case')
+
+    # --- (d2) the hood over the antenna end
+    x_low = x_end - BRD_HOOD_L                      # the hood's lowest edge
+    gap = box_lwh(x_low - 0.3, x_end, -BRD_HOOD_Y, BRD_HOOD_Y,
+                  ztp, ztp + BRD_LIP_CLR - 0.05)
+    ck(solid(gap)[0] < 1e-3, 'the hood never actually touches the board',
+       f'{BRD_LIP_CLR:.2f} mm of clearance over its top face, at the closest point')
+    # hugging the low edge, because the hood is a WEDGE: the solid fraction is
+    # meant to fall away going +x, and the ramp probe below is what proves it
+    near = box_lwh(x_low, x_low + 0.4, -3.0, 3.0,
+                   ztp + BRD_LIP_CLR + 0.02, ztp + BRD_LIP_CLR + 0.50)
+    ck(solid(near)[1] > 0.30, '...but closes over it, so the far end cannot lift',
+       f'{100*solid(near)[1]:.0f}% solid in the 0.48 mm right above the low edge, '
+       f'{x_low - BRD_X0:.2f} mm along the board')
+    ck(BRD_HOOD_Y + BRD_SHIFT_Y < BOARD_CLEAR_ANT_Y,
+       '...between the pad rows, so headers make no difference to it',
+       f'hood |y|={BRD_HOOD_Y:.2f}, copper starts at {BOARD_CLEAR_ANT_Y:.2f} and the '
+       f'board can sit {BRD_SHIFT_Y:.2f} over')
+    ck(x_end - BRD_HOOD_L - BRD_X0 > BOARD_MOD_END + 1.0,
+       '...behind the WROOM module, on bare board',
+       f'low edge {x_end - BRD_HOOD_L - BRD_X0:.2f} mm along, module ends at '
+       f'{BOARD_MOD_END:.2f}')
+    ck(BOARD_L_MIN - (x_end - BRD_HOOD_L - BRD_X0) > 0.50,
+       '...and the shortest board the frame claims to take still reaches it',
+       f'{BOARD_L_MIN - (x_end - BRD_HOOD_L - BRD_X0):.2f} mm of engagement at '
+       f'L={BOARD_L_MIN:.2f}, {BOARD_L - (x_end - BRD_HOOD_L - BRD_X0):.2f} at {BOARD_L:.2f}')
+    # its underside must be a ramp, not a roof: probe just under the wall end,
+    # where a flat lip would be solid and a 45 deg wedge is air
+    far = box_lwh(x_end - 0.9, x_end - 0.3, -3.0, 3.0, ztp + 0.05, ztp + 1.0)
+    ck(solid(far)[1] < 0.15, '...on a 45 deg underside, so it drops in and prints unsupported',
+       f'{100*solid(far)[1]:.0f}% solid at the wall end against '
+       f'{100*solid(box_lwh(x_end - BRD_HOOD_L + 0.3, x_end - BRD_HOOD_L + 0.9, -3.0, 3.0, ztp + 0.05, ztp + 1.0))[1]:.0f}% at the low edge')
+
+    # --- (d3) THE ONE THAT v9 FAILED. Every clearance here is checked against
+    # what the printer will actually leave, not against what was drawn. A slot
+    # loses FDM_SLOT_UNDER across; if the nominal clearance is smaller than
+    # that, it is not a clearance, it is an interference fit with a nice label.
+    slot_w = 2*BRD_RAIL_Y - FDM_SLOT_UNDER
+    ck(slot_w - BOARD_W_MAX >= 0.10,
+       'the WORST printed rail slot still clears the widest board it claims to take',
+       f'{2*BRD_RAIL_Y:.2f} drawn -> {slot_w:.2f} printed, against {BOARD_W_MAX:.2f} '
+       f'of board: {slot_w - BOARD_W_MAX:+.2f}')
+    slot_l = BOARD_L + BRD_END_CLR - FDM_SLOT_UNDER
+    ck(slot_l - BOARD_L_MAX >= 0.10,
+       '...and the worst printed bay still swallows the longest',
+       f'{BOARD_L + BRD_END_CLR:.2f} drawn -> {slot_l:.2f} printed, against '
+       f'{BOARD_L_MAX:.2f} of board: {slot_l - BOARD_L_MAX:+.2f}')
+    ck(2*BRD_RAIL_CLR > FDM_SLOT_UNDER,
+       '...so the rails are a guide and not a press fit',
+       f'{2*BRD_RAIL_CLR:.2f} mm of drawn slop against {FDM_SLOT_UNDER:.2f} of shrink')
 
     # --- (e) the finger can actually flex, and prints in the strong direction
     gap = box_lwh(x_tip + 1.0, x_root - 1.0,

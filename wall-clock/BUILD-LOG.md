@@ -2998,3 +2998,143 @@ Three iterations of a whole diffuser were spent finding out what 9 g of test
 print would have said in one.
 
 Five passes, seventeen parts, three bodies, all green.
+
+---
+
+## 2026-08-25 — v13: the S3 mount did not fit, and why
+
+> *"The mount for th S3 doesn't fit at all. Update it so it actually fits. Find
+> the correct dimensions for it."*
+
+Two things to establish: what Sam's board actually measures, and whether the
+clearances were ever printable. The second one is quick, so it went first.
+
+```
+board                62.74 x 25.40
+slot between rails   25.60   -> 0.20 mm of clearance TOTAL across
+slot end to end      63.04   -> 0.30 mm TOTAL along
+
+an FDM slot prints 0.10-0.40 mm UNDERSIZE:
+  a 25.60 slot comes out 25.20 .. 25.50
+  the board is 25.40
+  -> it can be up to 0.20 mm WIDER than the hole it has to enter
+```
+
+That is the answer, and it is not a dimension problem. **It is the collar
+mistake, in a different place**: a nominal clearance smaller than what the
+printer takes out is not a clearance, it is an interference fit wearing the
+word. The collar took three rounds to find because the argument kept being
+about the rib height. Here the argument would have been about the board size.
+
+### Finding the correct dimensions anyway, since he asked
+
+The web is useless on this. Searching for the board Sam owns returns, from
+different vendors, all published as fact:
+
+| source | claimed |
+|---|---|
+| espboards.dev | 70 × 28 mm |
+| an AliExpress spec article | 67 × 31 × 8.5 |
+| another one | 55 × 35 × 1.6 |
+| Mischianti / VCC-GND | behind a PDF that 403s |
+
+So: **downloaded Espressif's own dimension DXF and parsed it.**
+`DXF_ESP32-S3-DevKitC-1_V1.1_20220429.dxf`, 744 kB, 2640 entities.
+
+| layer | what it gave |
+|---|---|
+| `BOARD_OUTLINE` | **25.400 × 62.865**, 0.5 mm corner radii |
+| `PADLAYER_TOP` | 226 pads; two columns of 22 at x 1.27 and 24.13, pitch 2.54, y 7.96 → 61.30 |
+| `DRILLHOLE` | shell tabs at 7.15 mm spacing, four pairs, y 1.55–5.77 |
+| `PLACEMENT_OUTLINE_TOP` | two connector bodies **9.32 and 9.40 wide × 7.62 deep**, at x 1.894–11.215 and 14.109–23.506 |
+| `LAYNR3` (designators) | `UART` at x 4.06, `USB` at x 17.64, `J4` at 18.77 |
+
+Four corrections and one discovery:
+
+1. The board is **62.865 long, not 62.74**. The old figure came from assuming
+   the connector end owned exactly 8.00 mm; the DXF says the first pad centre
+   is at 7.960 and 7.96 + 53.34 + 1.565 = 62.865 exactly.
+2. The USB shells reach **|y| 10.81, not 10.54**.
+3. The pad rows are **22.86 mm apart — 0.900 in, exactly.** That is why every
+   DevKitC-1-shaped board is 25.4 wide, and it is the reason the *width* can be
+   trusted while the length cannot.
+4. **7.15 mm shell tabs is the standard 16-pin USB-C receptacle footprint.**
+   That settles an open question that has been in `MANIFEST.md` since v5: the
+   v1.1 board carries **two USB-C**, whatever the user-guide text says.
+5. And the one that the fix hangs on, which the earlier reading missed
+   completely: **between the pad rows, the board's top is bare for the last
+   7.53 mm** — a 7.53 × 21.16 mm patch behind the WROOM module, clear whether or
+   not headers are soldered on and pointing either way.
+
+### The repair
+
+**Clearances sized off the worst printed case, not the drawing.**
+
+```
+                    was        now       worst printed      board
+rail slot          25.60      26.20      25.80 .. 26.20     25.40   (25.70 max)
+end to end         63.04      64.67      64.27 .. 64.67     62.87   (64.00 max)
+```
+
+`check2` §5 now asserts that directly — `FDM_SLOT_UNDER` is in `params.py` and
+the test is *the worst printed slot still clears the widest board this frame
+claims to take*, with 0.10 mm to spare. That is the assertion that would have
+caught v9 before it shipped.
+
+**The snap lips moved to an absolute |y|.** They were placed as a reach over the
+board's edge, which is the wrong datum: what limits them is the **USB-C shell**,
+not the edge. At |y| = 11.50 a lip clears a shell on a board sitting 0.40 mm off
+centre by 0.29 mm and still catches 0.80 mm of board edge with the board sitting
+0.40 the other way. Both asserted.
+
+**The antenna end got a hood, and v9's argument for not having one was wrong.**
+v9 reasoned that a board held at one end cannot lift at the other. But the lips
+have 0.20 mm of slack over a 4.00 mm base, and 62.865/4.00 is a **15.7:1
+lever** — 0.20 mm at the lips is **3.1 mm of lift** at the far end.
+
+The hood is a wedge off the end wall with a 47° underside and a 1.40 mm land.
+That shape does three jobs with one feature: the lowest thing on it is a single
+land, so the board still **drops straight in**; a 47° underside is
+**self-supporting**, so no bridge and no overhang; and the land stands 4.00 mm
+in from the wall, so **any** board from 61.3 to 64.0 passes under it. It lands
+on that bare 7.53 × 21.16 patch, 0.38 mm clear of the pad rows at worst shift.
+
+**Envelope: 61.3–64.0 long, up to 25.7 wide.** Stated, and asserted.
+
+### A gauge, because this is the second fit to come back wrong
+
+`mini-round-clock-board-gauge` — the frame itself on a 2.5 mm plate. Same rails,
+fingers, stops, hood and posts; 13 cm³, about 16 g, twenty minutes. If the board
+clicks into it, it clicks into the housing. The plate carries a 5 mm scale off
+the connector end with deeper marks at 61.3 / 62.865 / 64.0.
+
+Same lesson as the collar, applied one round earlier this time.
+
+### And check3 learned to tell a chamfer from a thin wall
+
+The first build of the hood failed check3 with two new thin regions, and it was
+right about one of them: the wedge came to a **knife edge**, which is a poor
+thing to bear on as well as a sub-wall feature. That got the 1.40 mm land.
+
+The second was the snap lip's 45° lead-in ramp, reading 0.21 mm — and there the
+checker was measuring the wrong thing. `thin_clusters` shoots its ray along the
+surface **normal**, which is right for a wall and wrong for a chamfer: across a
+45° lead-in the normal distance runs to zero at the tip, while every individual
+layer stays full width, because the tip is just the top layer of something
+thicker underneath.
+
+Measured directly, layer by layer, the lip is **1.61 to 3.01 mm wide** in every
+0.20 mm layer that prints it.
+
+So `check3` gained `layer_width()`: for any region flagged as thin, it slices
+the mesh at each layer the region spans and finds the largest circle that fits
+inside the cross-section there. It reports both numbers and fails only if the
+in-layer figure is also under the threshold. The lips now read
+`[chamfer: 2.40 mm wide in every layer]`. **The threshold did not move**, and
+nothing was exempted by name.
+
+### Files
+
+Changed: `params.py`, `build_v2.py`, `check2_fit.py`, `check3_print.py`,
+`render_fit.py`. New part: `mini-round-clock-board-gauge`. All five passes green
+on all three bodies, eighteen parts.

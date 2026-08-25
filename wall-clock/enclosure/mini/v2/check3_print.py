@@ -67,6 +67,7 @@ PARTS = [
     ('mini-round-clock-deskstand-60.stl',        'flat on the desk face', MIN_WALL),
     ('mini-round-clock-light-guides-60.stl',     'flat',            MIN_WALL),
     ('mini-round-clock-battery-shelf-x2.stl',    'flat',            MIN_WALL),
+    ('mini-round-clock-board-gauge.stl',         'plate down',      MIN_WALL),
     # 0.45, not 1.20: these are 0.50 mm inlays meant to be loaded as a second
     # part in the slicer, not printed on their own
     ('mini-round-clock-numerals.stl',            'a part, not a print', 0.45),
@@ -164,8 +165,52 @@ def thin_clusters(m, thr=MIN_WALL, n=12000, seed=0, min_pts=5):
         if len(q) < min_pts: continue
         r = np.hypot(q[:,0], q[:,1])
         out.append(dict(n=len(q), tmin=w.min(), tmax=w.max(),
-                        r=(r.min(), r.max()), z=(q[:,2].min(), q[:,2].max())))
+                        r=(r.min(), r.max()), z=(q[:,2].min(), q[:,2].max()),
+                        xy=(q[:,0].min(), q[:,0].max(), q[:,1].min(), q[:,1].max())))
     return out, np.percentile(allv, 1.0)
+
+def layer_width(m, c, min_wall=MIN_WALL, layer=LAYER, cap=6.0, step=0.05):
+    """The narrowest thing a slicer actually has to lay down in this region.
+
+    thin_clusters shoots its ray along the surface NORMAL. That is the right
+    measure for a wall and the wrong one for a CHAMFER: across a 45 degree
+    lead-in the normal distance runs to zero at the tip, while every individual
+    layer stays full width -- the tip is simply the top layer of something
+    thicker underneath. A printer works layer by layer in XY, so the question
+    that decides printability is how wide the solid is WITHIN a layer.
+
+    Returned: the smallest, over the layers the cluster spans, of the largest
+    circle that fits inside the cross-section there. A genuine thin wall is
+    thin by this measure too; a chamfer is not.
+    """
+    from shapely.geometry import box as sbox
+    x0, x1, y0, y1 = c['xy']; z0, z1 = c['z']
+    # the window has to hold the WHOLE feature or it truncates it and reads
+    # narrow for the wrong reason; 2 x min_wall is enough to reach across
+    # anything that is about to be called too thin, and clipping can only ever
+    # make this reading pessimistic
+    pad = 2.0 * min_wall
+    win = sbox(x0 - pad, y0 - pad, x1 + pad, y1 + pad)
+    worst = np.inf
+    z = z0 + layer/2
+    while z <= z1:
+        try:
+            sec = m.section(plane_origin=[0, 0, z], plane_normal=[0, 0, 1])
+            pl, _ = sec.to_planar(to_2D=np.eye(4))
+        except Exception:
+            z += layer; continue
+        best = 0.0
+        for poly in pl.polygons_full:
+            q = poly.intersection(win)
+            if q.is_empty or q.area < 1e-6: continue
+            d = 0.0
+            while d < cap and not q.buffer(-(d + step)/2).is_empty:
+                d += step
+            best = max(best, d)
+        if best > 0: worst = min(worst, best)
+        z += layer
+    return worst
+
 
 BASE_THIN, _ = thin_clusters(_sam)
 DIFF_THIN, _ = thin_clusters(_samd, thr=0.18)
@@ -261,10 +306,20 @@ for fn, orient, min_wall in PARTS:
     unexplained = []
     for c_ in cl:
         ok = any(overlaps(c_, a) for a in allowed)
+        note = '   [same place in Sam''s file]' if ok else '   << NEW'
+        if not ok and fn not in INLAY:
+            # measure it the way a slicer sees it before calling it a defect
+            lw = layer_width(m, c_, min_wall)
+            c_['lw'] = lw
+            if lw >= min_wall:
+                ok = True
+                note = f'   [chamfer: {lw:.2f} mm wide in every layer]'
+            else:
+                note = f'   << NEW, and only {lw:.2f} mm wide in a layer'
         if not ok: unexplained.append(c_)
         print(f"         thin region: {c_['n']:3d} pts, {c_['tmin']:.2f}-{c_['tmax']:.2f} mm, "
               f"r {c_['r'][0]:.1f}-{c_['r'][1]:.1f}, z {c_['z'][0]:.1f}-{c_['z'][1]:.1f}"
-              f"{'   [same place in Sam''s file]' if ok else '   << NEW'}")
+              f"{note}")
     if fn in INLAY:
         # A glyph is not a wall. Every letterform has corners and stroke ends
         # that taper to nothing, and they cluster here however fat the stems
@@ -278,7 +333,8 @@ for fn, orient, min_wall in PARTS:
         ck(frac < 0.03, 'and only glyph corners fall under a nozzle width',
            f'{100*frac:.1f}% of the surface, which just will not be extruded')
     else:
-        ck(not unexplained, f'no NEW region thinner than {min_wall} mm',
+        ck(not unexplained,
+           f'no NEW region thinner than {min_wall} mm in the layers that print it',
            f'1st percentile {p1:.2f} mm, {len(cl)} thin region(s), {len(unexplained)} new')
 
 print()

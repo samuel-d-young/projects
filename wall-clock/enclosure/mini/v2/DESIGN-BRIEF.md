@@ -125,6 +125,23 @@ Two hard ceilings, both asserted by `check2` §9:
 - **A snap arm built up the Z axis bends across the layer bonds**, which is where
   printed snaps shear off. Every flexing feature here is a *wall with a slot
   behind it*, so its length and its bending are both in the layer plane.
+- **A nominal clearance is not a clearance.** An FDM slot comes off the plate up
+  to `FDM_SLOT_UNDER` (0.40 mm) narrower than drawn and a boss up to
+  `FDM_BOSS_OVER` (0.20) fatter. Anything tighter than that is an interference
+  fit that has been labelled a clearance, and it will not go together. This has
+  now caused two separate failures — the collar, and the S3 mount, where the
+  rails were drawn 0.10 mm a side clear of a 25.40 board and printed *narrower
+  than it*. Both are now asserted against the worst printed case, not the
+  drawing.
+- **Locate a feature by the thing that actually limits it.** The S3's snap lips
+  were placed as a reach over the board's edge and fouled the USB-C shell; they
+  are now placed by an absolute |y| taken from the shell. If a dimension has a
+  real constraint, derive it from the constraint, not from something adjacent.
+- **A chamfer is not a thin wall.** A ray along the surface normal runs to zero
+  at the tip of any 45° lead-in, while every layer that prints it stays full
+  width. `check3.layer_width()` measures the largest circle that fits inside
+  each layer before calling anything a defect — the snap lips read 0.21 mm along
+  the normal and 2.40 mm in every layer.
 - **A crush-rib fit is only a crush-rib fit if the wall behind the ribs is
   genuinely clear.** This one cost three iterations. On an FDM printer an
   external cylinder comes out 0.10–0.20 **over** on diameter and a bore 0.10–0.30
@@ -162,11 +179,19 @@ Two hard ceilings, both asserted by `check2` §9:
 - **The typeface is Liberation Sans Bold, not Amazon Ember.** Ember is Amazon's
   proprietary brand face and is not installable — checked, not assumed.
   `NUM_FONT_FILE` is the one-line swap.
-- **The ESP32-S3-DevKitC-1 has NO mounting holes.** Its pad rows are 1.27 mm in
-  from each long edge, so copper reaches within 0.42 mm of them, and the antenna
-  end has 0.55 mm of clear board with the WROOM module on it. The **only** place
-  anything may touch is the connector end — 7.15 mm of clear board in the strips
-  at |y| 10.54–12.70.
+- **The ESP32-S3-DevKitC-1 has NO mounting holes**, and every number about it
+  here comes from **parsing Espressif's v1.1 DXF**, not from reading a picture
+  of it or a vendor listing. `62.865 × 25.400 × 1.60`; pad rows 22 a side at
+  2.54 pitch, **22.86 mm apart (0.900 in exactly)**, so copper reaches within
+  0.42 mm of each long edge; two **USB-C** shells 9.40 wide reaching |y| 10.81.
+  Two places anything may touch: the connector end, in the strips at
+  |y| 10.81–12.70 before the copper starts at 7.11 mm along; and the last
+  **7.53 × 21.16 mm** of the top face, behind the module and between the pad
+  rows. Nothing may cross the pad rows at any height — headers may point up.
+- **Vendor dimensions for this board are worthless.** The same part is published
+  as 70 × 28, 67 × 31 and 55 × 35 by different sellers. The 0.900 in pad rows
+  force the width, so the width is trusted; the length is not, and the frame
+  takes **61.3–64.0**. `mini-round-clock-board-gauge` settles it in 16 g.
 - **Sam's own meshes are inputs, not outputs.** `base_in.stl` and
   `diffuser_in.stl` are his; the build keeps his geometry where it is good and
   rebuilds only what it must. His diffuser carries 183 non-manifold edges, all in
@@ -189,8 +214,8 @@ diffuser clears the LED ring by 2.03 mm at its seat; no part introduces an
 overhang below 45° or an unsupported bridge over 25 mm.
 
 **Not verified** — *nothing here has been printed and fitted by the author.*
-The collar fit has been called too tight three times, which is why it now ships
-with a gauge. The display module's rim thickness at r = 29 is still unmeasured
+The collar fit has been called too tight three times and the S3 mount "doesn't
+fit at all" once, which is why both now ship with a gauge. The display module's rim thickness at r = 29 is still unmeasured
 and it is what sets the collar length. The snap fingers' strain and force are
 beam theory at E ≈ 2500 MPa, not a bench test.
 

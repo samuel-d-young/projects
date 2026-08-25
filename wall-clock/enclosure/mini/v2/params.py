@@ -56,7 +56,7 @@ DISP_TAB_T       = 1.6      # bare PCB. Assumes the 10-pin header is desoldered.
 # THE ESP32-S3 DEVKIT — Espressif's own mechanical drawing,
 # DXF_ESP32-S3-DevKitC-1_V1_20210312CB.pdf
 # =============================================================================
-BOARD_L, BOARD_W, BOARD_T = 62.74, 25.40, 1.60
+BOARD_L, BOARD_W, BOARD_T = 62.865, 25.40, 1.60
 BOARD_CLR   = 0.45          # per side, in the pocket
 BOARD_LIFT  = 1.20          # pads under the PCB, so header tails have somewhere to go
 BOARD_TALL  = 3.20          # tallest thing on top (USB-C shell ~3.2, WROOM ~3.1)
@@ -612,19 +612,45 @@ POCKET_DEEP   = HOUSING_DEEP - PLATE_T   # 21.50 clear
 # =============================================================================
 BOARD_PAD_PITCH = 2.54
 BOARD_PAD_N     = 22
-BOARD_PAD_EDGE  = 1.27       # pad row centre, in from the long edge
+BOARD_PAD_EDGE  = 1.27       # pad row centre, in from the long edge  (DXF)
+BOARD_PAD_ROW   = 22.86      # so the two rows are 0.900 in apart     (DXF)
 BOARD_PAD_OD    = 1.70       # so copper spans |y| 10.58 .. 12.28
-BOARD_CONN_L    = 8.00       # the two USB shells own the last 8.00 mm
-BOARD_CONN_Y    = 10.54      # and reach this far out across the board
-BOARD_CONN_OVER = 0.87       # and hang this far past the board's end
-BOARD_PAD_X_ANT = BOARD_L - (BOARD_PAD_N - 1)*BOARD_PAD_PITCH - BOARD_CONN_L   # 1.40
+BOARD_PAD_X0    = 7.960      # first pad centre, from the connector end (DXF)
+BOARD_PAD_X1    = 61.300     # last pad centre                          (DXF)
+BOARD_CONN_L    = 8.65       # the two USB shells own the first 8.65 mm (DXF)
+BOARD_CONN_Y    = 10.81      # and reach this far out across the board  (DXF)
+BOARD_CONN_W    = 9.40       # each shell body                          (DXF)
+BOARD_CONN_OVER = 0.87       # allowance for the mouth standing proud of the edge
+BOARD_MOD_END   = 55.33      # the WROOM module's far edge              (DXF)
+BOARD_PAD_X_ANT = BOARD_L - BOARD_PAD_X1                               # 1.565
 # The clear top surface, which is what the retention has to live on:
 #   antenna end   0.55 mm -- and the WROOM module sits on it. Nothing can hook
 #                 there, and nothing should: it is the antenna end.
 #   connector end 7.15 mm long, in the two strips at |y| 10.54..12.70 outboard
 #                 of the USB shells. THIS is where the board gets held down.
-BOARD_CLEAR_ANT = BOARD_PAD_X_ANT - BOARD_PAD_OD/2                     # 0.55
-BOARD_CLEAR_CON = BOARD_CONN_L - BOARD_PAD_OD/2                        # 7.15
+BOARD_CLEAR_ANT = BOARD_PAD_X_ANT - BOARD_PAD_OD/2                     # 0.715
+BOARD_CLEAR_CON = BOARD_PAD_X0 - BOARD_PAD_OD/2                        # 7.11
+# And the one that matters most, which the earlier reading missed entirely:
+# between the pad rows, the board's TOP is bare from the module's far edge to
+# the antenna end -- 7.53 mm long by 21.16 mm wide. That is where the antenna
+# end gets held down, and it is clear whether or not headers are soldered on.
+BOARD_CLEAR_ANT_L = BOARD_L - BOARD_MOD_END                            # 7.535
+BOARD_CLEAR_ANT_Y = BOARD_PAD_ROW/2 - BOARD_PAD_OD/2                   # 10.58
+
+# What the frame is built to swallow. The DXF is one board; Sam's is bought as
+# an "ESP32-S3-DevKitC-1 N16R8" and the sellers' dimensions contradict each
+# other flatly (70x28, 67x31, 55x35 -- all published, all different). The 0.900
+# in pad rows are the one thing every DevKitC-1-shaped board must keep, and
+# they force the width, so the width is trusted and the LENGTH is given room.
+BOARD_L_MIN, BOARD_L_MAX = 61.30, 64.00
+BOARD_W_MAX = 25.70
+
+# The two numbers that made v9's mount unbuildable. An FDM slot comes out
+# NARROWER than drawn and an FDM boss comes out FATTER, and a nominal clearance
+# smaller than the first of these is not a clearance at all -- it is an
+# interference fit that has been labelled a clearance. check2 now asserts it.
+FDM_SLOT_UNDER = 0.40        # worst case a printed slot loses, across
+FDM_BOSS_OVER  = 0.20        # worst case a printed boss gains
 
 # --- the frame that holds it --------------------------------------------------
 # v9 rebuild. What was there before was a tray, not a mount: the board rested on
@@ -649,12 +675,29 @@ BRD_X1        = BRD_X0 + BOARD_L         # 14.24, the antenna end
 BRD_POST_D    = 5.00
 BRD_POST_HY   = 6.50         # between the USB shells' end tabs (|y| 2.6 and
                              # 10.5) and well inboard of the pad rows
-BRD_RAIL_CLR  = 0.10         # per side. The rails touch only the board's 1.6 mm
+# v13. BRD_RAIL_CLR was 0.10 a side, and that is why the mount did not fit.
+# A 25.60 slot for a 25.40 board reads as 0.20 mm of clearance and prints as an
+# interference fit: a slot loses up to FDM_SLOT_UNDER across, so 25.60 comes off
+# the plate somewhere between 25.20 and 25.50 and the board is WIDER than the
+# hole it has to enter. Same mistake as the collar, same cure -- size the
+# clearance so that the worst printed slot still clears the widest board, and
+# let check2 assert it rather than trusting the nominal.
+#     slot 26.20 nominal -> 25.80 .. 26.20 printed -> 0.40 .. 0.80 clear
+BRD_RAIL_CLR  = 0.40         # per side. The rails touch only the board's 1.6 mm
                              # EDGE -- never a face -- so pads and solder
                              # fillets are irrelevant to them.
-BRD_RAIL_Y    = BOARD_W/2 + BRD_RAIL_CLR                    # 12.80
+BRD_RAIL_Y    = BOARD_W/2 + BRD_RAIL_CLR                    # 13.10
 BRD_RAIL_T    = 2.00
-BRD_END_CLR   = 0.30         # board's antenna end to the end wall
+BRD_END_CLR   = 1.80         # board's antenna end to the end wall. Was 0.30,
+                             # which printed as 0.00 .. 0.20 -- the second
+                             # reason nothing would go in. At 1.80 the worst
+                             # printed slot is still 64.27, so it swallows
+                             # anything up to BOARD_L_MAX, and the board floats
+                             # 1.40-1.70 in x. That float is the price of not
+                             # knowing the length: it recesses the USB port by
+                             # that much when a plug is pushed home, and a
+                             # Type-C plug has about 6.5 mm of tongue to give.
+BRD_SHIFT_Y   = BRD_RAIL_CLR # worst the board can sit off centre, either way
 BRD_LIP_CLR   = 0.20         # over the board's top face
 BRD_LIP_Z0    = BRD_POST_H + BOARD_T + BRD_LIP_CLR          # 5.80
 BRD_LIP_T     = 1.60         # lip and rail height above that
@@ -667,28 +710,68 @@ BRD_RAIL_TOP  = BRD_LIP_Z0 + BRD_LIP_T                      # 7.40
 # plate-down, a finger like this is just another vertical wall.
 #
 #   strain, straight cantilever:  e = 1.5 * Y * t / L^2
-#     Y 1.00 mm deflection, t 1.50 thick, L 18.00 long  ->  0.69%
-#   PLA yields around 1.5-2% and PETG higher, so this has real margin, and it
+#     Y 1.60 mm deflection, t 1.50 thick, L 20.00 long  ->  0.90%
+#   PLA yields around 1.5-2% and PETG higher, so this still has margin, and it
 #   is well under the 8:1 length/thickness floor that gets quoted for PLA
-#   (18/1.5 = 12:1).
+#   (20/1.5 = 13:1).
 #   force,  P = b*t^2*E*e / (6*L), b = 7.40 finger height, E ~ 2500 MPa
-#     -> about 2.7 N a finger, 5.4 N to press the board home. A firm thumb.
-BRD_FING_L     = 18.00       # root to tip
+#     -> about 3.1 N a finger, 6.2 N to press the board home. A firm thumb.
+#
+# The lip is positioned by an ABSOLUTE |y|, not by a reach over the board, and
+# that is the point. What limits it is not the board's edge, it is the USB-C
+# shell: 9.40 mm wide, reaching |y| = 10.81, and the board can sit BRD_SHIFT_Y
+# off centre, so anything closer in than 11.21 lands on a connector instead of
+# on the board. 11.50 clears the worst case by 0.29 and still catches 0.80 mm
+# of board edge with the board shifted the other way.
+BRD_FING_L     = 20.00       # root to tip
 BRD_FING_T     = 1.50        # thickness in the flexing direction
 BRD_FING_X0    = 1.00        # tip, measured from the board's connector end
-BRD_FING_OVER  = 0.90        # how far the lip reaches over the board
+BRD_FING_YI    = 11.50       # the lip's inner face, as an absolute |y|
+BRD_FING_OVER  = BRD_RAIL_Y - BRD_FING_YI                   # 1.60, derived
 BRD_FING_GAP   = 2.00        # slot behind it, so it has somewhere to flex to
 BRD_FING_LIP_L = 4.00        # length of the lip at the tip
 BRD_FING_BURY  = 0.60        # lip buried into the finger rather than butted
-BRD_FING_DEFL  = BRD_FING_OVER + BRD_RAIL_CLR               # 1.00, what it flexes
-BRD_FING_STRAIN = 1.5 * BRD_FING_DEFL * BRD_FING_T / BRD_FING_L**2      # 0.0069
+BRD_FING_DEFL  = BOARD_W/2 + BRD_SHIFT_Y - BRD_FING_YI      # 1.60, what it flexes
+BRD_FING_STRAIN = 1.5 * BRD_FING_DEFL * BRD_FING_T / BRD_FING_L**2      # 0.0090
 BRD_FING_EMAX  = 0.015       # PLA's working limit. PETG is roughly twice this.
 BRD_STOP_RI    = 11.50       # corner stops at the connector end: they butt the
                              # board's end face in the strips outboard of the USB
-                             # shells (|y| 10.54) and inboard of nothing, and they
-                             # clear the USB window (|y| 11.00) by 0.50 mm. Without
-                             # them the board can walk 2.49 mm toward the wall when
-                             # a plug is pulled out, and jam in its own window.
+                             # shells (|y| 10.81) and clear the USB window
+                             # (|y| 11.00) by 0.50 mm. Without them the board can
+                             # walk toward the wall when a plug is pulled out,
+                             # and jam in its own window.
+
+# --- the antenna-end hood ----------------------------------------------------
+# v9 left the antenna end unclamped, on the argument that a board held down at
+# one end cannot lift at the other. That argument is wrong: the connector-end
+# lips have BRD_LIP_CLR of slack over a 4.00 mm base, and 62.865/4.00 is a
+# 15.7:1 lever, so 0.20 mm of slack at the lips is 3.1 mm of lift at the far
+# end. It rattles.
+#
+# So the far end gets a hood. It is a WEDGE hanging off the end wall whose
+# underside rises at 45 degrees going +x, which buys three things at once:
+#   * its lowest point is a single edge, so the board still drops STRAIGHT
+#     DOWN -- no tilting it in, no sliding it under anything;
+#   * a 45 degree underside is self-supporting, so there is no bridge and no
+#     overhang to print;
+#   * the low edge sits 4.00 mm in from the wall, so any board from
+#     BOARD_L_MIN to BOARD_L_MAX still passes under it.
+# It lands between the pad rows, on the 7.53 x 21.16 mm patch of bare board
+# behind the WROOM module, so it works with headers soldered on or off, and
+# pointing either way.
+BRD_HOOD_L     = 4.00        # how far the low edge stands in from the end wall
+BRD_HOOD_Y     = 9.80        # |y| it spans -- inside the pad rows, worst shift
+BRD_HOOD_ROOT  = 2.00        # its height where it meets the wall
+BRD_HOOD_LAND  = 1.40        # and the flat it presents to the board. Without
+                             # it the wedge comes to a knife edge, which is a
+                             # sub-wall-thickness feather and a poor thing to
+                             # bear on; with it the hood has a real 1.40 mm
+                             # land, and check3 stops finding a thin region.
+BRD_HOOD_RAMP  = 47.0        # degrees from horizontal, taken to the FAR corner
+                             # of the buried end -- the hull's lower chain runs
+                             # to that corner, not to the near one, so sizing
+                             # off the near one lands you at 45.06 deg and one
+                             # float32 rounding away from an unprintable face.
 
 # the window the power lead comes in through, at 6 o'clock. 22 x 6 because
 # which connector the board carries is still not a settled fact -- Espressif's

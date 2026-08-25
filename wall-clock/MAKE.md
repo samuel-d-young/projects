@@ -34,7 +34,8 @@ All in `enclosure/mini/v2/`, all prefixed `mini-round-clock`.
 | housing | `-housing` | `-housing-32` | `-housing-60` |
 | diffuser | `-diffuser` | `-diffuser-32` | `-diffuser-60` |
 | **numerals** (2nd colour) | `-numerals` | `-numerals-32` | `-numerals-60` |
-| **fit gauge** — print this FIRST | `-collar-gauges` — one part, any body | | |
+| **collar gauge** — print this FIRST | `-collar-gauges` — one part, any body | | |
+| **board gauge** — print this FIRST | `-board-gauge` — one part, any body | | |
 | light guides *(optional)* | — | — | `-light-guides-60` |
 | desk stand *(optional)* | `-deskstand` | `-deskstand-32` | `-deskstand-60` |
 
@@ -105,6 +106,24 @@ Push each into the base's screen bore. Whichever wants a firm push and stays put
 is your printer's answer: put its number over 100 into `COLLAR_RIB_H` in
 `v2/params.py`. If even **0** is tight, your printer runs the boss over or the
 bore under — try −0.05.
+
+**PRINT `mini-round-clock-board-gauge.stl` BEFORE THE HOUSING.** It is the S3
+frame — same rails, same snap fingers, same corner stops, same hood, same posts
+— on a 2.5 mm plate instead of inside a clock. About 16 g, twenty minutes.
+
+Drop your ESP32-S3 in between the rails and press the connector end down until
+the two fingers click over it. If it goes in, it goes in the housing.
+
+If it does not, the plate has a 5 mm scale off the connector end with deeper
+marks at **61.3 / 62.865 / 64.0** — the shortest board the frame takes,
+Espressif's own length, and the longest. Read yours off it and put it in
+`BOARD_L` in `v2/params.py`, then rebuild. If it is wider than the slot rather
+than longer, raise `BRD_RAIL_CLR`.
+
+Why bother: Espressif's v1.1 dimension DXF says **62.865 × 25.400 × 1.60**, and
+the frame is built around that with room either side. But the vendors selling
+boards called "ESP32-S3-DevKitC-1 N16R8" publish **70 × 28**, **67 × 31** and
+**55 × 35** between them. Sixteen grams settles which one you have.
 
 **The diffuser press fit is on the INSIDE, on the collar.** The outer wall drops
 into the ring pocket with 0.40 mm of clearance and grips nothing. On the collar,

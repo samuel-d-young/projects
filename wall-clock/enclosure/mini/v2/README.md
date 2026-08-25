@@ -29,7 +29,8 @@ Pick a body. Everything in one column goes together; nothing crosses over.
 | housing | `-housing` | `-housing-32` | `-housing-60` |
 | diffuser | `-diffuser` | `-diffuser-32` | `-diffuser-60` |
 | **numerals** (2nd colour, §9) | `-numerals` | `-numerals-32` | `-numerals-60` |
-| **fit gauge** — print FIRST, §2 | `-collar-gauges` — one part, any body | | |
+| **collar gauge** — print FIRST, §2 | `-collar-gauges` — one part, any body | | |
+| **board gauge** — print FIRST, §2 | `-board-gauge` — one part, any body | | |
 | light guides *(optional)* | — | — | `-light-guides-60`, or cut perspex — §7 |
 | desk stand *(optional)* | `-deskstand` | `-deskstand-32` | `-deskstand-60` (a very big print) |
 
@@ -43,6 +44,7 @@ Every filename is prefixed `mini-round-clock`.
 | numerals | *not printed alone* — see §9 | none | 0.07 / 0.10 / 0.21 cm³ |
 | desk stand | flat on its desk face | none | 219 / 264 / 1003 cm³ |
 | light guides | flat, **clear or natural PETG** | none | — / — / 31 cm³ |
+| board gauge | plate down | none | 13 cm³, any body |
 
 **Those are solid volumes, not filament.** The stand is a big blocky part —
 print it at 8–10% infill with 3 walls and it lands around 60–80 g. Mass is not a
@@ -221,6 +223,13 @@ Push each into the base's screen bore. Whichever wants a firm push and stays put
 is your printer's answer; put its number over 100 into `COLLAR_RIB_H`. If even
 **0** is tight, your printer is running the boss over or the bore under, and the
 answer is a negative figure — try −0.05.
+
+#### And print the board gauge first too
+
+`mini-round-clock-board-gauge` — **the S3 frame on a plate, about 16 g.** Same
+reason, different fit: see §2. Between the two of them, the only two fits in
+this design that have ever come back wrong can both be settled in half an hour
+of printing before anything large goes on the plate.
 
 This is what should have been shipped three rounds ago instead of another
 guess.
@@ -470,8 +479,9 @@ v9 halves the depth again, at his word: *"The housing can be 25mm deep, not
 ```
 housing            25.00 mm deep, 21.50 mm of clear pocket   (was 50.00 / 46.50)
 clock overall      49.40 mm  (22.00 base + 2.40 deck + 25.00 housing)
-board              62.74 x 25.40, on 4.00 mm posts off the pocket floor
-                   x -48.50 .. +14.24; board and frame top out at 7.40
+board              62.865 x 25.400, on 4.00 mm posts off the pocket floor
+                   x -48.50 .. +14.37; board and frame top out at 7.40
+                   (the frame takes 61.3-64.0 long, up to 25.7 wide)
 still free         14.10 mm for the display's ribbon and the ring's leads
 battery            DOES NOT FIT ANY MORE -- see below
 ```
@@ -496,11 +506,12 @@ The board sits as far out at 6 o'clock as its own corners allow. At
 **−48.50** — 0.77 mm of margin at the corners — and its connector looks straight
 out through a **22 × 6 mm window** in the rim.
 
-The window is that generous on purpose. **Which connector the board carries is
-still not a settled fact**: Espressif's own DevKitC-1 v1.1 user guide calls both
-ports Micro-USB, while the boards widely sold under that name have two USB-C.
-22 × 6 clears either, in either position, and nothing else in the design depends
-on knowing.
+The window is that generous on purpose. **v13 settled which connector the board
+carries**, at least for Espressif's own drawing: the shell tabs in the DXF are
+7.15 mm apart, which is the standard 16-pin USB-C receptacle footprint, so it is
+**two USB-C** — even though the same version's user guide text calls them
+Micro-USB. 22 × 6 clears either in either position regardless, and nothing else
+in the design depends on knowing.
 
 A plug's overmold ends up about **1 mm outside the rim**, so ~19 mm of it stands
 proud and can be gripped. On a wall the lead hangs straight down. On the desk
@@ -512,56 +523,136 @@ withdrawn.
 
 ### What holds the board
 
-v9 rebuilt this. Sam: *"make sure that the mount for the ESP32 actually hold it
-and followed 3D printer constraints."* He was right on both counts. What was
-there was a tray, not a mount — **measured on the built file, not argued**:
+**v13 rebuilt this, because v9's mount did not fit.** Sam: *"The mount for the
+S3 doesn't fit at all. Update it so it actually fits. Find the correct
+dimensions for it."* Both halves of that turned out to matter, but not equally.
 
-| | what stopped it | float |
+#### First: the dimensions
+
+Espressif publish a DXF for the DevKitC-1 v1.1. This build now **parses that
+file** rather than reading numbers off a picture of it, and it says:
+
+| | | |
+|---|---:|---|
+| board outline | **62.865 × 25.400 × 1.60** | 0.5 mm corner radii |
+| pad rows | 22 a side, 2.54 pitch, **22.86 mm apart** | that is 0.900 in, exactly |
+| first / last pad | 7.960 and 61.300 from the connector end | 7.96 + 53.34 + 1.565 = 62.865 |
+| USB shells | two, **9.40 wide**, reaching \|y\| **10.81** | occupying the first 8.65 mm |
+| WROOM module | ends **55.33** from the connector end | |
+| mounting holes | **none** | the only holes are the connectors' shell tabs |
+
+Two of those corrected the previous reading: the board is **62.865 long, not
+62.74**, and the USB shells reach **10.81, not 10.54**. The shell tabs are
+7.15 mm apart, which is the standard 16-pin **USB-C** receptacle footprint — so
+the long-open question of whether these boards carry Micro-USB or Type-C is
+settled for this drawing: **two USB-C**.
+
+It also turned up a fact the earlier reading had missed completely, and it is
+the one the fix hangs on: **between the pad rows, the board's top is bare for
+the last 7.53 mm** — a 7.53 × 21.16 mm patch behind the module, clear whether or
+not headers are soldered on, and pointing either way.
+
+What the *sellers* say is another matter. Boards sold as
+"ESP32-S3-DevKitC-1 N16R8" are published at 70 × 28, 67 × 31 and 55 × 35 by
+different vendors — all confidently, all different. The 0.900 in pad rows are
+the one thing every DevKitC-1-shaped board has to keep, and they force the
+width; so the frame **trusts the width and gives the length room**, and takes
+anything **61.3–64.0 long and up to 25.7 wide**.
+
+#### Second: why it did not fit, which was not the dimensions
+
+The rails were drawn 0.10 mm a side clear of the board and the end wall 0.30 mm
+clear of its end. Both read as clearances. Neither is one:
+
+```
+rail slot     25.60 drawn  ->  25.20 .. 25.50 printed   board 25.40  -> INTERFERENCE
+end to end    63.04 drawn  ->  62.64 .. 62.94 printed   board 62.87  -> INTERFERENCE
+```
+
+An FDM slot comes off the plate up to 0.40 mm narrower than drawn. A nominal
+clearance smaller than that is not a clearance — it is an interference fit
+wearing the word. **This is the collar mistake again**, and it gets the collar's
+cure: size every clearance off the *worst printed* case, and have `check2`
+assert that rather than trusting the drawing.
+
+```
+rail slot     26.20 drawn  ->  25.80 .. 26.20 printed   0.40 .. 0.80 clear
+end to end    64.67 drawn  ->  64.27 .. 64.67 printed   1.40 .. 1.80 clear
+```
+
+#### What stops it now
+
+| | what stops it | |
 |---|---|---:|
-| down | four posts under it at \|y\| = 5.50 | — |
-| up, +x end | a hook 0.20 mm over the bare end | 0.20 mm |
-| up, −x end | two arms above everything on the board | **3.4 mm** |
-| sideways | nothing at all | **±7 mm** |
-| along | a post 3.50 mm from the end | 0.50 mm |
+| sideways | two **rails**, touching only the board's 1.60 mm edge | 0.80–1.20 mm total, deliberately |
+| along, +x | an **end wall** — the plug's insertion load goes here | 1.40–1.80 mm |
+| along, −x | two **corner stops** against the board's end face | the datum |
+| down | three pairs of **posts** at \|y\| = 6.50 | — |
+| up, connector end | two **snap fingers** | 0.20 mm |
+| up, antenna end | a **hood** | 0.20 mm |
 
-**The board has no mounting holes.** Espressif's own v1.1 dimension drawing
-(`DXF_ESP32-S3-DevKitC-1_V1.1_20220429.pdf`) shows two 22-pin rows and nothing
-else, so it can only be captured mechanically. That drawing also settles where
-the retention is allowed to touch:
+The rails no longer pretend to locate the board. They are a guide; 1.20 mm of
+sideways slop is fine, because nothing downstream needs better — the USB window
+is 22 mm wide for a 9.4 mm connector.
 
-- **62.74 × 25.40 mm**, pad rows **1.27 mm** in from each long edge at 2.54
-  pitch, and the two USB shells owning the **last 8.00 mm** — all dimensioned.
-- 22 pins at 2.54 is a 53.34 mm row, so the two end margins sum to 9.40 mm.
-  With the connector end at 8.00, the antenna end is **1.40** — and
-  1.40 + 53.34 + 8.00 = 62.74 exactly, which is the check that the reading is
-  right.
-- So the copper reaches to within **0.42 mm of each long edge**, and there is
-  only **0.55 mm** of clear board at the antenna end — with the WROOM module
-  sitting on it.
+**The snap lips are placed by an absolute \|y\|, not by a reach over the board,
+and that is the change that matters.** What limits them is not the board's edge,
+it is the USB-C shell 0.29 mm inboard of them. At \|y\| = 11.50 the lip clears
+a shell on a board sitting 0.40 mm off centre, and still catches 0.80 mm of
+board edge with the board sitting 0.40 mm the other way. Both of those are
+asserted.
 
-That rules out most of the obvious answers. Nothing can clamp the long edges: a
-lip there lands on pads, or on solder fillets, or on a header body. Nothing can
-clamp the antenna end either. What is left is the **connector end**, which has
-**7.15 mm** of clear board in the two strips at \|y\| 10.54–12.70, outboard of
-the USB shells and before the pad rows start. That is where the board gets held.
+**The hood is new, and v9's argument for not having one was wrong.** v9 said a
+board held down at one end cannot lift at the other. But the lips have 0.20 mm
+of slack over a 4.00 mm base, and 62.865/4.00 is a 15.7:1 lever — so 0.20 mm at
+the lips is **3.1 mm of lift** at the far end. It rattled.
 
-| | what stops it now | |
-|---|---|---:|
-| sideways | two **rails**, touching only the board's 1.60 mm edge | 0.20 mm total |
-| along, +x | an **end wall** — the plug's insertion load goes here | 0.30 mm |
-| along, −x | two **corner stops** against the board's end face | 0.30 mm |
-| down | three pairs of **posts** at \|y\| = 6.50, including under the connectors | — |
-| up | two **snap fingers**, clamping the connector end | 0.20 mm |
+So the antenna end gets a hood: a wedge hanging off the end wall whose underside
+climbs at 47°. That shape buys three things at once —
 
-The antenna end gets no clamp, and should not have one — there is nowhere to put
-it, and it is the antenna end. It does not need one: a 1.6 mm FR4 board is rigid
-over 62.74 mm, so an end held top, bottom and sideways cannot let the far end
-lift.
+- its lowest point is a single **1.40 mm land**, so the board still **drops
+  straight down** past it. No tilting it in, no sliding it under anything.
+- a 47° underside is **self-supporting**, so there is no bridge and no overhang
+  to print.
+- the land sits 4.00 mm in from the wall, so **any** board from 61.3 to 64.0
+  still passes under it — 0.63 mm of engagement at the short end, 2.20 mm at
+  Espressif's own length.
 
-**It works with or without headers soldered on.** The rails only ever touch the
-board's edge, the posts sit at \|y\| = 6.50 with 4.00 mm of space under the
-board for header tails, and the two lips land 1–5 mm along the connector end,
-where there is no copper and no header body.
+It lands at \|y\| ≤ 9.80, on that bare 7.53 × 21.16 mm patch, which is 0.38 mm
+clear of the pad rows even with the board sitting as far over as the rails let
+it.
+
+**It works with or without headers soldered on, pointing either way.** The rails
+only ever touch the board's edge; the posts sit at \|y\| = 6.50 with 4.00 mm of
+space under the board for tails; the lips land 1–5 mm along the connector end,
+before any copper; and the hood lands between the pad rows.
+
+#### Fitting it, and getting it out again
+
+1. Drop the board in between the rails, connector end first, square.
+2. Press it down. The two fingers cam outward — about 3 N each — and click over
+   the connector end's clear strips.
+3. It is done. The hood is already over the antenna end; nothing has to be slid
+   or tilted.
+
+To get it out: push both fingers outward — a fingernail or a small screwdriver
+on each — and lift the connector end, then draw the board back out from under
+the hood. The lips' retaining faces are horizontal, so nothing lets go on its
+own, which is the point.
+
+#### If you are not sure your board is the one in the drawing
+
+Print **`mini-round-clock-board-gauge`** first. It is this exact frame — same
+rails, same fingers, same stops, same hood, same posts — on a 2.5 mm plate
+instead of inside a clock. About **16 g and twenty minutes**. If the board
+clicks into that, it clicks into the housing; the plate carries a 5 mm scale off
+the connector end and deeper marks at 61.3 / 62.865 / 64.0, so if it does not,
+you can read the length straight off it and `BOARD_L` is the one number to
+change.
+
+That is the same answer the collar got after the third "too tight": once a
+dimension has come back wrong, stop shipping a better dimension and ship a way
+to measure.
 
 ### Why the snap fingers are shaped like that
 
@@ -570,20 +661,20 @@ Two constraints, and they happen to agree.
 **Mechanically**, a cantilever snap is a strain problem. For a straight beam,
 
 ```
-e = 1.5 · Y · t / L²        Y  deflection    1.00 mm
+e = 1.5 · Y · t / L²        Y  deflection    1.60 mm
                             t  thickness     1.50 mm
-                            L  length       18.00 mm
-                            ->  e = 0.69 %
+                            L  length       20.00 mm
+                            ->  e = 0.90 %
 ```
 
-PLA yields around 1.5–2 % and PETG higher, so that has real margin, and L/t is
-12:1 against the 8:1 floor usually quoted for PLA. The force follows from the
-same numbers: `P = b·t²·E·e / 6L` ≈ **2.7 N a finger**, 5.4 N for the pair —
+PLA yields around 1.5–2 % and PETG higher, so that has margin, and L/t is
+13.3:1 against the 8:1 floor usually quoted for PLA. The force follows from the
+same numbers: `P = b·t²·E·e / 6L` ≈ **3.1 N a finger**, 6.2 N for the pair —
 a firm thumb, not a press. `check2` measures `t` on the built STL and does this
 arithmetic rather than taking it on trust.
 
 A finger short enough to stand up beside the board would have been hopeless: at
-L = 6 mm the same 1.00 mm deflection is **6.3 % strain**, which snaps.
+L = 6 mm the same deflection is over 10 % strain, which snaps.
 
 **For printing**, the housing goes on the plate rear-plate-down, so the pocket
 opens upward and everything in this frame is a vertical wall. Each finger is a
@@ -593,13 +684,18 @@ in FDM a part loaded across the layer bonds loses roughly half its elongation at
 break, and a snap arm built up the Z axis is the classic way to have one shear
 off at a layer line. Nothing here is built that way.
 
-The only overhangs in the whole frame are the two lips, each a 0.90 mm ledge,
-and each lip's upper face is a 63° lead-in ramp rather than a flat roof — so
-pressing the board down wedges the fingers open, and there is nothing to bridge.
+The only overhangs in the whole frame are the two lips, each a 1.60 mm ledge
+whose upper face is a 45° lead-in ramp rather than a flat roof — so pressing the
+board down wedges the fingers open, and there is nothing to bridge. The hood's
+underside is a 47° ramp for the same reason.
 
-**To get the board out:** push both fingers outward — a fingernail or a small
-screwdriver on each — and lift the connector end. The retaining face is
-horizontal, so it will not let go on its own, which is the point.
+That ramp is also why `check3` learned something in v13. Its thin-wall probe
+shoots along the surface **normal**, which is right for a wall and wrong for a
+**chamfer**: across a 45° lead-in the normal distance runs to zero at the tip
+while every individual layer stays full width. It now measures the largest
+circle that fits inside each **layer** of a flagged region before calling it a
+defect, and reports both numbers. The lips read 0.21 mm along the normal and
+**2.40 mm in every layer that prints them**. The threshold did not move.
 
 ## 3. The rear housing
 
