@@ -2253,3 +2253,70 @@ footprint tips at 11°. It now grows a low plinth behind the stop wall, sized
 from the geometry to bring that back over 20°.
 
 Five passes, fourteen parts, three bodies, all green.
+
+---
+
+## 2026-08-25 — Edge-to-edge analog face, and the dashboard goes multi-clock
+
+### The dial had to reach the rim, and dots cannot
+
+First cut drew the outer marks as dots at r=170. Sam: *"make sure the analog
+clock goes right to the edge."* A dot fundamentally cannot: **its own radius
+has to fit inside the panel**, so a 4 px dot centred at 175 already overhangs
+179 and gets clipped. Pushing the centre outward makes it worse, not better.
+
+Marks are now **radial lines** — a line lying along the radius ends exactly
+where you tell it to. Every tick runs out to r=179, one pixel inside the panel.
+That matters more than it sounds: the whole point is that the drawn dial and
+the LED ring beyond the bezel read as **one instrument**, and a visible dead
+band between them is the one flaw nothing else compensates for.
+
+Also flashed, and confirmed live:
+`face options = ['digital', 'minimal', 'analog', 'analog ring']`.
+
+### Multi-clock: why the dashboard has to be generated
+
+*"Select which clock is being customised… there will be more than one."*
+
+The obstacle is that **every control is an ESPHome entity, and ESPHome derives
+entity ids from the device `name:`**. Two clocks therefore have two disjoint
+sets of entities — `mini_round_clock_hour_hue` and `kitchen_clock_hour_hue` are
+unrelated — and no Home Assistant card abstracts over that natively. There is
+no "device" variable a card can be pointed at.
+
+So the view carries **one set of cards per clock and shows only the selected
+one**, using card-level `visibility` against `input_select.wall_clock_target`.
+That is core HA; no HACS card is involved.
+
+Written by hand that is N copies of ~60 rows to keep in sync, and it will drift
+the first time a control is added — which has now happened three times in two
+days. So `dashboards/build_clock_dashboard.py` generates it. Adding a clock is:
+
+1. a different `name:` in ESPHome (sets entity prefix, hostname, OTA target)
+2. one line in `CLOCKS`, re-run the script
+3. one option in the input_select
+
+**The label is only a label** — rename it freely. The entity prefix is the real
+identity, and changing that means renaming the device and reflashing.
+
+**Timers stay outside the switching.** The `wall_clock_1..5` pool belongs to
+Home Assistant and is shared by every clock, so it is a global card. Getting
+that wrong would have produced five timer cards for five clocks, all showing
+the same five timers.
+
+Verified after install: `input_select.wall_clock_target = Mini Round Clock`,
+options `['Mini Round Clock']`, per-clock cards rendering, Timers global.
+
+### Flashing through a flaky link
+
+The device kept dropping off wifi mid-session, and an OTA that fails wastes the
+whole compile. The working pattern:
+
+1. Kick off the install even while the device is down. The **compile still
+   succeeds** and the binary is cached; only the upload fails.
+2. Poll `3232` from outside until it opens.
+3. Hit **Retry** — the build is cached, so it goes straight to upload and lands
+   in seconds rather than minutes.
+
+That turned a several-minute window requirement into a few-second one, and is
+how both of today's flashes actually got on.
