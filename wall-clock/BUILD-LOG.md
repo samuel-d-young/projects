@@ -3362,3 +3362,113 @@ a surface adjacent to the one that matters. The collar against the tab instead o
 the face. The snap lips off the board's edge instead of the USB-C shell. The
 bridge test against a patch's own boundary instead of against what holds it up.
 That is the pattern to watch for, and it is in the design brief now.
+
+---
+
+## 2026-08-26 — v15: a second screen, and why "auto detect" had to be a wire
+
+> *"Add the following screen to the wall clock. I have a couple. Add an option
+> in HASS to select which screen and also auto detect."*
+> — a 1.9" ST7789 bar, 320×170, against the 360×360 round panel already fitted.
+
+Three findings decided the whole design, and all three are the kind that would
+have quietly wrecked it if assumed instead of checked.
+
+### 1. Neither module can talk back
+
+The obvious auto-detect is to read the controller's ID register and branch on
+it. It is not available here.
+
+- The **round** module brings SDO out on its 10-pin header, but it is left
+  unconnected and the `spi:` block declares no `miso_pin`.
+- The **bar** module has no such pin **at all**. Waveshare's own page for it:
+  *"the data pin from the slave device to the host device is hidden as it only
+  needs to display."* done.land's independent teardown of the same module lists
+  eight pins — GND VCC SCL SDA RES DC CS BLK — with no SDO and no TE.
+
+There is no bus to ask the question over. So the detection is a **strap**: one
+wire from GPIO18 to GND in the bar panel's cable. That cable has to be made
+specially anyway — eight pins in a different order against the round one's ten
+— so the marginal cost is one conductor, and the answer is deterministic rather
+than inferred. The HA select can override it either way.
+
+### 2. The init sequence is gone after boot
+
+`mipi_spi` sends the init sequence in `setup()` and then does
+`this->init_sequence_.clear()` — verified in `mipi_spi.h` at 2026.8.0. So
+"re-initialise the panel the user just picked" **cannot be done at runtime, by
+any lambda, at all.** Calling `setup()` a second time would send nothing, and on
+the buffered variant would allocate a second framebuffer on top of the first.
+
+That killed the design I would otherwise have reached for by default.
+
+### 3. Which is only safe because each panel gets its own CS *and* its own RESET
+
+Both drivers are compiled in and both initialise at boot. That works only
+because each init goes out addressed to its own chip select, so neither panel
+ever sees the other's. Sharing the reset line would break it just as thoroughly
+in the other direction: the second component's reset pulse would clear the first
+panel *after* it had been initialised, and whichever panel was actually fitted
+would end up reset and blank.
+
+CLK, MOSI, DC and BL are shared, and can be — DC only means anything while a CS
+is low.
+
+### The rest
+
+Both displays are `update_interval: never` and a 1 s dispatcher updates only the
+active one. Left self-polling, the panel that is *not* fitted would still push a
+full framebuffer down the shared bus every second: 253 KB at 20 MHz is about
+100 ms, a tenth of the bus, spent on a panel that is not there — and the panel
+that *is* there would stutter for it.
+
+The bar layout is its own, not a scaled round face. The design priority at the
+top of the file survives the change of shape: the time is always drawn and
+always the largest thing; a running timer takes the right-hand two thirds and
+pushes the time up into the corner rather than replacing it. **The analogue
+faces are deliberately not offered on the bar** — a circle in a letterbox wastes
+two thirds of the panel, and a control that does nothing useful is worse than no
+control.
+
+Geometry is forced rather than chosen: 170×320 native with `offset_width: 35`,
+because the ST7789 has 240×320 of RAM and a 170-wide panel is centred in it —
+(240−170)/2 = 35, which is the same figure ESPHome carries for T-EMBED and
+T-DISPLAY-S3. `color_order: bgr` and `invert_colors: true` are inherited from
+those same models and are the only two things here taken on family resemblance;
+both are one-line flips and both are flagged in MANIFEST.
+
+### One bug worth recording
+
+The first draft appended a second top-level `display:` key. YAML does not treat
+a duplicate key as an error — the later one silently **replaces** the earlier —
+so the round panel vanished from the document entirely. Caught by parsing the
+built file and counting the entries, which now reads 2. The block carries a
+comment saying why its indentation is what it is.
+
+### Verification
+
+No compiler here, so: the file parses; both display entries survive with
+distinct ids, models, CS and RESET pins; all 26 `id()` references in the new
+code resolve against ids declared in the document; the ten GPIO assignments are
+unique and clear of the ESP32-S3's flash (26–32), octal PSRAM (33–37) and USB
+(19–20) pins. Framebuffers are 253 KB + 106 KB against 8 MB of PSRAM.
+
+**Not verified:** it has not been compiled or flashed. That needs a machine with
+the board on the end of a USB lead, which this session is not.
+
+### Still open: it does not physically fit yet
+
+The bar module is **62 × 29 × 5.1 mm**. Dropped flat it needs a **68.45 mm**
+circle; the base's screen bore is **60.38**. It is 8.07 mm short, so it cannot
+go in the existing pocket on any body.
+
+| body | clear middle inside the ring | takes a 68.45 mm diagonal? |
+|---|---:|---|
+| 24-LED (108 mm) | 70.22 mm | only with ~0.9 mm of wall left — **not viable** |
+| 32-LED (120 mm) | 95.00 mm | comfortably |
+| 60-LED (240 mm) | 155.00 mm | easily |
+
+So the bar version wants the 32-LED body or larger, and it needs a rectangular
+pocket, a different diffuser centre, and no tab slot — the bar module has no
+tab. Put to Sam rather than guessed at, because building it for the wrong body
+would be waste, and because the diffuser's collar grips that same round bore.

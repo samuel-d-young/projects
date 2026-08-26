@@ -105,4 +105,6 @@ get moved around or shared. It holds your WiFi password and API key.
 5. **The 32-LED ring's dimensions** (111.85 / 96 mm, 32 LEDs) are Sam's numbers, taken as given and not checked against a listing. The whole 120 mm body follows from them.
 6. **The 60-LED ring's 172 / 156 mm** is corroborated by three resellers but not by a datasheet — put calipers on it before printing a 240 mm base. And **how far the light carries along a perspex strip** is the one thing in the light-guide design that needs a bench test, not a calculation: `enclosure/mini/v2/README.md` §7 says how to try it in ten minutes.
 
+7. **The bar panel's colour setup.** `color_order: bgr` and `invert_colors: true` on the 1.9" ST7789 are inherited from ESPHome's own 170×320 models (T-EMBED, T-DISPLAY-S3), not measured on this module. A photo-negative image means flip `invert_colors`; swapped red and blue means flip `color_order`. Its **geometry** is not a guess: 170×320 native with `offset_width: 35` is forced by the ST7789's 240×320 RAM, and is the figure ESPHome carries for the same panel size.
+
 Nothing here has been flashed, sliced, cut, or run against a real Home Assistant.

@@ -1,6 +1,34 @@
 # =============================================================================
 # mini-round-clock.yaml — THE build
-# ESP32-S3-N16R8  +  Mokungi 24-LED WS2812B ring (92/71 mm)  +  360x360 round LCD
+# ESP32-S3-N16R8  +  Mokungi 24-LED WS2812B ring (92/71 mm)
+#   +  EITHER a 360x360 round GC9B72 LCD  OR a 1.9" 320x170 ST7789 bar
+# =============================================================================
+# TWO PANELS, ONE FIRMWARE. Both drivers are compiled in; which one is DRAWN is
+# a Home Assistant control ("Screen": auto / round 360x360 / bar 320x170) and
+# "auto" follows a strap wire in the panel's own cable.
+#
+# The three facts that shape all of it, each verified rather than assumed:
+#
+#   1. NEITHER MODULE CAN TALK BACK. The round one brings SDO to its header but
+#      it is unconnected and no miso_pin is declared; the bar module has no such
+#      pin at all. So the controller ID cannot be read and auto-detection cannot
+#      be electrical in the usual sense. It is a strap on ${panel_detect}, tied
+#      to GND in the bar panel's cable -- which that panel needs anyway, being
+#      an 8-pin header in a different order to the round one's 10.
+#
+#   2. THE INIT SEQUENCE IS GONE AFTER BOOT. mipi_spi runs it in setup() and
+#      then calls init_sequence_.clear() (mipi_spi.h, 2026.8.0). "Re-initialise
+#      the panel the user just picked" is therefore not possible at runtime by
+#      any means, so both panels are initialised at boot instead.
+#
+#   3. WHICH IS ONLY SAFE BECAUSE EACH HAS ITS OWN CS *AND* ITS OWN RESET.
+#      Sharing CS would send each panel the other's init; sharing RESET would
+#      let the second component's reset pulse wipe the first panel after it had
+#      been set up. CLK, MOSI, DC and BL are shared and can be -- DC only means
+#      anything while a CS is low.
+#
+# The bar panel is digital-only: the analogue faces are round-only, because a
+# circle in a letterbox wastes two thirds of the panel. See its lambda.
 # =============================================================================
 # Analogue time on the ring, digital time and weather on the display in the
 # middle, Assist timer progress on both, ambient household status when idle.
@@ -72,6 +100,24 @@ substitutions:
   lcd_dc: GPIO13              # DC
   lcd_reset: GPIO14           # RST
   lcd_backlight: GPIO21       # BL
+
+  # ---- SECOND PANEL: 1.9" ST7789 bar, 170x320 native --------------------
+  # Its header is DIFFERENT and shorter: GND VCC SCL SDA RES DC CS BLK.
+  # Eight pins, no SDO and no TE — verified against Waveshare's own wiki text
+  # ("the data pin from the slave device to the host device is hidden as it
+  # only needs to display") and corroborated by done.land's teardown of the
+  # same module. That single fact decides the whole design below; see the
+  # PANEL SELECTION block further down.
+  #
+  # CLK, MOSI, DC and BL are SHARED with the round panel. CS and RESET are
+  # NOT, and must not be — see the comment on the second display entry.
+  lcd_cs_bar: GPIO16          # CS  — its own, never shared
+  lcd_reset_bar: GPIO17       # RES — its own, never shared
+
+  # Tie this to GND in the BAR panel's cable, leave it open in the round
+  # one's. That is the auto-detect: it cannot be done over SPI because
+  # neither module can talk back.
+  panel_detect: GPIO18
 
   # ---- overnight dimming, local 24h time -----------------------------------
   # To disable auto-dim entirely, set both to the same number.
@@ -305,6 +351,26 @@ binary_sensor:
   - platform: homeassistant
     id: home_zac
     entity_id: binary_sensor.wall_clock_home_zac
+
+  # ---- WHICH PANEL IS PLUGGED IN --------------------------------------------
+  # A strap, not a probe. Both modules are write-only: the round one brings SDO
+  # out on its header but the bar one has no such pin at all, so there is no
+  # bus to read an ID back over and no way to ask either panel what it is.
+  # One wire from ${panel_detect} to GND in the bar panel's cable answers the
+  # question deterministically, and the bar panel needs its own cable anyway —
+  # different pin count, different order.
+  - platform: gpio
+    id: panel_strap
+    name: "Bar panel fitted"
+    entity_category: diagnostic
+    pin:
+      number: ${panel_detect}
+      mode:
+        input: true
+        pullup: true
+      inverted: true          # strapped to GND == true == bar panel
+    filters:
+      - delayed_on_off: 50ms
 
 # -----------------------------------------------------------------------------
 # CONTROLS EXPOSED TO HOME ASSISTANT
@@ -626,6 +692,28 @@ number:
     restore_value: true
 
 select:
+  # ---- WHICH SCREEN ----------------------------------------------------------
+  # "auto" follows the strap on ${panel_detect}. The two explicit options are
+  # an override for bench work and for the case where a cable was made without
+  # the strap wire.
+  #
+  # This picks which display gets DRAWN. It cannot pick which driver is
+  # COMPILED, and it does not need to: both are compiled, and each panel has
+  # its own CS and RESET so neither ever sees the other's init sequence. See
+  # the second display entry for why that separation is not optional.
+  - platform: template
+    id: panel_choice
+    name: "Screen"
+    entity_category: config
+    icon: mdi:monitor-multiple
+    options:
+      - "auto"              # follow the strap
+      - "round 360x360"     # force the GC9B72 round panel
+      - "bar 320x170"       # force the ST7789 bar panel
+    initial_option: "auto"
+    optimistic: true
+    restore_value: true
+
   - platform: template
     id: display_mode
     name: "Mode"
@@ -921,6 +1009,13 @@ globals:
     restore_value: no
     initial_value: 'false'
 
+  # Resolved once per tick from panel_choice + the strap, so the render
+  # interval and both lambdas all read the same answer.
+  - id: bar_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
   # ---------------------------------------------------------------------------
   # RESOLVED PALETTE — the single place colour is decided
   # ---------------------------------------------------------------------------
@@ -966,6 +1061,53 @@ globals:
 #            countdown is the hero element when a timer runs and has to stay
 #            bright even though its ring counterpart is dim.
 interval:
+  # ---------------------------------------------------------------------------
+  # PANEL SELECTION — which screen is fitted, and which one gets drawn
+  # ---------------------------------------------------------------------------
+  # WHY THIS IS A STRAP AND NOT A PROBE. The obvious auto-detect is to read the
+  # controller's ID register and branch on it. That is not available here, and
+  # the reason is in the hardware rather than the software: BOTH modules are
+  # write-only. The round panel brings SDO out on its header but it is left
+  # unconnected and `spi:` below declares no miso_pin; the bar module has no
+  # such pin AT ALL -- Waveshare's own wiki says the slave-to-host data pin "is
+  # hidden as it only needs to display", and done.land's teardown of the same
+  # module lists eight pins with no SDO and no TE. There is no bus to ask the
+  # question over.
+  #
+  # So the answer comes from the cable. The bar panel needs its own cable
+  # anyway -- eight pins in a different order against the round one's ten -- and
+  # one more wire from ${panel_detect} to GND in that cable makes the detection
+  # deterministic instead of inferred.
+  #
+  # WHY BOTH DRIVERS ARE COMPILED IN AND NEITHER IS RE-INITIALISED. ESPHome's
+  # mipi_spi sends its init sequence once, in setup(), and then does
+  # `this->init_sequence_.clear()` -- verified in mipi_spi.h at 2026.8.0. The
+  # sequence is gone after boot, so "re-init the panel the user just picked"
+  # is not a thing that can be done at runtime, by any lambda, at all.
+  #
+  # What makes two panels coexist anyway is that each has its OWN CS and its
+  # OWN RESET. Both init sequences go out at boot; each is addressed to its own
+  # chip select, so neither panel ever sees the other's. Sharing the reset line
+  # would break exactly this -- the second component's reset pulse would clear
+  # the first panel after it had been initialised -- which is why lcd_reset_bar
+  # exists rather than reusing ${lcd_reset}.
+  - interval: 1s
+    then:
+      - lambda: |-
+          const std::string want = id(panel_choice).state;
+          bool bar = id(bar_active);
+          if      (want == "bar 320x170")   bar = true;
+          else if (want == "round 360x360") bar = false;
+          else                              bar = id(panel_strap).state;
+          id(bar_active) = bar;
+      - if:
+          condition:
+            lambda: 'return id(bar_active);'
+          then:
+            - component.update: bar_lcd
+          else:
+            - component.update: face_lcd
+
   - interval: 250ms
     then:
       - lambda: |-
@@ -1426,7 +1568,12 @@ display:
     data_rate: 20MHz          # 50MHz is what xboot uses; 20 is a safe first pass
     pixel_mode: 16bit         # MUST match COLMOD 0x05 in the table above
     invert_colors: false      # flip if the image looks like a photo negative
-    update_interval: 1s
+    # never, not 1s: the dispatcher under `interval:` decides which panel gets
+    # drawn. Left self-polling, the panel that is NOT fitted would still push a
+    # full framebuffer down the shared bus every second -- 253 KB at 20 MHz is
+    # about 100 ms, a tenth of the bus, spent on a panel that is not there, and
+    # the panel that IS there would stutter for it.
+    update_interval: never
     init_sequence:
       # =====================================================================
       # GENUINE GC9B72 INIT SEQUENCE
@@ -1967,3 +2114,195 @@ display:
       // Stale-status hint, matching the ring's red tint at 6 o'clock.
       if (!id(ha_connected))
         it.filled_circle(CX, CY + 140, 4, Color(120, 30, 30));
+
+# -----------------------------------------------------------------------------
+# THE BAR DISPLAY — 1.9" ST7789V2, 170x320 native, drawn landscape as 320x170
+# -----------------------------------------------------------------------------
+# Sam has a couple of these and wanted the clock to take either panel. It is a
+# genuinely different shape, not a smaller round one, so it gets its own layout
+# rather than a scaled copy of the round face. What survives the change of shape
+# is the DESIGN PRIORITY at the top of this file:
+#
+#     reliable clock  >  timers  >  status
+#
+# which on a 320x170 strip means: the time is always drawn and always the
+# largest thing on the panel; a running timer takes the middle third and pushes
+# the time up rather than replacing it; weather and date fill what is left.
+#
+# The round face's analogue styles are NOT offered here. `clock_face` = analog
+# on a bar would be a circle in a letterbox with two thirds of the panel wasted,
+# and pretending otherwise would make a control that does nothing useful. The
+# bar is digital; the ring is the analogue movement, which is the whole idea.
+#
+# GEOMETRY, and where the numbers come from:
+#   native      170 (H) x 320 (V), ST7789V2, per Waveshare's module page
+#   offset      35 in the width. The ST7789 controller has 240x320 of RAM and a
+#               170-wide panel is centred in it, so (240-170)/2 = 35. This is
+#               the same figure ESPHome's own T-EMBED and T-DISPLAY-S3 models
+#               carry for their 170x320 panels -- see mipi_spi/models/lilygo.py.
+#   rotation    90 deg, so the long axis lies across the clock face.
+#
+# color_order and invert_colors are the values ESPHome uses for every other
+# 170x320 ST7789 it ships (BGR, inverted). If the image comes out as a photo
+# negative flip invert_colors; if red and blue swap, flip color_order. Those are
+# the only two things about this panel that are taken on inheritance rather than
+# measured, and each is a one-line change. (unverified on this exact module)
+#
+# NOTE THE INDENTATION: this is a SECOND ITEM in the display: list opened
+# further up, not a second display: key. A duplicate top-level key is not an
+# error in YAML -- the later one silently REPLACES the earlier -- and the
+# first draft of this block did exactly that, deleting the round panel. The
+# comment block above sits at column 0 on purpose; comments have no
+# indentation semantics, so the list continues straight through it.
+  - platform: mipi_spi
+    model: ST7789V
+    id: bar_lcd
+    spi_id: lcd_bus
+    cs_pin: ${lcd_cs_bar}         # its own — never the round panel's
+    dc_pin: ${lcd_dc}             # shared: only meaningful while CS is low
+    reset_pin: ${lcd_reset_bar}   # its own — see the dispatcher's comment
+    dimensions:
+      width: 170
+      height: 320
+      offset_width: 35
+      offset_height: 0
+    color_order: bgr
+    invert_colors: true
+    rotation: 90°
+    data_rate: 40MHz
+    pixel_mode: 16bit
+    update_interval: never        # the dispatcher drives this
+    lambda: |-
+      // Canvas after rotation: 320 wide, 170 tall.
+      const int W = 320, H = 170;
+      auto now = id(ha_time).now();
+
+      // ---- night blank, identical rule to the round face --------------------
+      // Same guard, same order, deliberately: a setting that blanks one panel
+      // and not the other would be a bug that only shows up at 3 a.m.
+      if (id(night_blank).state && id(auto_dim).state && now.is_valid()) {
+        const int h  = now.hour;
+        const int ns = (int) lroundf(id(night_start).state);
+        const int ne = (int) lroundf(id(night_end).state);
+        const bool night = (ns == ne) ? false
+                         : (ns > ne)  ? (h >= ns || h < ne)
+                                      : (h >= ns && h < ne);
+        if (night) { it.fill(Color::BLACK); return; }
+      }
+
+      // ---- palette, resolved once under `interval:` like everywhere else ----
+      const Color c_hour  = Color(id(pal_scr)[0], id(pal_scr)[1],  id(pal_scr)[2]);
+      const Color c_sec   = Color(id(pal_scr)[6], id(pal_scr)[7],  id(pal_scr)[8]);
+      const Color c_timer = Color(id(pal_scr)[9], id(pal_scr)[10], id(pal_scr)[11]);
+      const Color ground  = Color(10, 12, 18);
+      it.fill(ground);
+
+      if (!now.is_valid()) {
+        it.print(W / 2, H / 2, id(font_med), c_sec, TextAlign::CENTER, "--:--");
+        return;
+      }
+
+      char tbuf[8];
+      const bool h24 = id(fmt_24h).state;
+      int hh = now.hour;
+      if (!h24) { hh = hh % 12; if (hh == 0) hh = 12; }
+      snprintf(tbuf, sizeof(tbuf), "%d:%02d", hh, now.minute);
+
+      // ---- timer alert takes the whole panel --------------------------------
+      // The one case where the clock yields, and only because a finished timer
+      // is the single most time-critical thing this device ever says.
+      if (id(timer_alert).state) {
+        const bool on = (now.second % 2) == 0;
+        it.filled_rectangle(0, 0, W, H, on ? Color(120, 40, 0) : Color(40, 14, 0));
+        it.print(W / 2, 62, id(font_t72), Color(255, 255, 255),
+                 TextAlign::CENTER, "0:00");
+        const std::string lbl = id(timer_label).state;
+        it.printf(W / 2, 132, id(font_med), Color(255, 220, 190),
+                  TextAlign::CENTER, "%s finished",
+                  lbl.empty() ? "timer" : lbl.c_str());
+        return;
+      }
+
+      // ---- is a timer running? ----------------------------------------------
+      int left = -1;
+      if (id(timer_screen).state) {
+        const float fin = id(timer_finish_epoch).state;
+        if (!std::isnan(fin) && fin > 0) {
+          const int rem = (int) lroundf(fin - (float) now.timestamp);
+          if (rem > 0) left = rem;
+        }
+      }
+
+      if (left >= 0) {
+        // Time shrinks and moves to the top-left corner. It does NOT disappear:
+        // clock > timers, and a glance at a wall clock has to answer "what time
+        // is it" even while something is counting down.
+        it.print(10, 6, id(font_t48), c_hour, TextAlign::TOP_LEFT, tbuf);
+
+        char cbuf[12];
+        if (left >= 3600)
+          snprintf(cbuf, sizeof(cbuf), "%d:%02d:%02d", left / 3600, (left / 60) % 60, left % 60);
+        else
+          snprintf(cbuf, sizeof(cbuf), "%d:%02d", left / 60, left % 60);
+        it.print(W - 10, 12, id(font_t72), c_timer, TextAlign::TOP_RIGHT, cbuf);
+
+        const std::string lbl = id(timer_label).state;
+        if (!lbl.empty())
+          it.print(W - 10, 96, id(font_small), c_sec, TextAlign::TOP_RIGHT, lbl.c_str());
+
+        // Progress bar along the bottom. Drawn as elapsed-from-the-left so it
+        // drains toward zero the same way the ring's arc does.
+        const float total = id(timer_total_seconds).state;
+        if (!std::isnan(total) && total > 0) {
+          const float frac = 1.0f - ((float) left / total);
+          const int   bx0 = 10, bx1 = W - 10, by = H - 22;
+          it.rectangle(bx0, by, bx1 - bx0, 12, Color(40, 44, 52));
+          const int w = (int) lroundf((bx1 - bx0 - 2) * (frac < 0 ? 0 : frac > 1 ? 1 : frac));
+          if (w > 0) it.filled_rectangle(bx0 + 1, by + 1, w, 10, c_timer);
+        }
+        return;
+      }
+
+      // ---- idle: the time is the panel ---------------------------------------
+      // font_t96 puts "12:34" at roughly 2.48 x 96 = 238 px, which leaves 41 px
+      // either side of a 320 px panel. font_big (118) would be 293 and would
+      // crowd the seconds off the edge, so this is the largest honest size here
+      // -- the same argument the round face makes for 118 over 132.
+      const int ty = id(show_date).state || id(show_weather).state ? 58 : H / 2;
+      it.print(W / 2, ty, id(font_t96), c_hour, TextAlign::CENTER, tbuf);
+
+      if (id(show_seconds).state) {
+        char sbuf[6];
+        snprintf(sbuf, sizeof(sbuf), ":%02d", now.second);
+        it.print(W - 8, ty + 26, id(font_med), c_sec, TextAlign::BASELINE_RIGHT, sbuf);
+      }
+
+      // ---- one subtitle line, date and weather sharing it --------------------
+      // A bar has room for exactly one line under the time. Rather than pick
+      // one and drop the other, they take an end each -- which is also what the
+      // round face does with the digital sub-dial and the date.
+      const int sy = 128;
+      if (id(show_date).state) {
+        static const char *dows[7] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
+        char dbuf[24];
+        if (id(show_dow).state)
+          snprintf(dbuf, sizeof(dbuf), "%s %d/%d",
+                   dows[now.day_of_week - 1], now.day_of_month, now.month);
+        else
+          snprintf(dbuf, sizeof(dbuf), "%d/%d", now.day_of_month, now.month);
+        it.print(id(show_weather).state ? 10 : W / 2, sy, id(font_med), c_sec,
+                 id(show_weather).state ? TextAlign::TOP_LEFT : TextAlign::TOP_CENTER,
+                 dbuf);
+      }
+
+      if (id(show_weather).state) {
+        const float tC = id(weather_temp).state;
+        if (!std::isnan(tC))
+          it.printf(W - 10, sy, id(font_med), c_hour, TextAlign::TOP_RIGHT,
+                    "%.1f°", tC);
+      }
+
+      // Stale-status hint, in the same corner and the same red the round face
+      // uses at 6 o'clock, so the two panels fail in a recognisably same way.
+      if (!id(ha_connected))
+        it.filled_rectangle(W / 2 - 4, H - 8, 8, 4, Color(120, 30, 30));

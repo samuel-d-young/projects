@@ -273,6 +273,45 @@ Fill in your real entity IDs **before** restarting — the queries are in
 7. Plug a USB lead into the window at the bottom of the rim. On the stand the
    lead runs down into the arch and out the back.
 
+### Wiring the 1.9" bar screen instead of the round one
+
+The firmware carries both drivers. Which one it draws is the **"Screen"** select
+in Home Assistant — *auto*, *round 360x360*, or *bar 320x170* — and *auto*
+follows a strap wire in the panel's own cable.
+
+The bar module's header is **8 pins in a different order** to the round one's
+10, so it needs its own lead regardless:
+
+| bar module pin | goes to | note |
+|---|---|---|
+| GND | GND | |
+| VCC | 3V3 | |
+| SCL | **GPIO12** | shared with the round panel |
+| SDA | **GPIO11** | shared |
+| RES | **GPIO17** | **its own — not the round panel's GPIO14** |
+| DC | **GPIO13** | shared |
+| CS | **GPIO16** | **its own — not the round panel's GPIO10** |
+| BLK | **GPIO21** | shared |
+| — | **GPIO18 → GND** | **the strap.** One extra wire; this is what *auto* reads |
+
+**CS and RES must not be shared, and that is not a style preference.** Both
+panels are initialised at boot, because ESPHome's `mipi_spi` throws the init
+sequence away once it has sent it — so there is no way to re-initialise a panel
+later when you pick it. Separate chip selects are what stop each panel seeing
+the other's init; a separate reset is what stops the second driver's reset pulse
+wiping the first panel after it has been set up.
+
+**There is no way to auto-detect these panels over SPI.** Both are write-only:
+the round module brings SDO out but it is unconnected, and the bar module has no
+such pin at all — Waveshare's own page says the slave-to-host data pin "is
+hidden as it only needs to display". Hence the strap. If you make a cable
+without it, set the "Screen" select explicitly and it will behave.
+
+**Two things about the bar are inherited rather than measured** — `color_order:
+bgr` and `invert_colors: true`, which are what ESPHome uses for every other
+170×320 ST7789 it ships. If the picture comes out as a photo negative, flip
+`invert_colors`; if red and blue swap, flip `color_order`. One line each.
+
 **Screws, all told:** 4 × **M3 × 35** self-tapping (housing to base) and
 2 × **M3 × 10** self-tapping (clamp bar to its bosses). Both are plain
 coarse-thread self-tappers into PLA — 2.50 mm pilots, no inserts, no nuts.
