@@ -38,7 +38,7 @@ HW = BOARD_W / 2
 x_tip  = BRD_X0 + BRD_FING_X0
 x_root = x_tip + BRD_FING_L
 x_end  = BRD_X1 + BRD_END_CLR
-x_hood = x_end - BRD_HOOD_L
+x_pad  = BRD_X0 + BRD_CLAMP_PAD0
 PAD_I = BOARD_PAD_ROW/2 - BOARD_PAD_OD/2             # 10.58, where copper starts
 PAD_O = BOARD_PAD_ROW/2 + BOARD_PAD_OD/2             # 12.28
 
@@ -66,10 +66,10 @@ for cy in (-6.70, 6.70):
 a.add_patch(Rectangle((BRD_X0 + 18.0, -9.0), BOARD_MOD_END - 18.0, 18.0,
                       fc='none', ec='#14532d', lw=0.9, ls=':'))
 a.text(BRD_X0 + (18.0 + BOARD_MOD_END)/2, 0,
-       f'ESP32-S3-DevKitC-1\n{BOARD_L:.3f} x {BOARD_W:.3f} x {BOARD_T:.2f}\n'
+       f"Sam's ESP32-S3\n{BOARD_L:.2f} x {BOARD_W:.2f} x {BOARD_T:.2f}, MEASURED\n"
        f'no mounting holes',
        ha='center', va='center', fontsize=9.5, color='#0d3b22', weight='bold')
-for px in (BRD_X0 + 3.0, (BRD_X0 + BRD_X1)/2, x_hood):
+for px in (BRD_X0 + 3.0, (BRD_X0 + BRD_X1)/2, x_pad + 1.5):
     for py in (BRD_POST_HY, -BRD_POST_HY):
         a.add_patch(Circle((px, py), BRD_POST_D/2, fc='none', ec='#7a5a06',
                            lw=1.0, ls='--'))
@@ -81,8 +81,15 @@ for sy in (1, -1):
                                                     BRD_RAIL_Y - BRD_FING_YI)),
                           BRD_FING_LIP_L, BRD_RAIL_Y - BRD_FING_YI,
                           fc='#a0522d', ec='#7a3b16', lw=1.0))
-a.add_patch(Rectangle((x_hood, -BRD_HOOD_Y), BRD_HOOD_L + BRD_RAIL_T,
-                      2*BRD_HOOD_Y, fc='#6a8fb5', ec='#1c3d6e', lw=1.3, alpha=.55))
+a.add_patch(Rectangle((x_pad - 1.5, -BRD_CLAMP_W),
+                      (BRD_CLAMP_SX + BRD_CLAMP_BOSS/2 + 1.5) - (x_pad - 1.5),
+                      2*BRD_CLAMP_W, fc='#6a8fb5', ec='#1c3d6e', lw=1.3, alpha=.50))
+for sy in (1, -1):
+    a.add_patch(Circle((BRD_CLAMP_SX, sy*BRD_CLAMP_SY), BRD_CLAMP_BOSS/2,
+                       fc='#c9d8e8', ec='#1c3d6e', lw=1.1))
+    a.add_patch(Circle((BRD_CLAMP_SX, sy*BRD_CLAMP_SY), SCREW_PILOT/2,
+                       fc='#1c3d6e', ec='none'))
+
 
 lab = dict(fontsize=8.3, color='#1c3d6e',
            arrowprops=dict(arrowstyle='->', color='#1c3d6e', lw=.8))
@@ -91,14 +98,21 @@ a.annotate(f'rails — a GUIDE, not a fit.\n'
            f'against {BOARD_W:.2f} of board.  v9 drew {BOARD_W + 0.20:.2f} —\n'
            f'an interference fit wearing the word "clearance".',
            (-2.0, BRD_RAIL_Y + BRD_RAIL_T), (6, 46), ha='center', **lab)
-a.annotate(f'hood — a FLAT {BRD_HOOD_L:.2f} mm ledge off the end wall,\n'
-           f'{BRD_LIP_CLR:.2f} mm over the board, on the bare '
-           f'{BOARD_CLEAR_ANT_L:.1f} x {2*BOARD_CLEAR_ANT_Y:.1f} mm\n'
-           f'patch behind the module. Drawn first as a 47° wedge with\n'
-           f'its low edge out over the board — which is 47° and still\n'
-           f'prints on nothing, because the ramp climbed AWAY from\n'
-           f'the wall. Slide the board under it, then press down.',
-           (x_hood + 1.0, -BRD_HOOD_Y), (2, -54), ha='center', **lab)
+a.annotate(f'clamp bar — SCREWED down, and a separate part.\n'
+           f'presses from {BRD_CLAMP_PAD0:.0f} mm along at |y| <= {BRD_CLAMP_Y:.1f}, BETWEEN\n'
+           f'the pad rows, and both M3s land past the board\'s end —\n'
+           f'so nothing crosses a row at any height. It goes on AFTER\n'
+           f'the board, which is why nothing here overhangs and why\n'
+           f'the board\'s length stopped mattering.',
+           (BRD_CLAMP_SX, -BRD_CLAMP_SY - BRD_CLAMP_BOSS/2), (6, -52),
+           ha='center', **lab)
+
+
+
+
+
+
+
 a.annotate('corner stops — the datum in x', (BRD_X0 - 0.5, BRD_STOP_RI + 1.5),
            (-40, 30), ha='center', **lab)
 a.annotate('pad rows — copper to within\n0.42 mm of the edge, so nothing\n'
@@ -171,13 +185,15 @@ txt = (f'straight cantilever\n'
        f'its length and its bending are both in the XY\n'
        f'plane. A finger standing up in Z would bend across\n'
        f'the layer bonds, which is where printed snaps break.\n\n'
-       f'the frame takes a board {BOARD_L_MIN:.1f}-{BOARD_L_MAX:.1f} long and up\n'
-       f'to {BOARD_W_MAX:.1f} wide. That window is narrow because a\n'
-       f'ledge can only reach {BRD_HOOD_L:.2f} mm before it stops\n'
-       f'printing, and every millimetre of end clearance is\n'
-       f'one the ledge gives back. Espressif\'s v1.1 drawing\n'
-       f'says {BOARD_L:.3f} x {BOARD_W:.3f} -- but PRINT THE BOARD\n'
-       f'GAUGE FIRST. It is this frame on a plate, 15 g.')
+       f'{BOARD_L:.2f} x {BOARD_W:.2f} is SAM\'S CALIPERS, not Espressif.\n'
+       f'his board is 2.79 mm wider than the DevKitC-1 v1.1\n'
+       f'outline, so it is a different board -- and every\n'
+       f'vendor figure for the part contradicted every other\n'
+       f'one anyway (70x28, 67x31, 55x35, all published).\n\n'
+       f'the bay takes {BOARD_L_MIN:.1f}-{BOARD_L_MAX:.1f} long, up to {BOARD_W_MAX:.1f} wide. that\n'
+       f'window is wide because the clamp is a SCREW: a\n'
+       f'screwed bar does not care how long the board is,\n'
+       f'it only has to land on it.')
 b.text(BRD_X0 + 0.5, -12.0, txt, fontsize=8.3, family='monospace',
        va='top', color='#2b2b2b',
        bbox=dict(boxstyle='round,pad=0.5', fc='#fbfaf6', ec='#c9c2ac'))
@@ -188,7 +204,7 @@ b.set_xlim(BRD_X0 - 3, BRD_X0 + 58); b.set_ylim(-46, 22)
 for a_ in ax:
     a_.set_aspect('equal'); a_.grid(alpha=.16, lw=.4)
     a_.set_xlabel("+x is 12 o'clock  (mm)")
-fig.suptitle("How the S3 is held (v13) — 6 o'clock to the left, where its own "
+fig.suptitle("How the S3 is held (v14) — 6 o'clock to the left, where its own "
              "USB port looks out", fontsize=12.5)
 fig.tight_layout(); fig.savefig('render_fit.png', dpi=110)
 print('wrote render_fit.png')

@@ -3226,3 +3226,139 @@ face; printability is a property of a **layer** and its neighbours. Both of the
 checks added this week — `layer_width` for chamfers and `unsupported` for
 islands — are the same correction: stop reasoning about faces, measure the
 layers.
+
+---
+
+## 2026-08-26 — v14: measured board, screwed clamp, and a collar that was inside the screen
+
+Two messages, and between them they retired the last two moulded-in fits in the
+design.
+
+> *"The board dimensions are 28.19mm wide and 63.27mm long. Update the housing to
+> hold this. Also, add a way to screw it down to fasten it."*
+
+> *"The insides of the diffuser is still too long that touches the screen. It must
+> be shorter, but it can be a tight fit for that inside part."*
+
+### The board is not the board in the drawing
+
+**63.27 × 28.19.** Espressif's DevKitC-1 v1.1 outline is 62.865 × 25.400, so
+Sam's board is **2.79 mm wider** — a different board, and every vendor figure for
+a part sold under that name was already contradicting every other one (70 × 28,
+67 × 31, 55 × 35, all published as fact). `BOARD_L` and `BOARD_W` are his
+calipers now.
+
+The DXF stays as the source for what calipers cannot reach — where the pad rows
+are, how far the USB shells stand out, where the module ends — because the
+retention has to dodge those and one real drawing of a board in this family beats
+none. **But nothing in the frame depends on any of it now:**
+
+| feature | what it depends on |
+|---|---|
+| snap lips | the first 5 mm of board, before any copper whatever the pitch |
+| clamp pad | \|y\| ≤ 9.80 — inboard of any row a 0.9 in or wider board could have |
+| posts | \|y\| = 6.50 |
+
+Change the pad pitch, move the module, widen the connectors: none of it reaches
+these features.
+
+Everything else follows: rails at \|y\| 14.495 (slot 28.99, worst printed 28.59
+against a 28.19 board), lips at \|y\| 12.495, corner stops at 11.80, fingers
+lengthened 20 → 22 so the bigger deflection stays at 0.93% strain.
+
+### "A way to screw it down" solved three problems, not one
+
+The antenna end had already been wrong twice. v9 left it unclamped on the
+argument that a board held at one end cannot lift at the other — wrong, the lips
+have 0.20 mm of slack over a 4.00 mm base and on a 63 mm board that is a 15:1
+lever and 3.1 mm of lift. v13 answered it with a moulded hood: first a 47° wedge
+whose ramp climbed away from its wall, so its first layer was an island in
+mid-air; then a flat 2.00 mm ledge, which prints, but which cannot be dropped
+past and which had to buy its reach out of the end clearance, closing the length
+window to ±0.5 mm.
+
+**A screwed bar has none of those problems.** It goes on after the board, so
+nothing overhangs and there is no assembly move. It is a separate flat part, so
+it prints face-down with no support. And it does not care how long the board is
+— which is why the window reopened to **60.0–64.2**.
+
+`mini-round-clock-board-clamp`, 1 g, two M3 × 10 self-tappers:
+
+- presses from **59 mm** along the board at **\|y\| ≤ 9.80**, between the pad rows
+- both screws land at **65.25 mm**, beyond the longest board the bay takes
+- so **nothing crosses a pad row at any height** — headers either way up, or none
+- seat at **5.50**, which is 0.10 *below* the board's top face
+
+That last one is the trick: the bar bottoms on the **board**, not on its own
+bosses, so tightening it actually clamps. 0.10 mm of flex in a 3 mm PLA bar is a
+few newtons — cannot crack FR4, and takes up any board from 1.50 to 1.70 thick.
+Its underside is relieved 1.50 mm everywhere short of the pad so it cannot come
+down on the WROOM module however far back that ends.
+
+**And it is verified in the assembly, not just on its own.** It is built and
+printed lying on its top face, so nothing had ever measured it against the thing
+it bolts to. `check2` now loads the STL, turns it over, drops it on its bosses
+and checks the whole stack — seat plane, no overlap with the housing, pad over
+the PCB, clear of every pad row, clear of the module, screw holes over their
+pilots. The first run of that test read **−1.7 mm³** of pad on the board: trimesh
+already fixes winding for a negative-determinant transform, and the extra
+`invert()` had turned the bar inside out, which would have made every boolean in
+the section meaningless. Caught because a volume came back negative.
+
+### The collar was 1.77 mm inside the screen, and the check said it was fine
+
+This one is the worst of the three, because it had an assertion pointed at it.
+
+```
+tip                 10.83
+Z_SEAT + DISP_TAB_T 10.20    <- what check2 compared against.  PASSED.
+Z_SEAT + DISP_T     12.60    <- the surface the collar actually lands on
+```
+
+`DISP_TAB_T` is the module's bare **tab** — the flat ear that sticks out of the
+bottom. The collar lands at r 28–30, on the module's **front face**, 2.40 mm
+higher up. So the assertion was aimed 2.40 mm below the thing it was protecting,
+and a collar driving 1.77 mm into the screen sailed through it for three
+versions.
+
+`DISP_T = 4.00` was in `params.py` the whole time.
+
+Worse, §1 of the README had reasoned *from the absence of a complaint* that the
+module's rim must be under 2.20 mm — inference from silence, which is the
+weakest evidence there is, and it was wrong.
+
+Fixed properly: the length is **derived**, and the check takes the tip off the
+**built diffuser** rather than recomputing it from the same parameters the part
+was built from.
+
+```
+COLLAR_LEN = DIFF_WALL_CREST − (Z_SEAT + DISP_T + COLLAR_TIP_CLR)
+           = 19.03 − (8.60 + 4.00 + 0.40)  =  6.03      (was 8.20)
+```
+
+Tip at **13.00** against a module face at 12.60: **+0.40 mm clear**, and still
+close enough to restrain the module to 0.40 mm of float. Both directions
+asserted.
+
+A shorter collar has less of itself in the bore, so the grip moves to the ribs —
+which is exactly what Sam allowed for in the same sentence. `COLLAR_RIB_H`
+doubled, 0.05 → **0.10**: 0.20 mm of interference on diameter over six ribs, with
+the wall behind them still 1.18 mm clear on diameter, six times the interference,
+so it is still a crush-rib fit and not a full-surface one. The gauge now prints
+**0.05 / 0.10 / 0.15** to bracket the new default instead of 0.00 / 0.05 / 0.10.
+
+### The triple check
+
+> *"Don't stop until you're triple checked everything for all the parts."*
+
+- **five passes, three bodies, nineteen parts** — all green
+- **the island detector run independently** over every built STL: 0 floating
+  patches in all nineteen
+- **the clamp put back in the assembly** and measured there, per above
+- **the collar tip taken off the built diffuser**, not off params
+
+Three separate assertions in this project have now failed the same way: aimed at
+a surface adjacent to the one that matters. The collar against the tab instead of
+the face. The snap lips off the board's edge instead of the USB-C shell. The
+bridge test against a patch's own boundary instead of against what holds it up.
+That is the pattern to watch for, and it is in the design brief now.

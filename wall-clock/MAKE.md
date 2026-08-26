@@ -36,6 +36,7 @@ All in `enclosure/mini/v2/`, all prefixed `mini-round-clock`.
 | **numerals** (2nd colour) | `-numerals` | `-numerals-32` | `-numerals-60` |
 | **collar gauge** — print this FIRST | `-collar-gauges` — one part, any body | | |
 | **board gauge** — print this FIRST | `-board-gauge` — one part, any body | | |
+| **board clamp** + 2 × M3 × 10 | `-board-clamp` — one part, any body | | |
 | light guides *(optional)* | — | — | `-light-guides-60` |
 | desk stand *(optional)* | `-deskstand` | `-deskstand-32` | `-deskstand-60` |
 
@@ -98,9 +99,9 @@ each marked with its figure in hundredths of a millimetre on top:
 
 | marked | crest | against the 30.19 bore |
 |---|---:|---:|
-| **0** | 30.194 | +0.01 mm on diameter — line to line |
-| **5** | 30.244 | +0.11 mm — what ships |
-| **10** | 30.295 | +0.21 mm — what the last version shipped |
+| **5** | 30.244 | +0.11 mm on diameter |
+| **10** | 30.295 | +0.21 mm — **what ships now** |
+| **15** | 30.345 | +0.31 mm — tighter still |
 
 Push each into the base's screen bore. Whichever wants a firm push and stays put
 is your printer's answer: put its number over 100 into `COLLAR_RIB_H` in
@@ -111,21 +112,22 @@ bore under — try −0.05.
 frame — same rails, same snap fingers, same corner stops, same hood, same posts
 — on a 2.5 mm plate instead of inside a clock. About 15 g, twenty minutes.
 
-Slide the board's antenna end in under the hood first, then lower the connector
-end and press until the two fingers click over it. If it goes in, it goes in the
-housing.
+Drop the board straight in between the rails, press the connector end down
+until the two fingers click over it, then screw the clamp bar on over the far
+end with two M3 × 10 self-tappers. If it goes together on the gauge, it goes
+together in the housing.
 
 If it does not, the plate has a 5 mm scale off the connector end with deeper
-marks at **62.4 / 62.865 / 63.3** — the shortest board the frame takes,
-Espressif's own length, and the longest. That window is only about ±0.5 mm
-wide, which is exactly why this gauge is worth twenty minutes. Read yours off it and put it in
+marks at **60.0 / 63.27 / 64.2** — the shortest board the bay takes, Sam's
+measured length, and the longest. Read yours off it and put it in
 `BOARD_L` in `v2/params.py`, then rebuild. If it is wider than the slot rather
 than longer, raise `BRD_RAIL_CLR`.
 
-Why bother: Espressif's v1.1 dimension DXF says **62.865 × 25.400 × 1.60**, and
-the frame is built around that with room either side. But the vendors selling
-boards called "ESP32-S3-DevKitC-1 N16R8" publish **70 × 28**, **67 × 31** and
-**55 × 35** between them. Sixteen grams settles which one you have.
+Why bother: the bay is built around **63.27 × 28.19**, which is Sam's calipers
+on his own board — 2.79 mm wider than Espressif's DevKitC-1 v1.1 drawing, so it
+is a different board. The vendors selling boards under that name publish
+**70 × 28**, **67 × 31** and **55 × 35** between them. Fifteen grams settles
+which one you have.
 
 **The diffuser press fit is on the INSIDE, on the collar.** The outer wall drops
 into the ring pocket with 0.40 mm of clearance and grips nothing. On the collar,
@@ -249,10 +251,15 @@ Fill in your real entity IDs **before** restarting — the queries are in
 
 1. Ring and display into the base from the front. Press the diffuser in after
    them — it goes in square, then the eight crush ribs bite.
-2. **S3 into the housing**, tilted: slide the +x end under its hook, drop the
-   −x end, and it settles onto its four posts with its own connector facing the
-   22 × 6 mm window at 6 o'clock. There is 37 mm of empty pocket above it, so
-   this is not a fiddle.
+2. **S3 into the housing**, straight down: drop it square between the two
+   rails, connector end toward 6 o'clock and facing the 22 × 6 mm window, then
+   press the connector end down until the two snap fingers click over it —
+   about 3 N each, a firm thumb. It settles onto its six posts.
+2b. **Screw the clamp bar on** over the far end, relieved end pointing back
+   toward 6 o'clock, with **2 × M3 × 10 self-tappers**. Snug, not hard: it is
+   designed to bottom on the board rather than on its own bosses, so it takes
+   up the last 0.10 mm as a light clamp. That is what stops the far end
+   lifting — the snap fingers alone leave a 15:1 lever.
 3. Battery, if you are fitting one: a shelf either side, cell on top of the
    pair. It never rests on the board.
 4. Solder the ring and display leads to the board. They come down through the
@@ -265,6 +272,10 @@ Fill in your real entity IDs **before** restarting — the queries are in
    — or drop it into the desk stand.
 7. Plug a USB lead into the window at the bottom of the rim. On the stand the
    lead runs down into the arch and out the back.
+
+**Screws, all told:** 4 × **M3 × 35** self-tapping (housing to base) and
+2 × **M3 × 10** self-tapping (clamp bar to its bosses). Both are plain
+coarse-thread self-tappers into PLA — 2.50 mm pilots, no inserts, no nuts.
 
 **Nothing to buy for the power inlet.** The ADA4090 breakout in the BOM is
 withdrawn.

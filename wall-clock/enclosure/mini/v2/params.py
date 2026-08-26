@@ -56,7 +56,7 @@ DISP_TAB_T       = 1.6      # bare PCB. Assumes the 10-pin header is desoldered.
 # THE ESP32-S3 DEVKIT — Espressif's own mechanical drawing,
 # DXF_ESP32-S3-DevKitC-1_V1_20210312CB.pdf
 # =============================================================================
-BOARD_L, BOARD_W, BOARD_T = 62.865, 25.40, 1.60
+BOARD_L, BOARD_W, BOARD_T = 63.27, 28.19, 1.60
 BOARD_CLR   = 0.45          # per side, in the pocket
 BOARD_LIFT  = 1.20          # pads under the PCB, so header tails have somewhere to go
 BOARD_TALL  = 3.20          # tallest thing on top (USB-C shell ~3.2, WROOM ~3.1)
@@ -381,14 +381,32 @@ CELL_DEPTH   = 2.00         # walled cell behind the face, unchanged
 # stands proud of the BACK of the face. It was 8.20 mm before v11 and v11 made it
 # 8.83. Expressed this way it no longer moves when FACE_T does, which is how it
 # drifted in the first place.
-COLLAR_LEN    = 8.20         # ring protruding beyond the back of the face
-COLLAR_EXTEND = COLLAR_LEN + FACE_T - DIFF_COLLAR_H          # 2.90
-# If you want it to actually TOUCH the screen, this is the knob and the
-# arithmetic is one to one: every 0.10 on COLLAR_LEN is 0.10 mm of reach. It sits
-# at z=10.83 now; measure your module's rim at r=29 and the number you want is
-#     COLLAR_LEN = 19.03 - (8.60 + that rim thickness)
-# Too long is worse than too short: too short leaves the screen unclamped, too
-# long stops the diffuser seating at all.
+#
+# v14: DERIVED, not chosen. Sam, twice: "the inside is now too long", then "the
+# insides of the diffuser is still too long that touches the screen".
+#
+# It was 8.20, which puts the tip at z = 10.83 -- and the check that was
+# supposed to catch this measured the tip against Z_SEAT + DISP_TAB_T = 10.20,
+# the top of the module's bare TAB. That is the wrong surface. The collar lands
+# at r 28..30, on the module's FRONT FACE, and the module is DISP_T = 4.00 thick
+# on a seat at 8.60, so that face is at 12.60. The collar was driving 1.77 mm
+# into the screen, and it passed, because the ceiling in the assertion was a
+# feature 2.40 mm lower down than the one the collar actually hits.
+#
+# So the tip is now positioned off the module's front face with a stated
+# clearance, and check2 asserts THAT surface:
+#
+#     tip = DIFF_WALL_CREST - COLLAR_LEN            (the arithmetic is exact)
+#
+# Too long is much worse than too short: too short leaves the screen a little
+# loose, too long holds the whole diffuser off its land and the clock sits
+# proud. At 0.40 mm of clearance the tip still restrains the module to 0.40 mm,
+# and it clears a module up to 4.40 thick rather than the 2.23 that 8.20 allowed.
+COLLAR_TIP_CLR = 0.40        # tip to the module's front face
+COLLAR_TIP_Z   = Z_SEAT + DISP_T + COLLAR_TIP_CLR            # 13.00
+COLLAR_LEN     = DIFF_WALL_CREST - COLLAR_TIP_Z              # 6.03
+COLLAR_EXTEND  = COLLAR_LEN + FACE_T - DIFF_COLLAR_H         # 0.73
+# If your module is thicker than DISP_T, change DISP_T -- not this.
 APER_FLARE   = 0.80         # the aperture opens out this much on every side
                             # behind the membrane, so the viewing angle survives
 
@@ -637,13 +655,26 @@ BOARD_CLEAR_CON = BOARD_PAD_X0 - BOARD_PAD_OD/2                        # 7.11
 BOARD_CLEAR_ANT_L = BOARD_L - BOARD_MOD_END                            # 7.535
 BOARD_CLEAR_ANT_Y = BOARD_PAD_ROW/2 - BOARD_PAD_OD/2                   # 10.58
 
-# What the frame is built to swallow. The DXF is one board; Sam's is bought as
-# an "ESP32-S3-DevKitC-1 N16R8" and the sellers' dimensions contradict each
-# other flatly (70x28, 67x31, 55x35 -- all published, all different). The 0.900
-# in pad rows are the one thing every DevKitC-1-shaped board must keep, and
-# they force the width, so the width is trusted and the LENGTH is given room.
-BOARD_L_MIN, BOARD_L_MAX = 62.40, 63.30
-BOARD_W_MAX = 25.70
+# What the frame is built to swallow.
+#
+# v14: BOARD_L and BOARD_W are now SAM'S CALIPERS -- 63.27 x 28.19 -- and not
+# Espressif's drawing. His board is 2.79 mm WIDER than the DevKitC-1 v1.1
+# outline, so it is a different board, and every vendor number for a part called
+# "ESP32-S3-DevKitC-1 N16R8" was already contradicting every other one. A
+# measurement beats all of them.
+#
+# The DXF is still the source for everything the calipers cannot reach -- where
+# the pad rows are, how far the USB shells stand out, where the module ends --
+# because those are the things the retention has to dodge, and one real drawing
+# of a board of this family is better evidence than nothing. But NOTHING in the
+# frame now depends on the pad row spacing: the snap lips land in the first
+# 5 mm, before any copper whatever the pitch, and the clamp lands between the
+# rows at |y| <= 9.80, inboard of any row a 0.9 in or wider board could have.
+#
+# The length window is wide now because the clamp is a SCREW. A screwed bar does
+# not care how long the board is; it only has to land on it.
+BOARD_L_MIN, BOARD_L_MAX = 60.00, 64.20
+BOARD_W_MAX = 28.40
 
 # The two numbers that made v9's mount unbuildable. An FDM slot comes out
 # NARROWER than drawn and an FDM boss comes out FATTER, and a nominal clearance
@@ -688,7 +719,7 @@ BRD_RAIL_CLR  = 0.40         # per side. The rails touch only the board's 1.6 mm
                              # fillets are irrelevant to them.
 BRD_RAIL_Y    = BOARD_W/2 + BRD_RAIL_CLR                    # 13.10
 BRD_RAIL_T    = 2.00
-BRD_END_CLR   = 1.00         # board's antenna end to the end wall. Was 0.30,
+BRD_END_CLR   = 1.50         # board's antenna end to the end wall. Was 0.30,
                              # which printed as 0.00 .. 0.20 -- the second
                              # reason nothing would go in. At 1.00 the worst
                              # printed slot is 63.47, which still clears the
@@ -696,7 +727,7 @@ BRD_END_CLR   = 1.00         # board's antenna end to the end wall. Was 0.30,
                              # x. It cannot be more generous than that: every
                              # millimetre of end clearance is a millimetre the
                              # hood's ledge has to give back, and the ledge can
-                             # only reach BRD_HOOD_L before it stops printing.
+                             # only reach so far before it stops printing.
 BRD_SHIFT_Y   = BRD_RAIL_CLR # worst the board can sit off centre, either way
 BRD_LIP_CLR   = 0.20         # over the board's top face
 BRD_LIP_Z0    = BRD_POST_H + BOARD_T + BRD_LIP_CLR          # 5.80
@@ -723,10 +754,10 @@ BRD_RAIL_TOP  = BRD_LIP_Z0 + BRD_LIP_T                      # 7.40
 # off centre, so anything closer in than 11.21 lands on a connector instead of
 # on the board. 11.50 clears the worst case by 0.29 and still catches 0.80 mm
 # of board edge with the board shifted the other way.
-BRD_FING_L     = 20.00       # root to tip
+BRD_FING_L     = 22.00       # root to tip
 BRD_FING_T     = 1.50        # thickness in the flexing direction
 BRD_FING_X0    = 1.00        # tip, measured from the board's connector end
-BRD_FING_YI    = 11.50       # the lip's inner face, as an absolute |y|
+BRD_FING_YI    = BOARD_W/2 - 1.60     # the lip's inner face, as an absolute |y|
 BRD_FING_OVER  = BRD_RAIL_Y - BRD_FING_YI                   # 1.60, derived
 BRD_FING_GAP   = 2.00        # slot behind it, so it has somewhere to flex to
 BRD_FING_LIP_L = 4.00        # length of the lip at the tip
@@ -734,41 +765,50 @@ BRD_FING_BURY  = 0.60        # lip buried into the finger rather than butted
 BRD_FING_DEFL  = BOARD_W/2 + BRD_SHIFT_Y - BRD_FING_YI      # 1.60, what it flexes
 BRD_FING_STRAIN = 1.5 * BRD_FING_DEFL * BRD_FING_T / BRD_FING_L**2      # 0.0090
 BRD_FING_EMAX  = 0.015       # PLA's working limit. PETG is roughly twice this.
-BRD_STOP_RI    = 11.50       # corner stops at the connector end: they butt the
+BRD_STOP_RI    = 11.80       # corner stops at the connector end: they butt the
                              # board's end face in the strips outboard of the USB
                              # shells (|y| 10.81) and clear the USB window
                              # (|y| 11.00) by 0.50 mm. Without them the board can
                              # walk toward the wall when a plug is pulled out,
                              # and jam in its own window.
 
-# --- the antenna-end hood ----------------------------------------------------
-# v9 left the antenna end unclamped, on the argument that a board held down at
-# one end cannot lift at the other. That argument is wrong: the connector-end
-# lips have BRD_LIP_CLR of slack over a 4.00 mm base, and 62.865/4.00 is a
-# 15.7:1 lever, so 0.20 mm of slack at the lips is 3.1 mm of lift at the far
-# end. It rattles. So the far end gets a hood.
+# --- the antenna-end clamp ---------------------------------------------------
+# Sam: "add a way to screw it down to fasten it."
 #
-# v13a: the hood was first drawn as a WEDGE with a 47 degree underside climbing
-# away from the wall, so that its lowest point was a land out over the board and
-# the board could drop straight in. That shape is 47 degrees and still
-# unprintable, and Sam caught it: the ramp climbed the wrong way, so the hood's
-# first layer was a 31 mm2 island 5.80 mm up in mid-air with nothing under it.
-# A 45 degree face is only self-supporting when the material it grows from is
-# BELOW it. check3 now measures exactly that, layer by layer.
+# That request solves three problems at once, which is why it gets the whole
+# antenna end rather than being bolted onto what was there.
 #
-# What it is instead is the same shape as the snap lips, which do print: a FLAT
-# ledge hanging off the end wall, its underside at BRD_LIP_Z0, reaching back
-# over the board. Every layer above it is carried by the one below and the only
-# unsupported thing in it is that first BRD_HOOD_L of ledge -- 0.40 mm more than
-# each snap lip already asks for.
+# v9 left the far end unclamped, arguing that a board held at one end cannot
+# lift at the other. Wrong: the lips have BRD_LIP_CLR of slack over a 4.00 mm
+# base and the board is 63 mm long, so 0.20 mm at the lips is 3.1 mm of lift at
+# the far end. v13 answered that with a moulded hood, and got it wrong twice --
+# first as a 47 degree wedge whose ramp climbed away from its wall, so its first
+# layer was an island in mid-air; then as a flat 2.00 mm ledge, which prints,
+# but which cannot be dropped past and which had to buy its reach out of the end
+# clearance, so the board length window closed to +/-0.5 mm.
 #
-# The price is the assembly move. A flat ledge cannot be dropped past, so the
-# board goes in antenna-end first: slide it under the hood, then press the
-# connector end down past the two fingers. And the reach has to be paid for out
-# of BRD_END_CLR, so the length envelope is narrower than the wedge promised --
-# 62.4 to 63.3 rather than 61.3 to 64.0. That is what the board gauge is for.
-BRD_HOOD_L     = 2.00        # the ledge's flat reach back over the board
-BRD_HOOD_Y     = 9.80        # |y| it spans -- inside the pad rows, worst shift
+# A SCREWED BAR has none of those problems. It goes on after the board, so
+# nothing overhangs and nothing has to be slid under anything; it is a separate
+# flat part, so it prints face-down with no support at all; and it does not care
+# how long the board is, so the window reopens to BOARD_L_MIN..BOARD_L_MAX.
+#
+# It presses the last few millimetres of the board BETWEEN the pad rows, at
+# |y| <= BRD_CLAMP_Y, and both its screws land BEYOND the board's end -- so it
+# never crosses a pad row at any height, and headers may be fitted either way
+# up or left off entirely.
+BRD_CLAMP_PAD0 = 59.00       # from the connector end: where the pad starts to press
+BRD_CLAMP_Y    = 9.80        # |y| of the pad -- inboard of any 0.9 in pad row
+BRD_CLAMP_T    = 3.00        # the bar's thickness
+BRD_CLAMP_W    = 10.00       # and its half width, so it clears the rows entirely
+BRD_CLAMP_RLF  = 1.50        # relief on its underside, everywhere but the pad
+# the seat sits 0.10 BELOW the board's top face, so tightening the screws puts
+# the bar onto the board and not onto its own bosses -- a real clamp, and only
+# 0.10 mm of flex in a 3.00 mm bar, which is a few newtons and cannot crack FR4
+BRD_CLAMP_SEAT = BRD_POST_H + BOARD_T - 0.10                # 5.50
+BRD_CLAMP_SX   = 20.00       # screw centres, in x. Beyond the longest board.
+BRD_CLAMP_SY   = 6.50        # and in |y|, so the bar stays inboard of the rows
+BRD_CLAMP_BOSS = 6.50        # boss OD
+BRD_CLAMP_DEEP = 8.50        # pilot depth, into a plate that is 3.50 thick
 
 # the window the power lead comes in through, at 6 o'clock. 22 x 6 because
 # which connector the board carries is still not a settled fact -- Espressif's
@@ -815,7 +855,15 @@ R_DISP_BORE     = 30.19      # MEASURED across the flats, not the param radius
 COLLAR_OD       = 29.60      # was Sam's 30.108, then 29.90
 COLLAR_RIB_N    = 6
 COLLAR_RIB_W    = 1.00       # tangential. Narrower crushes more easily than wide
-COLLAR_RIB_H    = 0.05       # radial interference -> 0.10 mm on diameter
+COLLAR_RIB_H    = 0.10       # radial interference -> 0.20 mm on diameter.
+                             # v14: doubled. Sam, on the same message that asked
+                             # for a shorter collar: "it can be a tight fit for
+                             # that inside part". A shorter collar has less of
+                             # itself in the bore, so the grip has to come from
+                             # the ribs, and this is where it comes from. Still
+                             # inside the ratio check3 asserts: the wall behind
+                             # the ribs has 0.59 mm of clearance against 4 x 0.10
+                             # of interference.
 COLLAR_RIB_Z0   = 3.00       # in the diffuser's frame
 COLLAR_RIB_Z1   = 8.00
 COLLAR_RIB_LEAD = 2.00       # taper at the end that enters the bore first, which
@@ -849,7 +897,8 @@ GUIDE_LED_CLR   = 0.40       # 60-LED only. Its band comes right down to the gui
 # on a five-minute print instead of a whole diffuser. Each carries its own
 # hundredths-of-a-mm number debossed on the top.
 GAUGE_H         = 8.00       # tall enough to feel the fit, short enough to be quick
-GAUGE_HS        = (0.00, 0.05, 0.10)     # radial rib heights to try
+GAUGE_HS        = (0.05, 0.10, 0.15)     # radial rib heights to try,
+                                         # bracketing the new 0.10 default
 GAUGE_PITCH     = 68.00      # centres on the plate
 GAUGE_NUM_H     = 4.00       # the number on top of each
 DIFF_SEAT_CLR   = 0.20       # air between the 32/60 pocket fill and the underside

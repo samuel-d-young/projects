@@ -1,4 +1,4 @@
-# mini-round-clock enclosure — v12
+# mini-round-clock enclosure — v14
 
 Built on top of the base and diffuser Sam remodelled. Three clock sizes: the
 **24-LED** body at 107.99 mm, which is his; a **32-LED** body at 119.85 mm,
@@ -31,6 +31,7 @@ Pick a body. Everything in one column goes together; nothing crosses over.
 | **numerals** (2nd colour, §9) | `-numerals` | `-numerals-32` | `-numerals-60` |
 | **collar gauge** — print FIRST, §2 | `-collar-gauges` — one part, any body | | |
 | **board gauge** — print FIRST, §2 | `-board-gauge` — one part, any body | | |
+| **board clamp** + 2 × M3 × 10, §2 | `-board-clamp` — one part, any body | | |
 | light guides *(optional)* | — | — | `-light-guides-60`, or cut perspex — §7 |
 | desk stand *(optional)* | `-deskstand` | `-deskstand-32` | `-deskstand-60` (a very big print) |
 
@@ -44,7 +45,8 @@ Every filename is prefixed `mini-round-clock`.
 | numerals | *not printed alone* — see §9 | none | 0.07 / 0.10 / 0.21 cm³ |
 | desk stand | flat on its desk face | none | 219 / 264 / 1003 cm³ |
 | light guides | flat, **clear or natural PETG** | none | — / — / 31 cm³ |
-| board gauge | plate down | none | 12 cm³, any body |
+| board gauge | plate down | none | 13 cm³, any body |
+| board clamp | **top face down** | none | 0.8 cm³, any body |
 
 **Those are solid volumes, not filament.** The stand is a big blocky part —
 print it at 8–10% infill with 3 walls and it lands around 60–80 g. Mass is not a
@@ -77,22 +79,25 @@ It sits precisely in the window the display tab has to pass through. Sliced
 as-is, it prints as an extra crescent of plastic exactly where the display goes.
 `build_v2.py` drops it and says so when it runs.
 
-### The module's rim is thinner than 4 mm — and you told me so without meaning to
+### The module's rim — a conclusion that was wrong, twice over
 
-An earlier version of this file said the diffuser's collar over-reaches the
-module by 1.8 mm. **That was wrong, and the way it came apart is worth keeping.**
+**This section used to argue that the module's rim is under 2.20 mm.** The
+argument ran: the collar lands at z = 10.80, the seat is at 8.60, so a collar
+that is not touching means a rim under 2.20 — and Sam had reported the screen
+*loose* rather than the diffuser standing proud.
 
-The collar (r 27.92–30.11, 8.2 tall) lands at base z = 19.00 − 8.20 = **10.80**.
-The display seat is at **8.60**. So the collar clamps a module whose rim is
-exactly 2.20 mm thick, and it fouls anything thicker. On a 4 mm module the
-diffuser would stand 1.8 mm proud and the plywood would not sit down.
+He has since reported the opposite: *"the insides of the diffuser is still too
+long that touches the screen."* So the rim is **over** 2.20, and the reasoning
+above was inference from an absence, which is the weakest evidence there is.
 
-You have printed and test-fitted these and reported the screen **loose** — not
-the diffuser standing proud. So the collar is not touching, and **the module's
-rim is under 2.20 mm.** The 4 mm figure is the module overall, not the rim the
-collar actually lands on. That retires the interference finding.
+Worse, it did not need inferring. `DISP_T` = **4.00** is the module's overall
+thickness and it was in `params.py` the whole time; on a seat at 8.60 that puts
+its front face at **12.60**. The collar at 10.83 was 1.77 mm inside it. The
+assertion that should have caught that compared the tip against the module's
+bare *tab* instead — see §7.
 
-See §7 for what that means for the new collar height.
+The collar's length is derived off `Z_SEAT + DISP_T` now, so this cannot drift
+again. If your module is thicker than 4.00, change `DISP_T`.
 
 ### The wire slot goes right through
 
@@ -249,27 +254,46 @@ a collar that touches the module **first** holds the whole diffuser off that lan
 and the clock sits proud — which is another of the ways this has felt tight.
 **Too long is worse than too short.**
 
-It is back to exactly what it was, expressed as the thing you can actually put
-calipers on:
+**v14: it is derived now, not chosen.** Sam, twice — *"the inside is now too
+long"*, then *"the insides of the diffuser is still too long that touches the
+screen"*. Both times a number was picked and both times it was too big, so it
+stopped being a number:
 
 ```
-COLLAR_LEN = 8.20        the ring, standing proud of the BACK of the face
-                         (8.20 before v11, 8.83 in v11)
-COLLAR_EXTEND = COLLAR_LEN + FACE_T − DIFF_COLLAR_H = 2.90
+tip        = DIFF_WALL_CREST − COLLAR_LEN            exact, by construction
+COLLAR_LEN = DIFF_WALL_CREST − (Z_SEAT + DISP_T + COLLAR_TIP_CLR)
+           = 19.03 − (8.60 + 4.00 + 0.40)
+           = 6.03                                    was 8.20
 ```
 
-Expressed that way it no longer moves when `FACE_T` does, which is how it
-drifted in the first place. The tip is back at z = 10.83.
+**And the check that was meant to catch this was measuring the wrong surface.**
+It compared the tip against `Z_SEAT + DISP_TAB_T` = **10.20** — the top of the
+module's bare *tab*. The collar does not land there. It lands at r 28–30, on the
+module's **front face**, and the module is `DISP_T` = 4.00 thick on a seat at
+8.60, so that face is at **12.60**. The collar was 1.77 mm inside the screen and
+the assertion passed, because the ceiling in it was a feature 2.40 mm lower down
+than the one the collar actually hits.
 
-**If you want it to actually touch the screen**, `COLLAR_LEN` is the knob and it
-is one-for-one: every 0.10 on it is 0.10 mm of reach. Measure your module's rim
-at the r = 29 circle and the number you want is
+| | tip at | module face | |
+|---|---:|---:|---|
+| v13 | 10.83 | 12.60 | **1.77 mm into the screen** |
+| v14 | 13.00 | 12.60 | **+0.40 mm clear** |
 
-```
-COLLAR_LEN = 19.03 − (8.60 + that rim thickness)
-```
+0.40 mm is deliberate rather than generous: it clears, and it still restrains the
+module to 0.40 mm of float. `check2` now takes the tip off the **built diffuser**
+and compares it to `Z_SEAT + DISP_T`, and asserts both directions — clear of the
+screen, and within 1.00 mm of it.
 
-Send me that measurement and I will set it exactly rather than bracketing it.
+**A shorter collar has less of itself in the bore, so the grip moves to the
+ribs**, which is what Sam allowed for in the same message: *"it can be a tight
+fit for that inside part."* `COLLAR_RIB_H` is doubled, 0.05 → **0.10** — 0.20 mm
+of interference on diameter over six 1.00 mm ribs. The wall behind them still has
+1.18 mm of clearance on diameter, six times the interference, so it is still a
+crush-rib fit and not a full-surface one. The gauge now prints **0.05 / 0.10 /
+0.15** to bracket it.
+
+**If your module is thicker than 4.00 mm, change `DISP_T` — not `COLLAR_LEN`.**
+Everything downstream follows.
 
 ### The face is thicker, and only the aperture is thin
 
@@ -479,9 +503,9 @@ v9 halves the depth again, at his word: *"The housing can be 25mm deep, not
 ```
 housing            25.00 mm deep, 21.50 mm of clear pocket   (was 50.00 / 46.50)
 clock overall      49.40 mm  (22.00 base + 2.40 deck + 25.00 housing)
-board              62.865 x 25.400, on 4.00 mm posts off the pocket floor
+board              63.27 x 28.19 MEASURED, on 4.00 mm posts off the pocket floor
                    x -48.50 .. +14.37; board and frame top out at 7.40
-                   (the frame takes 62.4-63.3 long, up to 25.7 wide)
+                   (the bay takes 60.0-64.2 long, up to 28.4 wide)
 still free         14.10 mm for the display's ribbon and the ring's leads
 battery            DOES NOT FIT ANY MORE -- see below
 ```
@@ -529,35 +553,33 @@ dimensions for it."* Both halves of that turned out to matter, but not equally.
 
 #### First: the dimensions
 
-Espressif publish a DXF for the DevKitC-1 v1.1. This build now **parses that
-file** rather than reading numbers off a picture of it, and it says:
+**Sam measured his board: 63.27 × 28.19.** That is **2.79 mm wider** than
+Espressif's DevKitC-1 v1.1 outline, so it is not that board — and every vendor
+figure for a part sold under that name was already contradicting every other
+one (70 × 28, 67 × 31, 55 × 35, all published as fact). `BOARD_L` and `BOARD_W`
+are his calipers now. A measurement beats all of them.
+
+Espressif's DXF is still the source for everything calipers cannot reach,
+because the retention has to dodge those features and one real drawing of a
+board in this family is better evidence than none:
 
 | | | |
 |---|---:|---|
-| board outline | **62.865 × 25.400 × 1.60** | 0.5 mm corner radii |
 | pad rows | 22 a side, 2.54 pitch, **22.86 mm apart** | that is 0.900 in, exactly |
-| first / last pad | 7.960 and 61.300 from the connector end | 7.96 + 53.34 + 1.565 = 62.865 |
-| USB shells | two, **9.40 wide**, reaching \|y\| **10.81** | occupying the first 8.65 mm |
-| WROOM module | ends **55.33** from the connector end | |
+| first / last pad | 7.960 and 61.300 from the connector end | |
+| USB shells | two, **9.40 wide**, reaching \|y\| **10.81** | first 8.65 mm of the board |
+| WROOM module | ends **55.33** from the connector end | leaving the top face bare after that |
 | mounting holes | **none** | the only holes are the connectors' shell tabs |
 
-Two of those corrected the previous reading: the board is **62.865 long, not
-62.74**, and the USB shells reach **10.81, not 10.54**. The shell tabs are
-7.15 mm apart, which is the standard 16-pin **USB-C** receptacle footprint — so
-the long-open question of whether these boards carry Micro-USB or Type-C is
-settled for this drawing: **two USB-C**.
+The shell tabs are 7.15 mm apart, which is the standard 16-pin **USB-C**
+receptacle footprint — so that drawing's board carries two USB-C, whatever its
+own user-guide text says.
 
-It also turned up a fact the earlier reading had missed completely, and it is
-the one the fix hangs on: **between the pad rows, the board's top is bare for
-the last 7.53 mm** — a 7.53 × 21.16 mm patch behind the module, clear whether or
-not headers are soldered on, and pointing either way.
-
-What the *sellers* say is another matter. Boards sold as
-"ESP32-S3-DevKitC-1 N16R8" are published at 70 × 28, 67 × 31 and 55 × 35 by
-different vendors — all confidently, all different. The 0.900 in pad rows are
-the one thing every DevKitC-1-shaped board has to keep, and they force the
-width; so the frame **trusts the width and gives the length room**, and takes
-anything **62.4–63.3 long and up to 25.7 wide**.
+**But nothing in the frame depends on any of it being true of Sam's board.** The
+snap lips land in the first 5 mm, before any copper whatever the pitch. The
+clamp lands at \|y\| ≤ 9.80, inboard of any row a 0.9 in or wider board could
+have. The posts sit at \|y\| = 6.50. Change the pad pitch, move the module,
+widen the connectors — none of it reaches these features.
 
 #### Second: why it did not fit, which was not the dimensions
 
@@ -567,6 +589,8 @@ clear of its end. Both read as clearances. Neither is one:
 ```
 rail slot     25.60 drawn  ->  25.20 .. 25.50 printed   board 25.40  -> INTERFERENCE
 end to end    63.04 drawn  ->  62.64 .. 62.94 printed   board 62.87  -> INTERFERENCE
+
+(and the board was 28.19 wide all along, so it was never going to go in)
 ```
 
 An FDM slot comes off the plate up to 0.40 mm narrower than drawn. A nominal
@@ -576,8 +600,8 @@ cure: size every clearance off the *worst printed* case, and have `check2`
 assert that rather than trusting the drawing.
 
 ```
-rail slot     26.20 drawn  ->  25.80 .. 26.20 printed   0.40 .. 0.80 clear
-end to end    63.87 drawn  ->  63.47 .. 63.87 printed   0.60 .. 1.00 clear
+rail slot     28.99 drawn  ->  28.59 .. 28.99 printed   0.40 .. 0.80 clear
+end to end    64.77 drawn  ->  64.37 .. 64.77 printed   1.10 .. 1.50 clear
 ```
 
 #### What stops it now
@@ -585,11 +609,11 @@ end to end    63.87 drawn  ->  63.47 .. 63.87 printed   0.60 .. 1.00 clear
 | | what stops it | |
 |---|---|---:|
 | sideways | two **rails**, touching only the board's 1.60 mm edge | 0.80–1.20 mm total, deliberately |
-| along, +x | an **end wall** — the plug's insertion load goes here | 0.60–0.90 mm |
+| along, +x | an **end wall** — the plug's insertion load goes here | 1.10–1.50 mm |
 | along, −x | two **corner stops** against the board's end face | the datum |
 | down | three pairs of **posts** at \|y\| = 6.50 | — |
 | up, connector end | two **snap fingers** | 0.20 mm |
-| up, antenna end | a **hood** | 0.20 mm |
+| up, antenna end | a **screwed clamp bar** | clamped |
 
 The rails no longer pretend to locate the board. They are a guide; 1.20 mm of
 sideways slop is fine, because nothing downstream needs better — the USB window
@@ -602,70 +626,67 @@ a shell on a board sitting 0.40 mm off centre, and still catches 0.80 mm of
 board edge with the board sitting 0.40 mm the other way. Both of those are
 asserted.
 
-**The hood is new, and v9's argument for not having one was wrong.** v9 said a
-board held down at one end cannot lift at the other. But the lips have 0.20 mm
-of slack over a 4.00 mm base, and 62.865/4.00 is a 15.7:1 lever — so 0.20 mm at
-the lips is **3.1 mm of lift** at the far end. It rattled.
+**The antenna end is screwed down.** Sam: *"add a way to screw it down to
+fasten it."* That request solved three problems at once, which is why it got the
+whole antenna end rather than being bolted onto what was there.
 
-So the antenna end gets a hood: a **flat 2.00 mm ledge** hanging off the end
-wall, underside 0.20 mm over the board, landing at \|y\| ≤ 9.80 on that bare
-7.53 × 21.16 mm patch — 0.38 mm clear of the pad rows even with the board
-sitting as far over as the rails let it.
+v9 left the far end unclamped, arguing that a board held at one end cannot lift
+at the other. Wrong: the lips have 0.20 mm of slack over a 4.00 mm base, and on
+a 63 mm board that is a **15:1 lever and 3.1 mm of lift**. v13 answered it with
+a moulded hood and got it wrong twice — first as a 47° wedge whose ramp climbed
+*away* from its wall, so its first layer was a 31 mm² island in mid-air; then as
+a flat 2.00 mm ledge, which prints, but which cannot be dropped past and which
+had to buy its reach out of the end clearance, closing the length window to
+±0.5 mm.
 
-It was drawn once as something cleverer and it did not print. Sam caught it:
+**A screwed bar has none of those problems.** It goes on after the board, so
+nothing overhangs and there is no assembly move. It is a separate flat part, so
+it prints face-down with no support. And it does not care how long the board is
+— it only has to land on it, which is why the window reopened to **60.0–64.2**.
 
-> *"Remember the constraints of 3d printing when creating 3d files. The board
-> gauge has overhangs that can[']t be printed."*
+`mini-round-clock-board-clamp` — 1 g, and **2 × M3 × 10 self-tappers**:
 
-The first hood was a **wedge** with a 47° underside climbing away from the wall,
-so that its lowest point was a land out over the board and the board could drop
-straight past it. 47° is steeper than the 45° rule and it is still unprintable,
-because **a sloped face is only self-supporting when the material it grows from
-is BELOW it** — that ramp climbed the wrong way, so the hood's first layer was a
-**31 mm² island 5.80 mm up in mid-air**. Both the slope test and the bridge test
-passed it, because neither asks whether the layer that starts there is standing
-on anything. `check3` asks that now, layer by layer, on every part.
+| | |
+|---|---|
+| presses | from 59 mm along the board, at \|y\| ≤ 9.80 — **between the pad rows** |
+| screws | at 65.25 mm along, **beyond the longest board the bay takes** |
+| so | nothing crosses a pad row at any height, either way up, headers or none |
+| seat | 5.50, which is 0.10 **below** the board's top face |
 
-A flat ledge has no such problem: it is the same shape as the two snap lips,
-which is the point. Every layer above it is carried by the one below, and the
-only unsupported thing in it is that first 2.00 mm of ledge — 0.40 mm more than
-each snap lip already asks for.
-
-**Two things are the price of that, and both are real.** A flat ledge cannot be
-dropped past, so the board goes in antenna-end first. And the reach has to come
-out of the end clearance, so the length window is **62.4–63.3 mm** rather than
-the 61.3–64.0 the wedge promised. Espressif's drawing says 62.865, which sits
-nicely in the middle of that — but it is ±0.5 mm, so **print the board gauge**.
+That last row is the whole trick. The bar bottoms on the **board**, not on its
+own bosses, so tightening it actually clamps — 0.10 mm of flex in a 3 mm PLA bar
+is a few newtons, which cannot crack FR4 and takes up any board from 1.50 to
+1.70 thick. Its underside is relieved 1.50 mm everywhere short of the pad, so it
+cannot come down on the WROOM module however far back that ends.
 
 **It works with or without headers soldered on, pointing either way.** The rails
 only ever touch the board's edge; the posts sit at \|y\| = 6.50 with 4.00 mm of
 space under the board for tails; the lips land 1–5 mm along the connector end,
-before any copper; and the hood lands between the pad rows.
+before any copper; and the clamp lands between the pad rows and screws down beyond the board's end.
 
 #### Fitting it, and getting it out again
 
-1. Hold the board nearly flat and slide its **antenna end** in under the hood,
-   until its end face touches the end wall.
-2. Lower the connector end. At 6° of tilt it clears the fingers entirely, and
-   the last few millimetres press them outward — about 3 N each — until they
-   click over the connector end's clear strips.
-3. Push the board back toward 6 o'clock until its end face meets the corner
-   stops. It travels 0.6–0.9 mm, and the hood keeps ≥ 1.00 mm of the antenna
-   end covered the whole time.
+1. Drop the board straight down between the rails, square, connector end first.
+2. Press it down. The two fingers cam outward — about 3 N each — and click over
+   the connector end's clear strips.
+3. Lay the clamp bar over the antenna end, relieved end toward 6 o'clock, and
+   run in the two M3 × 10 self-tappers. Snug, not hard: it bottoms on the board
+   by design.
 
-To get it out: push both fingers outward — a fingernail or a small screwdriver
-on each — lift the connector end, then draw the board back out from under the
-hood. The lips' retaining faces are horizontal, so nothing lets go on its
+To get it out: take the two screws out, lift the bar off, push both fingers
+outward — a fingernail or a small screwdriver on each — and lift the connector
+end. The lips' retaining faces are horizontal, so nothing lets go on its
 own, which is the point.
 
 #### If you are not sure your board is the one in the drawing
 
 Print **`mini-round-clock-board-gauge`** first. It is this exact frame — same
-rails, same fingers, same stops, same hood, same posts — on a 2.5 mm plate
-instead of inside a clock. About **15 g and twenty minutes**. Slide its antenna end
-under the hood, then press the connector end down; if it clicks into that, it
-clicks into the housing. the plate carries a 5 mm scale off
-the connector end and deeper marks at 62.4 / 62.865 / 63.3, so if it does not,
+rails, same fingers, same stops, same posts, same clamp bosses — on a 2.5 mm
+plate
+instead of inside a clock. About **15 g and twenty minutes**. Drop the board in, press it down until
+the fingers click, and screw the clamp bar on; if it goes together on that, it
+goes together in the housing. the plate carries a 5 mm scale off
+the connector end and deeper marks at 60.0 / 63.27 / 64.2, so if it does not,
 you can read the length straight off it and `BOARD_L` is the one number to
 change.
 
@@ -705,8 +726,8 @@ off at a layer line. Nothing here is built that way.
 
 The only overhangs in the whole frame are the two lips, each a 1.60 mm ledge
 whose upper face is a 45° lead-in ramp rather than a flat roof — so pressing the
-board down wedges the fingers open, and there is nothing to bridge. The hood's
-underside is a 47° ramp for the same reason.
+board down wedges the fingers open, and there is nothing to bridge. Nothing
+else in the frame overhangs at all now — the clamp is a separate part.
 
 That ramp is also why `check3` learned something in v13. Its thin-wall probe
 shoots along the surface **normal**, which is right for a wall and wrong for a

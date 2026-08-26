@@ -48,9 +48,9 @@ It exists in **three sizes**, all from the same code, differing only by a
 | clock diameter | 107.99 | 119.85 | **240.00** |
 | light guides | — | — | perspex strips, so each LED reads 30 mm long |
 
-Five printed parts per clock: **base**, **housing**, **diffuser**, **numerals**
-(second filament), **desk stand** (optional). Plus a **collar fit gauge** that is
-not part of the clock.
+Six printed parts per clock: **base**, **housing**, **diffuser**, **numerals**
+(second filament), **board clamp** (+ 2 x M3 x 10), **desk stand** (optional).
+Plus two **fit gauges** that are not part of the clock.
 
 ---
 
@@ -93,9 +93,14 @@ Two hard ceilings, both asserted by `check2` §9:
 
 1. `DIFF_SEAT_Z ≤ Z_FRONT` — the face lives in a 2.97 mm recess between the land
    at 19.03 and the front at 22.00. `FACE_T` cannot exceed 2.97.
-2. The collar tip must not reach past the display module's face. **Too long is
-   worse than too short**: a collar that touches the module first holds the whole
-   diffuser off its land and the clock sits proud.
+2. The collar tip must not reach past the display module's face — which is at
+   `Z_SEAT + DISP_T` = **12.60**, not at `Z_SEAT + DISP_TAB_T` = 10.20. The tab
+   is the flat ear that sticks out of the module; the collar lands at r 28..30,
+   on the module's front face, 2.40 mm higher. `check2` asserted against the tab
+   for three versions and passed a collar that was 1.77 mm inside the screen.
+   `COLLAR_LEN` is derived off `DISP_T` now. **Too long is worse than too
+   short**: a collar that touches the module first holds the whole diffuser off
+   its land and the clock sits proud.
 
 ---
 
@@ -156,6 +161,12 @@ Two hard ceilings, both asserted by `check2` §9:
 
 ### Measuring
 
+- **Assert against the surface the part actually touches.** Two separate
+  failures now: the collar checked against the module's TAB when it lands on the
+  module's FACE, and the S3's snap lips positioned off the board's EDGE when
+  what limits them is the USB-C shell. If a feature has a real constraint,
+  measure against the constraint, not against something adjacent that happens to
+  be easy to name.
 - **A fit measured against one part of an assembly is not a fit measurement.**
   The worst bug in this project came from bisecting the diffuser's resting
   position against a *bare* base — no LED ring, no display module — so the crush
@@ -179,6 +190,17 @@ Two hard ceilings, both asserted by `check2` §9:
 - **The typeface is Liberation Sans Bold, not Amazon Ember.** Ember is Amazon's
   proprietary brand face and is not installable — checked, not assumed.
   `NUM_FONT_FILE` is the one-line swap.
+- **The board is 63.27 x 28.19 — Sam's calipers, not a datasheet.** It is 2.79
+  mm wider than Espressif's DevKitC-1 v1.1 outline, so it is not that board, and
+  the vendors publish 70x28, 67x31 and 55x35 for the same part number. Nothing
+  in the frame depends on the pad row spacing: the snap lips land in the first
+  5 mm before any copper, the clamp lands at |y| <= 9.80 inboard of any row, the
+  posts at |y| = 6.50.
+- **The antenna end is held by a SCREWED BAR, not by anything moulded.** That is
+  what makes the length window 60.0-64.2 instead of +/-0.5 mm: a screwed bar
+  goes on after the board, so nothing overhangs, there is no assembly move, and
+  it does not care how long the board is. Two M3 x 10 self-tappers, both landing
+  beyond the longest board the bay takes.
 - **The ESP32-S3-DevKitC-1 has NO mounting holes**, and every number about it
   here comes from **parsing Espressif's v1.1 DXF**, not from reading a picture
   of it or a vendor listing. `62.865 × 25.400 × 1.60`; pad rows 22 a side at
@@ -191,8 +213,7 @@ Two hard ceilings, both asserted by `check2` §9:
 - **Vendor dimensions for this board are worthless.** The same part is published
   as 70 × 28, 67 × 31 and 55 × 35 by different sellers. The 0.900 in pad rows
   force the width, so the width is trusted; the length is not, and the frame
-  takes **62.4–63.3**, a window only about ±0.5 mm wide.
-  `mini-round-clock-board-gauge` settles it in 15 g.
+  takes **60.0–64.2**. `mini-round-clock-board-gauge` settles it in 15 g.
 - **Sam's own meshes are inputs, not outputs.** `base_in.stl` and
   `diffuser_in.stl` are his; the build keeps his geometry where it is good and
   rebuilds only what it must. His diffuser carries 183 non-manifold edges, all in

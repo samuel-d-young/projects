@@ -9,6 +9,7 @@ import numpy as np, trimesh
 from csg import box_lwh, cyl, cone, tube, wedge, to_manifold, to_trimesh
 from params import *
 import build_v2 as BV
+import csg
 
 FAIL = []
 def ck(c, msg, d=''):
@@ -157,9 +158,10 @@ for B, tg in BODIES:
     # the lips DO stand over the board's top -- that is their whole job -- so
     # they are cut out of this probe and measured on their own below
     lips = box_lwh(x_tip - 0.1, x_tip + BRD_FING_LIP_L + 0.1, -HW, HW, ztp, ztop + 1.0)
-    hood = box_lwh(x_end - BRD_HOOD_L - 0.1, BRD_X1 + 0.1,
-                   -BRD_HOOD_Y - 0.1, BRD_HOOD_Y + 0.1, ztp, ztp + BOARD_TALL + 12.0)
-    tall = box_lwh(BRD_X0, BRD_X1, -HW, HW, ztp, ztp + BOARD_TALL) - lips - hood
+    # v14: no exemption for the antenna end any more. The hood is gone and the
+    # clamp is a separate part, so nothing moulded into the housing stands over
+    # the board except the two snap lips.
+    tall = box_lwh(BRD_X0, BRD_X1, -HW, HW, ztp, ztp + BOARD_TALL) - lips
     ck(solid(tall)[0] < 1e-3, 'nor is anything standing on it, the lips aside',
        f'{solid(tall)[0]:.5f} mm3')
     shells = box_lwh(BRD_X0 - BOARD_CONN_OVER, BRD_X0 + BOARD_CONN_L,
@@ -224,36 +226,99 @@ for B, tg in BODIES:
        '...and still catches the board with it shifted the other way',
        f'{HW - BRD_SHIFT_Y - BRD_FING_YI:.2f} mm of board edge under the lip, worst case')
 
-    # --- (d2) the hood over the antenna end
-    x_low = x_end - BRD_HOOD_L                      # the hood's inner edge
-    gap = box_lwh(x_low - 0.3, x_end, -BRD_HOOD_Y, BRD_HOOD_Y,
-                  ztp, ztp + BRD_LIP_CLR - 0.05)
-    ck(solid(gap)[0] < 1e-3, 'the hood never actually touches the board',
-       f'{BRD_LIP_CLR:.2f} mm of clearance over its top face, at the closest point')
-    near = box_lwh(x_low, x_low + 0.4, -3.0, 3.0,
-                   ztp + BRD_LIP_CLR + 0.02, ztp + BRD_LIP_CLR + 0.50)
-    ck(solid(near)[1] > 0.30, '...but closes over it, so the far end cannot lift',
-       f'{100*solid(near)[1]:.0f}% solid in the 0.48 mm above its inner edge, '
-       f'{x_low - BRD_X0:.2f} mm along the board')
-    ck(BRD_HOOD_Y + BRD_SHIFT_Y < BOARD_CLEAR_ANT_Y,
-       '...between the pad rows, so headers make no difference to it',
-       f'hood |y|={BRD_HOOD_Y:.2f}, copper starts at {BOARD_CLEAR_ANT_Y:.2f} and the '
+    # --- (d2) the antenna end is SCREWED down
+    CS = BRD_CLAMP_SEAT
+    bosses = 0
+    for sy in (1, -1):
+        pb = box_lwh(BRD_CLAMP_SX - 1.2, BRD_CLAMP_SX + 1.2,
+                     *sorted((sy*(BRD_CLAMP_SY + 1.2), sy*(BRD_CLAMP_SY + 2.4))),
+                     ZP + CS - 1.5, ZP + CS - 0.2)
+        if solid(pb)[1] > 0.8: bosses += 1
+    ck(bosses == 2, 'two screw bosses carry a clamp over the antenna end',
+       f'{bosses} of 2, {BRD_CLAMP_BOSS:.2f} mm across, seat {CS:.2f} above the pocket floor')
+    drilled = 0
+    for sy in (1, -1):
+        ph = cyl(SCREW_PILOT/2 - 0.15, ZP + CS - BRD_CLAMP_DEEP + 0.3, ZP + CS - 0.3,
+                 24, centre=(BRD_CLAMP_SX, sy*BRD_CLAMP_SY))
+        if solid(ph)[0] < 1e-3: drilled += 1
+    ck(drilled == 2, '...each drilled for an M3 self-tapper, and not through the back',
+       f'{drilled} of 2: {SCREW_PILOT:.2f} mm pilot, {BRD_CLAMP_DEEP:.2f} deep into '
+       f'{CS + PLATE_T:.2f} mm of material')
+    seat = box_lwh(BRD_X0 + BRD_CLAMP_PAD0, BRD_CLAMP_SX + BRD_CLAMP_BOSS/2,
+                   -BRD_CLAMP_W, BRD_CLAMP_W, ZP + CS + 0.15, ZP + BRD_RAIL_TOP + 1.0)
+    ck(solid(seat)[0] < 1e-3, '...and the bar has a clear plane to sit on',
+       'nothing in its footprint stands above the seat, end wall included')
+    ck(BRD_CLAMP_SX - BRD_CLAMP_BOSS/2 > BRD_X0 + BOARD_L_MAX,
+       '...with both screws BEYOND the longest board, never over a pad row',
+       f'boss starts {BRD_CLAMP_SX - BRD_CLAMP_BOSS/2 - BRD_X0:.2f} mm along, '
+       f'the longest board ends at {BOARD_L_MAX:.2f}')
+    ck(BRD_CLAMP_Y + BRD_SHIFT_Y < BOARD_CLEAR_ANT_Y,
+       '...and its pad presses between the pad rows, so headers do not matter',
+       f'pad |y|={BRD_CLAMP_Y:.2f}, copper starts at {BOARD_CLEAR_ANT_Y:.2f} and the '
        f'board can sit {BRD_SHIFT_Y:.2f} over')
-    ck(x_end - BRD_HOOD_L - BRD_X0 > BOARD_MOD_END + 1.0,
+    ck(BRD_CLAMP_PAD0 > BOARD_MOD_END + 1.0,
        '...behind the WROOM module, on bare board',
-       f'low edge {x_end - BRD_HOOD_L - BRD_X0:.2f} mm along, module ends at '
-       f'{BOARD_MOD_END:.2f}')
-    ck(BOARD_L_MIN - (x_end - BRD_HOOD_L - BRD_X0) > 0.50,
-       '...and the shortest board the frame claims to take still reaches it',
-       f'{BOARD_L_MIN - (x_end - BRD_HOOD_L - BRD_X0):.2f} mm of engagement at '
-       f'L={BOARD_L_MIN:.2f}, {BOARD_L - (x_end - BRD_HOOD_L - BRD_X0):.2f} at {BOARD_L:.2f}')
-    # it is a FLAT ledge off the wall, so it must be solid all the way from its
-    # inner edge to the wall -- a wedge here is what did not print
-    flat = box_lwh(x_low + 0.1, x_end - 0.1, -BRD_HOOD_Y + 0.5, BRD_HOOD_Y - 0.5,
-                   ztp + BRD_LIP_CLR + 0.05, ztp + BRD_LIP_CLR + 0.50)
-    ck(solid(flat)[1] > 0.95, '...and it is a flat ledge the whole way back to the wall',
-       f'{100*solid(flat)[1]:.0f}% solid across its {BRD_HOOD_L:.2f} mm reach, so every '
-       f'layer of it sits on the one below')
+       f'pad starts {BRD_CLAMP_PAD0:.2f} mm along, module ends at {BOARD_MOD_END:.2f}')
+    ck(BOARD_L_MIN > BRD_CLAMP_PAD0 + 0.50,
+       '...and the shortest board the bay takes still reaches it',
+       f'{BOARD_L_MIN - BRD_CLAMP_PAD0:.2f} mm of pad at L={BOARD_L_MIN:.2f}, '
+       f'{BOARD_L - BRD_CLAMP_PAD0:.2f} at {BOARD_L:.2f}')
+    ck(BRD_CLAMP_SEAT < BRD_POST_H + BOARD_T,
+       '...and it lands on the BOARD, not on its own bosses',
+       f'seat {BRD_CLAMP_SEAT:.2f} against a board top at '
+       f'{BRD_POST_H + BOARD_T:.2f} -- {BRD_POST_H + BOARD_T - BRD_CLAMP_SEAT:.2f} mm of grip')
+
+    # --- (d2b) the clamp bar, PUT BACK IN THE HOUSING.
+    # It is built and printed lying on its top face, so nothing had ever
+    # measured it against the thing it bolts to. Load the STL, turn it over,
+    # drop it on its bosses, and check the assembly rather than the drawing.
+    if os.path.exists('mini-round-clock-board-clamp.stl'):
+        cm = trimesh.load('mini-round-clock-board-clamp.stl', process=False)
+        cm.merge_vertices()
+        X0c = BRD_X0 + BRD_CLAMP_PAD0 - 1.50
+        X1c = BRD_CLAMP_SX + BRD_CLAMP_BOSS/2 + 1.50
+        T = np.eye(4)
+        T[2, 2] = -1.0                                   # printed upside down
+        T[2, 3] = ZP + BRD_CLAMP_SEAT + BRD_CLAMP_T
+        T[0, 3] = (X0c + X1c)/2                          # build() centred it in x
+        # trimesh already fixes the winding for a negative-determinant
+        # transform; inverting again here turned the bar inside out and made
+        # every boolean below meaningless (it read -1.7 mm3 of overlap)
+        cm.apply_transform(T)
+        assert cm.volume > 0, 'clamp bar came through the transform inside out'
+        CL = csg.to_manifold(cm)
+        ck(abs(cm.bounds[0][2] - (ZP + BRD_CLAMP_SEAT)) < 1e-3,
+           'the clamp bar, turned over, lands exactly on its bosses',
+           f'its lowest plane is z={cm.bounds[0][2]:.3f}, the seat is '
+           f'{ZP + BRD_CLAMP_SEAT:.3f}')
+        ck((CL ^ HOUS).volume() < 1e-3,
+           '...without fouling the housing anywhere',
+           f'{(CL ^ HOUS).volume():.5f} mm3 of overlap with the part it bolts to')
+        pcb_top = box_lwh(BRD_X0, BRD_X1, -HW, HW, ztp - 0.02, ztp + 0.02)
+        ck((CL ^ pcb_top).volume() > 1.0,
+           '...and its pad does land on the board',
+           f'{(CL ^ pcb_top).volume():.1f} mm3 of pad over the PCB\'s top face')
+        rows = box_lwh(BRD_X0, BRD_X1,
+                       BOARD_CLEAR_ANT_Y - BRD_SHIFT_Y, HW, ztp, ztp + 20.0)
+        rows += box_lwh(BRD_X0, BRD_X1,
+                        -HW, -(BOARD_CLEAR_ANT_Y - BRD_SHIFT_Y), ztp, ztp + 20.0)
+        ck((CL ^ rows).volume() < 1e-3,
+           '...and never crosses a pad row, at any height',
+           'so headers can point either way, or be left off')
+        mod = box_lwh(BRD_X0, BRD_X0 + BOARD_MOD_END, -HW, HW,
+                      ztp, ztp + BOARD_TALL)
+        ck((CL ^ mod).volume() < 1e-3,
+           '...and cannot come down on the WROOM module',
+           f'relieved {BRD_CLAMP_RLF:.2f} mm short of the pad, which starts '
+           f'{BRD_CLAMP_PAD0:.2f} mm along')
+        for sy in (1, -1):
+            sh = cyl(SCREW_CLEAR/2 - 0.2, ZP + BRD_CLAMP_SEAT - 0.1,
+                     ZP + BRD_CLAMP_SEAT + BRD_CLAMP_T + 0.1, 24,
+                     centre=(BRD_CLAMP_SX, sy*BRD_CLAMP_SY))
+            if (CL ^ sh).volume() > 1e-3: FAIL.append('clamp screw hole blocked')
+        ck('clamp screw hole blocked' not in FAIL,
+           '...with both screw holes clear, over their pilots',
+           f'{SCREW_CLEAR:.2f} mm clearance for an M3, into a {SCREW_PILOT:.2f} pilot')
 
     # --- (d3) THE ONE THAT v9 FAILED. Every clearance here is checked against
     # what the printer will actually leave, not against what was drawn. A slot
@@ -278,9 +343,10 @@ for B, tg in BODIES:
     # nothing; this one keeps the ones that do stand on something short enough
     # to print. 2.50 is the ceiling -- the snap lips ask 1.60 and the hood 2.00.
     LEDGE_MAX = 2.50
-    ck(BRD_FING_OVER <= LEDGE_MAX and BRD_HOOD_L <= LEDGE_MAX,
+    ck(BRD_FING_OVER <= LEDGE_MAX,
        'no ledge in the frame reaches further than a nozzle will carry it',
-       f'snap lips {BRD_FING_OVER:.2f}, hood {BRD_HOOD_L:.2f}, ceiling {LEDGE_MAX:.2f}')
+       f'the snap lips at {BRD_FING_OVER:.2f} are the only ones left, against a '
+       f'{LEDGE_MAX:.2f} ceiling -- the hood that needed 2.00 is a screwed bar now')
 
     # --- (e) the finger can actually flex, and prints in the strong direction
     gap = box_lwh(x_tip + 1.0, x_root - 1.0,
@@ -429,11 +495,20 @@ for B, tg in BODIES:
     ck(abs((DIFF_SEAT_Z - FACE_T) - DIFF_WALL_CREST) < 1e-9,
        '...and its underside is exactly on the land, by construction',
        f'{DIFF_SEAT_Z - FACE_T:.2f} = {DIFF_WALL_CREST:.2f}')
-    tip = DIFF_SEAT_Z - (DIFF_COLLAR_H + COLLAR_EXTEND)
-    ck(tip >= Z_SEAT + DISP_TAB_T - 1e-9,
-       'the collar reaches the screen but does not push past it',
-       f'tip z={tip:.2f}, the module\'s face at {Z_SEAT + DISP_TAB_T:.2f} '
-       f'(seat {Z_SEAT:.2f} + {DISP_TAB_T:.2f} of PCB)')
+    # v14: this used to compare the tip against Z_SEAT + DISP_TAB_T -- the top of
+    # the module's bare TAB, 2.40 mm below the surface the collar actually lands
+    # on. It passed while the collar was 1.77 mm inside the screen. The ceiling
+    # is the module's FRONT FACE, and it is measured on the built diffuser now
+    # rather than recomputed from the same parameters the part was built from.
+    tip = DP.bounding_box()[2]
+    face = Z_SEAT + DISP_T
+    ck(tip >= face - 1e-6,
+       'the collar stops short of the screen instead of pushing it forward',
+       f'tip z={tip:.2f}, the module\'s front face at {face:.2f} '
+       f'(seat {Z_SEAT:.2f} + {DISP_T:.2f} of module) -- {tip - face:+.2f} mm')
+    ck(tip - face <= 1.00 + 1e-9,
+       '...but close enough to still hold it in',
+       f'{tip - face:.2f} mm of float left to the module, against a 1.00 ceiling')
 
     print('\n7. The wall hanger')
     # the head ends up INSIDE the compartment once the clock is dropped on it

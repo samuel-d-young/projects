@@ -156,15 +156,14 @@ def board_mount(z_floor, RB=None, RI=None):
       posts        three pairs, at |y| = 6.50: between the USB shells' end tabs
                    at the connector end, mid-board, and under the antenna end.
 
-      hood         a flat ledge over the antenna end. v9 argued that a board
-                   held at one end cannot lift at the other; that was wrong. The
-                   lips have BRD_LIP_CLR of slack over a 4.00 mm base and the
-                   board is 62.87 long, so 0.20 mm at the lips is 3.1 mm of
-                   lift at the far end. The hood lands on the bare 7.53 x
-                   21.16 mm patch between the pad rows, behind the WROOM
-                   module, so headers make no difference to it. The board
-                   goes in antenna-end first because of it: slide it under the
-                   ledge, then press the connector end down past the fingers.
+      clamp        a separate bar, screwed down over the antenna end. v9
+                   argued that a board held at one end cannot lift at the
+                   other; that was wrong -- the lips have BRD_LIP_CLR of slack
+                   over a 4.00 mm base, and on a 63 mm board that is a 15:1
+                   lever and 3.1 mm of lift. v13 answered it with a moulded
+                   hood and got it wrong twice. A screwed bar goes on AFTER the
+                   board, so it overhangs nothing, needs no assembly move, and
+                   does not care how long the board is.
 
     WHY v9 DID NOT FIT, which is the actual repair here. The rails were drawn
     0.10 mm a side clear of the board and the end wall 0.30 mm clear of its
@@ -210,21 +209,21 @@ def board_mount(z_floor, RB=None, RI=None):
     # --- end wall: the plug's load path, and the +x stop
     add(box_lwh(x_end, x_end + RT, -(RY + RT), RY + RT, z0, z_top))
 
-    # --- the hood over the antenna end.
-    # A flat ledge hanging off the end wall, underside at z_lip, reaching
-    # BRD_HOOD_L back over the board -- the same shape as the snap lips, which
-    # is the point: it is a short unsupported ledge off a wall, and every layer
-    # above it is carried by the one below.
-    #
-    # It was first drawn as a wedge with a 47 degree underside CLIMBING away
-    # from the wall, so its low edge stood out over the board and the board
-    # could drop straight past it. That is 47 degrees and still unprintable:
-    # the ramp climbed the wrong way, so the hood's first layer was an island
-    # in mid-air with nothing under it. A sloped face is self-supporting only
-    # when the material it grows from is BELOW it. Buried BRD_FING_BURY into
-    # the wall rather than butted against its face.
-    HY, x_low = BRD_HOOD_Y, x_end - BRD_HOOD_L
-    add(box_lwh(x_low, x_end + BRD_FING_BURY, -HY, HY, z_lip, z_top))
+    # --- the antenna end is SCREWED down, not hooded.
+    # Sam: "add a way to screw it down to fasten it." Two bosses, both of them
+    # beyond the longest board this bay takes, carrying a separate bar that
+    # presses the board's last few millimetres between the pad rows. The bar
+    # goes on after the board, so nothing here overhangs, nothing has to be slid
+    # under anything, and the length of the board stops mattering -- which is
+    # what killed the moulded hood twice over.
+    CW, CS = BRD_CLAMP_W, BRD_CLAMP_SEAT
+    for sy in (1, -1):
+        add(cyl(BRD_CLAMP_BOSS/2, z0, z0 + CS, 32,
+                centre=(BRD_CLAMP_SX, sy*BRD_CLAMP_SY)))
+    # the bar has to sit flat on those, so nothing in its footprint may stand
+    # proud of the seat: the end wall gets cut down to it across the bar's width
+    s = s - box_lwh(BRD_X0 + BRD_CLAMP_PAD0 - 2.0, BRD_CLAMP_SX + 8.0,
+                    -CW - 0.20, CW + 0.20, z0 + CS, z_top + 2.0)
 
     # --- snap fingers
     for sy in (1, -1):
@@ -257,13 +256,16 @@ def board_mount(z_floor, RB=None, RI=None):
     # --- posts under it
     # the far pair sits directly under the hood's low edge, so the hood
     # presses the board onto a post rather than onto a span of nothing
-    for px in (BRD_X0 + 3.0, (BRD_X0 + BRD_X1)/2, x_end - BRD_HOOD_L - 1.0):
+    for px in (BRD_X0 + 3.0, (BRD_X0 + BRD_X1)/2, BRD_X0 + BRD_CLAMP_PAD0 + 1.5):
         for py in (BRD_POST_HY, -BRD_POST_HY):
             add(cyl(BRD_POST_D/2, z0, zt, 32, centre=(px, py)))
 
     # --- the window the board's own connector looks out through
     win = box_lwh(-RB - 2.0, -RI + 2.0, -USB_WIN_W/2, USB_WIN_W/2,
                   z0 + USB_WIN_Z, z0 + USB_WIN_Z + USB_WIN_H)
+    for sy in (1, -1):
+        win += cyl(SCREW_PILOT/2, z0 + CS - BRD_CLAMP_DEEP, z0 + CS + 0.10, 24,
+                   centre=(BRD_CLAMP_SX, sy*BRD_CLAMP_SY))
     return s, win
 
 
@@ -505,6 +507,50 @@ def numerals(B, z0, z1):
     return out
 
 
+def build_board_clamp():
+    """The bar that screws the S3 down. Prints flat, top face on the plate.
+
+    Sam: "add a way to screw it down to fasten it."
+
+    It presses the last few millimetres of the board BETWEEN the pad rows, at
+    |y| <= BRD_CLAMP_Y, and both screws land BEYOND the board's end -- so no
+    part of it crosses a pad row at any height, and headers can be fitted
+    either way up or left off entirely.
+
+    Its underside has three planes:
+      seat   BRD_CLAMP_T from the top face. Rests on the two bosses and on the
+             end wall, both cut to BRD_CLAMP_SEAT.
+      pad    0.10 shallower, over the board. The board's top face is 0.10 mm
+             ABOVE the seat, so tightening the screws lands the bar on the
+             BOARD rather than bottoming it on its own bosses -- a real clamp.
+             0.10 mm of flex in a 3.00 mm bar is a few newtons; it cannot crack
+             FR4, and it takes up any board thickness from 1.50 to 1.70.
+      relief BRD_CLAMP_RLF shallower, everywhere short of the pad, so the bar
+             cannot come down on the WROOM module however far back it ends.
+
+    Printed TOP FACE DOWN. That way the first layer is the full outline and the
+    three planes are all pockets opening upward: no overhang, no support, and
+    nothing that needs a brim.
+    """
+    X0 = BRD_X0 + BRD_CLAMP_PAD0 - 1.50
+    X1 = BRD_CLAMP_SX + BRD_CLAMP_BOSS/2 + 1.50
+    W, T = BRD_CLAMP_W, BRD_CLAMP_T
+    g = box_lwh(X0, X1, -W, W, 0.0, T)
+    # relief, everywhere before the pad starts
+    g -= box_lwh(X0 - 1.0, BRD_X0 + BRD_CLAMP_PAD0, -W - 1.0, W + 1.0,
+                 T - BRD_CLAMP_RLF, T + 1.0)
+    # the pad, 0.10 shallower than the seat, out to the longest board it takes
+    g -= box_lwh(BRD_X0 + BRD_CLAMP_PAD0, BRD_X0 + BOARD_L_MAX, -W - 1.0, W + 1.0,
+                 T - 0.10, T + 1.0)
+    for sy in (1, -1):
+        g -= cyl(SCREW_CLEAR/2, -0.10, T + 0.10, 32,
+                 centre=(BRD_CLAMP_SX, sy*BRD_CLAMP_SY))
+    # which way up, debossed where it cannot be lost
+    g -= text_prism('THIS SIDE UP', 3.20, ((X0 + X1)/2, 0.0), -0.10, 0.50,
+                    family=NUM_FONT, weight=NUM_WEIGHT, fontfile=NUM_FONT_FILE)
+    return g.translate([-(X0 + X1)/2, 0.0, 0.0])
+
+
 def build_board_gauge():
     """The S3 frame on its own, so the fit can be settled before 69 g of housing.
 
@@ -534,7 +580,8 @@ def build_board_gauge():
     # board_mount starts its corner stops at -RI + 0.5, meaning to bury them in
     # the housing's pocket wall. Here RI is chosen so they start 1.00 mm inside
     # this plate's own end instead -- buried, not butted.
-    frame, _win = board_mount(0.0, RB=60.0, RI=55.0)
+    frame, void = board_mount(0.0, RB=60.0, RI=55.0)
+    frame -= void            # so the gauge carries the clamp's pilot holes too
     # board_mount hangs its corner stops off the housing's pocket wall; here
     # there is no wall, so they are backed by a rib of the plate's own instead
     frame += box_lwh(BRD_X0 - 4.0, BRD_X0, -y1, y1, 0.0, BRD_LIP_Z0)
@@ -1043,6 +1090,7 @@ if __name__ == '__main__':
               f'{HOUSING_DEEP:.2f}. No internal battery in this build.')
     parts.append((build_light_guides(BODY60), 'mini-round-clock-light-guides-60', True))
     parts.append((build_collar_gauges(), 'mini-round-clock-collar-gauges', False))
+    parts.append((build_board_clamp(), 'mini-round-clock-board-clamp', True))
     parts.append((build_board_gauge(), 'mini-round-clock-board-gauge', True))
     for man, fn, strict in parts:
         t = csg.finalise(man, fn, strict=strict)

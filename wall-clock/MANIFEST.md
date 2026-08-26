@@ -57,6 +57,7 @@ All in `enclosure/mini/v2/`, prefixed `mini-round-clock`.
 | diffuser — **white PLA, 0.20 mm layers, face down** | `-diffuser` | `-diffuser-32` | `-diffuser-60` |
 | numerals — **filament 2**, added as a part of the diffuser | `-numerals` | `-numerals-32` | `-numerals-60` |
 | collar fit gauge — **print first**, 3 rings, ~9 g | `-collar-gauges` | same part | same part |
+| board clamp — **2 × M3 × 10 self-tappers**, holds the S3 down | `-board-clamp` | same part | same part |
 | board fit gauge — **print first**, the S3 frame on a plate, ~15 g | `-board-gauge` | same part | same part |
 | light guides — **clear/natural PETG**, or cut perspex | — | — | `-light-guides-60` |
 | desk stand — flat, 8–10% infill | `-deskstand` | `-deskstand-32` | `-deskstand-60` |
@@ -97,10 +98,10 @@ get moved around or shared. It holds your WiFi password and API key.
 ## The six things most likely to break
 
 1. **Display pins** in `mini-round-clock.yaml` are ESP-VoCat reference values, not your panel's.
-2. **The display module's rim thickness.** `COLLAR_EXTEND` in `v2/params.py` ships at 2.00, which assumes a 0.20 mm rim. Measure it at the r = 29 circle and set `COLLAR_EXTEND = 2.20 − t` before printing the diffuser.
+2. **The display module's overall thickness.** `DISP_T` = 4.00 in `v2/params.py` is what the diffuser's collar length is now derived from — the collar tip sits 0.40 mm clear of `Z_SEAT + DISP_T`. Sam reported the previous collar touching the screen, which is what forced this; if his module is thicker than 4.00, change `DISP_T` and rebuild. Do not change `COLLAR_LEN` — it is derived.
 3. **Entity IDs** in `packages/wall_clock.yaml` are placeholders — the timer names must match your area IDs exactly.
 
-4. **Whether the board in hand is the board in the drawing.** v13 parses Espressif's own v1.1 DXF — 62.865 × 25.400 × 1.60, two USB-C, no mounting holes — and the S3 frame is built to take anything 62.4–63.3 long and up to 25.7 wide around it — a window only about ±0.5 mm wide. But the vendors selling "ESP32-S3-DevKitC-1 N16R8" publish 70 × 28, 67 × 31 and 55 × 35 between them, so **print `mini-round-clock-board-gauge` before the housing**: it is the same frame on a plate, 15 g, and it settles it.
+4. **Whether the board in hand is the board that was measured.** v14 builds the bay around **63.27 × 28.19** — Sam's calipers on his own board, 2.79 mm wider than Espressif's DevKitC-1 v1.1 drawing, so it is a different board. The bay takes anything **60.0–64.2 long and up to 28.4 wide**, which is a wide window because the retention is a **screwed clamp bar** and a screwed bar does not care how long the board is. Nothing in the frame depends on the pad row spacing either. Still worth printing `mini-round-clock-board-gauge` first: it is the same frame on a plate, 15 g.
 5. **The 32-LED ring's dimensions** (111.85 / 96 mm, 32 LEDs) are Sam's numbers, taken as given and not checked against a listing. The whole 120 mm body follows from them.
 6. **The 60-LED ring's 172 / 156 mm** is corroborated by three resellers but not by a datasheet — put calipers on it before printing a 240 mm base. And **how far the light carries along a perspex strip** is the one thing in the light-guide design that needs a bench test, not a calculation: `enclosure/mini/v2/README.md` §7 says how to try it in ten minutes.
 
