@@ -3472,3 +3472,97 @@ So the bar version wants the 32-LED body or larger, and it needs a rectangular
 pocket, a different diffuser centre, and no tab slot — the bar module has no
 tab. Put to Sam rather than guessed at, because building it for the wrong body
 would be waste, and because the diffuser's collar grips that same round bore.
+
+---
+
+## 2026-08-26 — v16: -bar bases and diffusers for the 32 and 60
+
+Sam picked "both 32 and 60" for the 1.9" bar screen. It turned out to be a far
+smaller change than the first arithmetic suggested, and the reason is worth
+keeping.
+
+### The 68.45 mm figure was the wrong question
+
+Dropped flat through a circular hole, a 62 × 29 module needs a **68.45 mm**
+circle and the bore is **60.38** — 8.07 mm short. That is what got reported as
+"does not fit any body".
+
+But the module does not need a circle. It exceeds the bore only in **two ears at
+±x**, 4.52 mm deep and 29 mm wide, and those are exactly where the base is
+**already open** — the display-tab slot at 12 o'clock and the wire slot at 6.
+Measured against the built base, the module's entire swept volume from seat to
+front recess clashes with only:
+
+```
+   +x ear (12 o'clock, tab slot) :  45.9 mm3 of 1507
+   -x ear ( 6 o'clock, wire slot): 140.3 mm3 of 1507
+   the 1.10 mm the seat drops    :   7.7 mm3
+                                   -------
+                                   193.9 mm3
+```
+
+So the `-bar` base is not a redesigned middle. It is 194 mm³ of relief.
+
+### One derived number does all the work
+
+```
+Z_SEAT_BAR = Z_SEAT + DISP_T − BAR_T = 8.60 + 4.00 − 5.10 = 7.50
+```
+
+Seat the bar module so its **front face lands exactly where the round module's
+does** and nothing downstream moves: the collar tip still clears by 0.40 mm, the
+face still rests on the land at 19.03, the vertical stack is untouched. The
+diffuser's central hole is r 27.92 against the bar's 24.18 of active
+half-diagonal, so the picture is fully visible through geometry that already
+exists.
+
+### Two things the measurement caught that the reasoning had not
+
+**The module had no seat at all.** First build: the pocket was 0.0% solid
+underneath. The wire slot goes right through under the bore, so cutting the
+relief left the module nothing to rest on — it would have dropped straight into
+the housing. Fixed with two rails at |y| 12.90–14.90, outboard of the wire
+slot's own 13.00 half width so the slot stays clear for the ring leads.
+
+**Two of the six collar ribs were biting on air.** With the ears open, the ribs
+at 30° and 330° had **4% and 5%** of themselves over solid bore wall, which puts
+the entire grip on the −x side and shoves the collar sideways. The phase was
+then swept rather than guessed:
+
+| ribs | angles | worst margin to an ear edge |
+|---|---|---:|
+| 4 | 45/135/225/315 | **+15.4°** |
+| 4 | 60/150/240/330 | +0.4° |
+| 4 | 67.5/157.5/… | −7.1° |
+| 4 | 90/180/270/0 | −27.8° |
+
+So the `-bar` diffuser carries **four ribs at 45/135/225/315** — symmetric about
+both axes, 15.4° clear of both ears, same interference and lead-in as before, so
+**the collar gauge still applies unchanged**. Measured on the built parts: 4 of
+4 ribs bite at 90–95%, and 77.8% of the land survives.
+
+### A reporting error of mine, corrected
+
+`mini-round-clock-board-clamp` was **never in check3's PARTS list.** The edit
+that was supposed to add it used a plain `.replace()` with no assertion, the
+string did not match, and it silently did nothing — while I reported the clamp
+as having passed the printability pass. It had not been checked at all.
+
+It is in the list now, along with the four new `-bar` parts, and all five pass.
+Every edit in this session that mattered used an asserted replace; that one did
+not, and this is what that costs. The independent island sweep did cover it, so
+the claim about floating geometry was sound — but the thin-wall, overhang,
+bridge and first-layer tests had never run on it.
+
+### Verification
+
+Five passes, three bodies, **23 parts**, 0 failures — now including the clamp
+and all four `-bar` parts. Independent island sweep over every built STL: 0
+floating patches. `check2` gained a section 8 that asserts the bar fit
+permanently rather than leaving it as something I measured once: face height
+identical to the round module's, no interference in the pocket or on the way in,
+both seat rails solid, the wire slot still clear, all four ribs biting, and the
+land above 60%.
+
+The 24-LED body still gets no bar variant: the module's corners reach r 34.22
+against a ring pocket starting at 35.11, which would leave 0.89 mm of wall.

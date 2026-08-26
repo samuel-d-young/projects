@@ -37,6 +37,38 @@ All in `enclosure/mini/v2/`, all prefixed `mini-round-clock`.
 | **collar gauge** — print this FIRST | `-collar-gauges` — one part, any body | | |
 | **board gauge** — print this FIRST | `-board-gauge` — one part, any body | | |
 | **board clamp** + 2 × M3 × 10 | `-board-clamp` — one part, any body | | |
+
+### The 1.9" bar screen instead of the round one
+
+Two extra parts, and **only for the 32 and 60 bodies** — `-base-32-bar` +
+`-diffuser-32-bar`, or the 60 equivalents. Housing, numerals and stand are the
+round ones unchanged.
+
+Everything works because of one derived number. The module is seated so its
+**front face lands exactly where the round module's does** —
+
+```
+Z_SEAT_BAR = Z_SEAT + DISP_T − BAR_T = 8.60 + 4.00 − 5.10 = 7.50
+```
+
+— so the diffuser's collar still clears by 0.40 mm, the face still rests on the
+land at 19.03, and the whole vertical stack is untouched.
+
+The module is **62 mm long against a 60.38 mm bore**, so it cannot pass a round
+hole. It doesn't have to: it overhangs the bore only in two ears at 12 and 6
+o'clock, and those are exactly where the display-tab slot and the wire slot
+already are. The `-bar` base cuts the ~194 mm³ that is left, and the module
+**drops straight in from the front**.
+
+Two rails at |y| 12.90–14.90 hold it up — outboard of the wire slot, which stays
+clear for the ring leads. The diffuser's collar tip, 0.40 mm above the module's
+top face, is what stops it lifting back out.
+
+**The `-bar` diffuser has four collar ribs, not six**, at 45/135/225/315°. The
+six-rib pattern puts two ribs straight into the +x ear with 4% of each having
+anything to bite on, which throws the grip onto one side. Four on the diagonals
+clear both ears by 15.4° and stay symmetric. Same interference, same rib width,
+same lead-in — **the collar gauge still applies unchanged**.
 | light guides *(optional)* | — | — | `-light-guides-60` |
 | desk stand *(optional)* | `-deskstand` | `-deskstand-32` | `-deskstand-60` |
 

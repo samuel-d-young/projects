@@ -31,7 +31,9 @@ MIN_WALL    = 1.20     # three perimeters at 0.4 mm
 # the uploaded file, not assumed. It is his geometry and it is unchanged.
 INHERITED = {'mini-round-clock-base.stl': 409.1,
              'mini-round-clock-base-32.stl': 409.1,
-             'mini-round-clock-base-60.stl': 409.1}
+             'mini-round-clock-base-60.stl': 409.1,
+             'mini-round-clock-base-32-bar.stl': 409.1,
+             'mini-round-clock-base-60-bar.stl': 409.1}
 
 # Sam's base also feathers out to nothing where the tab-slot ramp runs into the
 # ring-pocket floor and the display-pocket wall. Rather than hand-draw boxes
@@ -44,7 +46,11 @@ BASELINE = {'mini-round-clock-base.stl': 'sam-base',
             'mini-round-clock-diffuser.stl': 'sam-diffuser',
             'mini-round-clock-base-60.stl': 'sam-base',
             'mini-round-clock-diffuser-32.stl': 'sam-diffuser',
-            'mini-round-clock-diffuser-60.stl': 'sam-diffuser'}
+            'mini-round-clock-diffuser-60.stl': 'sam-diffuser',
+            'mini-round-clock-base-32-bar.stl': 'sam-base',
+            'mini-round-clock-base-60-bar.stl': 'sam-base',
+            'mini-round-clock-diffuser-32-bar.stl': 'sam-diffuser',
+            'mini-round-clock-diffuser-60-bar.stl': 'sam-diffuser'}
 
 def overlaps(a, b, pad=0.6):
     """Do two thin regions occupy the same (r, z) band?"""
@@ -72,6 +78,11 @@ PARTS = [
     ('mini-round-clock-light-guides-60.stl',     'flat',            MIN_WALL),
     ('mini-round-clock-battery-shelf-x2.stl',    'flat',            MIN_WALL),
     ('mini-round-clock-board-gauge.stl',         'plate down',      MIN_WALL),
+    ('mini-round-clock-board-clamp.stl',         'top face down',   MIN_WALL),
+    ('mini-round-clock-base-32-bar.stl',         'deck face down',  MIN_WALL),
+    ('mini-round-clock-base-60-bar.stl',         'deck face down',  MIN_WALL),
+    ('mini-round-clock-diffuser-32-bar.stl',     'face down',       0.18),
+    ('mini-round-clock-diffuser-60-bar.stl',     'face down',       0.18),
     # 0.45, not 1.20: these are 0.50 mm inlays meant to be loaded as a second
     # part in the slicer, not printed on their own
     ('mini-round-clock-numerals.stl',            'a part, not a print', 0.45),

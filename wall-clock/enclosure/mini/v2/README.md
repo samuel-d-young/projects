@@ -32,6 +32,7 @@ Pick a body. Everything in one column goes together; nothing crosses over.
 | **collar gauge** — print FIRST, §2 | `-collar-gauges` — one part, any body | | |
 | **board gauge** — print FIRST, §2 | `-board-gauge` — one part, any body | | |
 | **board clamp** + 2 × M3 × 10, §2 | `-board-clamp` — one part, any body | | |
+| **bar screen** *(alternative)* | — | `-base-32-bar` + `-diffuser-32-bar` | `-base-60-bar` + `-diffuser-60-bar` |
 | light guides *(optional)* | — | — | `-light-guides-60`, or cut perspex — §7 |
 | desk stand *(optional)* | `-deskstand` | `-deskstand-32` | `-deskstand-60` (a very big print) |
 
@@ -47,6 +48,8 @@ Every filename is prefixed `mini-round-clock`.
 | light guides | flat, **clear or natural PETG** | none | — / — / 31 cm³ |
 | board gauge | plate down | none | 13 cm³, any body |
 | board clamp | **top face down** | none | 0.8 cm³, any body |
+| base **-bar** | **deck face down** | see note | — / 140 / 523 cm³ |
+| diffuser **-bar** | **face down, 0.20 mm layers, SOLID face** | none | — / 25 / 138 cm³ |
 
 **Those are solid volumes, not filament.** The stand is a big blocky part —
 print it at 8–10% infill with 3 walls and it lands around 60–80 g. Mass is not a

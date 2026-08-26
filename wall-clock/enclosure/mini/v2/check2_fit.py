@@ -6,7 +6,7 @@ be sliced and probes them as solids.
 """
 import sys, math, os; sys.path.insert(0, '.')
 import numpy as np, trimesh
-from csg import box_lwh, cyl, cone, tube, wedge, to_manifold, to_trimesh
+from csg import box_lwh, cyl, cone, tube, wedge, prism, rot_rect, to_manifold, to_trimesh
 from params import *
 import build_v2 as BV
 import csg
@@ -516,6 +516,67 @@ for B, tg in BODIES:
     ck((HOUS ^ head).volume() < 1e-3, 'an 8 mm screw head clears the keyhole pocket',
        f'{(HOUS ^ head).volume():.5f} mm3')
     ck(KEY_DROP >= 6.0, 'and the clock has to be lifted to come off', f'{KEY_DROP:.1f} mm')
+
+# =============================================================================
+# 8. THE -bar BASES — the 1.9" ST7789 in the round module's place
+# =============================================================================
+# The whole design rests on one derived number: Z_SEAT_BAR puts the bar
+# module's FRONT FACE exactly where the round module's sits, so the diffuser,
+# its collar, the land and the entire vertical stack are untouched. These check
+# that the claim survives contact with the built parts.
+for tg in ('-32', '-60'):
+    fn = f'mini-round-clock-base{tg}-bar.stl'
+    if not os.path.exists(fn):
+        continue
+    print(f'\n8. The bar-screen base {fn}')
+    bm = trimesh.load(fn, process=False); bm.merge_vertices()
+    BB = csg.to_manifold(bm)
+    hl, hw = BAR_L/2, BAR_W/2
+
+    ck(abs((Z_SEAT_BAR + BAR_T) - (Z_SEAT + DISP_T)) < 1e-9,
+       'the bar module\'s face lands exactly where the round one\'s does',
+       f'{Z_SEAT_BAR:.2f} + {BAR_T:.2f} = {Z_SEAT:.2f} + {DISP_T:.2f} = '
+       f'{Z_SEAT + DISP_T:.2f} -- which is why nothing downstream moves')
+    pocket = box_lwh(-hl, hl, -hw, hw, Z_SEAT_BAR, Z_SEAT_BAR + BAR_T)
+    ck((BB ^ pocket).volume() < 1e-3, 'the module fits its pocket',
+       f'{(BB ^ pocket).volume():.5f} mm3 of interference')
+    path = box_lwh(-hl, hl, -hw, hw, Z_SEAT_BAR, Z_RECESS)
+    ck((BB ^ path).volume() < 1e-3,
+       '...and drops STRAIGHT in from the front, not tilted through the bore',
+       f'{(BB ^ path).volume():.5f} mm3 anywhere on its way in -- it is '
+       f'{BAR_L - 2*R_DISP_BORE:.2f} mm too long to pass a round {2*R_DISP_BORE:.2f} bore')
+    rails = 0
+    for sy in (1, -1):
+        s = box_lwh(-hl + 3, hl - 3, *sorted((sy*(hw - 1.4), sy*(hw - 0.2))),
+                    Z_SEAT_BAR - 1.0, Z_SEAT_BAR - 0.2)
+        if (BB ^ s).volume() / s.volume() > 0.9: rails += 1
+    ck(rails == 2, '...onto two rails that actually hold it up',
+       f'{rails} of 2 solid. The first build had NONE -- the wire slot goes '
+       f'right through under the bore and the module would have dropped into '
+       f'the housing.')
+    wire = box_lwh(-45.0, -R_BORE, -WIRE_SLOT_HW + 0.5, WIRE_SLOT_HW - 0.5,
+                   Z_DECK, Z_SEAT_BAR)
+    ck((BB ^ wire).volume() < 1e-3, '...without the rails blocking the wire slot',
+       f'rails sit at |y| {hw - 1.6:.2f}..{hw + BAR_CLR:.2f}, outboard of the '
+       f'slot\'s {WIRE_SLOT_HW:.2f}')
+
+    bit = 0
+    for k in range(COLLAR_RIB_BAR_N):
+        a = 360.0 / COLLAR_RIB_BAR_N * (k + COLLAR_RIB_BAR_PHASE)
+        rm = R_DISP_BORE + 0.45
+        pr = prism(rot_rect(rm*math.cos(math.radians(a)), rm*math.sin(math.radians(a)),
+                            0.90, COLLAR_RIB_W, a), DIFF_SEAT_Z - 8.00, DIFF_SEAT_Z - 3.00)
+        if (BB ^ pr).volume() / pr.volume() > 0.85: bit += 1
+    ck(bit == COLLAR_RIB_BAR_N,
+       f'all {COLLAR_RIB_BAR_N} ribs of the -bar diffuser find bore wall to bite on',
+       f'{bit} of {COLLAR_RIB_BAR_N}. The module overhangs the bore in two ears '
+       f'at +/-x; the standard six ribs put two of them in thin air (4% each), '
+       f'which is why this diffuser has four on the diagonals.')
+    land = tube(R_DISP_BORE + 0.2, 35.0, DIFF_WALL_CREST - 0.4,
+                DIFF_WALL_CREST - 0.1, 192)
+    frac = (BB ^ land).volume() / land.volume()
+    ck(frac > 0.60, '...and the face still has a land to rest on',
+       f'{100*frac:.1f}% of the annulus survives the two ears')
 
 print()
 if FAIL:

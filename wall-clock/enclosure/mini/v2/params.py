@@ -52,6 +52,30 @@ DISP_T           = 4.0      # module thickness -- see the note on the collar,
 DISP_OVERALL     = 67.0     # top of the round part to the end of the tab
 DISP_TAB_T       = 1.6      # bare PCB. Assumes the 10-pin header is desoldered.
 
+# --- the OTHER screen: 1.9" ST7789V2 bar, 170x320 ----------------------------
+# Sam: "Add the following screen to the wall clock. I have a couple."
+#
+# 62.0 x 29.0 x 5.1 module, 42.7 x 22.7 of active area -- Waveshare's own module
+# page and done.land's independent teardown agree on both, and the eight-pin
+# write-only header (no SDO, no TE) is why the firmware detects it with a strap
+# wire rather than by reading its chip ID.
+#
+# THE SEAT IS DERIVED, and that is the whole trick to fitting it. Seat it so its
+# FRONT FACE lands exactly where the round module's does:
+#
+#     Z_SEAT_BAR = Z_SEAT + DISP_T - BAR_T = 8.60 + 4.00 - 5.10 = 7.50
+#
+# and every single thing downstream is unchanged -- the diffuser's collar tip
+# still clears by 0.40, the face still rests on the land at 19.03, the whole
+# vertical stack is untouched. Nothing about the diffuser has to move, and the
+# diffuser does not even have to be reprinted: its central hole is r 27.92 and
+# the bar's active area needs only 24.18 of half-diagonal, so the picture is
+# fully visible through the part that already exists.
+BAR_L, BAR_W, BAR_T   = 62.00, 29.00, 5.10
+BAR_ACT_L, BAR_ACT_W  = 42.70, 22.70
+BAR_CLR    = 0.40           # per side, in the pocket
+Z_SEAT_BAR = Z_SEAT + DISP_T - BAR_T                       # 7.50
+
 # =============================================================================
 # THE ESP32-S3 DEVKIT — Espressif's own mechanical drawing,
 # DXF_ESP32-S3-DevKitC-1_V1_20210312CB.pdf
@@ -854,6 +878,16 @@ R_DISP_BORE     = 30.19      # MEASURED across the flats, not the param radius
 # what both parts' printers do -- and the ribs are the only thing touching.
 COLLAR_OD       = 29.60      # was Sam's 30.108, then 29.90
 COLLAR_RIB_N    = 6
+# The -bar bases lose their bore wall over two 57 deg ears at +/-x, where the
+# module overhangs it, so the six-rib phase puts two ribs into thin air. Four on
+# the diagonals clear both ears by 31 deg and stay symmetric about both axes.
+COLLAR_RIB_BAR_N     = 4
+COLLAR_RIB_BAR_PHASE = 0.5        # -> 45, 135, 225, 315.
+# Swept rather than picked: at four ribs the phase options are 45/135/225/315
+# (15.4 deg clear of the nearest ear edge, allowing for the rib's own 1.9 deg of
+# angular width) and 60/150/240/330 (0.4 deg -- touching). Everything past that
+# puts a rib inside an ear. 0.5 also happens to be the round bodies' own phase,
+# so only the COUNT differs between the two diffusers.
 COLLAR_RIB_W    = 1.00       # tangential. Narrower crushes more easily than wide
 COLLAR_RIB_H    = 0.10       # radial interference -> 0.20 mm on diameter.
                              # v14: doubled. Sam, on the same message that asked

@@ -657,7 +657,7 @@ def build_numerals(B):
 
 
 # =============================================================================
-def build_diffuser(B):
+def build_diffuser(B, bar=False):
     """Sam's diffuser, with everything he has asked for since first test-fitting.
 
     1. PRESS FIT, and this time a real one. v3 grew the wall to a 0.10 mm
@@ -770,8 +770,18 @@ def build_diffuser(B):
     # away as its own shell in float32.
     r_crest = R_DISP_BORE + COLLAR_RIB_H
     r_in = COLLAR_OD - COLLAR_RIB_BURY
-    for k in range(COLLAR_RIB_N):
-        a = 360.0 / COLLAR_RIB_N * (k + 0.5)
+    # On a -bar base the bore wall is missing over two 57 deg ears at +/-x,
+    # where the module overhangs it. Measured on the built part, the standard
+    # six ribs put 30 deg and 330 deg straight into the +x ear -- 4% of each rib
+    # had anything to bite on -- which leaves the grip entirely on the -x side
+    # and shoves the collar sideways. Four ribs on the diagonals clear both ears
+    # by 31 deg and are symmetric about both axes, which is what a press fit
+    # needs. Same interference, same rib width, same lead-in: only the count and
+    # the phase change.
+    ribs = COLLAR_RIB_BAR_N if bar else COLLAR_RIB_N
+    phase = COLLAR_RIB_BAR_PHASE if bar else 0.5
+    for k in range(ribs):
+        a = 360.0 / ribs * (k + phase)
         rm = (r_crest + r_in) / 2
         cx, cy = rm * math.cos(math.radians(a)), rm * math.sin(math.radians(a))
         d += prism(rot_rect(cx, cy, r_crest - r_in, COLLAR_RIB_W, a),
@@ -939,7 +949,52 @@ def screw_pilots_for(B):
     return holes
 
 
-def assemble_base(B, sam):
+def bar_pocket():
+    """The cut that lets the 1.9" bar module take the round one's place.
+
+    Measured before it was designed: the module's whole swept volume, from its
+    seat to the front recess, clashes with only 193.9 mm3 of the built base.
+    That is because the two places it overhangs the round bore are the two
+    places the base is ALREADY open -- the display-tab slot at 12 o'clock and
+    the wire slot at 6 o'clock. The module pokes past r 30.19 only in two ears
+    at +/-x, 4.52 mm deep and 29 mm wide, and those slots have between them
+    already taken out all but a fifth of both.
+
+    So this is not a redesigned middle. It is a rectangular relief cut through
+    what little is left, plus the 1.10 mm the seat has to drop.
+
+    Nothing else moves. Z_SEAT_BAR is derived so the module's FRONT FACE lands
+    exactly where the round module's does, which means the diffuser, its collar,
+    the land at 19.03 and the whole vertical stack are untouched -- and the
+    diffuser does not even need reprinting, because its central hole is r 27.92
+    against the bar's 24.18 of active half-diagonal.
+    """
+    hl, hw = BAR_L/2 + BAR_CLR, BAR_W/2 + BAR_CLR
+    # from just under the seat up through the front recess, so the module drops
+    # straight in from the front rather than having to be tilted through a bore
+    # it is 1.62 mm too long for
+    cut = box_lwh(-hl, hl, -hw, hw, Z_SEAT_BAR - 0.60, Z_RECESS + 0.50)
+
+    # ...and something for it to land on. Measured on the first build: the cut
+    # alone left the seat 0.0% solid -- the wire slot at 6 o'clock already goes
+    # right through under the bore, so the module had nothing under it at all
+    # and would have dropped straight into the housing.
+    #
+    # Two rails along its long edges, from the deck up to the seat. They sit at
+    # |y| 12.90..14.90, which is outboard of the wire slot's own half width of
+    # 13.00, so the slot stays open for the ring leads. 1.60 mm of the module's
+    # 29 mm width rests on each -- and the diffuser's collar tip, 0.40 mm above
+    # its top face, is what stops it lifting back out.
+    rails = None
+    for sy in (1, -1):
+        r = box_lwh(-BAR_L/2 - 1.0, BAR_L/2 + 1.0,
+                    *sorted((sy*(BAR_W/2 + BAR_CLR), sy*(BAR_W/2 - 1.60))),
+                    Z_DECK, Z_SEAT_BAR)
+        rails = r if rails is None else rails + r
+    return cut, rails
+
+
+def assemble_base(B, sam, bar=False):
     out = build_base(B, sam) + build_deck_for(B) + tab_slot_walls()
     out = out - screw_pilots_for(B)
     if B.n != 24:
@@ -962,6 +1017,9 @@ def assemble_base(B, sam):
         out = out - drop
         print(f'  display seat dropped {SEAT_DROP:.2f} mm '
               f'(now z={Z_SEAT - SEAT_DROP:.2f}) -- diffuser needs no reprint')
+    if bar:
+        cut, rails = bar_pocket()
+        out = (out - cut) + rails
     return out
 
 
@@ -1079,6 +1137,19 @@ if __name__ == '__main__':
                                              f'mini-round-clock-deskstand{tg}', True),
             (build_numerals(B),              f'mini-round-clock-numerals{tg}',  False),
         ]
+        # -bar: the same base with the rectangular relief for the 1.9" ST7789.
+        # Only the 32 and 60 get one. On the 108 mm body the module's corners
+        # reach r 34.22 against a ring pocket that starts at 35.11, which would
+        # leave 0.89 mm of wall -- see BUILD-LOG. Everything else about a bar
+        # clock is the round parts: same housing, same diffuser, same numerals,
+        # same stand.
+        if B.n != 24:
+            parts += [
+                (assemble_base(B, sam, bar=True),
+                 f'mini-round-clock-base{tg}-bar', True),
+                (build_diffuser(B, bar=True),
+                 f'mini-round-clock-diffuser{tg}-bar', True),
+            ]
     # The battery shelves only mean anything if a battery fits, and at
     # HOUSING_DEEP = 25.00 one does not. Emitting the part anyway would put a
     # file in the folder that cannot be used, so it is skipped and said out loud.
