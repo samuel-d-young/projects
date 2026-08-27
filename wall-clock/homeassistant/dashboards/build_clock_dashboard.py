@@ -218,6 +218,43 @@ def clock_cards(slug, label):
     return [ring, ring_note, colour_note, colour, screen, alert, alert_note, bright]
 
 
+# -----------------------------------------------------------------------------
+# SECTIONS, AND WHY THE VIEW IS NOT MASONRY
+# -----------------------------------------------------------------------------
+# A masonry view (the default) packs cards into columns by HEIGHT, not by the
+# order they are listed in. Two clocks with byte-identical card lists therefore
+# render in different visual orders as soon as their cards differ in height at
+# all -- and they do, because an offline clock's rows draw differently to a
+# live one's. The cards were identical and the layouts still did not match.
+#
+# A `sections` view lays each section out as a grid in list order, so the same
+# card list always produces the same arrangement. Every clock gets the SAME
+# three groups below, which is what makes two clocks look alike.
+#
+# Indices into the list returned by clock_cards(), named so the grouping is
+# readable rather than three bare slices:
+#   0 ring   1 ring_note   2 colour_note   3 colour
+#   4 screen 5 alert       6 alert_note    7 bright
+SECTION_GROUPS = [
+    ("Ring", [0, 1]),
+    ("Colour", [2, 3]),
+    ("Screen, alert and brightness", [4, 5, 6, 7]),
+]
+
+
+def clock_sections(slug, label):
+    """One grid section per group, in a fixed order, for a single clock."""
+    cards = clock_cards(slug, label)
+    out = []
+    for _name, idxs in SECTION_GROUPS:
+        out.append({
+            "type": "grid",
+            "visibility": vis(label),
+            "cards": [cards[i] for i in idxs],
+        })
+    return out
+
+
 def build():
     cards = [
         {
@@ -250,6 +287,27 @@ def build():
     return cards
 
 
+def build_view():
+    """The whole Settings view as a `sections` view.
+
+    The first three cards from build() are the shared header (intro, picker,
+    timers) and are not per-clock, so they go in their own always-visible
+    section. Everything after that is regrouped per clock by clock_sections().
+    """
+    shared = build()[:3]
+    sections = [{"type": "grid", "cards": shared}]
+    for c in CLOCKS:
+        sections += clock_sections(c["slug"], c["label"])
+    return {
+        "title": "Settings",
+        "path": "settings",
+        "icon": "mdi:tune",
+        "type": "sections",
+        "max_columns": 3,
+        "sections": sections,
+    }
+
+
 if __name__ == "__main__":
     if "--names" in sys.argv:
         for c in CLOCKS:
@@ -258,6 +316,16 @@ if __name__ == "__main__":
     cards = build()
     io.open("wall-clock-settings-cards.json", "w", encoding="utf-8",
             newline="\n").write(json.dumps(cards, indent=2))
-    print("clocks: %d   cards: %d" % (len(CLOCKS), len(cards)))
+
+    # The sections view is what actually gets installed; the flat card list
+    # above is kept because the BUILD-LOG's jq recipe still refers to it. Both
+    # come from clock_cards(), so they cannot drift apart.
+    view = build_view()
+    io.open("wall-clock-settings-view.json", "w", encoding="utf-8",
+            newline="\n").write(json.dumps(view, indent=2))
+
+    print("clocks: %d   cards: %d   sections: %d"
+          % (len(CLOCKS), len(cards), len(view["sections"])))
     for c in CLOCKS:
-        print("  %-22s -> %s" % (c["label"], c["slug"]))
+        print("  %-22s -> %s   (%d sections)"
+              % (c["label"], c["slug"], len(SECTION_GROUPS)))
