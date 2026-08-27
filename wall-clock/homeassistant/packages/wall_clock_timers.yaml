@@ -373,13 +373,22 @@ intent_script:
               - action: timer.cancel
                 target:
                   entity_id: "{{ target }}"
+      # "Stop" HAS TO STOP A SOUNDING ALARM. This is what makes it behave like
+      # an Echo. A timer that has FINISHED is idle, not running, so `pick`
+      # returns nothing for it and the branch above does nothing at all -- which
+      # is why saying "stop the timer" at a beeping clock used to be answered
+      # with "there's no timer running" while it kept beeping. Clearing the flag
+      # unconditionally costs nothing when no alarm is sounding.
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.wall_clock_timer_alert
     speech:
       text: >-
         {% from 'wall_clock_timer_match.jinja' import pick, describe %}
         {% set target = pick(name | default(''), area | default(''), preferred_area_id | default(''),
                              start_hours | default(0), start_minutes | default(0), start_seconds | default(0)) %}
         {% if target != '' %}{{ describe(target) }} cancelled.
-        {% else %}There's no timer running.{% endif %}
+        {% else %}OK.{% endif %}
 
   # ---- CANCEL ALL ----------------------------------------------------------
   HassCancelAllTimers:
@@ -393,6 +402,10 @@ intent_script:
             - timer.wall_clock_3
             - timer.wall_clock_4
             - timer.wall_clock_5
+      # ...and a finished one that is still sounding. Same reason as above.
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.wall_clock_timer_alert
     speech:
       text: >-
         {% set n = states('sensor.wall_clock_timer_slots') | int(0) %}
@@ -553,10 +566,54 @@ intent_script:
 
 input_boolean:
   # Latched by the automation below when a timer fires. The ring pulses while
-  # this is on.
+  # this is on, and it now STAYS on until something clears it -- see the alert
+  # automation. Turning this off by hand, from a dashboard, is a valid dismiss.
   wall_clock_timer_alert:
     name: Wall clock timer alert
     icon: mdi:bell-ring
+
+
+input_button:
+  # THE DISMISS. Sam: "I want the alarm to go off until it is cancelled."
+  #
+  # It needs its own button because there is nothing else to press. A finished
+  # timer is IDLE, not running, so `timer.cancel` on it fires no
+  # `timer.cancelled` event and the existing clear-on-cancel automation never
+  # sees anything -- that path only covers cancelling a timer that is still
+  # counting down. This is the "Alexa, stop" of the arrangement.
+  wall_clock_timer_dismiss:
+    name: Wall clock dismiss alarm
+    icon: mdi:bell-off
+
+
+input_number:
+  # How many times the finished-timer announcement repeats before it gives up.
+  # 0 means NEVER GIVES UP, which is what was asked for and what an Echo does,
+  # and it is the default here.
+  #
+  # Worth knowing rather than discovering: at 0 an un-cancelled timer keeps
+  # announcing in that room indefinitely. If you would rather it ran out of
+  # patience -- nobody home, a timer set and forgotten -- set this to the number
+  # of announcements you want. At the 20 s interval below, 30 is ten minutes.
+  wall_clock_alert_repeat_max:
+    name: Wall clock alert repeats (0 = until cancelled)
+    icon: mdi:repeat
+    min: 0
+    max: 200
+    step: 1
+    initial: 0
+    mode: box
+
+  # Seconds between announcements while the alarm is going.
+  wall_clock_alert_repeat_seconds:
+    name: Wall clock alert repeat interval
+    icon: mdi:timer-refresh
+    unit_of_measurement: s
+    min: 5
+    max: 120
+    step: 5
+    initial: 20
+    mode: box
 
 
 # -----------------------------------------------------------------------------
@@ -564,9 +621,37 @@ input_boolean:
 # -----------------------------------------------------------------------------
 automation:
 
+  # ---------------------------------------------------------------------------
+  # THE ALARM. It sounds until it is cancelled.
+  # ---------------------------------------------------------------------------
+  # Sam: "just like Alexa, I want the alarm to go off until it is cancelled.
+  # When it is cancelled the wall clock stops showing the alarm too. Otherwise
+  # have the alarm stop after 15 seconds on the wall clock."
+  #
+  # WHAT CHANGED. This used to announce ONCE, wait 60 seconds and clear the
+  # flag. So the alarm did not go off until cancelled -- it went off once and
+  # forgot, and the clock stopped flashing a minute later whether or not anyone
+  # had heard it. It now announces on a loop and the flag stays latched until
+  # something dismisses it.
+  #
+  # THE TWO LIFETIMES, because they are deliberately different:
+  #
+  #   the ALARM  repeats here until dismissed (or until the repeat cap, if you
+  #              set one). Three things dismiss it: the dismiss button, turning
+  #              input_boolean.wall_clock_timer_alert off by hand, or starting
+  #              or cancelling another wall-clock timer.
+  #   the CLOCK  shows the alert for `alert_seconds` (15 by default, set on the
+  #              device) and then goes back to telling the time -- but a dismiss
+  #              clears it INSTANTLY, within one 50 ms frame, because the ring
+  #              reads the flag every frame rather than waiting on a timer.
+  #              Set alert_seconds to 0 on the device if you want the ring to
+  #              flash for exactly as long as the alarm sounds.
+  #
+  # wait_template rather than delay between announcements, so a dismiss breaks
+  # the loop the moment it happens instead of at the end of the current wait.
   - id: wall_clock_timer_alert_on
-    alias: "Wall clock: timer finished -> alert + announce"
-    mode: restart          # a second timer finishing restarts the 60s window
+    alias: "Wall clock: timer finished -> alert + announce until cancelled"
+    mode: restart          # a second timer finishing restarts the loop
     triggers:
       - trigger: event
         event_type: timer.finished
@@ -594,20 +679,36 @@ automation:
           sats: >-
             {% set a = meta.area | default('') %}
             {{ area_entities(a) | select('match', 'assist_satellite\\.') | list if a else [] }}
-      - choose:
-          - conditions:
-              - condition: template
-                value_template: "{{ sats | length > 0 }}"
-            sequence:
-              - action: assist_satellite.announce
-                target:
-                  entity_id: "{{ sats }}"
-                data:
-                  message: >-
-                    {{ ('Your ' ~ label ~ ' timer has finished.') if label
-                       else 'Your timer has finished.' }}
+      - repeat:
+          sequence:
+            - choose:
+                - conditions:
+                    - condition: template
+                      value_template: "{{ sats | length > 0 }}"
+                  sequence:
+                    - action: assist_satellite.announce
+                      target:
+                        entity_id: "{{ sats }}"
+                      data:
+                        message: >-
+                          {{ ('Your ' ~ label ~ ' timer has finished.') if label
+                             else 'Your timer has finished.' }}
+            # Breaks out the instant the flag clears; otherwise falls through
+            # after the interval and the `until` below decides.
+            - wait_template: "{{ is_state('input_boolean.wall_clock_timer_alert', 'off') }}"
+              timeout:
+                seconds: "{{ states('input_number.wall_clock_alert_repeat_seconds') | int(20) }}"
+              continue_on_timeout: true
+          until:
+            - condition: template
+              value_template: >-
+                {% set cap = states('input_number.wall_clock_alert_repeat_max') | int(0) %}
+                {{ is_state('input_boolean.wall_clock_timer_alert', 'off')
+                   or (cap > 0 and repeat.index >= cap) }}
 
-      - delay: "00:01:00"
+      # Whichever way the loop ended, leave the flag off: either it was already
+      # dismissed, or the repeat cap ran out and the alarm has given up. A flag
+      # left latched here would keep the ring flashing with nothing sounding.
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.wall_clock_timer_alert
@@ -623,6 +724,21 @@ automation:
     conditions:
       - condition: template
         value_template: "{{ trigger.event.data.entity_id.startswith('timer.wall_clock_') }}"
+    actions:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.wall_clock_timer_alert
+
+  # THE DISMISS, on its own trigger. A finished timer is idle, so `timer.cancel`
+  # fires nothing and the automation above never runs for it -- that one only
+  # catches a timer cancelled while it was still counting. This is the path that
+  # actually stops a sounding alarm.
+  - id: wall_clock_timer_alert_dismiss
+    alias: "Wall clock: dismiss the alarm"
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: input_button.wall_clock_timer_dismiss
     actions:
       - action: input_boolean.turn_off
         target:

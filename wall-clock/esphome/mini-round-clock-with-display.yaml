@@ -328,6 +328,12 @@ binary_sensor:
   - platform: homeassistant
     id: timer_alert
     entity_id: binary_sensor.wall_clock_timer_alert
+    # Stamp when the alarm STARTED, so the clock can stop showing it after
+    # `alert_seconds` without needing Home Assistant to tell it to. A cancel
+    # still clears it instantly -- the flag going false is checked on every
+    # frame, and no timer is involved in that direction.
+    on_press:
+      - lambda: 'id(alert_since) = millis();'
   - platform: homeassistant
     id: bin_night
     entity_id: binary_sensor.wall_clock_bin_night
@@ -536,6 +542,43 @@ number:
     optimistic: true
     restore_value: true
 
+  # HOW LONG THE CLOCK KEEPS SHOWING A FINISHED TIMER.
+  # Sam: "just like Alexa, I want the alarm to go off until it is cancelled.
+  # When it is cancelled the wall clock stops showing the alarm too. Otherwise
+  # have the alarm stop after 15 seconds on the wall clock."
+  #
+  # Two different lifetimes, deliberately, and this number is only the second:
+  #
+  #   the ALARM   sounds until it is cancelled. That is Home Assistant's job and
+  #               it is done in wall_clock_timers.yaml, which now re-announces
+  #               on a loop instead of once-then-forget.
+  #   the CLOCK   shows the alert from the moment it starts until whichever
+  #               comes first: the alarm is cancelled, or this many seconds.
+  #
+  # A cancel always wins immediately -- the alert flag going false clears the
+  # ring and the screen on the next frame, 50 ms later -- so "when it is
+  # cancelled the wall clock stops showing the alarm too" holds no matter what
+  # this is set to.
+  #
+  # Set it to 0 to mean "follow the alarm exactly", i.e. flash for as long as it
+  # sounds. Worth saying plainly: at 15 the ring goes back to telling the time
+  # while an un-cancelled alarm is still audible in the kitchen. That is what
+  # was asked for and it is a reasonable thing to want -- the noise is what
+  # fetches you, the ring is what you read once you are there -- but if it feels
+  # wrong, 0 is the setting that makes the two agree.
+  - platform: template
+    id: alert_seconds
+    name: "Alert shows for"
+    entity_category: config
+    icon: mdi:bell-sleep-outline
+    unit_of_measurement: "s"
+    min_value: 0
+    max_value: 300
+    step: 5
+    initial_value: 15
+    optimistic: true
+    restore_value: true
+
   # How strongly the weather colours the screen background. 0 leaves the plain
   # near-black ground; 100 is the full tint.
   - platform: template
@@ -739,6 +782,7 @@ select:
       - "minimal"       # time only, nothing else
       - "analog"        # drawn hands on the LCD as well as the ring
       - "analog ring"   # dial pushed to the rim, quantised to the LED positions
+      - "colour test"   # three labelled swatches -- settles color_order by eye
     initial_option: "digital"
     optimistic: true
     restore_value: true
@@ -821,11 +865,19 @@ select:
     optimistic: true
     restore_value: true
 
+  # HOUR MARKERS, ONE SELECT PER SURFACE.
+  # Sam: "...only show the hours and minutes on the LED ring, but keep the
+  # markers on the screen." One select drove both, so "none" took the screen's
+  # markers away with the ring's. `marker_style` keeps its id and is now the
+  # SCREEN's; `ring_markers` is the ring's, and it ships as "none" because that
+  # is the state Sam asked for.
+  #
   # On a 24-LED ring twelve markers use half the pixels, which can drown the
-  # hands. Quarters keeps the orientation cue at a quarter of the cost.
+  # hands. Quarters keeps the orientation cue at a quarter of the cost -- which
+  # is the setting to come back to if a bare ring turns out to be too bare.
   - platform: template
     id: marker_style
-    name: "Hour markers"
+    name: "Screen hour markers"
     entity_category: config
     icon: mdi:format-list-bulleted
     options:
@@ -833,6 +885,19 @@ select:
       - "quarters"
       - "none"
     initial_option: "twelve"
+    optimistic: true
+    restore_value: true
+
+  - platform: template
+    id: ring_markers
+    name: "Ring hour markers"
+    entity_category: config
+    icon: mdi:format-list-bulleted
+    options:
+      - "twelve"
+      - "quarters"
+      - "none"
+    initial_option: "none"
     optimistic: true
     restore_value: true
 
@@ -850,15 +915,33 @@ select:
   # "proportion" is the older behaviour — the whole ring means the whole timer,
   # however long it is. Fine for one timer, but it makes a 2 minute and a
   # 2 hour timer look identical, which is exactly what the Echo avoids.
+  #
+  # "seconds" is new, and it is the default, because Sam asked for it directly:
+  # "Make sure that when a timer is set, that the LED's count down the seconds."
+  # It is "minutes" with the last stretch replaced by a literal per-second
+  # countdown -- ONE LED PER SECOND REMAINING, one going out every second.
+  #
+  #     more than N seconds left   one LED per whole minute remaining (as
+  #                                "minutes" does, so a long timer still reads)
+  #     N seconds or fewer         one LED per second remaining, draining the
+  #                                other way round
+  #
+  # N is the ring's LED count, and being honest about what that means: a
+  # 60-LED ring gives a true per-second countdown for the whole final minute;
+  # the 24-LED ring can only do it for the last 24 seconds and the 32 for the
+  # last 32, because one LED per second is one LED per second. The changeover is
+  # the same direction flip "minutes" already uses, so you can still see the
+  # final stretch start without counting.
   - platform: template
     id: timer_style
     name: "Timer countdown style"
     entity_category: config
     icon: mdi:timer-sand
     options:
+      - "seconds"
       - "minutes"
       - "proportion"
-    initial_option: "minutes"
+    initial_option: "seconds"
     optimistic: true
     restore_value: true
 
@@ -914,9 +997,38 @@ select:
     restore_value: true
 
 switch:
+  # ---------------------------------------------------------------------------
+  # POWER: one master, two surfaces
+  # ---------------------------------------------------------------------------
+  # Sam: "Update the wall clock so you can control the screen and LED
+  # seperately. I would like to turn off the LED's on the outside and only show
+  # the hours and minutes on the LED ring, but keep the markers on the screen."
+  #
+  # `display_on` used to gate the RING -- one switch called "Display" that
+  # actually turned the LEDs off -- so there was no way to have one surface
+  # without the other. It is now the MASTER and keeps its id and its name, so
+  # nothing already on a dashboard or in an automation breaks; the two new
+  # switches under it are what pick a surface.
+  #
+  #     ring lit    iff  display_on AND ring_on
+  #     screen lit  iff  display_on AND screen_on
   - platform: template
     id: display_on
     name: "Display"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
+    id: ring_on
+    name: "Ring LEDs"
+    icon: mdi:circle-outline
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
+    id: screen_on
+    name: "Screen on"
+    icon: mdi:monitor
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
@@ -955,9 +1067,20 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
 
+  # SPLIT. `show_seconds` is the SCREEN's second hand and keeps its id; the ring
+  # has its own switch, because "only show the hours and minutes on the LED
+  # ring" is a ring-only instruction and the screen is meant to keep everything.
   - platform: template
     id: show_seconds
-    name: "Second hand"
+    name: "Screen second hand"
+    entity_category: config
+    icon: mdi:timer-outline
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
+    id: ring_seconds
+    name: "Ring second hand"
     entity_category: config
     icon: mdi:timer-outline
     optimistic: true
@@ -971,12 +1094,67 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
-  # The ambient hints on the ring: bin night, garage, driveway, who's home.
+  # ---------------------------------------------------------------------------
+  # THE AMBIENT HINTS, ONE SWITCH EACH
+  # ---------------------------------------------------------------------------
+  # Sam: "why is there a blue light on the LED, what else is showing on the LED
+  # ring... I want to turn the [bin] light off."
+  #
+  # There was exactly one switch for the lot, so the only way to lose the bin
+  # light was to lose the garage and the driveway with it. Every ambient pixel
+  # now has its own switch AND its own place on the dial, so the answer to
+  # "what is that?" is readable off this list:
+  #
+  #     bin night   12 o'clock  breathing green, or yellow when it is Recycling
+  #     garage       3 o'clock  steady amber
+  #     driveway     9 o'clock  blinking red
+  #     presence   ~ 6 o'clock  up to four dots: Sam (0,40,90) BLUE,
+  #                             Laura (90,0,70) magenta, Amanda (0,70,40) green,
+  #                             Zac (70,50,0) amber
+  #
+  # THE BLUE ONE. Sam's own presence dot is (0,40,90) and it sits just left of 6
+  # o'clock -- that is the single blue light. The twelve hour markers are also
+  # very slightly blue, (14,14,18), but they are dim and there are twelve of
+  # them, so a single blue dot is the presence pip. Both have a switch now.
+  # `show_status` is kept as the master over the four, with its id unchanged.
   - platform: template
     id: show_status
     name: "Show status hints"
     entity_category: config
     icon: mdi:information-outline
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # OFF BY DEFAULT -- the one Sam asked to turn off, in the message that asked.
+  - platform: template
+    id: st_bin
+    name: "Status bin night"
+    entity_category: config
+    icon: mdi:trash-can-outline
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: template
+    id: st_garage
+    name: "Status garage open"
+    entity_category: config
+    icon: mdi:garage-open
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
+    id: st_driveway
+    name: "Status driveway"
+    entity_category: config
+    icon: mdi:car-back
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
+    id: st_presence
+    name: "Status who is home"
+    entity_category: config
+    icon: mdi:account-group
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
@@ -1034,6 +1212,14 @@ globals:
   # Initial values are the "default" preset already resolved, so the very first
   # frames are correct in the gap before the resolver's first tick.
   # 0-2 hour, 3-5 minute, 6-8 second, 9-11 timer, 12-14 pip, 15-17 alert.
+  # millis() at the moment the alert flag last went true. See `alert_seconds`.
+  # Not restored: an alarm does not survive a reboot, and a stale stamp would
+  # make the first alert after power-up expire immediately.
+  - id: alert_since
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+
   - id: pal_ring
     type: int[18]
     restore_value: no
@@ -1271,7 +1457,11 @@ light:
 
             const std::string mode  = id(display_mode).current_option().str();
             const auto now = id(ha_time).now();
-            if (!id(display_on).state) { it.all() = Color::BLACK; return; }
+            // The ring has its own switch under the master now, so "turn off
+            // the LED's on the outside" does not take the screen with it.
+            if (!id(display_on).state || !id(ring_on).state) {
+              it.all() = Color::BLACK; return;
+            }
 
             // ---- THEME ------------------------------------------------------
             // Already resolved. The palette resolver up in `interval:` turns
@@ -1299,7 +1489,17 @@ light:
             }
 
             // ---- ALERT (highest priority) ----------------------------------
-            else if (id(timer_alert).state && mode != "clock bare") {
+            // ALARM: shown until cancelled, or for alert_seconds, whichever
+            // comes first. alert_seconds == 0 means "as long as it sounds".
+            // The cancel path is the `.state` term and it needs no timer, so
+            // "when it is cancelled the wall clock stops showing the alarm too"
+            // holds within one 50 ms frame whatever the timeout is set to.
+            // Unsigned subtraction, so a millis() wrap costs one frame, not
+            // 49 days of no alarm.
+            else if (id(timer_alert).state && mode != "clock bare"
+                     && (id(alert_seconds).state <= 0.0f
+                         || (uint32_t)(millis() - id(alert_since))
+                            < (uint32_t) lroundf(id(alert_seconds).state * 1000.0f))) {
               const std::string astyle = id(alert_style).current_option().str();
               if (astyle == "solid") {
                 for (int i = 0; i < N; i++)
@@ -1327,7 +1527,10 @@ light:
               // so "quarters" exists to keep the orientation cue without the
               // hands having to fight it.
               {
-                const std::string ms = id(marker_style).current_option().str();
+                // ring_markers, NOT marker_style: marker_style is the
+                // screen's now. These are the twelve slightly-blue (14,14,18)
+                // pixels, and they ship as "none" on the ring.
+                const std::string ms = id(ring_markers).current_option().str();
                 if (ms != "none") {
                   const float mb = id(marker_bright).state / 100.0f;
                   const int step = (ms == "quarters") ? 3 : 1;
@@ -1349,10 +1552,46 @@ light:
                     // is all "anticlockwise" needs.
                     const bool acw =
                       id(arc_dir).current_option().str() == "anticlockwise";
-                    const bool mins_style =
-                      id(timer_style).current_option().str() == "minutes";
+                    const std::string tstyle =
+                      id(timer_style).current_option().str();
+                    const bool secs_style = tstyle == "seconds";
+                    const bool mins_style = secs_style || tstyle == "minutes";
 
-                    if (mins_style) {
+                    if (secs_style && left <= 60.0f) {
+                      // ---- SECONDS: one LED per second remaining ----------
+                      // Sam: "when a timer is set, that the LED's count down
+                      // the seconds." Literally that -- lit == whole seconds
+                      // left, so one LED goes out every second, and the ring
+                      // empties as the timer expires.
+                      //
+                      // ceilf, so the last LED is still lit through the last
+                      // whole second and the ring reaches empty exactly as the
+                      // alert starts, rather than a second early.
+                      //
+                      // BEING STRAIGHT ABOUT WHAT A 24-LED RING CAN DO. One LED
+                      // per second needs 60 LEDs to cover a minute. The 60-LED
+                      // build counts every second of the final minute. The 24
+                      // can only count the last 24 and the 32 the last 32, so
+                      // above that the ring simply sits FULL -- 36 seconds on
+                      // the 24, 28 on the 32, none on the 60 -- and starts
+                      // draining, one LED per second, when the count fits.
+                      //
+                      // min(N, ...) rather than a second scale for that stretch
+                      // is deliberate: it keeps the arc MONOTONIC. It never
+                      // grows as time runs down, so the ring can never look
+                      // like the timer got longer. If you would rather see
+                      // movement across the whole final minute, "minutes" style
+                      // is the one that gives it -- at 2.5 s per LED on the 24.
+                      //
+                      // Drains the OTHER way, same as the final minute of
+                      // "minutes" style -- the reversal is how you see the
+                      // final stretch begin without counting pixels.
+                      int lit = (int) ceilf(left);
+                      if (lit > N) lit = N;
+                      for (int i = 0; i < lit; i++)
+                        add(P(acw ? (float) i / N : -(float) i / N),
+                            timerC[0], timerC[1], timerC[2]);
+                    } else if (mins_style) {
                       if (left > 60.0f) {
                         // ---- MINUTES: a COUNT, not a proportion ------------
                         // One LED per whole minute remaining, rounded up, so
@@ -1366,7 +1605,8 @@ light:
                           add(P(acw ? -(float) i / N : (float) i / N),
                               timerC[0], timerC[1], timerC[2]);
                       } else {
-                        // ---- FINAL MINUTE: seconds, draining the OTHER way -
+                        // ---- FINAL MINUTE ("minutes" style only; "seconds"
+                        // style took its own branch above) -------------------
                         // The reversal is the signal. You do not have to count
                         // pixels to know you are inside the last minute; the
                         // arc simply starts unwinding backwards.
@@ -1422,7 +1662,7 @@ light:
                 // One scale for every ambient pixel, so status can be turned
                 // down as a group without touching the hands.
                 const float sb = id(status_bright).state / 100.0f;
-                if (id(bin_night).state) {                 // 12 o'clock breathe
+                if (id(bin_night).state && id(st_bin).state) {   // 12 o'clock
                   const float ph = (id(frame) % 60) / 60.0f;
                   const float k = (0.4f + 0.6f * fabsf(1.0f - 2.0f * ph)) * sb;
                   if (id(next_bin).state == "Recycling")
@@ -1430,14 +1670,18 @@ light:
                   else
                     add(P(0.0f), 0, (int)(150*k), (int)(30*k));    // green
                 }
-                if (id(garage_open).state)                 // 3 o'clock, amber
+                if (id(garage_open).state && id(st_garage).state)   // 3 o'clock
                   add(P(0.25f), (int)(150*sb), (int)(70*sb), 0);
-                if (id(driveway_unknown).state) {          // 9 o'clock, red
+                if (id(driveway_unknown).state && id(st_driveway).state) {
                   const float k = (((id(frame) / 10) % 2) ? 1.0f : 0.25f) * sb;
                   add(P(0.75f), (int)(200*k), 0, 0);
                 }
-                const bool who[4] = { id(home_sam).state,    id(home_laura).state,
-                                      id(home_amanda).state, id(home_zac).state };
+                // The presence dots, just either side of 6 o'clock. Sam's own
+                // is (0,40,90) -- THE blue light, and now behind its own switch.
+                const bool who[4] = { id(home_sam).state && id(st_presence).state,
+                                      id(home_laura).state && id(st_presence).state,
+                                      id(home_amanda).state && id(st_presence).state,
+                                      id(home_zac).state && id(st_presence).state };
                 const int rgb[4][3] = { {0,40,90}, {90,0,70}, {0,70,40}, {70,50,0} };
                 for (int w = 0; w < 4; w++)
                   if (who[w])
@@ -1453,7 +1697,7 @@ light:
               // a 60-LED ring gives a genuinely per-minute face.
               add(P(hf), hourC[0], hourC[1], hourC[2]);
               add(P(now.minute / 60.0f + now.second / 3600.0f), minC[0], minC[1], minC[2]);
-              if (id(show_seconds).state) {
+              if (id(ring_seconds).state) {
                 // Sweep interpolates between ticks with the render counter,
                 // which is already running at 20fps for the alert pulse — so a
                 // gliding hand costs nothing beyond this line.
@@ -1568,6 +1812,63 @@ display:
     data_rate: 20MHz          # 50MHz is what xboot uses; 20 is a safe first pass
     pixel_mode: 16bit         # MUST match COLMOD 0x05 in the table above
     invert_colors: false      # flip if the image looks like a photo negative
+
+    # RGB, AND THIS IS THE FIX FOR "the colours seem to be opposite on the
+    # screen" / "the hour hand on the screen is blue but it's orange on the LED
+    # ring. And the opposite to the minutes."
+    #
+    # IT IS NOT A SWAP IN THE CODE. Both surfaces read the SAME palette slots --
+    # ring hourC = pal_ring[0..2], screen c_hour = pal_scr[0..2], and the same
+    # for the minute at [3..5]. There is no index anywhere that crosses them
+    # over. What was wrong is the order the bytes leave in: red and blue are
+    # arriving in each other's channel, so every colour comes out as its
+    # opposite. Run the two default hand colours through that swap:
+    #
+    #     hour   (235,144,105) orange  ->  (105,144,235)  a medium BLUE
+    #     minute (106,153,224) blue    ->  (224,153,106)  ORANGE
+    #     second (158,158,158) grey    ->  (158,158,158)  unchanged
+    #
+    # -- which is Sam's report exactly, down to why only the two coloured hands
+    # looked wrong while the grey second hand and the white hand boss did not.
+    #
+    # RULED OUT: invert_colors. A negative swaps orange and blue too, but it
+    # would also turn the near-black ground (10,12,18) into near-WHITE, and the
+    # screen is not white. An R/B swap leaves greys and the background exactly
+    # where they are, which is what is on the wall.
+    #
+    # WHY rgb AND NOT bgr -- I had this backwards for about ten minutes, so the
+    # evidence is written down rather than the conclusion. Three sources, all
+    # pointing the same way:
+    #
+    #   1. xboot's fb-gc9b72.c -- the verified reference driver this whole init
+    #      table came from -- sets MADCTL to 0x00. Bit 3 clear is RGB. The
+    #      vendor drives this panel in RGB order.
+    #   2. ESPHome's mipi_spi APPENDS its own MADCTL after the custom table,
+    #      derived from color_order/rotation/mirror, exactly as it does with
+    #      COLMOD. The table's [0x36, 0x00] below never reaches the panel.
+    #   3. samuel-d-young/esphome-gc9b72-360x360 (this panel's own repo)
+    #      records the resolved config for a `model: CUSTOM` block with no
+    #      color_order line: `color_order: BGR`. So the default was overriding
+    #      the vendor's RGB with BGR -- and that repo's troubleshooting table
+    #      says it in one line: "Red shows as blue -> ... Default is BGR; try
+    #      RGB."
+    #
+    # So this line is not a guess at the hardware, it is putting back the order
+    # the vendor driver uses and ESPHome was silently replacing.
+    #
+    # DO NOT "fix" this by editing [0x36, 0x00] in the table below. It is
+    # overridden, so the edit would appear to do nothing -- the identical trap
+    # this file already documents for 0x3A. color_order is the knob that works.
+    # The vendor table stays byte-for-byte as verified.
+    #
+    # The bar panel below keeps `color_order: bgr`. Different controller,
+    # different answer; that one has been right since the day it was added.
+    #
+    # IF THIS IS NOW BACKWARDS -- if the hour hand has gone blue and the minute
+    # orange -- this single word is the whole fix. `clock_face: "colour test"`
+    # in Home Assistant puts three labelled swatches on the panel so you can
+    # settle it in one look instead of by memory.
+    color_order: rgb
     # never, not 1s: the dispatcher under `interval:` decides which panel gets
     # drawn. Left self-polling, the panel that is NOT fitted would still push a
     # full framebuffer down the shared bus every second -- 253 KB at 20 MHz is
@@ -1654,6 +1955,11 @@ display:
 
       # ---- pixel format + memory access ------------------------------------
       - [0x3A, 0x05]            # COLMOD: 16 bit/px, RGB565
+      # MADCTL. NEVER REACHES THE PANEL -- mipi_spi appends its own, built from
+      # color_order/rotation/mirror, after this table. Kept because it is what
+      # the vendor sequence sends and this table is verbatim, and because the
+      # 0x00 here is the evidence for `color_order: rgb` above: bit 3 clear is
+      # RGB, so RGB is what xboot drives this panel in.
       - [0x36, 0x00]            # MADCTL: no mirror, no swap, RGB order
 
       # ---- VCOM / power levels ---------------------------------------------
@@ -1681,6 +1987,34 @@ display:
       const std::string face = id(clock_face).current_option().str();
       const bool h24 = id(fmt_24h).state;
 
+      // ---- COLOUR TEST: settles color_order in one look --------------------
+      // Three swatches, each LABELLED with the colour it is supposed to be, in
+      // black text on the swatch. If the word RED is on a blue block, red and
+      // blue are swapped and `color_order:` on this component is the one line
+      // to change -- see the long note beside it.
+      //
+      // Drawn as an early return, before the weather tint and everything else,
+      // so nothing else on the panel can be blamed for what you are looking at.
+      // Green is in the middle because green is the channel a swap never
+      // touches: if the middle block is green and the outer two disagree with
+      // their labels, it is an R/B swap. If the middle one is wrong TOO, it is
+      // not colour order -- look at invert_colors instead.
+      if (face == "colour test") {
+        const int W = 360, BH = 92;
+        it.fill(Color(0, 0, 0));
+        const Color sw[3] = { Color(255,0,0), Color(0,255,0), Color(0,0,255) };
+        const char *nm[3] = { "RED", "GREEN", "BLUE" };
+        for (int k = 0; k < 3; k++) {
+          const int y = 46 + k * BH;
+          it.filled_rectangle(40, y, W - 80, BH - 10, sw[k]);
+          it.print(W / 2, y + (BH - 10) / 2, id(font_med), Color(0, 0, 0),
+                   TextAlign::CENTER, nm[k]);
+        }
+        it.print(W / 2, 20, id(font_small), Color(200, 200, 200),
+                 TextAlign::CENTER, "each word on its own colour = correct");
+        return;
+      }
+
       // 12/24 hour. Done by hand rather than with strftime %I because %I pads
       // to "09:30", which reads wrong on a clock face. This drops the zero.
       auto hour12 = [](int h) -> int { int v = h % 12; return v == 0 ? 12 : v; };
@@ -1702,6 +2036,12 @@ display:
                      (uint8_t) lroundf(c.g * k),
                      (uint8_t) lroundf(c.b * k));
       };
+
+      // The screen's own switch, under the master. Sam asked to be able to
+      // turn one surface off without the other; this is that end of it.
+      if (!id(display_on).state || !id(screen_on).state) {
+        it.fill(Color::BLACK); return;
+      }
 
       // Night blanks the SCREEN only. The ring keeps the time, because the
       // clock is the one thing that must survive every setting on this page.
@@ -1740,7 +2080,12 @@ display:
       }
 
       // ---- work out what this screen should be showing ------------------
-      bool alert = id(timer_alert).state;
+      // Same rule as the ring, deliberately: a timeout that clears one surface
+      // and not the other would be a bug you only meet at 6 a.m.
+      bool alert = id(timer_alert).state
+                   && (id(alert_seconds).state <= 0.0f
+                       || (uint32_t)(millis() - id(alert_since))
+                          < (uint32_t) lroundf(id(alert_seconds).state * 1000.0f));
       int  left  = -1;
       if (!alert && now.is_valid()) {
         const float fin = id(timer_finish_epoch).state;
@@ -2177,9 +2522,12 @@ display:
       const int W = 320, H = 170;
       auto now = id(ha_time).now();
 
-      // ---- night blank, identical rule to the round face --------------------
-      // Same guard, same order, deliberately: a setting that blanks one panel
+      // ---- power, then night blank: identical rule to the round face --------
+      // Same guards, same order, deliberately: a setting that blanks one panel
       // and not the other would be a bug that only shows up at 3 a.m.
+      if (!id(display_on).state || !id(screen_on).state) {
+        it.fill(Color::BLACK); return;
+      }
       if (id(night_blank).state && id(auto_dim).state && now.is_valid()) {
         const int h  = now.hour;
         const int ns = (int) lroundf(id(night_start).state);
@@ -2211,7 +2559,10 @@ display:
       // ---- timer alert takes the whole panel --------------------------------
       // The one case where the clock yields, and only because a finished timer
       // is the single most time-critical thing this device ever says.
-      if (id(timer_alert).state) {
+      if (id(timer_alert).state
+          && (id(alert_seconds).state <= 0.0f
+              || (uint32_t)(millis() - id(alert_since))
+                 < (uint32_t) lroundf(id(alert_seconds).state * 1000.0f))) {
         const bool on = (now.second % 2) == 0;
         it.filled_rectangle(0, 0, W, H, on ? Color(120, 40, 0) : Color(40, 14, 0));
         it.print(W / 2, 62, id(font_t72), Color(255, 255, 255),

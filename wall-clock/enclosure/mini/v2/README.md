@@ -265,38 +265,66 @@ stopped being a number:
 ```
 tip        = DIFF_WALL_CREST − COLLAR_LEN            exact, by construction
 COLLAR_LEN = DIFF_WALL_CREST − (Z_SEAT + DISP_T + COLLAR_TIP_CLR)
-           = 19.03 − (8.60 + 4.00 + 0.40)
-           = 6.03                                    was 8.20
+           = 19.03 − (8.60 + 5.60 + 0.90)
+           = 3.93                        v14: 6.03    v13 and before: 8.20
 ```
+
+**v18, the fourth report.** *"the inside of the diffuers it too long. Shorten it
+and make the inside fit tighter."* `DISP_T` had also been wrong — 4.00 against a
+module that measures **5.60** — and `COLLAR_TIP_CLR` went 0.40 → **0.90**,
+because 0.40 mm is clear on paper and inside what two printed parts move by.
+0.90 is still under the 1.00 mm ceiling on how far the module may float, so the
+collar goes on restraining it. See below for where the lost grip is paid back.
 
 **And the check that was meant to catch this was measuring the wrong surface.**
 It compared the tip against `Z_SEAT + DISP_TAB_T` = **10.20** — the top of the
 module's bare *tab*. The collar does not land there. It lands at r 28–30, on the
-module's **front face**, and the module is `DISP_T` = 4.00 thick on a seat at
-8.60, so that face is at **12.60**. The collar was 1.77 mm inside the screen and
+module's **front face**, and the module is `DISP_T` thick on a seat at 8.60 —
+4.00 was the figure in params at the time, so that face was at **12.60**. (It is
+5.60 now: the 4.00 was itself wrong, and v17 corrected it. See v18 below.) The collar was 1.77 mm inside the screen and
 the assertion passed, because the ceiling in it was a feature 2.40 mm lower down
 than the one the collar actually hits.
 
 | | tip at | module face | |
 |---|---:|---:|---|
 | v13 | 10.83 | 12.60 | **1.77 mm into the screen** |
-| v14 | 13.00 | 12.60 | **+0.40 mm clear** |
+| v14 | 13.00 | 12.60 | +0.40 mm clear |
+| v17 | 14.60 | 14.20 | +0.40 mm clear, on the real `DISP_T` = 5.60 |
+| v18 | 15.10 | 14.20 | **+0.90 mm clear** |
 
-0.40 mm is deliberate rather than generous: it clears, and it still restrains the
-module to 0.40 mm of float. `check2` now takes the tip off the **built diffuser**
-and compares it to `Z_SEAT + DISP_T`, and asserts both directions — clear of the
-screen, and within 1.00 mm of it.
+`check2` takes the tip off the **built diffuser** — not off params — and compares
+it to `Z_SEAT + DISP_T`, asserting both directions: clear of the screen, and
+within 1.00 mm of it. Measuring the built mesh rather than recomputing is the
+whole reason it caught v17's collar coming out 0.87 mm longer than params
+claimed, when `COLLAR_EXTEND` went negative and there was no trim branch.
 
 **A shorter collar has less of itself in the bore, so the grip moves to the
-ribs**, which is what Sam allowed for in the same message: *"it can be a tight
-fit for that inside part."* `COLLAR_RIB_H` is doubled, 0.05 → **0.10** — 0.20 mm
-of interference on diameter over six 1.00 mm ribs. The wall behind them still has
-1.18 mm of clearance on diameter, six times the interference, so it is still a
-crush-rib fit and not a full-surface one. The gauge now prints **0.05 / 0.10 /
-0.15** to bracket it.
+ribs**, which is what Sam allowed for: *"it can be a tight fit for that inside
+part"*, then *"make the inside fit tighter"*. Retention on a crush fit is roughly
+count × interference × friction, and of the two terms only the count is free:
 
-**If your module is thicker than 4.00 mm, change `DISP_T` — not `COLLAR_LEN`.**
-Everything downstream follows.
+| | v14 | v18 | why |
+|---|---:|---:|---|
+| ribs | 6 | **8** | the free term |
+| interference | 0.15 (0.30 ⌀) | **0.19 (0.38 ⌀)** | 0.1975 is the hard ceiling |
+| lead-in taper | 1.20 | **0.60** | so 3.23 mm of rib survives a 3.93 mm collar |
+
+The ceiling is not arbitrary. The invariant is that **the wall behind the ribs
+must have at least 4× the clearance the ribs have interference**, so the wall can
+never quietly become the fit itself — which is the failure that produced *"still
+too tight"* three times. At `COLLAR_OD` 29.40 the wall has 1.58 mm on diameter,
+so 0.1975 is the most the ribs can have. Turning the collar down further to allow
+more would make them tall thin fins that bend instead of crushing, which feels
+loose, not tight. Hence the extra two ribs instead.
+
+`check2` asserts **3.00 mm of rib engagement**, and a 1.20 lead-in on a 3.93 mm
+collar leaves only 2.63. The taper moved, not the assertion — a check is not the
+place to absorb a geometry change. At 0.19 mm of rib over 0.60 mm the ramp is
+17.6°, which still leads the collar into the bore. The gauge prints **0.10 /
+0.15 / 0.20**, which brackets 0.19.
+
+**If your module is thicker than 5.60 mm, change `DISP_T` — not `COLLAR_LEN`.**
+Everything downstream follows, including `COLLAR_RIB_Z1`.
 
 ### The face is thicker, and only the aperture is thin
 
@@ -378,6 +406,58 @@ Why it reads like the Echo: 8.67 mm of plain white between one tick and the
 next, so the ring is 24 separate marks rather than a segmented ring, and each
 mark is a mark rather than a blob. A 5050 spans r 38.25–43.25 and the tick sits
 inside that at 38.75–42.75, so it is lit evenly end to end.
+
+#### v18: more of a line, and one length per body
+
+> *"update the wall clocks diffusers so that there is more of a line for the
+> LED's to shine through."*
+
+`TICK_W` is 2.00 → **1.40** — a line is thin, and 1.40 is still 3.5 bead widths
+— and the length stopped being a literal. Each body now derives its own from two
+constraints, and takes the smaller:
+
+* **its cell.** The tick stops `TICK_CELL_MARGIN` = 0.70 short of the ribs at
+  each end, because those ribs are what stop the light leaking between LEDs —
+  the bleed Sam reported two rounds ago. An aperture cannot outrun its own cell.
+* **the face's radial budget.** Everything inboard of the tick — the gap, the
+  hour marks, the numerals — is pushed toward the screen window as the tick
+  grows, and a numeral is not allowed to reach the bore.
+
+| | tick | ratio | limited by |
+|---|---:|---:|---|
+| 24 | 5.04 × 1.40 | 3.6:1 (was 2.0:1) | **the screen window** |
+| 32 | 4.42 × 1.40 | 3.2:1 | the cell |
+| 60 | 30.50 × 1.40 | 21.8:1 | the light guides |
+
+On the 24 it is the **window** that binds, not the cell — the cell would allow
+6.70. There are 12.83 mm between the LED circle and the window, and the stack
+inboard of the tick already wants 9.80 of them (0.40 gap + 0.30 + 2.60 mark +
+0.30 + 1.20 margin + 5.00 numeral), which leaves 3.03 for half a tick. The first
+version of this took the cell figure and drove the numerals 0.32 mm over the edge
+of the window before the second constraint existed.
+
+**If a longer line on the 24 matters more than what is inboard of it**, there are
+exactly three levers: `NUM_H_24` 5.00 → 4.40 (the floor at which the numeral stem
+is still two clean 0.4 mm beads, worth 0.60 mm), `MARK_LEN` 2.60 → 2.20 (0.40),
+or dropping the 24's separate hour marks altogether — on a 24-LED ring every
+second tick already lands on an hour, so they are the one genuinely redundant
+thing on that dial, worth 3.20 mm. None was pulled unasked: they are all features
+already delivered.
+
+The 32 gets the shorter mark despite being the bigger clock, and that is not an
+oversight: its ring's inner edge sits 4.46 mm from the LED centres against the
+24's 5.25, so the cell it can carry is narrower and the tick stays centred, so
+the tighter side binds. If a genuinely long line is what is wanted, the mechanism
+that delivers it is the 60-LED body's perspex light guides at 30 mm.
+
+**`check4`'s `'it sits inside the LED'` assertion was replaced, not deleted.** It
+required the tick to fit entirely within the 5 mm emitter, which is the opposite
+of what was asked for. It is now a bounded overhang — at most `TICK_SPILL_MAX` =
+1.00 mm past the die at each end, because past that the ends are lit by spill
+alone and read as a gradient rather than a line. The intent changed on
+instruction and the check changed with it, in the open. *(unverified: how a
+1.00 mm overhang actually reads is an optical judgement and nothing has been
+printed.)*
 
 Crosstalk is stopped by the **cell wall**, not by the aperture: the walls run the
 full 2.00 mm depth of the cell, from the face up to the LED PCB, so light from
@@ -1209,9 +1289,9 @@ Both now derive from the body's own shelf height.
   there, **clears the LED ring by 2.03 mm** on every body — measured as a
   boolean against the ring's own solid, which is the check v8 did not have
   (`check2` §9)
-- The press fit is **on the collar and nowhere else**: 0.10 mm of interference
-  on diameter over six 1.00 mm ribs with 5.00 mm of bore engagement, on a wall
-  that is clear by **1.18 mm** — twelve times the interference, so the wall can
+- The press fit is **on the collar and nowhere else**: 0.38 mm of interference
+  on diameter over eight 1.00 mm ribs with 3.23 mm of bore engagement, on a wall
+  that is clear by **1.58 mm** — four times the interference, so the wall can
   never become the fit itself whatever the printer does. The ribs are tapered at
   the end that meets the bore first and drop back to nominal between them, and
   the outer wall is clear by 0.40 mm all round (`check2` §3, `check4` §5)
@@ -1243,8 +1323,10 @@ Both now derive from the body's own shelf height.
 - The display module's rim thickness at r = 29, which sets `COLLAR_EXTEND`.
 - The 32-LED ring itself: 111.85 / 96 mm and 32 LEDs are Sam's numbers, taken as
   given. Nothing about that ring has been checked against a listing.
-- Collar-rib interference of 0.30 mm on diameter is a judgement from moulding
-  practice, not a measurement on this printer. `COLLAR_RIB_H` is the one knob.
+- Collar-rib interference of **0.38 mm on diameter over eight ribs** is a
+  judgement from moulding practice, not a measurement on this printer.
+  `COLLAR_RIB_H` and `COLLAR_RIB_N` are the two knobs, and the gauge brackets
+  the first one.
 - The bore figure of **30.19** is measured on the generated base, so it carries
   whatever your printer does to a 30 mm hole. If the collar will not start, that
   is the number to suspect first.

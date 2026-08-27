@@ -131,14 +131,22 @@ each marked with its figure in hundredths of a millimetre on top:
 
 | marked | crest | against the 30.19 bore |
 |---|---:|---:|
-| **5** | 30.244 | +0.11 mm on diameter |
-| **10** | 30.295 | +0.21 mm — **what ships now** |
-| **15** | 30.345 | +0.31 mm — tighter still |
+| **10** | 30.290 | +0.20 mm on diameter |
+| **15** | 30.340 | +0.30 mm |
+| **20** | 30.390 | +0.40 mm — **what ships (0.19) sits just under this** |
 
 Push each into the base's screen bore. Whichever wants a firm push and stays put
 is your printer's answer: put its number over 100 into `COLLAR_RIB_H` in
-`v2/params.py`. If even **0** is tight, your printer runs the boss over or the
-bore under — try −0.05.
+`v2/params.py`. If even **10** is tight, your printer runs the boss over or the
+bore under — try 0.05.
+
+**0.1975 is the hard ceiling on that number**, and it is not arbitrary: `check2`
+asserts that the wall behind the ribs has at least 4× the clearance the ribs have
+interference, so the wall can never quietly become the fit itself. At
+`COLLAR_OD` 29.40 the wall has 1.58 mm on diameter, which puts the cap there. If
+you need more grip than that, add ribs (`COLLAR_RIB_N`, currently 8) rather than
+height — turning the collar down to make room for taller ribs gives you thin
+fins that bend instead of crushing, which feels loose, not tight.
 
 **PRINT `mini-round-clock-board-gauge.stl` BEFORE THE HOUSING.** It is the S3
 frame — same rails, same snap fingers, same corner stops, same hood, same posts
@@ -163,21 +171,30 @@ which one you have.
 
 **The diffuser press fit is on the INSIDE, on the collar.** The outer wall drops
 into the ring pocket with 0.40 mm of clearance and grips nothing. On the collar,
-the wall has **1.18 mm** of clearance on diameter and six 1.00 mm ribs standing
-0.64 mm proud of it give **0.10 mm** of interference. The wall has twelve times
-as much clearance as the ribs have interference, so a printer would have to be
-over half a millimetre out before the wall itself became the fit — which is the
-failure that kept bringing this back. The fit can be light: the clock hangs with
-the diffuser's axis horizontal, so gravity never pulls it out.
+the wall has **1.58 mm** of clearance on diameter and **eight** 1.00 mm ribs
+standing 0.98 mm proud of it give **0.38 mm** of interference, over 3.23 mm of
+bore engagement. The wall has four times as much clearance as the ribs have
+interference, so a printer would have to be most of a millimetre out before the
+wall itself became the fit — which is the failure that kept bringing this back.
+The fit can be light: the clock hangs with the diffuser's axis horizontal, so
+gravity never pulls it out.
 
-**The collar's length is back to what it was.** One version reached it to where
-a bare 1.60 mm PCB would put the screen's face; it over-reached, so the real rim
-is thicker than that. A collar that touches the module before the diffuser's
-face reaches its land holds the whole thing proud — **too long is worse than too
-short**. It is set by `COLLAR_LEN` in `v2/params.py`, which is what you measure
-on the part: how far the ring stands proud of the back of the face, 8.20 mm.
-Every 0.10 on it is 0.10 mm of reach. Measure your module's rim at the r = 29 mm
-circle and the number you want is `COLLAR_LEN = 19.03 − (8.60 + that rim)`.
+**The collar is 3.93 mm long, and that is after being called too long four
+times.** A collar that touches the module before the diffuser's face reaches its
+land holds the whole thing proud — **too long is worse than too short**. The tip
+now sits 0.90 mm clear of the module's front face, which still restrains it to
+0.90 mm of float.
+
+Do not set `COLLAR_LEN` by hand; it is derived. Measure your module's **overall
+thickness** — the seat to the front glass, 5.60 mm on Sam's — and put it in
+`DISP_T` in `v2/params.py`, then rebuild. Everything follows from it:
+
+```
+COLLAR_LEN = 19.03 − (8.60 + DISP_T + 0.90)
+```
+
+If you would rather check the built part than the module: the collar should
+stand **3.93 mm** proud of the back of the face.
 
 **SLICE THE DIFFUSER'S FACE SOLID.** Sam: *"there is bleed and you can see
 through where you're not meant to."* The model was already 2.00 mm everywhere
@@ -191,8 +208,11 @@ If it still bleeds after that, the answer is material, not geometry: white PLA
 passes light at any thickness a clock face can carry, and the real fix is an
 opaque body with translucent lens inserts at the dots.
 
-**Before you print the diffuser, measure the display module's rim thickness** at
-the r = 29 mm circle and set `COLLAR_EXTEND = 2.20 - t` in `v2/params.py`.
+**Before you print the diffuser, measure the display module's overall thickness**
+and set `DISP_T` in `v2/params.py` — see the collar note above. `COLLAR_EXTEND`
+is derived and is **negative** now (−1.37): the collar this build wants is
+shorter than the one in Sam's uploaded mesh, so the build *trims* it rather than
+extending it. Do not set it by hand.
 
 **PETG for the housing if it will sit in the sun.** (There is no battery in
 it any more — see above.) PLA softens at 55–60 °C; about

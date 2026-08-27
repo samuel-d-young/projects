@@ -411,13 +411,12 @@ class Body:
         # just an insert in the ring pocket -- so that is what it presses into
         self.diff_outer = (r_lip_i if guides else r_ring_o) + DIFF_FIT
         self.rib_o_ri = self.diff_outer - (DIFF_OUTER_NEW - RIB_O_RI)   # same rib width
-        self.tick_ri = self.led_r - (TICK_RO - TICK_RI) / 2
-        self.tick_ro = self.led_r + (TICK_RO - TICK_RI) / 2
+        # The tick is as long as this body's own cell allows, centred on the
+        # LED, leaving TICK_CELL_MARGIN of rib standing at each end. Set after
+        # the ribs below, because it depends on them -- see the note further
+        # down where it is actually computed.
         # the hours keep their exact offsets inboard of the ticks
-        self.mark_ri = self.tick_ri - (TICK_RI - MARK_RI)
-        self.mark_ro = self.tick_ri - (TICK_RI - MARK_RO)
-        self.mark_ri_maj = self.tick_ri - (TICK_RI - MARK_RI_MAJ)
-        self.mark_ro_maj = self.tick_ri - (TICK_RI - MARK_RO_MAJ)
+        # Set below, once the tick is known -- the marks sit inboard of it.
         self.wall_a0 = CELL_WALL_A0 if n == CELL_N else self.pitch / 2
         # the cells sit in the ring pocket. On the 24 body that is Sam's own
         # inner rib at 35.50; on the 32 the pocket has moved out, so they move
@@ -428,17 +427,52 @@ class Body:
             self.tick_ri, self.tick_ro = APER_RI, APER_RO
             self.mark_ri, self.mark_ro = MARK60_RI, MARK60_RO
             self.mark_ri_maj, self.mark_ro_maj = MARK60_RI_MAJ, MARK60_RO_MAJ
+            self.tick_bound = 'the light guides'
         elif n == CELL_N:
             self.rib_i_ri, self.rib_i_ro = RIB_I_RI, RIB_I_RO
             self.wall_ri = CELL_WALL_RI
         else:
             self.rib_i_ri, self.rib_i_ro = r_ring_i + 0.15, r_ring_i + 1.35
             self.wall_ri = self.rib_i_ri + 0.40
+        # --- the tick, as long as THIS body's cell allows -------------------
+        # Sam: "there is more of a line for the LEDs to shine through."
+        # Centred on the LED and stopping TICK_CELL_MARGIN short of the ribs at
+        # each end, so it is the longest mark this body can carry without
+        # cutting the walls that stop light leaking between LEDs. The tighter
+        # side binds, because the tick stays centred.
+        if not guides:
+            cell = 2.0 * min(self.led_r - (self.rib_i_ro + TICK_CELL_MARGIN),
+                             (self.rib_o_ri - TICK_CELL_MARGIN) - self.led_r)
+            # ...and the face's own budget, which is the one that binds on the
+            # 24. Everything inboard of the tick is pushed toward the screen
+            # window as the tick grows, and the numeral is not allowed to reach
+            # it -- see NUM_BORE_CLR in params for the arithmetic and for the
+            # three levers if a longer line matters more.
+            stack = (TICK_MARK_GAP + MARK_MAJ_EXT + MARK_LEN + MARK_MAJ_EXT
+                     + NUM_MARGIN + self.num_h)
+            face = 2.0 * (self.led_r - (DIFF_BORE_RI + NUM_BORE_CLR) - stack)
+            L = min(TICK_L_MAX, cell, face)
+            assert L > 2.0, f'{tag or "24"}: no room for a tick ({L:.2f} mm)'
+            self.tick_bound = ('the cell' if L == cell else
+                               'the screen window' if L == face else 'TICK_L_MAX')
+            self.tick_ri = self.led_r - L / 2
+            self.tick_ro = self.led_r + L / 2
+            # ...and the minute marks fall in behind it. Laid out from the tick
+            # inward so a longer tick pushes them along instead of running over
+            # them. The quarter marks are the outermost thing, so the gap is
+            # measured off those.
+            self.mark_ro_maj = self.tick_ri - TICK_MARK_GAP
+            self.mark_ro     = self.mark_ro_maj - MARK_MAJ_EXT
+            self.mark_ri     = self.mark_ro - MARK_LEN
+            self.mark_ri_maj = self.mark_ri - MARK_MAJ_EXT
+
         # --- where the numerals go, on every body, by one rule
         # Their OUTER edge sits NUM_MARGIN inboard of the aperture's inner edge,
         # so they read as a ring of hours just inside the dots -- the Echo's
         # layout -- and they can never break into a 0.20 mm aperture membrane.
-        self.num_r = self.tick_ri - NUM_MARGIN - self.num_h / 2
+        # Inboard of the MARKS, not of the tick -- the marks are now the
+        # innermost thing on the dial and the numerals have to clear them.
+        self.num_r = self.mark_ri_maj - NUM_MARGIN - self.num_h / 2
 
 BODY24 = Body('', 24, RING_OD, RING_ID, R_BODY, R_RING_I, R_RING_O, R_LIP_I,
               DECK_RI, SCREW_R, SCREW_ANG, [50, 75, 100, 260, 285, 310])
@@ -700,6 +734,19 @@ def build_diffuser(B, bar=False):
     if COLLAR_EXTEND > 0:
         d += tube(COLLAR_EXT_RI, COLLAR_EXT_RO,
                   DIFF_COLLAR_H - 1.0, DIFF_COLLAR_H + COLLAR_EXTEND, SEG)
+    elif COLLAR_EXTEND < 0:
+        # v17: the collar is now SHORTER than Sam's own, so there is nothing to
+        # extend -- it has to be TRIMMED. Missing this is what let the built
+        # part sit 0.87 mm longer than params said: the branch above simply did
+        # nothing when COLLAR_EXTEND went negative, so his 8.20 collar survived
+        # untouched while every derived number claimed 4.43. check2 caught it by
+        # measuring the built mesh rather than recomputing from params, which is
+        # the entire reason it does that.
+        # cyl, NOT tube(0.0, ...): a tube with a zero inner radius comes back
+        # as an EMPTY solid, so the first version of this subtracted nothing at
+        # all and the trim silently did not happen.
+        d -= cyl(COLLAR_EXT_RO + 2.0, FACE_T + COLLAR_LEN,
+                 DIFF_COLLAR_H + 2.0, SEG)
 
     # --- 1c. turn the collar down -------------------------------------------
     # Sam's collar is 30.108 in a 30.19 bore: 0.164 mm on diameter, which is not
@@ -709,7 +756,7 @@ def build_diffuser(B, bar=False):
     # Cut from just above the face, and stopping short of the band at 34.50, so
     # it can only ever see the collar.
     d -= tube(COLLAR_OD, 34.00, FACE_T + 0.001,
-              DIFF_COLLAR_H + COLLAR_EXTEND + 1.0, SEG)
+              max(DIFF_COLLAR_H, FACE_T + COLLAR_LEN) + 1.0, SEG)
 
     # --- 2. the band, rebuilt clean -----------------------------------------
     d += tube(BAND_FACE_RI, B.diff_outer, 0.0, FACE_T, SEG)
@@ -764,7 +811,7 @@ def build_diffuser(B, bar=False):
           - cone(B.diff_outer - DIFF_CHAMF - 0.10, B.diff_outer, -0.10, DIFF_CHAMF, SEG))
 
     # --- 2c. THE PRESS FIT, on the collar, inside, where the screen is -------
-    # Six crush ribs on the main collar, standing COLLAR_RIB_H proud of the
+    # COLLAR_RIB_N crush ribs on the main collar, standing COLLAR_RIB_H proud of
     # measured bore. Buried COLLAR_RIB_BURY into the collar rather than butted
     # onto its face -- a rib sitting exactly on the surface it grows from comes
     # away as its own shell in float32.

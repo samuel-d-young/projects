@@ -71,6 +71,10 @@
         "name": "Mode"
       },
       {
+        "entity": "switch.mini_round_clock_ring_leds",
+        "name": "Ring LEDs on"
+      },
+      {
         "type": "section",
         "label": "Hands"
       },
@@ -79,7 +83,7 @@
         "name": "Second hand"
       },
       {
-        "entity": "switch.mini_round_clock_second_hand",
+        "entity": "switch.mini_round_clock_ring_second_hand",
         "name": "Show second hand"
       },
       {
@@ -87,7 +91,7 @@
         "label": "Markers"
       },
       {
-        "entity": "select.mini_round_clock_hour_markers",
+        "entity": "select.mini_round_clock_ring_hour_markers",
         "name": "Markers"
       },
       {
@@ -117,8 +121,35 @@
       {
         "entity": "number.mini_round_clock_status_pixel_brightness",
         "name": "Status brightness"
+      },
+      {
+        "entity": "switch.mini_round_clock_status_bin_night",
+        "name": "\u2003Bin night (12 o'clock)"
+      },
+      {
+        "entity": "switch.mini_round_clock_status_garage_open",
+        "name": "\u2003Garage open (3 o'clock)"
+      },
+      {
+        "entity": "switch.mini_round_clock_status_driveway",
+        "name": "\u2003Driveway (9 o'clock)"
+      },
+      {
+        "entity": "switch.mini_round_clock_status_who_is_home",
+        "name": "\u2003Who is home (6 o'clock)"
       }
     ]
+  },
+  {
+    "type": "markdown",
+    "visibility": [
+      {
+        "condition": "state",
+        "entity": "input_select.wall_clock_target",
+        "state": "Mini Round Clock"
+      }
+    ],
+    "content": "### Mini Round Clock \u2014 everything the ring can light\n| what | where | colour | switch |\n|---|---|---|---|\n| Hour hand | the hour | orange | always on |\n| Minute hand | the minute | blue | always on |\n| Second hand | the second | grey | *Show second hand* |\n| Hour markers | all twelve | dim blue-white | *Markers* |\n| Timer arc | from 12 | teal | only while a timer runs |\n| Timer pips | where each one finishes | dim teal | *Extra timer pips* |\n| Bin night | 12 o'clock | breathing green, yellow for recycling | *Bin night* |\n| Garage open | 3 o'clock | amber | *Garage open* |\n| Driveway | 9 o'clock | blinking red | *Driveway* |\n| Who is home | either side of 6 | Sam **blue**, Laura magenta, Amanda green, Zac amber | *Who is home* |\n| Home Assistant dropped | 6 o'clock | dim red | automatic |\n\n**A single blue dot just left of 6 o'clock is Sam's presence pixel.** The twelve hour markers are faintly blue too, but they are dim and there are twelve of them, so one blue dot is the presence one."
   },
   {
     "type": "markdown",
@@ -229,11 +260,27 @@
     "entities": [
       {
         "entity": "switch.mini_round_clock_display",
+        "name": "Everything on (master)"
+      },
+      {
+        "entity": "switch.mini_round_clock_screen_on",
         "name": "Screen on"
+      },
+      {
+        "entity": "select.mini_round_clock_screen",
+        "name": "Which panel"
       },
       {
         "entity": "select.mini_round_clock_face",
         "name": "Face"
+      },
+      {
+        "entity": "select.mini_round_clock_screen_hour_markers",
+        "name": "Hour markers"
+      },
+      {
+        "entity": "switch.mini_round_clock_screen_second_hand",
+        "name": "Second hand"
       },
       {
         "entity": "switch.mini_round_clock_24_hour_time",
@@ -305,8 +352,39 @@
       {
         "entity": "number.mini_round_clock_alert_hue",
         "name": "Hue"
+      },
+      {
+        "entity": "number.mini_round_clock_alert_shows_for",
+        "name": "Clock shows it for"
+      },
+      {
+        "type": "section",
+        "label": "The alarm itself"
+      },
+      {
+        "entity": "input_button.wall_clock_timer_dismiss",
+        "name": "Dismiss the alarm"
+      },
+      {
+        "entity": "input_number.wall_clock_alert_repeat_seconds",
+        "name": "Re-announce every"
+      },
+      {
+        "entity": "input_number.wall_clock_alert_repeat_max",
+        "name": "Repeats (0 = until cancelled)"
       }
     ]
+  },
+  {
+    "type": "markdown",
+    "visibility": [
+      {
+        "condition": "state",
+        "entity": "input_select.wall_clock_target",
+        "state": "Mini Round Clock"
+      }
+    ],
+    "content": "The **alarm** sounds until it is cancelled \u2014 the dismiss button above, saying *stop the timer*, or starting another one.\n\n**Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound."
   },
   {
     "type": "entities",

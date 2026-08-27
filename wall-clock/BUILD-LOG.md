@@ -3566,3 +3566,226 @@ land above 60%.
 
 The 24-LED body still gets no bar variant: the module's corners reach r 34.22
 against a ring pocket starting at 35.11, which would leave 0.89 mm of wall.
+
+---
+
+## 2026-08-27 — v18. The ring and the screen come apart, and the panel's colours were backwards
+
+Six things in one session, four of them Sam's, two found on the way.
+
+### 1. The screen's colours were inverted, and it was not the code (verified)
+
+Sam: *"The colours seem to be opposite on the screen"* and *"The hour hand on the
+screen is blue but it's orange on the LED ring. And the opposite to the minutes."*
+
+There is no swap anywhere in the firmware. The ring reads `pal_ring[0..2]` for the
+hour and `[3..5]` for the minute; the screen reads `pal_scr[0..2]` and `[3..5]`.
+Both come out of the same resolver, from the same HSV table, in the same order.
+I checked every index before changing anything.
+
+What is wrong is the **byte order the panel is fed.** Red and blue were arriving in
+each other's channel:
+
+| element | authored | as it reached the panel |
+|---|---|---|
+| hour | (235,144,105) orange | (105,144,235) **blue** |
+| minute | (106,153,224) blue | (224,153,106) **orange** |
+| second | (158,158,158) grey | (158,158,158) unchanged |
+
+That is Sam's report exactly, down to why the grey second hand and the white hand
+boss looked fine.
+
+**`invert_colors` is ruled out** — a photo negative swaps orange and blue too, but it
+would also turn the near-black ground (10,12,18) into near-white, and the screen is
+not white. An R/B swap leaves greys and the background exactly where they are.
+
+The fix is one line: **`color_order: rgb` on `face_lcd`.** Three sources agree, and
+I had it backwards for ten minutes before Sam's own repo settled it:
+
+1. xboot's `fb-gc9b72.c` — the driver this init table came from — sets MADCTL to
+   `0x00`. Bit 3 clear is RGB. **The vendor drives this panel in RGB.** (verified)
+2. ESPHome's `mipi_spi` **appends its own MADCTL** after a custom `init_sequence`,
+   built from `color_order`/`rotation`/`mirror` — the same way it appends COLMOD.
+   The `[0x36, 0x00]` in our table never reaches the panel. (verified)
+3. `samuel-d-young/esphome-gc9b72-360x360`, this panel's own repo, records the
+   resolved config for a `model: CUSTOM` block with no `color_order:` line as
+   **`color_order: BGR`** — so the default was overriding the vendor's RGB — and its
+   troubleshooting table says it outright: *"Red shows as blue → … Default is BGR;
+   try RGB."* (verified)
+
+**Do not "fix" this by editing the `0x36` in the table.** It is overridden, so the
+edit appears to do nothing — the identical trap this file already documents for
+`0x3A`. The vendor table stays byte-for-byte as verified.
+
+Added a **`clock_face: "colour test"`** face: three swatches, each labelled with the
+colour it is meant to be, green in the middle because green is the channel a swap
+never touches. If the middle block is green and the outer two disagree with their
+labels, it is colour order; if the middle one is wrong too, it is `invert_colors`.
+One look settles it instead of remembering which way round it was.
+
+### 2. The ring and the screen are separate surfaces now
+
+Sam: *"Update the wall clock so you can control the screen and LED seperately. I
+would like to turn off the LED's on the outside and only show the hours and minutes
+on the LED ring, but keep the markers on the screen."*
+
+`display_on` — the switch called "Display" — actually gated the **ring** and nothing
+else. So "turn the display off" turned the LEDs off and left the panel lit, and there
+was no way to have one without the other. It is now the master over two new switches:
+
+```
+ring lit    iff  display_on AND ring_on          switch.…_ring_leds
+screen lit  iff  display_on AND screen_on        switch.…_screen_on
+```
+
+Every control that drove both surfaces from one entity is split, with the existing id
+kept on the screen's side:
+
+| was | screen keeps | ring gets |
+|---|---|---|
+| `marker_style` "Hour markers" | `marker_style` → **Screen hour markers** | **Ring hour markers**, ships as `none` |
+| `show_seconds` "Second hand" | `show_seconds` → **Screen second hand** | **Ring second hand** |
+
+`show_status` and `show_pips` were always ring-only and keep their names, so nothing
+that referenced them breaks.
+
+**Entity ids change** for the two split controls. The dashboard generator is updated
+and regenerated; a cross-check now asserts that every row in the generated JSON
+resolves to an entity that actually exists in the firmware — 64 rows, 0 dangling.
+
+### 3. What is on the ring, and the blue light
+
+Sam: *"why is there a blue light on the LED, what else is showing on the LED ring.
+The hours, minutes, seconds and what else?"*
+
+Everything the ring can light:
+
+| what | where | colour | switch |
+|---|---|---|---|
+| Hour hand | the hour | orange | always on |
+| Minute hand | the minute | blue | always on |
+| Second hand | the second | grey | Ring second hand |
+| Hour markers | all twelve | dim blue-white (14,14,18) | Ring hour markers |
+| Timer arc | from 12 | teal | while a timer runs |
+| Timer pips | where each other timer finishes | dim teal | Extra timer pips |
+| Bin night | 12 o'clock | breathing green, yellow for recycling | **Status bin night** |
+| Garage open | 3 o'clock | amber | Status garage open |
+| Driveway | 9 o'clock | blinking red | Status driveway |
+| Who is home | either side of 6 | Sam **(0,40,90) blue**, Laura magenta, Amanda green, Zac amber | Status who is home |
+| HA dropped | 6 o'clock | dim red | automatic |
+
+**The single blue dot just left of 6 o'clock is Sam's own presence pixel.** The hour
+markers are faintly blue too, but they are dim and there are twelve of them.
+
+The four ambient hints now have **one switch each** instead of sharing one, and
+**bin night ships OFF** — the one Sam asked to turn off, off in the message that
+asked. The same table is on the dashboard, next to the switches, rather than only in
+this log.
+
+### 4. Timers count down in seconds
+
+Sam: *"Make sure that when a timer is set, that the LED's count down the seconds."*
+
+New `timer_style: "seconds"`, and it is the default. Above a minute it is the Echo's
+minute count, unchanged. **Inside the final minute it lights one LED per whole second
+remaining**, one going out every second, draining the opposite way.
+
+Being straight about what a 24-LED ring can do: one LED per second needs 60 LEDs to
+cover a minute. So the ring sits **full** for the first part of the final minute —
+36 s on the 24, 28 s on the 32, none on the 60 — and starts counting real seconds
+when the count fits. `min(N, ceil(left))` rather than a second scale for that
+stretch, so the arc stays monotonic and can never look like the timer got longer.
+Simulated over 0–600 s on all three ring sizes: the only increase is the deliberate
+flood at the 60 s boundary, which `minutes` style already had and which reverses
+direction, so it cannot be misread. If movement across the whole final minute
+matters more, `minutes` style is one click away at 2.5 s per LED on the 24.
+
+### 5. The alarm sounds until it is cancelled
+
+Sam: *"just like Alexa, I want the alarm to go off until it is cancelled. When it is
+cancelled the wall clock stops showing the alarm too. Otherwise have the alarm stop
+after 15 seconds on the wall clock."*
+
+It used to announce **once**, wait 60 seconds, and clear the flag. Two lifetimes now,
+deliberately different:
+
+* **The alarm** re-announces every 20 s until dismissed —
+  `input_number.wall_clock_alert_repeat_seconds`, and
+  `…_alert_repeat_max` = 0 means *never gives up*, which is the default and what was
+  asked for. `wait_template`, not `delay`, so a dismiss breaks the loop immediately.
+* **The clock** shows it for `alert_shows_for` (15 s) — but a cancel clears the ring
+  and both panels within one 50 ms frame, because the flag is read every frame and no
+  timer is involved in that direction. Set it to 0 to make the lights last exactly as
+  long as the sound.
+
+**A finished timer is idle, not running.** `timer.cancel` on it fires no
+`timer.cancelled` event, which is why the existing clear-on-cancel automation never
+saw it and saying *"stop the timer"* at a beeping clock was answered with *"there's
+no timer running"* while it kept beeping. Three dismiss paths now:
+`input_button.wall_clock_timer_dismiss`, turning the boolean off by hand, and
+`HassCancelTimer` / `HassCancelAllTimers`, which now clear the flag unconditionally.
+
+### 6. The diffuser: a longer line, and a shorter, tighter collar
+
+Sam: *"update the wall clocks diffusers so that there is more of a line for the LED's
+to shine through. Also, the inside of the diffuers it too long. Shorten it and make
+the inside fit tighter."*
+
+**The line.** `TICK_W` 2.00 → 1.40, and the length is derived per body instead of
+being a frozen literal — from the light-tight cell that wraps that body's LED, and
+now also from the face's own radial budget. On the 24 that budget is what binds, not
+the cell, and the first version of this drove the numerals 0.32 mm over the edge of
+the screen window before the constraint was added:
+
+| | tick | ratio | limited by |
+|---|---|---|---|
+| 24 | 5.04 × 1.40 | 3.6:1 (was 2.0:1) | **the screen window** |
+| 32 | 4.42 × 1.40 | 3.2:1 | the cell |
+| 60 | 30.50 × 1.40 | 21.8:1 | the light guides |
+
+The 24's face has 12.83 mm between the LED circle and the window, and the stack
+inboard of the tick — gap, hour marks, margin, numeral — already wants 9.80 of them.
+Three levers exist if a longer line matters more than what is inboard of it
+(`NUM_H_24` 5.00→4.40, `MARK_LEN` 2.60→2.20, or dropping the 24's redundant hour
+marks entirely, worth 3.20 mm), and none of them was pulled unasked — they are all
+features already delivered.
+
+**check4's `'it sits inside the LED'` assertion was replaced, not deleted.** It
+required the tick to fit *entirely within* the 5 mm emitter, which is the opposite of
+what Sam asked for. It is now a bounded overhang: at most `TICK_SPILL_MAX` = 1.00 mm
+past the die at each end, because past that the ends are lit by spill alone and read
+as a gradient rather than a line. The design intent changed on instruction; the
+check changed to match, and it is said out loud rather than quietly tuned.
+
+**The collar, fourth report.** v17 took the tip from 1.77 mm *inside* the module to
+0.40 mm clear of it. 0.40 is clear on paper and inside what two printed parts move
+by, so it is not clear in the hand. Now **0.90 mm** — still under the 1.00 ceiling on
+how far the module may float, so it goes on restraining it. That costs 0.50 mm of
+engagement (collar 4.43 → **3.93 mm**), which is paid back in the ribs:
+
+| | was | now | why |
+|---|---|---|---|
+| ribs | 6 | **8** | grip ∝ count × interference, and count is the free term |
+| interference | 0.15 (0.30 ⌀) | **0.19 (0.38 ⌀)** | 0.1975 is the hard ceiling from the 4× wall-clearance invariant |
+| lead-in | 1.20 | **0.60** | a 1.20 taper on a 3.93 collar left 2.63 mm of rib, under the 3.00 check2 asserts |
+
+The engagement assertion was **not** relaxed to fit — a check is not the place to
+absorb a geometry change. The taper moved instead, and at 0.19 mm of rib over
+0.60 mm the ramp is 17.6°, which still leads the collar into the bore.
+`COLLAR_OD` stays 29.40: turning it down to allow more interference makes the ribs
+tall thin fins that bend instead of crushing, which feels loose, not tight.
+
+### Verification
+
+All five passes, three bodies, 23 parts: **674 assertions, 0 failures.** YAML side:
+top-level keys unique (a duplicate silently *replaces*, it does not error), every
+`id()` in every lambda resolves, no two entities share an object_id, all lambda
+braces balance, and the countdown arc simulated over 0–600 s on all three ring sizes.
+
+### Open
+
+* Nothing is flashed. `color_order: rgb`, the split switches and the seconds
+  countdown are all unverified on hardware — the colour test face is there to settle
+  the first one in one look.
+* If the 24's 5.04 mm tick reads too short in print, the three levers above are the
+  ones to pull, and they need a decision rather than a guess.

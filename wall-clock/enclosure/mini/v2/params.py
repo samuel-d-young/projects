@@ -47,8 +47,24 @@ PCB_T, LED_H     = 1.6, 1.6
 NUM_LEDS         = 24
 DISP_PCB_D       = 60.0     # round part of the display's blue PCB
 DISP_ACTIVE_D    = 55.0     # the black screen area
-DISP_T           = 4.0      # module thickness -- see the note on the collar,
-                            # this is the OVERALL figure, not the rim
+DISP_T           = 5.6      # module thickness -- see the note on the collar,
+                            # this is the OVERALL figure, not the rim.
+                            #
+                            # v17: 4.00 -> 5.60. THIRD report of the collar
+                            # touching the screen. 4.00 was never measured; it
+                            # was a round number carried from the first BOM. The
+                            # collar's length is derived from this, so this is
+                            # the only place to change it -- and each time Sam
+                            # says "still too long" the honest reading is that
+                            # his module is thicker than the figure here, not
+                            # that the derivation is wrong.
+                            #
+                            # 5.60 is chosen to overshoot rather than creep:
+                            # too long stops the diffuser seating at all, too
+                            # short only leaves the screen a little loose in a
+                            # pocket that already holds it. Erring short is the
+                            # cheap direction. MEASURE IT and put the real
+                            # number here. (unverified)
 DISP_OVERALL     = 67.0     # top of the round part to the end of the tab
 DISP_TAB_T       = 1.6      # bare PCB. Assumes the 10-pin header is desoldered.
 
@@ -361,11 +377,84 @@ DIFF_OPAQUE_T = 2.00
 #       I want the LEDs to look more like the echo wall clock LEDs."
 # So each cell's aperture turns 90 degrees: a radial tick pointing at the
 # centre, like an hour mark, instead of an arc lying along the circle.
-TICK_W       = 2.00         # tangential width
-TICK_RI      = 38.75        # a 5050 spans r 38.25..43.25, so the tick sits
-TICK_RO      = 42.75        # inside the LED, centred on it, and is evenly lit
-                            # end to end with 0.50 mm of LED beyond either end
-TICK_END_R   = 0.85         # radiused ends
+#
+# v17. Sam: "update the wall clocks diffusers so that there is more of a line
+# for the LEDs to shine through." So the tick is now ONE number, TICK_L, and
+# both radii are derived from it -- the pair used to be frozen literals and the
+# length was a subtraction you had to do in your head.
+#
+#   was  4.00 x 2.00  (2.0:1)   sat entirely inside the 5 mm LED
+#   now  7.00 x 1.60  (4.4:1)   overhangs the LED by 1.00 mm at each end
+#
+# HONEST ABOUT THE ENDS: a 5050 emitter is 5.00 mm across, so at 7.00 the last
+# millimetre at each end is lit by spill rather than by the die and will read
+# slightly softer than the middle. That is what makes it look like a drawn line
+# rather than a lozenge, and it is the direction Sam has asked for twice. If it
+# is too soft, TICK_L is the one number to pull back. Going much past 7 would
+# start to show a visible gradient, not a longer line. (unverified -- this is
+# an optical judgement and nothing has been printed)
+# ONE LINE PER BODY, AS LONG AS ITS OWN CELL ALLOWS. The pair used to be frozen
+# literals; now each body derives its tick from the light-tight cell that wraps
+# its LED, so the mark is always the longest that body can draw without cutting
+# the walls that stop the bleed.
+#
+# THE LIMIT IS PHYSICAL AND IT IS WORTH SAYING PLAINLY. Each LED sits in a cell
+# whose ribs are what stopped the light leaking between LEDs -- the thing Sam
+# asked to be fixed two rounds ago. Cutting the aperture past those ribs brings
+# the bleed straight back. The cells measure:
+#
+#     24-LED   8.10 mm clear around a 5.00 mm LED  ->  tick 6.70
+#     32-LED   6.02 mm clear around a 5.00 mm LED  ->  tick 4.82
+#
+# The 32 gets the shorter mark despite being the bigger clock, and that is not
+# an oversight: its ring's inner edge sits 4.46 mm from the LED centres against
+# the 24's 5.25, so the cell it can carry is narrower. The tick stays CENTRED on
+# the LED, so the tighter side is what binds.
+#
+# If a genuinely long line is what is wanted, the mechanism that delivers it is
+# the 60-LED body's perspex light guides, which read 30 mm. An aperture alone
+# cannot outrun its own cell.
+TICK_W          = 1.40      # tangential width. Narrower as well as longer -- a
+                            # line is thin -- and 1.40 is still 3.5 bead widths.
+TICK_CELL_MARGIN = 0.70     # cell wall left standing at each end of the tick
+TICK_L_MAX      = 7.00      # ceiling, so a big cell cannot make a silly mark
+TICK_SPILL_MAX  = 1.00      # how far a tick may run past the 5.00 mm die at each
+                            # end. Past this the end of the mark is lit by spill
+                            # alone and reads as a gradient, not as a line, which
+                            # is exactly what TICK_L_MAX = 7.00 is set to allow
+                            # and no more. (unverified: an optical judgement --
+                            # nothing has been printed to look at yet.)
+TICK_MARK_GAP   = 0.40      # clear space between the tick and the minute marks
+TICK_END_R      = 0.70      # radiused ends, half the width
+# ...AND A SECOND LIMIT, WHICH IS THE ONE THAT ACTUALLY BINDS ON THE 24.
+# The tick grows inward as well as outward, and everything inboard of it -- the
+# hour marks, then the numerals -- gets pushed toward the screen window as it
+# does. On the 24-LED face there are only 12.83 mm between the LED centre circle
+# (r 40.75) and the window (r 27.63), and the stack inboard of the tick already
+# wants 9.80 of them:
+#
+#     0.40 tick-to-mark gap + 0.30 major ext + 2.60 mark + 0.30 major ext
+#   + 1.20 numeral margin + 5.00 numeral                        = 9.80
+#
+# which leaves 3.03 mm for HALF a tick, i.e. 6.07 -- less than the 6.70 its cell
+# allows, and the first version of this took the cell figure and drove the
+# numerals 0.32 mm over the edge of the window. So the tick is capped by the
+# face's own radial budget as well as by its cell, and the cap is real: on the
+# 24 the binding constraint is the screen hole, not the light-tight rib.
+#
+# If a longer line on the 24 matters more than what is inboard of it, there are
+# exactly three levers and no others: NUM_H_24 (5.00 -> 4.40 is the floor at
+# which the stem is still two clean 0.4 mm beads, worth 0.60), MARK_LEN
+# (2.60 -> 2.20, worth 0.40), or dropping the separate hour marks on this body
+# altogether -- on a 24-LED ring every second tick already lands on an hour, so
+# they are the one genuinely redundant thing on the dial, worth 3.20. Not doing
+# any of that unasked: they are all features already delivered.
+NUM_BORE_CLR    = 0.80      # a numeral's inner edge stays this far off the
+                            # window's edge, so it can never break the bore
+# Kept only as the datum the minute marks were authored against; the marks are
+# anchored to led_r directly now so they cannot drift when a tick changes.
+TICK_RI      = 38.75
+TICK_RO      = 42.75
 # Sam: "update the diffusers so that only the part that is meant to be seen
 # through the LED is thin, otherwise there is bleed and you can see through where
 # you're not meant to."
@@ -426,9 +515,19 @@ CELL_DEPTH   = 2.00         # walled cell behind the face, unchanged
 # loose, too long holds the whole diffuser off its land and the clock sits
 # proud. At 0.40 mm of clearance the tip still restrains the module to 0.40 mm,
 # and it clears a module up to 4.40 thick rather than the 2.23 that 8.20 allowed.
-COLLAR_TIP_CLR = 0.40        # tip to the module's front face
-COLLAR_TIP_Z   = Z_SEAT + DISP_T + COLLAR_TIP_CLR            # 13.00
-COLLAR_LEN     = DIFF_WALL_CREST - COLLAR_TIP_Z              # 6.03
+# v18. FOURTH REPORT. Sam: "the inside of the diffuers it too long. Shorten it
+# and make the inside fit tighter." v17 had already taken the tip from 1.77 mm
+# INSIDE the module to 0.40 mm clear of it; 0.40 is clear on paper and is inside
+# what two printed parts can move by, so it is not clear in the hand. 0.90 is,
+# and it is still inside the 1.00 mm ceiling on how much the module may float --
+# the check that says the collar has to keep restraining it.
+#
+# What that costs is grip: the collar loses 0.50 mm of the bore it was holding,
+# down to 3.93 mm long. That is paid back below, in the ribs, which is the
+# second half of what Sam asked for in the same sentence.
+COLLAR_TIP_CLR = 0.90        # tip to the module's front face
+COLLAR_TIP_Z   = Z_SEAT + DISP_T + COLLAR_TIP_CLR            # 14.60
+COLLAR_LEN     = DIFF_WALL_CREST - COLLAR_TIP_Z              # 4.43
 COLLAR_EXTEND  = COLLAR_LEN + FACE_T - DIFF_COLLAR_H         # 0.73
 # If your module is thicker than DISP_T, change DISP_T -- not this.
 APER_FLARE   = 0.80         # the aperture opens out this much on every side
@@ -441,7 +540,19 @@ APER_FLARE   = 0.80         # the aperture opens out this much on every side
 # Everything here lives in r 35.2..38.7, which is the band between the plywood
 # window's inner edge (35.0) and where the ticks start. It is 3.5 mm, which is
 # what decides the text size.
-MARK_RI, MARK_RO = 35.60, 38.20      # the 8 plain hour marks
+# LENGTHS, not radii. The marks used to be frozen radii, which meant a longer
+# tick ran straight over the top of them -- at 6.70 the 24's tick reached r
+# 37.40 while the marks still ended at 38.20, an 0.80 mm overlap that would have
+# cut the aperture membrane. The whole face is one radial stack now:
+#
+#     central hole -> numerals -> minute marks -> TICK -> cell rib
+#
+# and it is laid out from the OUTSIDE in, because the tick's position is the one
+# thing set by hardware (the LED and the cell around it). Everything else moves
+# inboard to make room, which is also the Echo's layout.
+MARK_LEN      = 2.60        # the 8 plain hour marks
+MARK_MAJ_EXT  = 0.30        # the 4 quarter marks run this much longer at each end
+MARK_RI, MARK_RO = 35.60, 38.20      # kept: the 60-LED body still uses its own
 MARK_W           = 1.00
 MARK_RI_MAJ, MARK_RO_MAJ = 35.30, 38.50
 MARK_W_MAJ       = 1.60
@@ -862,10 +973,12 @@ DECK_RI       = 30.00
 # at 30.19 at the mouth, opening very slightly to 30.24 further down. Sam's
 # collar is 30.108 OD, so it has 0.08 mm of radial clearance in there.
 #
-# Six crush ribs take that to an interference. They are on the MAIN collar, not
-# the 2 mm extension, and they sit between z 3.00 and 7.50 in the diffuser's own
-# frame -- which is 4.50 mm of engagement, entirely inside the bore and entirely
-# above the display module.
+# EIGHT crush ribs take that to an interference. They are on the MAIN collar and
+# sit between COLLAR_RIB_Z0 and COLLAR_RIB_Z1 in the diffuser's own frame --
+# 3.00..6.23, which is 3.23 mm of engagement, entirely inside the bore and
+# entirely above the display module. Both ends are derived, not chosen: the
+# collar is short now and a frozen band would have run the ribs off the end of
+# it, which is what COLLAR_RIB_Z1's definition below exists to prevent.
 R_DISP_BORE     = 30.19      # MEASURED across the flats, not the param radius
 # THE COLLAR IS TURNED DOWN. v10 left Sam's own 30.108 OD, which is 0.164 mm of
 # clearance on diameter against a 30.19 bore -- and on an FDM printer that is not
@@ -876,8 +989,16 @@ R_DISP_BORE     = 30.19      # MEASURED across the flats, not the param radius
 # tight" a third time.
 # Turned to 29.90 there is 0.58 mm of clearance on diameter -- enough to swallow
 # what both parts' printers do -- and the ribs are the only thing touching.
-COLLAR_OD       = 29.60      # was Sam's 30.108, then 29.90
-COLLAR_RIB_N    = 6
+COLLAR_OD       = 29.40      # was Sam's 30.108, then 29.90, then 29.60
+# EIGHT, not six. "Make the inside fit tighter", on a collar that just lost
+# 11% of its engagement. Retention on a crush fit is roughly (number of ribs) x
+# (interference) x friction, and of the two terms only the count is free: the
+# interference is capped by the invariant a few lines down, and that cap exists
+# for a reason -- it is what stops the collar wall itself becoming the fit,
+# which is the failure that produced "still too tight" three times. So the extra
+# grip is bought in count. Six -> eight is +33% before the rib height moves at
+# all.
+COLLAR_RIB_N    = 8
 # The -bar bases lose their bore wall over two 57 deg ears at +/-x, where the
 # module overhangs it, so the six-rib phase puts two ribs into thin air. Four on
 # the diagonals clear both ears by 31 deg and stay symmetric about both axes.
@@ -886,10 +1007,22 @@ COLLAR_RIB_BAR_PHASE = 0.5        # -> 45, 135, 225, 315.
 # Swept rather than picked: at four ribs the phase options are 45/135/225/315
 # (15.4 deg clear of the nearest ear edge, allowing for the rib's own 1.9 deg of
 # angular width) and 60/150/240/330 (0.4 deg -- touching). Everything past that
-# puts a rib inside an ear. 0.5 also happens to be the round bodies' own phase,
-# so only the COUNT differs between the two diffusers.
+# puts a rib inside an ear. The round bodies are on 8 ribs at the
+# same 0.5 phase, so the two diffusers now differ in count AND in where the ribs
+# land -- 22.5 deg steps there against 90 deg steps here.
 COLLAR_RIB_W    = 1.00       # tangential. Narrower crushes more easily than wide
-COLLAR_RIB_H    = 0.10       # radial interference -> 0.20 mm on diameter.
+COLLAR_RIB_H    = 0.19       # radial interference -> 0.38 mm on diameter.
+                             # v18: 0.15 -> 0.19, which is as far as it can go.
+                             # The invariant below wants the wall behind the ribs
+                             # to have 4x the clearance the ribs have
+                             # interference, and the wall has 1.58 mm on
+                             # diameter, so 0.1975 is the hard ceiling and 0.19
+                             # sits just under it. Anything more has to come out
+                             # of COLLAR_OD, and turning the collar down further
+                             # makes the ribs tall thin fins that bend instead of
+                             # crushing -- which feels loose, not tight. Hence
+                             # the extra two ribs above.
+_COLLAR_RIB_H_V14 = 0.15     # superseded; the note below is about that step.
                              # v14: doubled. Sam, on the same message that asked
                              # for a shorter collar: "it can be a tight fit for
                              # that inside part". A shorter collar has less of
@@ -898,9 +1031,22 @@ COLLAR_RIB_H    = 0.10       # radial interference -> 0.20 mm on diameter.
                              # inside the ratio check3 asserts: the wall behind
                              # the ribs has 0.59 mm of clearance against 4 x 0.10
                              # of interference.
+COLLAR_RIB_LEAD = 0.60       # taper at the tip, which enters the bore first.
+                             # v18: 1.20 -> 0.60. The rib band is
+                             # FACE_T + COLLAR_LEN - LEAD - Z0 long, and at a
+                             # 3.93 mm collar a 1.20 lead leaves 2.63 mm of it,
+                             # under the 3.00 check2 asserts. Shortening the
+                             # taper is the right end to take it from: at 0.19 mm
+                             # of rib over 0.60 mm the ramp is 17.6 deg, which
+                             # still leads the collar into the bore.
+                             # NOT relaxing the 3.00 -- a check is not the place
+                             # to absorb a geometry change.
 COLLAR_RIB_Z0   = 3.00       # in the diffuser's frame
-COLLAR_RIB_Z1   = 8.00
-COLLAR_RIB_LEAD = 2.00       # taper at the end that enters the bore first, which
+# DERIVED, because the collar got shorter and a frozen 8.00 would have run the
+# ribs straight off the end of it. The band stops COLLAR_RIB_LEAD short of the
+# tip so the lead-in taper has somewhere to live.
+COLLAR_RIB_Z1   = FACE_T + COLLAR_LEN - COLLAR_RIB_LEAD
+_COLLAR_RIB_LEAD_OLD = 2.00  # superseded above; kept only so the note below reads
                              # is the HIGH z end: the collar goes in tip first
 COLLAR_RIB_BURY = 0.60       # into the collar, so the rib does not sit on a face
                              # coincident with it -- that does not survive float32
@@ -931,8 +1077,8 @@ GUIDE_LED_CLR   = 0.40       # 60-LED only. Its band comes right down to the gui
 # on a five-minute print instead of a whole diffuser. Each carries its own
 # hundredths-of-a-mm number debossed on the top.
 GAUGE_H         = 8.00       # tall enough to feel the fit, short enough to be quick
-GAUGE_HS        = (0.05, 0.10, 0.15)     # radial rib heights to try,
-                                         # bracketing the new 0.10 default
+GAUGE_HS        = (0.10, 0.15, 0.20)     # radial rib heights to try,
+                                         # bracketing the new 0.15 default
 GAUGE_PITCH     = 68.00      # centres on the plate
 GAUGE_NUM_H     = 4.00       # the number on top of each
 DIFF_SEAT_CLR   = 0.20       # air between the 32/60 pocket fill and the underside

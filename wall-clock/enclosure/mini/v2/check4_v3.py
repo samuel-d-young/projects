@@ -127,9 +127,23 @@ for B, tg in BODIES:
         print('\n3. The tick is perpendicular to the circle, and sized to the LED')
         ck(B.tick_ro - B.tick_ri > TICK_W, 'it is radial, not tangential',
            f'{B.tick_ro-B.tick_ri:.2f} radial x {TICK_W:.2f} tangential')
+        # THE DESIGN INTENT CHANGED HERE, ON SAM'S INSTRUCTION, AND THIS CHECK
+        # CHANGED WITH IT. It used to read `led_i < tick_ri and tick_ro < led_o`
+        # -- the tick had to sit ENTIRELY inside the 5.00 mm emitter. Sam asked
+        # for the opposite: "update the wall clocks diffusers so that there is
+        # more of a line for the LEDs to shine through", which a mark confined
+        # to the die cannot be. So the assertion is now a BOUNDED OVERHANG: the
+        # tick may run past the die, but only by TICK_SPILL_MAX at each end,
+        # because past that the ends are lit by spill alone and read as a
+        # gradient rather than as a line. Saying this out loud rather than
+        # quietly deleting a failing assertion.
         led_i, led_o = B.led_r - 2.5, B.led_r + 2.5
-        ck(led_i < B.tick_ri and B.tick_ro < led_o, 'it sits inside the LED',
-           f'tick {B.tick_ri:.2f}..{B.tick_ro:.2f} inside LED {led_i:.2f}..{led_o:.2f}')
+        spill_i, spill_o = led_i - B.tick_ri, B.tick_ro - led_o
+        ck(max(spill_i, spill_o) <= TICK_SPILL_MAX + 1e-6,
+           f'the tick overhangs the emitter by no more than {TICK_SPILL_MAX:.2f} mm '
+           f'at each end, so the ends still read as line and not as glow',
+           f'tick {B.tick_ri:.2f}..{B.tick_ro:.2f} against a 5.00 mm die at '
+           f'{led_i:.2f}..{led_o:.2f} -- spill {spill_i:+.2f} in, {spill_o:+.2f} out')
         ck(abs((B.tick_ri+B.tick_ro)/2 - B.led_r) < 0.01, 'and centred on the LED circle',
            f'{B.led_r:.2f}')
         gap = 2*math.pi*B.led_r/B.n - TICK_W
@@ -190,9 +204,19 @@ for B, tg in BODIES:
     ck(B.num_r + B.num_h/2 < B.tick_ri,
        'the hours stay clear of the lit ticks',
        f'outermost {B.num_r + B.num_h/2:.2f}, ticks start {B.tick_ri:.2f}')
-    ck(B.num_r - B.num_h/2 > COLLAR_EXT_RO + 0.5,
-       'and clear of the collar, so every pocket has a flat floor',
-       f'innermost {B.num_r - B.num_h/2:.2f}, collar out to {COLLAR_EXT_RO:.2f}')
+    # WAS: clear of the collar (COLLAR_EXT_RO + 0.5), on the grounds that a
+    # pocket needs a flat floor. That reason does not hold and the limit was
+    # over-strict by ~2.2 mm: the collar stands BEHIND the face, from z=FACE_T
+    # upward, so the front face over it is the same flat FACE_T plate as
+    # everywhere else -- which the per-numeral pocket==fill test and the
+    # no-hole-in-the-band test above both measure on the built mesh anyway.
+    # The limit that is real is the WINDOW: a numeral must not reach the bore,
+    # or its inner edge breaks into the hole you look at the screen through.
+    # This is what caps the tick on the 24-LED body -- see NUM_BORE_CLR.
+    ck(B.num_r - B.num_h/2 >= DIFF_BORE_RI + NUM_BORE_CLR - 1e-6,
+       'and clear of the window, so no numeral breaks into the screen bore',
+       f'innermost {B.num_r - B.num_h/2:.2f}, window edge at {DIFF_BORE_RI:.2f} '
+       f'+ {NUM_BORE_CLR:.2f} = {DIFF_BORE_RI + NUM_BORE_CLR:.2f}')
 
     print('\n5. The collar, which is where the press fit lives now')
     r_out = np.hypot(Dt.vertices[:, 0], Dt.vertices[:, 1]).max()

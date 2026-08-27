@@ -69,11 +69,12 @@ def clock_cards(slug, label):
             row(e("number", "ring_led_count"), "LED count"),
             row(e("number", "twelve_o_clock_offset"), "Twelve o'clock offset"),
             row(e("select", "mode"), "Mode"),
+            row(e("switch", "ring_leds"), "Ring LEDs on"),
             section("Hands"),
             row(e("select", "second_hand_style"), "Second hand"),
-            row(e("switch", "second_hand"), "Show second hand"),
+            row(e("switch", "ring_second_hand"), "Show second hand"),
             section("Markers"),
-            row(e("select", "hour_markers"), "Markers"),
+            row(e("select", "ring_hour_markers"), "Markers"),
             row(e("number", "hour_marker_brightness"), "Marker brightness"),
             section("Timer + status"),
             row(e("select", "timer_countdown_style"), "Countdown style"),
@@ -81,7 +82,39 @@ def clock_cards(slug, label):
             row(e("switch", "show_extra_timer_pips"), "Extra timer pips"),
             row(e("switch", "show_status_hints"), "Status hints"),
             row(e("number", "status_pixel_brightness"), "Status brightness"),
+            # One switch per ambient pixel. The master above still turns the
+            # whole group off; these decide which of the four you keep.
+            row(e("switch", "status_bin_night"), " Bin night (12 o'clock)"),
+            row(e("switch", "status_garage_open"), " Garage open (3 o'clock)"),
+            row(e("switch", "status_driveway"), " Driveway (9 o'clock)"),
+            row(e("switch", "status_who_is_home"), " Who is home (6 o'clock)"),
         ],
+    }
+
+    # Sam asked, in as many words: "what else is showing on the LED ring. The
+    # hours, minutes, seconds and what else?" This is the whole answer, on the
+    # page where the switches are, rather than in a document he has to find.
+    ring_note = {
+        "type": "markdown", "visibility": v,
+        "content": (
+            "### %s — everything the ring can light\n"
+            "| what | where | colour | switch |\n|---|---|---|---|\n"
+            "| Hour hand | the hour | orange | always on |\n"
+            "| Minute hand | the minute | blue | always on |\n"
+            "| Second hand | the second | grey | *Show second hand* |\n"
+            "| Hour markers | all twelve | dim blue-white | *Markers* |\n"
+            "| Timer arc | from 12 | teal | only while a timer runs |\n"
+            "| Timer pips | where each one finishes | dim teal | *Extra timer pips* |\n"
+            "| Bin night | 12 o'clock | breathing green, yellow for recycling | *Bin night* |\n"
+            "| Garage open | 3 o'clock | amber | *Garage open* |\n"
+            "| Driveway | 9 o'clock | blinking red | *Driveway* |\n"
+            "| Who is home | either side of 6 | Sam **blue**, Laura magenta, "
+            "Amanda green, Zac amber | *Who is home* |\n"
+            "| Home Assistant dropped | 6 o'clock | dim red | automatic |\n\n"
+            "**A single blue dot just left of 6 o'clock is Sam's presence pixel.** "
+            "The twelve hour markers are faintly blue too, but they are dim and "
+            "there are twelve of them, so one blue dot is the presence one."
+        ) % label,
     }
 
     colour_note = {
@@ -113,8 +146,12 @@ def clock_cards(slug, label):
         "type": "entities", "title": "%s — Screen" % label,
         "show_header_toggle": False, "state_color": True, "visibility": v,
         "entities": [
-            row(e("switch", "display"), "Screen on"),
+            row(e("switch", "display"), "Everything on (master)"),
+            row(e("switch", "screen_on"), "Screen on"),
+            row(e("select", "screen"), "Which panel"),
             row(e("select", "face"), "Face"),
+            row(e("select", "screen_hour_markers"), "Hour markers"),
+            row(e("switch", "screen_second_hand"), "Second hand"),
             row(e("switch", "24_hour_time"), "24 hour time"),
             row(e("select", "digital_time_size"), "Digital time size"),
             section("On an analogue face"),
@@ -136,7 +173,23 @@ def clock_cards(slug, label):
         "entities": [
             row(e("select", "alert_pattern"), "Pattern"),
             row(e("number", "alert_hue"), "Hue"),
+            row(e("number", "alert_shows_for"), "Clock shows it for"),
+            section("The alarm itself"),
+            row("input_button.wall_clock_timer_dismiss", "Dismiss the alarm"),
+            row("input_number.wall_clock_alert_repeat_seconds", "Re-announce every"),
+            row("input_number.wall_clock_alert_repeat_max", "Repeats (0 = until cancelled)"),
         ],
+    }
+
+    alert_note = {
+        "type": "markdown", "visibility": v,
+        "content": (
+            "The **alarm** sounds until it is cancelled — the dismiss button "
+            "above, saying *stop the timer*, or starting another one.\n\n"
+            "**Clock shows it for** is only how long the ring and the screen keep "
+            "flashing if nothing cancels it. A cancel clears them instantly either "
+            "way. Set it to 0 and the lights last exactly as long as the sound."
+        ),
     }
 
     bright = {
@@ -154,7 +207,7 @@ def clock_cards(slug, label):
         ],
     }
 
-    return [ring, colour_note, colour, screen, alert, bright]
+    return [ring, ring_note, colour_note, colour, screen, alert, alert_note, bright]
 
 
 def build():
