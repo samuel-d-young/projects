@@ -13,10 +13,23 @@ egress IP                        -> 160.79.106.139  (public cloud)
 ```
 
 That block is left exactly as it was run. `192.168.1.79` was Home Assistant's
-address at the time; **it has since moved to `192.168.1.66`** (hostname `hass`).
-Rewriting a recorded measurement to match a later address would turn evidence
-into fiction, and the conclusion it supports — a cloud session has no route to
-this LAN — does not depend on which address it failed to reach.
+address at the time; **it now answers on `192.168.1.75`**. Rewriting a recorded
+measurement to match a later address would turn evidence into fiction, and the
+conclusion it supports — a cloud session has no route to this LAN — does not
+depend on which address it failed to reach. (The Pi at `.79` is dead: no ping,
+no ARP entry.)
+
+**Three addresses that are easy to confuse, so they are written down here:**
+
+| | what it is |
+|---|---|
+| `192.168.1.75` | **Home Assistant.** HA OS as the libvirt guest `haos`. This is the one you want. |
+| `192.168.1.66` | the hypervisor that runs it, hostname `hass`. Not Home Assistant. |
+| `192.168.1.42` | the NUC, `voice-core` — Agent Deck, and Whisper/Piper. |
+
+I had `.66` here first and it was wrong: `.66` was verified as the *planned*
+destination, and the move landed one layer of indirection past the plan — HA OS
+in a VM *on* `.66`, answering on `.75`.
 
 The account has exactly one environment, `anthropic_cloud`, so **any session
 spawned from there is in the same position** — including a Cowork session.
@@ -47,7 +60,7 @@ A Claude session running **on Samuel's own machine** is on the LAN and can.
 > The repo is `samuel-d-young/projects`, branch
 > `claude/home-assistant-wall-clock-om42v2`, directory `wall-clock/`.
 >
-> Home Assistant is at 192.168.1.66:8123 (hostname `hass`). I have the ESPHome
+> Home Assistant is at 192.168.1.75:8123 (HA OS in the `haos` VM). I have the ESPHome
 > Device Builder and Mosquitto add-ons, and `packages: !include_dir_named packages`
 > is already enabled.
 >
@@ -124,5 +137,5 @@ claude --model opus "Read wall-clock/HANDOFF.md then wall-clock/BUILD-LOG.md, an
 ```
 
 A local session is on the LAN, so unlike the cloud session it can reach
-192.168.1.66 and actually run the install. The paste-ready install prompt is in
+192.168.1.75 and actually run the install. The paste-ready install prompt is in
 the section above.

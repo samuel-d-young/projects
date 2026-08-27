@@ -4117,3 +4117,43 @@ the 32 and 60 report a fouled board in 1961 mm^3 of thin air.
   is untouched because its mass is what stops a 240 mm clock tipping, and
   check5's tip-over angle is derived from the geometry. Worth doing, needs the
   stability check re-derived rather than assumed.
+
+---
+
+## 2026-08-27 — Correction: Home Assistant is on 192.168.1.75, not .66
+
+The entry two above this one said the move was to `192.168.1.66`. **That was
+wrong**, and it is corrected here rather than edited above.
+
+| | what it actually is |
+|---|---|
+| `192.168.1.75` | **Home Assistant.** HA OS 18.2 / Core 2026.8.3, running as the libvirt/KVM guest `haos`. |
+| `192.168.1.66` | the **hypervisor** that hosts it, hostname `hass`. Not Home Assistant. |
+| `192.168.1.42` | the NUC, `voice-core` — Agent Deck, Whisper and Piper. Unrelated. |
+
+`192.168.1.79`, the Pi, is dead — no ping, no ARP entry.
+
+**How I got it wrong, because the shape of the mistake is the useful part.** The
+second brain's LAN map, verified 2026-08-26, named `.66` as the destination and
+said *"when the move happens, re-point everything that hard-codes .79"*. When
+Sam asked for exactly that re-point, I took the verified **plan** as a verified
+**outcome**. It wasn't: the plan came true one layer of indirection away from
+itself — HA OS went on as a *VM on* `.66` and answers on `.75`, which the plan
+could not have predicted and I did not check.
+
+**A destination verified as planned is not an outcome.** The distinction is
+cheap to make and I did not make it: nothing in this session had reached either
+address, so "verified" was doing work it had not earned.
+
+The evidence for `.75` is in the vault note and is worth repeating because it is
+good: the `haos` guest NIC's MAC (`52:54:00:17:23:1d`) matches the ARP entry for
+`.75`, and `binary_sensor.rpi_power_status` still exists with `restored: true`
+and state `unavailable` — an orphan of hardware that no longer exists, which is
+what shows the instance was restored from the Pi's backup rather than rebuilt.
+
+`HANDOFF.md` now says `.75` in both operational places and carries the
+three-address table, since `.66` and `.75` are one digit apart and both real.
+The connection-test block still says `.79` — it is still a recorded measurement.
+
+**Still outstanding, from the vault:** `.75` is a **DHCP lease, not a
+reservation**. Reserve it, or this correction gets to happen again.
