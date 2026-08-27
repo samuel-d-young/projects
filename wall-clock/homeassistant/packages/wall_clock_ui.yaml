@@ -44,4 +44,5 @@ input_select:
     icon: mdi:cog-outline
     options:
       - Mini Round Clock
+      - Mini Round Clock 2
       - Test Clock (D1 mini)

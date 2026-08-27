@@ -4235,3 +4235,102 @@ clock's own firmware**, not against any firmware — 70 rows, 0 dangling,
 `mini_round_clock` using 55 of the 55 it exposes and `test_clock` 4 of 4. The
 earlier version of this check only proved a row matched *something*, which is
 why it passed while the two renamed rows were broken.
+
+---
+
+## 2026-08-27 — Corrections from the bench. Three of my claims were wrong, one of them shipping a boot loop
+
+A local session with the hardware in front of it sent a handoff. It corrects
+this log in three places, and I am recording the corrections next to what they
+replace rather than editing the earlier entries.
+
+### 1. The `psram:` block boot-loops this hardware — REMOVED
+
+This is the one that mattered, because the file I have been telling Sam to flash
+still declared it. Measured on the bench, one variable per build:
+
+| | result |
+|---|---|
+| `psram: octal @ 80MHz` | panics ~5 s after wifi associates |
+| `psram: octal @ 40MHz` | same |
+| `psram: quad` | "PSRAM chip is not connected", still panics, 0 renders |
+| **no psram block** | **stable** |
+
+The PSRAM on these modules does not work, whatever the R8 suffix implies. Both
+framebuffers come out of internal SRAM: this container's build without the block
+reports **RAM 17.5% (57,364 B)** against **17.7% (58,000 B)** with it — the
+displays use partial buffering, not full frames, so they were never leaning on
+PSRAM in the first place.
+
+The symptom is now written into the file, because it is a trap: **"Interrupt wdt
+timeout on CPU0" with BOTH cores idle**. That reads like a hung SPI transfer.
+It is a stalled external RAM access. Misreading it cost the bench session hours.
+
+The old header note claiming ESPHome would refuse a config without PSRAM is true
+of the `ST77916` model and irrelevant here — this config is `model: CUSTOM`.
+
+### 2. "There is no ESPHome 2026.8.0" — wrong
+
+Two entries above, this log says the newest ESPHome in existence is 2026.6.5 and
+that 2026.7 and 2026.8 do not exist. **They do.** The bench has **2026.8.1**
+installed and flashing.
+
+What I actually did was query a package index through this container's proxy and
+report **what it served** as **what exists**. Those are different claims and I
+did not distinguish them. The rule this earns: *an index is a source about
+itself.* "The registry I can reach offers X" is evidence; "X is all there is"
+needs a second source, and I had none.
+
+### 3. "`channel_colors` is not a key at all" — wrong
+
+It exists. On 2026.8.x `rgb_order` is **Optional and deprecated** in favour of
+it, with removal scheduled for **2027.3.0**.
+
+What held up: on 2026.6.5 `cv.Required(CONF_RGB_ORDER)` really is required and
+`channel_colors` really is unknown there, so a file using it fails on that
+version. That part was read correctly out of installed source. The error was
+generalising one version's schema into a statement about the software.
+
+**`rgb_order: GRB` stays**, and now for a stated reason rather than a wrong one:
+it is the only spelling that validates on both 2026.6.5 and 2026.8.x. It emits a
+deprecation warning on the newer one and works. Swap when 2027.3.0 is close.
+
+### Confirmed from the bench, not changed
+
+* **`color_order: rgb` on `face_lcd` is correct.** The `colour test` face was run
+  on real hardware and showed each word on its own colour. The reasoning in the
+  v18 entry held.
+* `allow_other_uses` on GPIO13, and the `0x36`/`0x3A` bytes never reaching the
+  panel — both confirmed.
+
+### Clock #2 was missing from the dashboard
+
+There are two clocks, not one: `mini-round-clock` (24 LED, 192.168.1.23) and
+`mini-round-clock-2` (32 LED, 192.168.1.64), flashed from the same file with
+`-s device_name mini-round-clock-2 -s num_leds 32`. Added to the generator and
+the picker. 125 rows across three clocks, 0 dangling.
+
+### The branch has diverged
+
+The bench session's commits (`8ea31a8`, `c044da5`, `7c1e3f3`) are **not on
+origin** — they are local to `K:\Claude\projects`. My pushes have been landing on
+the same branch name, so both sides now have work the other does not. Whoever
+pushes second merges; nothing is lost, but it is not automatic.
+
+### Open, from the bench
+
+1. **Clock #2's screen is backlit but blank.** Already ruled out: panel
+   selection, the switches, brightness, firmware, and the strap. The firmware IS
+   rendering (432 render events in its boot log). Suspect order: **RST GPIO14**,
+   then CS GPIO10, DC GPIO13, then SCL/SDA. The FPC order is
+   TE SDO BL CS DC RST SDA SCL VCC GND — BL is pin 3 and VCC/GND are 9-10, so a
+   skewed connector powers the panel while leaving signals open. **Fastest
+   isolation: swap the panel and cable with clock #1.**
+2. **Three HA helpers still missing on the box** —
+   `input_button.wall_clock_timer_dismiss`,
+   `input_number.wall_clock_alert_repeat_max`,
+   `input_number.wall_clock_alert_repeat_seconds`. They exist in
+   `packages/wall_clock_timers.yaml` as of v18; HA is running the pre-v18 copy.
+3. **Clock #1's GPIO18 strap is faulty** — reads `on` with the round panel
+   fitted. Worked around by pinning Screen to "round 360x360" (persists in NVS).
+   Needs a continuity check to GND on that cable.

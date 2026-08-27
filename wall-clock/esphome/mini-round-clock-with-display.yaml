@@ -150,11 +150,32 @@ esp32:
   # Not set by default because the right board id depends on your module and a
   # wrong one is worse than the auto-selected default. (unverified)
 
-# 8 MB octal PSRAM. `octal` is what the R8 suffix means — a quad-PSRAM part
-# (R2, R8Q) needs `mode: quad` and will fail to initialise with this.
-psram:
-  mode: octal
-  speed: 80MHz
+# =============================================================================
+# THERE IS DELIBERATELY NO `psram:` BLOCK. DO NOT "RESTORE" IT.
+# =============================================================================
+# On an N16R8 the missing block reads as an oversight. It is not: declaring PSRAM
+# in ANY mode boot-loops this hardware, and removing it is what fixed it.
+#
+# MEASURED on the bench, one variable per build:
+#
+#   psram octal @ 80MHz   panics ~5 s after wifi associates
+#   psram octal @ 40MHz   same
+#   psram quad            "PSRAM chip is not connected", still panics, 0 renders
+#   NO psram block        stable
+#
+# So the PSRAM on these particular modules does not work, whatever the R8 suffix
+# says it should be. Both framebuffers (253 KB round + 108 KB bar) come out of
+# internal SRAM with no allocation failure -- `buffer_size` on the displays is
+# partial buffering, not a full frame, which is what makes that possible.
+#
+# THE SYMPTOM IF YOU PUT IT BACK, so nobody has to rediscover it: "Interrupt wdt
+# timeout on CPU0" with BOTH cores idle. That reads like a hung SPI transfer and
+# it is not -- both cores idle means a stalled external RAM/cache access. That
+# misreading cost the bench session hours.
+#
+# The header note further up says ESPHome's ST77916 model declares
+# requires={"psram"} and would refuse a config without it. True, and irrelevant
+# here: this config uses `model: CUSTOM`, which carries no such requirement.
 
 logger:
   hardware_uart: UART0   # CH343 USB-UART bridge on this board (VID 1A86), NOT native USB-JTAG
@@ -1409,18 +1430,24 @@ light:
     # DID accept WS2812B, so a copy-paste from an old config fails validation.)
     chipset: WS2812
 
-    # `rgb_order`, NOT `channel_colors`. CORRECTING A CLAIM THIS FILE MADE.
-    # The comment here used to say channel_colors replaced rgb_order in "ESPHome
-    # 2026.8.0 -- this exact version". There is no 2026.8.0. Checked against the
-    # index on 2026-08-27: the newest ESPHome that exists is 2026.6.5, and there
-    # is no 2026.7 or 2026.8 at all.
+    # `rgb_order`, and it is the VERSION-PORTABLE choice rather than the current
+    # one. Two corrections to what this comment used to claim, both from the
+    # bench, where 2026.8.1 is installed and the firmware actually flashes:
     #
-    # Read out of the installed 2026.6.5 source rather than asserted:
-    # components/esp32_rmt_led_strip/light.py line 83 --
-    #     cv.Required(CONF_RGB_ORDER): cv.enum(RGB_ORDERS, upper=True)
-    # It is REQUIRED, channel_colors is not a key at all, and `esphome config`
-    # fails the whole file on it. So the config as it stood could not have been
-    # flashed. Accepted values are RGB RBG GRB GBR BGR BRG (light.py:36).
+    #   1. I wrote here that "there is no 2026.8.0" and that 2026.6.5 was the
+    #      newest ESPHome in existence. WRONG. 2026.7 and 2026.8 both exist.
+    #      What I actually checked was a package index through a proxy, and I
+    #      reported what it served as what exists.
+    #   2. I wrote that `channel_colors` "is not a key at all". WRONG. It exists,
+    #      and on 2026.8.x `rgb_order` is Optional and deprecated in favour of
+    #      it, with removal scheduled for 2027.3.0.
+    #
+    # What was right: on 2026.6.5, `cv.Required(CONF_RGB_ORDER)` really is
+    # required and `channel_colors` really is unknown, so a file using
+    # channel_colors fails there. Since rgb_order still WORKS on 2026.8.x -- it
+    # only warns -- rgb_order is the one setting that validates on both, which is
+    # why it stays. Swap to channel_colors when 2027.3.0 is close, not before.
+    # Accepted values: RGB RBG GRB GBR BGR BRG.
     #
     # If red and green come out swapped on the ring, change this to RGB. Note
     # that this is the RING's byte order and has nothing to do with the screen's

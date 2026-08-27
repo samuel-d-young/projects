@@ -46,10 +46,17 @@ import json, io, sys
 #                  Handing these the full card set is what produces a screen of
 #                  "Entity not found": the entities are not missing, they were
 #                  never compiled in.
+# CLOCK #2 IS REAL and was missing from here. Both clocks run the same firmware
+# (byte-identical except name and LED count); #2 is flashed with substitution
+# overrides so it does not collide with #1 on hostname, OTA target or entity ids:
+#     -s device_name mini-round-clock-2 -s friendly_name 'Mini Round Clock 2'
+#     -s num_leds 32
 CLOCKS = [
-    {"slug": "mini_round_clock", "label": "Mini Round Clock", "tier": "full",
+    {"slug": "mini_round_clock",   "label": "Mini Round Clock", "tier": "full",
      "backlight": True},
-    {"slug": "test_clock",       "label": "Test Clock (D1 mini)", "tier": "basic",
+    {"slug": "mini_round_clock_2", "label": "Mini Round Clock 2", "tier": "full",
+     "backlight": True},
+    {"slug": "test_clock",         "label": "Test Clock (D1 mini)", "tier": "basic",
      "backlight": False},
 ]
 # NOT LISTED, deliberately: wall-clock.yaml. Two reasons, and the second is the
