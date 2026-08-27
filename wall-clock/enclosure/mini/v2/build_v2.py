@@ -103,7 +103,13 @@ def tab_slot_walls():
     They sit at |y| >= 15.575 and the S3 board is |y| <= 12.70, so the two never
     meet.
     """
-    solid = wedge(TAB_WALL_RI, TAB_WALL_RO, Z_BACK, TAB_WALL_TOP,
+    # DOWN TO Z_DECK, not Z_BACK. The walls used to start on top of the deck, so
+    # any deck opening wider than the slot undercut them -- and the cable gap
+    # Sam asked for is exactly that. Taking them to the part's own bottom plane
+    # means they carry themselves: the deck can be opened to the full slot width
+    # between them, the walls stand on the build plate rather than on a plate
+    # with a hole in it, and there is no coincident face where the two meet.
+    solid = wedge(TAB_WALL_RI, TAB_WALL_RO, Z_DECK, TAB_WALL_TOP,
                   -TAB_WALL_AHALF, TAB_WALL_AHALF)
     # The volume the tab needs: a straight slot up to just above the tab, then a
     # 45-degree lead-in chamfer on the top inner edge so a slightly rotated tab
@@ -382,6 +388,67 @@ def load_sams_diffuser():
 
 
 # =============================================================================
+def numeral_box(num_h):
+    """Half-extents of the widest numeral, in the frame the dial places it in.
+
+    THE NUMERALS ARE UPRIGHT. They are not rotated to face outward -- a clock
+    face reads upright, which is what Sam asked for and what the Echo does --
+    and that is exactly why a band computed as num_r +/- num_h/2 is wrong. An
+    upright glyph at 10 o'clock has its CORNER pointing at the middle of the
+    dial, not its edge, and the corner reaches further in than the edge does.
+
+    Returns (hx, hy): hx is the half-extent along the model's x, hy along y.
+    text_prism places these with mirror=True, which swaps the glyph's own axes,
+    so the glyph's HEIGHT lands on x and its WIDTH on y.
+    """
+    from csg import text_polys
+    import numpy as _np
+    w = 0.0
+    for t in NUMERALS.values():
+        pts = _np.concatenate(text_polys(t, num_h, family=NUM_FONT,
+                                         weight=NUM_WEIGHT, fontfile=NUM_FONT_FILE))
+        w = max(w, pts[:, 0].max() - pts[:, 0].min())
+    return num_h / 2.0, w / 2.0
+
+
+def numeral_reach(num_r, num_h):
+    """The true innermost and outermost radius the twelve numerals reach.
+
+    The box is axis-aligned (upright) and centred at radius num_r, so how close
+    it comes to the middle depends on WHERE on the dial it sits. Straight up at
+    12 the inner edge is the closest point; at 10 it is a corner, and that is
+    0.5-1.5 mm further in on a small dial. This measures all twelve.
+    """
+    hx, hy = numeral_box(num_h)
+    lo, hi = 1e9, 0.0
+    for h in range(1, 13):
+        a = math.radians(30.0 * (h % 12))
+        cx, cy = abs(num_r * math.cos(a)), abs(num_r * math.sin(a))
+        dx, dy = max(0.0, cx - hx), max(0.0, cy - hy)
+        lo = min(lo, math.hypot(dx, dy))
+        hi = max(hi, math.hypot(cx + hx, cy + hy))
+    return lo, hi
+
+
+def numeral_r_for_inner(limit, num_h):
+    """The smallest num_r whose innermost numeral corner still clears `limit`.
+
+    Bisected rather than solved: the closest point can be an edge or a corner
+    depending on the angle, so the expression changes form partway and a closed
+    solution would have to case-split on something that is cheaper to search.
+    numeral_reach's inner value rises monotonically with num_r, which is all a
+    bisection needs.
+    """
+    lo, hi = limit, limit + 60.0
+    for _ in range(60):
+        mid = (lo + hi) / 2.0
+        if numeral_reach(mid, num_h)[0] < limit:
+            lo = mid
+        else:
+            hi = mid
+    return hi
+
+
 class Body:
     """One clock size. Everything that differs between the 24- and the 32-LED
     build is here, and every derived number keeps the relationship the 24-LED
@@ -448,9 +515,21 @@ class Body:
             # window as the tick grows, and the numeral is not allowed to reach
             # it -- see NUM_BORE_CLR in params for the arithmetic and for the
             # three levers if a longer line matters more.
-            stack = (TICK_MARK_GAP + MARK_MAJ_EXT + MARK_LEN + MARK_MAJ_EXT
-                     + NUM_MARGIN + self.num_h)
-            face = 2.0 * (self.led_r - (DIFF_BORE_RI + NUM_BORE_CLR) - stack)
+            # The numerals go as far IN as their real corners allow, which is
+            # what leaves the most room for everything outboard of them. Solved
+            # from the glyph geometry, not from num_h -- see numeral_box().
+            self.num_r = numeral_r_for_inner(DIFF_BORE_RI + NUM_BORE_CLR,
+                                             self.num_h)
+            num_out = numeral_reach(self.num_r, self.num_h)[1]
+            # NUM_MARGIN alone. The stack used to reserve MARK_LEN and two
+            # MARK_MAJ_EXTs as well -- 3.20 mm for the twelve hour marks --
+            # and THE HOUR MARKS ARE NEVER DRAWN. mark_ri/mark_ro exist on
+            # every Body and nothing in build_diffuser reads them; they only
+            # ever positioned the numerals. So that band was 3.20 mm of dead
+            # space squeezing the tick on behalf of geometry that does not
+            # exist. TICK_MARK_GAP went with it: with no marks between them,
+            # it and NUM_MARGIN were two names for the same single gap.
+            face = 2.0 * (self.led_r - num_out - NUM_MARGIN)
             L = min(TICK_L_MAX, cell, face)
             assert L > 2.0, f'{tag or "24"}: no room for a tick ({L:.2f} mm)'
             self.tick_bound = ('the cell' if L == cell else
@@ -465,6 +544,7 @@ class Body:
             self.mark_ro     = self.mark_ro_maj - MARK_MAJ_EXT
             self.mark_ri     = self.mark_ro - MARK_LEN
             self.mark_ri_maj = self.mark_ri - MARK_MAJ_EXT
+            self.num_fixed   = True
 
         # --- where the numerals go, on every body, by one rule
         # Their OUTER edge sits NUM_MARGIN inboard of the aperture's inner edge,
@@ -472,7 +552,15 @@ class Body:
         # layout -- and they can never break into a 0.20 mm aperture membrane.
         # Inboard of the MARKS, not of the tick -- the marks are now the
         # innermost thing on the dial and the numerals have to clear them.
-        self.num_r = self.mark_ri_maj - NUM_MARGIN - self.num_h / 2
+        # On a guide body the numerals were never solved above, so place them
+        # the old way and then push them in far enough that no CORNER breaks the
+        # window -- the 60 has 30 mm of slack there, but the rule is the rule.
+        if not getattr(self, 'num_fixed', False):
+            self.num_r = self.mark_ri_maj - NUM_MARGIN - self.num_h / 2
+            self.num_r = max(self.num_r,
+                             numeral_r_for_inner(DIFF_BORE_RI + NUM_BORE_CLR,
+                                                 self.num_h))
+        self.num_reach = numeral_reach(self.num_r, self.num_h)
 
 BODY24 = Body('', 24, RING_OD, RING_ID, R_BODY, R_RING_I, R_RING_O, R_LIP_I,
               DECK_RI, SCREW_R, SCREW_ANG, [50, 75, 100, 260, 285, 310])
@@ -894,7 +982,12 @@ def build_base(B, sam):
     shelf = DIFF_SEAT_Z - B.band_top - DIFF_SEAT_CLR
     keep += (tube(34.60, KEEP_R32 - 0.50, 10.40, shelf, SEG) - tab_slot_keep())
 
-    ann = tube(KEEP_R32 - 1.00, B.r_body, Z_BACK, Z_FRONT, SEG)
+    # Z_DECK, not Z_BACK. The big bodies used to sit their annulus on top of a
+    # full-width deck, which meant two stacked floor plates. The annulus now
+    # reaches the bottom plane itself and carries the only floor -- see the
+    # DECK_RO_BIG note in params, and the 69 mm bridge that the first version
+    # of this change produced.
+    ann = tube(KEEP_R32 - 1.00, B.r_body, Z_DECK, Z_FRONT, SEG)
     ann -= tube(B.r_ring_i, B.r_ring_o, B.ring_floor, Z_FRONT + 1.0, SEG)
     # inboard of the pocket the diffuser's face sits on a shelf...
     ann -= tube(KEEP_R32 - 2.0, B.r_ring_i, shelf, Z_FRONT + 1.0, SEG)
@@ -921,29 +1014,33 @@ def hollow(B):
     # guides rest on. Hollowing straight through would have left the guides
     # bridging between ribs.
     shelf_in = Z_RECESS - B.band_top + FACE_T
-    inner = tube(KEEP_R32 + 1.0, B.r_ring_i - HOLLOW_WALL, HOLLOW_FLOOR,
+    # The floor is HOLLOW_FLOOR thick measured from the part's own bottom plane,
+    # which is Z_DECK now, not Z_BACK. Leaving this as an absolute would have
+    # given a 4.40 mm floor -- the thing this change exists to stop.
+    z_floor = Z_DECK + HOLLOW_FLOOR
+    inner = tube(KEEP_R32 + 1.0, B.r_ring_i - HOLLOW_WALL, z_floor,
                  shelf_in - 2.50, SEG)
-    outer = tube(B.r_ring_o + HOLLOW_WALL, B.r_lip_i - HOLLOW_WALL, HOLLOW_FLOOR,
+    outer = tube(B.r_ring_o + HOLLOW_WALL, B.r_lip_i - HOLLOW_WALL, z_floor,
                  GUIDE_SHELF - 2.50, SEG)
     void = inner + outer
     # one circumferential rib in each cavity, so no ceiling spans more than
     # ~14 mm when the part is printed deck-face-down
     keep = (tube((KEEP_R32 + B.r_ring_i)/2 - HOLLOW_RIB_W/2,
                  (KEEP_R32 + B.r_ring_i)/2 + HOLLOW_RIB_W/2,
-                 HOLLOW_FLOOR - 1.0, Z_FRONT + 1.0, SEG)
+                 z_floor - 1.0, Z_FRONT + 1.0, SEG)
             + tube((B.r_ring_o + B.r_lip_i)/2 - HOLLOW_RIB_W/2,
                    (B.r_ring_o + B.r_lip_i)/2 + HOLLOW_RIB_W/2,
-                   HOLLOW_FLOOR - 1.0, Z_FRONT + 1.0, SEG))
+                   z_floor - 1.0, Z_FRONT + 1.0, SEG))
     for k in range(HOLLOW_RIBS):
         a = 360.0/HOLLOW_RIBS * (k + 0.5)
         rm = (KEEP_R32 + B.r_lip_i) / 2
         r = prism(rot_rect(rm*math.cos(math.radians(a)), rm*math.sin(math.radians(a)),
                            B.r_lip_i - KEEP_R32, HOLLOW_RIB_W, a),
-                  HOLLOW_FLOOR - 1.0, Z_FRONT + 1.0)
+                  z_floor - 1.0, Z_FRONT + 1.0)
         keep = keep + r
     for a in B.screw_ang:
         x, y = B.screw_r*math.cos(math.radians(a)), B.screw_r*math.sin(math.radians(a))
-        keep += cyl(5.50, HOLLOW_FLOOR - 1.0, Z_FRONT + 1.0, 32, centre=(x, y))
+        keep += cyl(5.50, z_floor - 1.0, Z_FRONT + 1.0, 32, centre=(x, y))
     # ...and a vent through each shelf, so no cavity is sealed. A sealed void is
     # a second surface shell -- the topology check counts it as a second body,
     # and a slicer cannot drain it either.
@@ -970,11 +1067,54 @@ def build_deck_for(B):
     # and left a 16 mm annular bridge to print into thin air. At 30 it follows
     # his bore, and the only openings are the ones he already has -- the tab
     # slot at 12 o'clock and the wire slot at 6.
-    d = tube(B.deck_ri, B.r_body - DECK_INSET, Z_DECK, Z_BACK, SEG)
-    # +/-10, not the full slot width: the tab itself never comes below z=8.60,
-    # so this only has to pass the display's ribbon -- and cutting it wider left
-    # the tab-slot walls standing over a void, which cost 2 mm3 of self-overlap
-    d -= box_lwh(20.0, TAB_WALL_RO + 1.0, -10.0, 10.0, Z_DECK - 1.0, Z_BACK + 1.0)
+    # OUTER RADIUS DEPENDS ON THE BODY. On the 24 the deck is the only thing
+    # closing the back, so it runs the full annulus. On the 32 and 60 the base
+    # is rebuilt outboard of KEEP_R32 and brings its own floor, so out there the
+    # deck was a second plate stacked on the first -- 93 cm^3 of pure double-up
+    # on the 60. See DECK_RO_BIG in params for why that is the cut worth making.
+    ro = (B.r_body - DECK_INSET) if B.n == 24 else DECK_RO_BIG
+    d = tube(B.deck_ri, ro, Z_DECK, Z_BACK, SEG)
+    # THE CABLE GAP. Sam: "the gap at the bottom... doesn't allow for the
+    # cables. Make the gap at the bottom gap wider to fit the cables that come
+    # down under the ESP 32." Was +/-10.00; now +/-20.00.
+    #
+    # The old comment here said cutting it wider left the tab-slot walls
+    # standing over a void. That was true when it was cut across the walls'
+    # whole radial run -- so it is not cut there any more. The walls stand at
+    # r 31.00..43.50, and this opening now stops at TAB_CABLE_RO, short of them,
+    # leaving a continuous land under every part of the wall that touches the
+    # deck. check3's island sweep is what proves it rather than this comment.
+    # ...but NOT as one rectangle, because 40 mm undercuts the tab-slot walls.
+    # They stand at r 31.00..43.50 and |y| >= 15.575, and cutting +/-20 through
+    # that band leaves them standing on nothing over |y| 15.575..20.00. The
+    # assembled part then reads 6 mm^3 of SELF-OVERLAP -- trimesh 104126.04
+    # against manifold3d 104120.01 -- which is the coincident-face signature,
+    # and those walls are the whole reason the display stopped tilting.
+    #
+    # THE ACTUAL PINCH, which is what Sam is feeling: the slot the tab passes
+    # through is 31.15 mm wide, and the hole in the deck under it was 20.00.
+    # The deck was NARROWER than the slot above it, so the ribbon met a step on
+    # its way out. That is the thing to fix, and it is free.
+    #
+    # So the opening is stepped, and it is as wide as it can be at every radius:
+    #   r 30.0..31.0   40.00 mm   (inboard of the walls -- mostly bore anyway)
+    #   r 31.0..44.0   32.35 mm   through the wall band: the full slot width,
+    #                             so nothing is pinched and every wall keeps a
+    #                             continuous land under it
+    #   r 44.0..44.5   40.00 mm   (outboard of the walls)
+    # ONE stepped prism, not three butted boxes. Three boxes meeting on shared
+    # planes at x0 and x1 is exactly the coincident-face case this file keeps
+    # relearning: it built, and then finalise() could not get a clean float32
+    # mesh out of it in six rounds -- watertight=False, one bad edge. Extruding
+    # a single closed outline has no internal faces to disagree about.
+    hw   = DECK_CABLE_W / 2
+    slot = TAB_SLOT_HW + 0.60             # 0.60 clear of the slot the tab uses,
+                                          # which the walls now carry themselves
+    x0, x1 = TAB_WALL_RI - 0.50, TAB_WALL_RO + 0.50
+    outline = [(20.0, hw), (x0, hw), (x0, slot), (x1, slot), (x1, hw),
+               (TAB_CABLE_RO, hw), (TAB_CABLE_RO, -hw), (x1, -hw),
+               (x1, -slot), (x0, -slot), (x0, -hw), (20.0, -hw)]
+    d -= prism(outline, Z_DECK - 1.0, Z_BACK + 1.0)
     # +0.40: cutting the deck at exactly Sam's own slot half-width leaves two
     # coincident planes, and the float32 round trip turns those into a 2 mm3
     # disagreement between two ways of measuring the same solid

@@ -201,9 +201,33 @@ for B, tg in BODIES:
 
     ck(FACE_T - NUM_DEPTH >= 1.0, 'and the face stays opaque under the engraving',
        f'{FACE_T-NUM_DEPTH:.2f} mm left')
-    ck(B.num_r + B.num_h/2 < B.tick_ri,
-       'the hours stay clear of the lit ticks',
-       f'outermost {B.num_r + B.num_h/2:.2f}, ticks start {B.tick_ri:.2f}')
+    # MEASURED ON THE BUILT INLAY, NOT COMPUTED FROM num_h. This is the check
+    # that was missing, and its absence is why Sam had to say "make sure that
+    # the numbers fit in the diffuser and don't stick out". The old pair of
+    # assertions used num_r +/- num_h/2 -- the nominal band -- and the numerals
+    # are UPRIGHT, not rotated to face outward, so the ones at 1, 2, 4, 5, 7, 8,
+    # 10 and 11 o'clock present a CORNER to the middle of the dial rather than
+    # an edge. On the 24 that corner reached r 27.07 against a 27.63 bore: the
+    # numerals hung 0.56 mm out over the window and both assertions passed,
+    # because neither was looking at the glyphs.
+    #
+    # The widest numeral is 7.2 mm across at 5 mm cap height, so it is the WIDTH
+    # that drives the corner, not the height the band was built from.
+    iv = to_trimesh(INLAY).vertices
+    ir = np.hypot(iv[:, 0], iv[:, 1])
+    ck(ir.min() >= DIFF_BORE_RI + NUM_BORE_CLR - 1e-3,
+       'no numeral hangs over the screen window -- measured on the built glyphs',
+       f'innermost glyph point r={ir.min():.3f}, window edge {DIFF_BORE_RI:.2f} '
+       f'+ {NUM_BORE_CLR:.2f} = {DIFF_BORE_RI + NUM_BORE_CLR:.2f}')
+    ck(ir.max() <= B.tick_ri - 1e-3,
+       'and none of them runs into the lit ticks -- likewise measured',
+       f'outermost glyph point r={ir.max():.3f}, ticks start {B.tick_ri:.2f}')
+    # ...and the whole inlay has to be ON the diffuser, not hanging off any edge
+    # of it. Subtracting the face's own footprint is the direct way to ask.
+    face_disc = tube(DIFF_BORE_RI, B.diff_outer, -1.0, FACE_T + 1.0, 192)
+    ck((INLAY - face_disc).volume() < 1e-3,
+       'every numeral sits entirely on the face',
+       f'{(INLAY - face_disc).volume():.5f} mm3 of numeral off the face')
     # WAS: clear of the collar (COLLAR_EXT_RO + 0.5), on the grounds that a
     # pocket needs a flat floor. That reason does not hold and the limit was
     # over-strict by ~2.2 mm: the collar stands BEHIND the face, from z=FACE_T

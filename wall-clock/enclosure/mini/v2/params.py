@@ -1231,10 +1231,90 @@ MARK60_RI_MAJ, MARK60_RO_MAJ = 70.30, 73.50
 NUM60_R       = 72.00
 NUM60_H       = 5.00
 # --- and the 240 mm annulus has to be hollow, or it is a kilogram of PLA ------
-HOLLOW_FLOOR  = 3.00         # floor plate under the whole annulus
+# --- v19: LESS MATERIAL, AND THE REASON THE CUTS ARE WHERE THEY ARE ----------
+# Sam: "Update the 60LED stl files so that they use less material when printing.
+# Remember the basic principals of 3D printing."
+#
+# THE PRINCIPLE THAT DECIDES WHERE TO CUT, and it is not "make everything
+# thinner": a slicer does not print model volume, it prints perimeters, top and
+# bottom skins, and sparse infill. So a mm^3 removed is worth very different
+# amounts depending on where it is:
+#
+#   a THIN PLATE (under about 2x the skin thickness) prints ~100% SOLID, because
+#   the top and bottom skins meet in the middle with no room for infill. Every
+#   mm^3 taken out of it is a mm^3 of filament saved, 1:1.
+#
+#   a TALL THIN WALL prints as two perimeters and a sliver. It is already near
+#   the minimum; thinning it saves almost nothing and costs stiffness.
+#
+#   a THICK BLOCK prints as skins plus sparse infill, so removing it saves maybe
+#   15-20% of its volume in filament.
+#
+# The 60-LED base was 520 cm^3, and the largest single item in it was a FLOOR
+# THAT WAS BUILT TWICE: the deck (2.40 mm, r 30..120) stacked directly under the
+# base's own floor plate (3.00 mm, same annulus). 5.40 mm of solid across
+# 42,412 mm^2 -- 229 cm^3, 44% of the part, and every bit of it in the "thin
+# plate, prints solid" category. That is the cut worth making.
+#
+# What was NOT cut, deliberately: the outer wall (r 116.5..120, 24.4 tall). It
+# looks like 64 cm^3 of fat and it is not -- at 3.5 mm wide it is already just
+# perimeters, so thinning it would buy a few grams and give back the rim's
+# stiffness on a 240 mm part that has to stay round.
+HOLLOW_FLOOR  = 2.00         # floor plate under the whole annulus. 3.00 -> 2.00:
+                             # ten layers at 0.20, and it is not spanning air --
+                             # twelve radial ribs, two circumferential ribs and
+                             # the pocket walls all land on it.
 HOLLOW_RIBS   = 12           # radial ribs tying floor to walls
 HOLLOW_RIB_W  = 3.00
 HOLLOW_WALL   = 2.50         # either side of the ring pocket
+
+# ONE FLOOR PLATE, NOT TWO -- AND THE FIRST ATTEMPT AT THIS WAS WRONG.
+#
+# The 32 and 60 had the deck (2.40 mm, z -2.40..0) stacked directly under the
+# base's own floor (3.00 mm, z 0..3.00). 5.40 mm of plate across 42,412 mm^2.
+#
+# The obvious cut -- stop the deck at KEEP_R32 and let the base's floor close
+# the rest -- IS WRONG, and check3 caught it in one line:
+#
+#     [FAIL] every flat ceiling bridges <= 25 mm   worst 69.1 mm at z=-0.0
+#
+# The part prints deck-face-down. Taking the deck away outboard of r=47 did not
+# remove a redundant plate, it removed THE BOTTOM LAYER: the whole r 47..120
+# annulus then began at z=0 with nothing under it, 2.40 mm up in the air, a
+# 69 mm bridge. The island test still passed -- it was connected at the outer
+# wall, so it was not floating, just unsupported over a span no printer bridges.
+# "Connected" and "printable" are different questions and it takes both checks.
+#
+# What is actually right is to keep ONE plate and put it at the BOTTOM: the base
+# annulus now starts at Z_DECK on the big bodies instead of Z_BACK, so the part
+# has a single bottom plane at -2.40 and a single 2.00 mm floor above it. That
+# removes 3.40 mm of the 5.40, across the full annulus, and removes nothing that
+# was holding anything up. The deck still runs full width on the 24 -- the 24 IS
+# Sam's mesh and has no floor of its own -- and on the big bodies it shrinks to
+# Sam's inner region only, where it is still the bottom layer.
+#
+# Nothing structural goes with it: the deck carried no bosses, and the four
+# screws tap into hollow()'s own 5.50 mm pillars.
+DECK_RO_BIG   = 47.00        # = KEEP_R32 + 1.00, buried in the base's own floor
+
+# THE CABLE GAP AT THE BOTTOM. Sam: "at the bottom the spacing for the 2.1inch
+# screen doesn't allow for the cables. Make the gap at the bottom gap wider to
+# fit the cables that come down under the ESP 32." 40.00 chosen by him.
+#
+# This is the opening through the DECK, not the tab slot itself. The tab slot
+# stays 31.15 mm for a 30.55 mm tab -- widening that is what caused "it doesn't
+# stay upright" in the first place, and the walls that fixed it are staying. The
+# deck's own opening under it was only 20.00 mm wide, which is what the ribbon
+# and the wire bundle actually have to get through.
+DECK_CABLE_W  = 40.00
+TAB_CABLE_RO  = TAB_WALL_RO + 1.00      # 44.50 -- the full radial run of the
+                                        # opening, same as before; only its
+                                        # WIDTH changes. Whether the tab-slot
+                                        # walls end up undermined by that is a
+                                        # question for check3's island sweep,
+                                        # not for a comment: they stand at
+                                        # r 31.00..43.50 and this cuts through
+                                        # that band.
 
 
 # =============================================================================
