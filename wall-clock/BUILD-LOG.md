@@ -4157,3 +4157,81 @@ The connection-test block still says `.79` — it is still a recorded measuremen
 
 **Still outstanding, from the vault:** `.75` is a **DHCP lease, not a
 reservation**. Reserve it, or this correction gets to happen again.
+
+---
+
+## 2026-08-27 — The dashboard's two "Entity not found" boxes were my renames
+
+Sam sent a screenshot of the Settings view with two yellow boxes in the Ring
+card, and asked for the other clocks to show as well.
+
+### The errors
+
+They are the two entities **v18 renamed**, still being asked for by the dashboard
+JSON installed on his box:
+
+| the card asked for | v18 renamed it to |
+|---|---|
+| `switch.mini_round_clock_second_hand` | `..._ring_second_hand` and `..._screen_second_hand` |
+| `select.mini_round_clock_hour_markers` | `..._ring_hour_markers` and `..._screen_hour_markers` |
+
+The screenshot also settles a question I had left open: **v18 is flashed.** The
+Countdown style select reads `seconds`, and that option did not exist before v18.
+So the firmware moved and the dashboard did not — the regenerated JSON in this
+repo has had the new names since the v18 commit; it was never installed.
+
+Worth being straight about: I flagged the entity churn as a cost when I made the
+renames, and this is that cost arriving. The split was still right — one control
+driving both surfaces is what Sam asked to be rid of — but the dashboard should
+have gone over in the same breath as the firmware.
+
+### An absent clock now hides instead of erroring
+
+The deeper problem is that an entities card renders **one yellow row per missing
+entity**, so a clock that is off the network, or that was never flashed, looks
+like twenty faults rather than one absent device. Every per-clock card is now
+gated on `binary_sensor.<slug>_status` being `on` — the entity the ESPHome
+integration creates for any device it adopts. If the device is not there the
+condition is false and the card does not render.
+
+The status line at the top is deliberately **not** gated, so there is always
+something on screen saying *why* the rest is missing: online, **offline**, or
+"status unknown — not adopted yet?".
+
+That also makes it safe to list a clock in the picker before building it.
+
+### Which clocks are listed, and one that is not
+
+The repo has four ESPHome configs but they are not four devices:
+
+| config | device `name:` | |
+|---|---|---|
+| `mini-round-clock-with-display.yaml` | `mini-round-clock` | the full firmware — 17 switches, 13 selects, 23 numbers |
+| `mini-round-clock.yaml` | `mini-round-clock` | same device, ring-only fallback build |
+| `test-clock-d1mini.yaml` | `test-clock` | header says **SUPERSEDED** |
+| `wall-clock.yaml` | `wall-clock` | header says **not yet compiled or flashed** |
+
+So the dashboard now carries **two tiers**, because the basic configs compile
+four controls between them and handing them the full card set is precisely how
+you manufacture a screen of "Entity not found":
+
+* **full** — every card, for `mini-round-clock`.
+* **basic** — Display, Mode, Brightness, Night brightness (plus Backlight where
+  there is a panel), and a line saying what the other cards belong to.
+
+**`wall-clock` is deliberately not listed**, and the second reason is the one
+that matters. It has never been flashed, so it is not a device. And a device
+named `wall-clock` would put its entities in the same `wall_clock_*` namespace
+as every helper in the Home Assistant package — `timer.wall_clock_1`,
+`sensor.wall_clock_timer_slots`, `input_button.wall_clock_timer_dismiss`.
+Nothing would actually collide, but telling which half of that namespace an
+entity belonged to would be guesswork forever. **If that firmware is ever
+flashed, give the device a different `name:`.**
+
+### The check that should have existed
+
+There is now one that validates every row in the generated JSON against **that
+clock's own firmware**, not against any firmware — 70 rows, 0 dangling,
+`mini_round_clock` using 55 of the 55 it exposes and `test_clock` 4 of 4. The
+earlier version of this check only proved a row matched *something*, which is
+why it passed while the two renamed rows were broken.

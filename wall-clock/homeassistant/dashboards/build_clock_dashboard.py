@@ -37,17 +37,54 @@ import json, io, sys
 # label : what you see in the picker. Free text; rename freely, it is only a
 #         label. Changing `slug` means renaming the device in ESPHome and
 #         reflashing, because it is the entity id.
+# tier : which firmware is on it, because they do not expose the same entities.
+#        "full"  = mini-round-clock-with-display.yaml -- 17 switches, 13 selects,
+#                  23 numbers. Gets every card.
+#        "basic" = mini-round-clock.yaml / test-clock-d1mini.yaml /
+#                  wall-clock.yaml -- Display, Mode, Brightness, Night
+#                  brightness, and a Backlight on the ones that have a panel.
+#                  Handing these the full card set is what produces a screen of
+#                  "Entity not found": the entities are not missing, they were
+#                  never compiled in.
 CLOCKS = [
-    {"slug": "mini_round_clock", "label": "Mini Round Clock"},
-    # {"slug": "kitchen_clock",  "label": "Kitchen"},
+    {"slug": "mini_round_clock", "label": "Mini Round Clock", "tier": "full",
+     "backlight": True},
+    {"slug": "test_clock",       "label": "Test Clock (D1 mini)", "tier": "basic",
+     "backlight": False},
 ]
+# NOT LISTED, deliberately: wall-clock.yaml. Two reasons, and the second is the
+# one that matters. It has never been flashed, so it is not a device. And a
+# device named `wall-clock` would put its entities in the same
+# `wall_clock_*` namespace as every helper in the Home Assistant package --
+# timer.wall_clock_1, sensor.wall_clock_timer_slots,
+# input_button.wall_clock_timer_dismiss. Nothing would actually collide, but
+# telling which half of that namespace an entity belongs to would be guesswork
+# forever. If that firmware is ever flashed, give the device a different
+# `name:`.
 
 PICKER = "input_select.wall_clock_target"
 
 
-def vis(label):
-    """Show a card only while the picker is on this clock."""
-    return [{"condition": "state", "entity": PICKER, "state": label}]
+def vis(label, slug=None):
+    """Show a card only while the picker is on this clock AND the clock is there.
+
+    The second condition is what stops this dashboard filling with yellow
+    "Entity not found" boxes. A clock that has never been flashed, or that is
+    off the network, has no entities for these cards to bind to -- and an
+    entities card renders one error row per missing entity, which looks like
+    twenty faults instead of one absent device.
+
+    `binary_sensor.<slug>_status` is the entity the ESPHome integration creates
+    for every device it adopts. If the device does not exist the condition is
+    simply false and the card does not render. The status line at the top of the
+    view is NOT gated this way, so there is always something on screen saying
+    why the rest is missing.
+    """
+    c = [{"condition": "state", "entity": PICKER, "state": label}]
+    if slug:
+        c.append({"condition": "state",
+                  "entity": "binary_sensor.%s_status" % slug, "state": "on"})
+    return c
 
 
 def row(entity, name):
@@ -58,9 +95,38 @@ def section(label):
     return {"type": "section", "label": label}
 
 
+def basic_cards(slug, label, backlight):
+    """Everything a `basic` firmware actually exposes, and nothing it does not.
+
+    mini-round-clock.yaml, test-clock-d1mini.yaml and wall-clock.yaml compile
+    four controls between them. Listing more would not "reveal" anything -- the
+    entity does not exist on the device, and the card says so in yellow.
+    """
+    e = lambda domain, suffix: "%s.%s_%s" % (domain, slug, suffix)
+    v = vis(label, slug)
+    ents = [row(e("switch", "display"), "Display"),
+            row(e("select", "mode"), "Mode"),
+            section("Brightness"),
+            row(e("number", "brightness"), "Day brightness"),
+            row(e("number", "night_brightness"), "Night brightness")]
+    if backlight:
+        ents.insert(2, row(e("light", "backlight"), "Backlight"))
+    return [
+        {"type": "entities", "title": "%s" % label, "show_header_toggle": False,
+         "state_color": True, "visibility": v, "entities": ents},
+        {"type": "markdown", "visibility": v,
+         "content": (
+             "This clock runs the **basic** firmware, which compiles these four "
+             "controls and no more. The face, colour, timer and status cards "
+             "belong to `mini-round-clock-with-display.yaml`; flashing that "
+             "firmware onto this device is what makes them appear."
+         )},
+    ]
+
+
 def clock_cards(slug, label):
     e = lambda domain, suffix: "%s.%s_%s" % (domain, slug, suffix)
-    v = vis(label)
+    v = vis(label, slug)
 
     ring = {
         "type": "entities", "title": "%s — Ring" % label,
@@ -282,7 +348,10 @@ def build():
         },
     ]
     for c in CLOCKS:
-        cards += clock_cards(c["slug"], c["label"])
+        if c.get("tier") == "basic":
+            cards += basic_cards(c["slug"], c["label"], c.get("backlight", False))
+        else:
+            cards += clock_cards(c["slug"], c["label"])
     return cards
 
 

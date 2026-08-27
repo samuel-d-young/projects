@@ -29,11 +29,19 @@
 #
 # The label here is only a label: rename it freely. The entity prefix is the
 # real identity and changing that means renaming the device and reflashing.
+#
+# A CLOCK THAT IS NOT ON THE NETWORK NOW HIDES ITSELF. Every per-clock card is
+# gated on `binary_sensor.<slug>_status` being on, so selecting a clock that has
+# never been flashed shows one honest status line instead of twenty "Entity not
+# found" boxes. That means it is safe to list a clock here before you build it.
 # =============================================================================
 
+# KEEP THESE IN STEP WITH `CLOCKS` in dashboards/build_clock_dashboard.py.
+# The generator prints the list for you:  python build_clock_dashboard.py --names
 input_select:
   wall_clock_target:
     name: Customising
     icon: mdi:cog-outline
     options:
       - Mini Round Clock
+      - Test Clock (D1 mini)
