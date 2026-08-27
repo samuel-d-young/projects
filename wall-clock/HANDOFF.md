@@ -12,6 +12,12 @@ curl http://192.168.1.63:5000/   -> timed out after 6s
 egress IP                        -> 160.79.106.139  (public cloud)
 ```
 
+That block is left exactly as it was run. `192.168.1.79` was Home Assistant's
+address at the time; **it has since moved to `192.168.1.66`** (hostname `hass`).
+Rewriting a recorded measurement to match a later address would turn evidence
+into fiction, and the conclusion it supports — a cloud session has no route to
+this LAN — does not depend on which address it failed to reach.
+
 The account has exactly one environment, `anthropic_cloud`, so **any session
 spawned from there is in the same position** — including a Cowork session.
 Cloud sessions cannot install this.
@@ -41,7 +47,7 @@ A Claude session running **on Samuel's own machine** is on the LAN and can.
 > The repo is `samuel-d-young/projects`, branch
 > `claude/home-assistant-wall-clock-om42v2`, directory `wall-clock/`.
 >
-> Home Assistant OS is at 192.168.1.79:8123 (Core 2026.8.2). I have the ESPHome
+> Home Assistant is at 192.168.1.66:8123 (hostname `hass`). I have the ESPHome
 > Device Builder and Mosquitto add-ons, and `packages: !include_dir_named packages`
 > is already enabled.
 >
@@ -118,5 +124,5 @@ claude --model opus "Read wall-clock/HANDOFF.md then wall-clock/BUILD-LOG.md, an
 ```
 
 A local session is on the LAN, so unlike the cloud session it can reach
-192.168.1.79 and actually run the install. The paste-ready install prompt is in
+192.168.1.66 and actually run the install. The paste-ready install prompt is in
 the section above.

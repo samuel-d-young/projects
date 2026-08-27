@@ -3943,3 +3943,54 @@ separate `penv` — those two interpreters trust certifi, not the environment.
   stronger claim than the one made two entries ago.
 * `Face -> colour test` remains the first thing to look at afterwards.
 
+
+---
+
+## 2026-08-27 — Home Assistant moved to 192.168.1.66
+
+Samuel: *"Update everywhere that has the old HASS address to the new one."*
+
+| | old | new |
+|---|---|---|
+| Home Assistant | `192.168.1.79:8123` (Raspberry Pi, supervised) | **`192.168.1.66:8123`**, hostname `hass` |
+| MQTT broker | `192.168.1.79:1883` | moves with it — `192.168.1.66:1883` |
+
+The mapping is not a guess: it is recorded in the second brain's LAN map note,
+verified 2026-08-26, which named `.66` as the destination, noted that `fmv105` was
+being renamed to `hass` for it, and said in as many words *"when the move happens,
+re-point everything that hard-codes .79"*. This is that.
+
+**What changed, and what deliberately did not.**
+
+`HANDOFF.md` is a live document, so both operational references moved to `.66` — the
+paste-ready prompt for a local session, and the prose about what a LAN session can
+reach.
+
+The connection-test block at the top of `HANDOFF.md` was **left verbatim**:
+
+```
+curl http://192.168.1.79:8123/   -> timed out after 6s
+/dev/tcp/192.168.1.79/8123       -> no route
+```
+
+That is a recorded measurement. Rewriting it to `.66` would turn evidence into
+fiction — the cloud session never tried `.66`, and the conclusion it supports (a
+cloud session has no route to this LAN) does not depend on which address it failed
+to reach. A one-line note beside it says the address has since changed.
+
+**Every earlier entry in this log is likewise unchanged.** Four of them mention
+`.79`, and all four are dated statements of what was true at the time — including
+one recording that a `curl` to `.79:8123` timed out. This log is append-only; a
+history edited to agree with the present is not a history. The three files under
+`homeassistant/` and `esphome/` hard-code no address at all, so nothing there needed
+touching — the clock finds Home Assistant over the native API and mDNS, not by IP.
+
+**One thing to re-check rather than assume:** `homeassistant.local` resolved to the
+Pi. Whether mDNS now follows Home Assistant to `.66` depends on how it was installed
+there — a supervised install advertises itself, a bare container may not. Nothing in
+this project depends on that name, but Agent Deck's choice to address HA by IP
+rather than hostname is the right instinct and worth copying if anything here ever
+needs a host.
+
+*(The move itself is Samuel's report, not something verified from here — this
+session has no route to either address.)*
