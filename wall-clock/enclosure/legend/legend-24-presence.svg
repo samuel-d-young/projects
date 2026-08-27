@@ -1,58 +1,46 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="160.785mm" height="160.785mm" viewBox="0 0 160.785 160.785">
-  <!-- 24-LED legend collar, presence variant.
-       bore 108.79 dia (body 107.99 + 0.40 clearance), outside 152.79 dia.
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="160.785mm" height="160.785mm" viewBox="0 0 160.785 160.785">
+  <!-- 24-LED legend collar, presence variant. All labels upright.
+       bore 108.79 dia (body 107.99 + 0.40), outside 152.79 dia.
        RED = cut through, BLACK = engrave. -->
-  <defs>
-    <path id="lab0" fill="none" d="M 50.474 145.995 A 72.103 72.103 0 0 0 141.728 118.298"/>
-    <path id="lab1" fill="none" d="M 38.232 138.884 A 72.103 72.103 0 0 0 133.139 129.552"/>
-    <path id="lab2" fill="none" d="M 27.646 129.552 A 72.103 72.103 0 0 0 122.553 138.884"/>
-    <path id="lab3" fill="none" d="M 19.057 118.298 A 72.103 72.103 0 0 0 110.311 145.995"/>
-    <path id="title" fill="none" d="M 42.861 28.735 A 63.853 63.853 0 0 0 42.861 132.050"/>
-  </defs>
-
   <g id="CUT" inkscape:label="CUT" inkscape:groupmode="layer" fill="none" stroke="#ff0000" stroke-width="0.10">
     <circle cx="80.393" cy="80.393" r="76.393"/>
     <circle cx="80.393" cy="80.393" r="54.393"/>
   </g>
 
-  <g id="ENGRAVE" inkscape:label="ENGRAVE" inkscape:groupmode="layer" fill="#000000" stroke="none" font-family="DejaVu Sans, Helvetica, Arial, sans-serif">
-    <line x1="80.393" y1="8.500" x2="80.393" y2="5.500" stroke="#000000" stroke-width="0.60"/>
-    <line x1="99.000" y1="10.950" x2="99.776" y2="8.052" stroke="#000000" stroke-width="0.25"/>
-    <line x1="116.339" y1="18.132" x2="117.839" y2="15.534" stroke="#000000" stroke-width="0.60"/>
-    <line x1="131.228" y1="29.557" x2="133.350" y2="27.436" stroke="#000000" stroke-width="0.25"/>
-    <line x1="142.653" y1="44.446" x2="145.251" y2="42.946" stroke="#000000" stroke-width="0.60"/>
-    <line x1="149.836" y1="61.785" x2="152.733" y2="61.009" stroke="#000000" stroke-width="0.25"/>
-    <line x1="152.285" y1="80.393" x2="155.285" y2="80.393" stroke="#000000" stroke-width="0.60"/>
-    <line x1="149.836" y1="99.000" x2="152.733" y2="99.776" stroke="#000000" stroke-width="0.25"/>
-    <line x1="142.653" y1="116.339" x2="145.251" y2="117.839" stroke="#000000" stroke-width="0.60"/>
-    <line x1="131.228" y1="131.228" x2="133.350" y2="133.350" stroke="#000000" stroke-width="0.25"/>
-    <line x1="116.339" y1="142.653" x2="117.839" y2="145.251" stroke="#000000" stroke-width="0.60"/>
-    <line x1="99.000" y1="149.836" x2="99.776" y2="152.733" stroke="#000000" stroke-width="0.25"/>
-    <line x1="80.393" y1="152.285" x2="80.393" y2="155.285" stroke="#000000" stroke-width="0.60"/>
-    <line x1="61.785" y1="149.836" x2="61.009" y2="152.733" stroke="#000000" stroke-width="0.25"/>
-    <line x1="44.446" y1="142.653" x2="42.946" y2="145.251" stroke="#000000" stroke-width="0.60"/>
-    <line x1="29.557" y1="131.228" x2="27.436" y2="133.350" stroke="#000000" stroke-width="0.25"/>
-    <line x1="18.132" y1="116.339" x2="15.534" y2="117.839" stroke="#000000" stroke-width="0.60"/>
-    <line x1="10.950" y1="99.000" x2="8.052" y2="99.776" stroke="#000000" stroke-width="0.25"/>
-    <line x1="8.500" y1="80.393" x2="5.500" y2="80.393" stroke="#000000" stroke-width="0.60"/>
-    <line x1="10.950" y1="61.785" x2="8.052" y2="61.009" stroke="#000000" stroke-width="0.25"/>
-    <line x1="18.132" y1="44.446" x2="15.534" y2="42.946" stroke="#000000" stroke-width="0.60"/>
-    <line x1="29.557" y1="29.557" x2="27.436" y2="27.436" stroke="#000000" stroke-width="0.25"/>
-    <line x1="44.446" y1="18.132" x2="42.946" y2="15.534" stroke="#000000" stroke-width="0.60"/>
-    <line x1="61.785" y1="10.950" x2="61.009" y2="8.052" stroke="#000000" stroke-width="0.25"/>
-    <circle cx="101.685" cy="150.545" r="1.21" fill="none" stroke="#000000" stroke-width="0.35"/>
-    <!-- lit colour here is #002859 -->
-    <text font-size="4.07" font-weight="700" letter-spacing="0.24"><textPath xlink:href="#lab0" startOffset="50%" text-anchor="middle">SAM</textPath></text>
-    <circle cx="87.567" cy="153.353" r="1.21" fill="none" stroke="#000000" stroke-width="0.35"/>
-    <!-- lit colour here is #5a0046 -->
-    <text font-size="4.07" font-weight="700" letter-spacing="0.24"><textPath xlink:href="#lab1" startOffset="50%" text-anchor="middle">LAURA</textPath></text>
-    <circle cx="73.218" cy="153.353" r="1.21" fill="none" stroke="#000000" stroke-width="0.35"/>
-    <!-- lit colour here is #004628 -->
-    <text font-size="4.07" font-weight="700" letter-spacing="0.24"><textPath xlink:href="#lab2" startOffset="50%" text-anchor="middle">AMANDA</textPath></text>
-    <circle cx="59.100" cy="150.545" r="1.21" fill="none" stroke="#000000" stroke-width="0.35"/>
-    <!-- lit colour here is #463200 -->
-    <text font-size="4.07" font-weight="700" letter-spacing="0.24"><textPath xlink:href="#lab3" startOffset="50%" text-anchor="middle">ZAC</textPath></text>
-    <text font-size="2.86" fill="#000000" opacity="0.75"><textPath xlink:href="#title" startOffset="50%" text-anchor="middle">Who is home</textPath></text>
+  <g id="ENGRAVE" inkscape:label="ENGRAVE" inkscape:groupmode="layer" fill="#000000" stroke="none" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" text-anchor="middle" dominant-baseline="central">
+    <line x1="80.393" y1="7.600" x2="80.393" y2="5.200" stroke="#000000" stroke-width="0.55"/>
+    <line x1="99.233" y1="10.080" x2="99.854" y2="7.762" stroke="#000000" stroke-width="0.25"/>
+    <line x1="116.789" y1="17.352" x2="117.989" y2="15.274" stroke="#000000" stroke-width="0.55"/>
+    <line x1="131.865" y1="28.920" x2="133.562" y2="27.223" stroke="#000000" stroke-width="0.25"/>
+    <line x1="143.433" y1="43.996" x2="145.511" y2="42.796" stroke="#000000" stroke-width="0.55"/>
+    <line x1="150.705" y1="61.552" x2="153.023" y2="60.931" stroke="#000000" stroke-width="0.25"/>
+    <line x1="153.185" y1="80.393" x2="155.585" y2="80.393" stroke="#000000" stroke-width="0.55"/>
+    <line x1="150.705" y1="99.233" x2="153.023" y2="99.854" stroke="#000000" stroke-width="0.25"/>
+    <line x1="143.433" y1="116.789" x2="145.511" y2="117.989" stroke="#000000" stroke-width="0.55"/>
+    <line x1="131.865" y1="131.865" x2="133.562" y2="133.562" stroke="#000000" stroke-width="0.25"/>
+    <line x1="116.789" y1="143.433" x2="117.989" y2="145.511" stroke="#000000" stroke-width="0.55"/>
+    <line x1="99.233" y1="150.705" x2="99.854" y2="153.023" stroke="#000000" stroke-width="0.25"/>
+    <line x1="80.393" y1="153.185" x2="80.393" y2="155.585" stroke="#000000" stroke-width="0.55"/>
+    <line x1="61.552" y1="150.705" x2="60.931" y2="153.023" stroke="#000000" stroke-width="0.25"/>
+    <line x1="43.996" y1="143.433" x2="42.796" y2="145.511" stroke="#000000" stroke-width="0.55"/>
+    <line x1="28.920" y1="131.865" x2="27.223" y2="133.562" stroke="#000000" stroke-width="0.25"/>
+    <line x1="17.352" y1="116.789" x2="15.274" y2="117.989" stroke="#000000" stroke-width="0.55"/>
+    <line x1="10.080" y1="99.233" x2="7.762" y2="99.854" stroke="#000000" stroke-width="0.25"/>
+    <line x1="7.600" y1="80.393" x2="5.200" y2="80.393" stroke="#000000" stroke-width="0.55"/>
+    <line x1="10.080" y1="61.552" x2="7.762" y2="60.931" stroke="#000000" stroke-width="0.25"/>
+    <line x1="17.352" y1="43.996" x2="15.274" y2="42.796" stroke="#000000" stroke-width="0.55"/>
+    <line x1="28.920" y1="28.920" x2="27.223" y2="27.223" stroke="#000000" stroke-width="0.25"/>
+    <line x1="43.996" y1="17.352" x2="42.796" y2="15.274" stroke="#000000" stroke-width="0.55"/>
+    <line x1="61.552" y1="10.080" x2="60.931" y2="7.762" stroke="#000000" stroke-width="0.25"/>
+    <!-- lit colour #002859 -->
+    <text x="100.152" y="145.493" font-size="4.07" font-weight="700">SAM</text>
+    <!-- lit colour #5a0046 -->
+    <text x="87.050" y="148.099" font-size="4.07" font-weight="700">LAURA</text>
+    <!-- lit colour #004628 -->
+    <text x="73.735" y="148.099" font-size="4.07" font-weight="700">AMANDA</text>
+    <!-- lit colour #463200 -->
+    <text x="60.634" y="145.493" font-size="4.07" font-weight="700">ZAC</text>
+    <text x="80.393" y="22.920" font-size="2.86" opacity="0.6">Who is home</text>
   </g>
 </svg>

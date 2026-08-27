@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="196.650mm" height="196.650mm" viewBox="0 0 196.650 196.650">
+  <!-- 32-LED legend collar, full variant. All labels upright.
+       bore 120.65 dia (body 119.85 + 0.40), outside 188.65 dia.
+       RED = cut through, BLACK = engrave. -->
+  <g id="CUT" inkscape:label="CUT" inkscape:groupmode="layer" fill="none" stroke="#ff0000" stroke-width="0.10">
+    <circle cx="98.325" cy="98.325" r="94.325"/>
+    <circle cx="98.325" cy="98.325" r="60.325"/>
+  </g>
+
+  <g id="ENGRAVE" inkscape:label="ENGRAVE" inkscape:groupmode="layer" fill="#000000" stroke="none" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" text-anchor="middle" dominant-baseline="central">
+    <line x1="98.325" y1="7.600" x2="98.325" y2="5.200" stroke="#000000" stroke-width="0.55"/>
+    <line x1="116.025" y1="9.343" x2="116.493" y2="6.989" stroke="#000000" stroke-width="0.25"/>
+    <line x1="133.044" y1="14.506" x2="133.962" y2="12.289" stroke="#000000" stroke-width="0.55"/>
+    <line x1="148.729" y1="22.890" x2="150.062" y2="20.894" stroke="#000000" stroke-width="0.25"/>
+    <line x1="162.477" y1="34.173" x2="164.174" y2="32.476" stroke="#000000" stroke-width="0.55"/>
+    <line x1="173.760" y1="47.921" x2="175.756" y2="46.588" stroke="#000000" stroke-width="0.25"/>
+    <line x1="182.144" y1="63.606" x2="184.361" y2="62.688" stroke="#000000" stroke-width="0.55"/>
+    <line x1="187.307" y1="80.625" x2="189.661" y2="80.157" stroke="#000000" stroke-width="0.25"/>
+    <line x1="189.050" y1="98.325" x2="191.450" y2="98.325" stroke="#000000" stroke-width="0.55"/>
+    <line x1="187.307" y1="116.025" x2="189.661" y2="116.493" stroke="#000000" stroke-width="0.25"/>
+    <line x1="182.144" y1="133.044" x2="184.361" y2="133.962" stroke="#000000" stroke-width="0.55"/>
+    <line x1="173.760" y1="148.729" x2="175.756" y2="150.062" stroke="#000000" stroke-width="0.25"/>
+    <line x1="162.477" y1="162.477" x2="164.174" y2="164.174" stroke="#000000" stroke-width="0.55"/>
+    <line x1="148.729" y1="173.760" x2="150.062" y2="175.756" stroke="#000000" stroke-width="0.25"/>
+    <line x1="133.044" y1="182.144" x2="133.962" y2="184.361" stroke="#000000" stroke-width="0.55"/>
+    <line x1="116.025" y1="187.307" x2="116.493" y2="189.661" stroke="#000000" stroke-width="0.25"/>
+    <line x1="98.325" y1="189.050" x2="98.325" y2="191.450" stroke="#000000" stroke-width="0.55"/>
+    <line x1="80.625" y1="187.307" x2="80.157" y2="189.661" stroke="#000000" stroke-width="0.25"/>
+    <line x1="63.606" y1="182.144" x2="62.688" y2="184.361" stroke="#000000" stroke-width="0.55"/>
+    <line x1="47.921" y1="173.760" x2="46.588" y2="175.756" stroke="#000000" stroke-width="0.25"/>
+    <line x1="34.173" y1="162.477" x2="32.476" y2="164.174" stroke="#000000" stroke-width="0.55"/>
+    <line x1="22.890" y1="148.729" x2="20.894" y2="150.062" stroke="#000000" stroke-width="0.25"/>
+    <line x1="14.506" y1="133.044" x2="12.289" y2="133.962" stroke="#000000" stroke-width="0.55"/>
+    <line x1="9.343" y1="116.025" x2="6.989" y2="116.493" stroke="#000000" stroke-width="0.25"/>
+    <line x1="7.600" y1="98.325" x2="5.200" y2="98.325" stroke="#000000" stroke-width="0.55"/>
+    <line x1="9.343" y1="80.625" x2="6.989" y2="80.157" stroke="#000000" stroke-width="0.25"/>
+    <line x1="14.506" y1="63.606" x2="12.289" y2="62.688" stroke="#000000" stroke-width="0.55"/>
+    <line x1="22.890" y1="47.921" x2="20.894" y2="46.588" stroke="#000000" stroke-width="0.25"/>
+    <line x1="34.173" y1="34.173" x2="32.476" y2="32.476" stroke="#000000" stroke-width="0.55"/>
+    <line x1="47.921" y1="22.890" x2="46.588" y2="20.894" stroke="#000000" stroke-width="0.25"/>
+    <line x1="63.606" y1="14.506" x2="62.688" y2="12.289" stroke="#000000" stroke-width="0.55"/>
+    <line x1="80.625" y1="9.343" x2="80.157" y2="6.989" stroke="#000000" stroke-width="0.25"/>
+    <text x="98.325" y="9.355" font-size="3.57" font-weight="700">BIN NIGHT</text>
+    <text x="114.220" y="18.417" font-size="3.57" opacity="0.7">1</text>
+    <text x="132.372" y="16.127" font-size="3.57" opacity="0.7">2</text>
+    <text x="143.589" y="30.583" font-size="3.57" opacity="0.7">3</text>
+    <text x="161.236" y="35.414" font-size="3.57" opacity="0.7">4</text>
+    <text x="166.067" y="53.061" font-size="3.57" opacity="0.7">5</text>
+    <text x="180.523" y="64.278" font-size="3.57" opacity="0.7">6</text>
+    <text x="178.233" y="82.430" font-size="3.57" opacity="0.7">7</text>
+    <text x="184.793" y="98.325" font-size="3.57" font-weight="700">GARAGE</text>
+    <text x="178.233" y="114.220" font-size="3.57" opacity="0.7">9</text>
+    <text x="180.523" y="132.372" font-size="3.57" opacity="0.7">10</text>
+    <text x="166.067" y="143.589" font-size="3.57" opacity="0.7">11</text>
+    <text x="161.236" y="161.236" font-size="3.57" opacity="0.7">12</text>
+    <text x="143.589" y="166.067" font-size="3.57" opacity="0.7">13</text>
+    <text x="132.372" y="180.523" font-size="3.57" opacity="0.7">14</text>
+    <text x="114.220" y="178.233" font-size="3.57" font-weight="700">SAM</text>
+    <text x="98.325" y="187.295" font-size="3.57" font-weight="700">LAURA</text>
+    <text x="82.430" y="178.233" font-size="3.57" font-weight="700">AMANDA</text>
+    <text x="64.278" y="180.523" font-size="3.57" font-weight="700">ZAC</text>
+    <text x="53.061" y="166.067" font-size="3.57" opacity="0.7">19</text>
+    <text x="35.414" y="161.236" font-size="3.57" opacity="0.7">20</text>
+    <text x="30.583" y="143.589" font-size="3.57" opacity="0.7">21</text>
+    <text x="16.127" y="132.372" font-size="3.57" opacity="0.7">22</text>
+    <text x="18.417" y="114.220" font-size="3.57" opacity="0.7">23</text>
+    <text x="14.071" y="98.325" font-size="3.57" font-weight="700">DRIVEWAY</text>
+    <text x="18.417" y="82.430" font-size="3.57" opacity="0.7">25</text>
+    <text x="16.127" y="64.278" font-size="3.57" opacity="0.7">26</text>
+    <text x="30.583" y="53.061" font-size="3.57" opacity="0.7">27</text>
+    <text x="35.414" y="35.414" font-size="3.57" opacity="0.7">28</text>
+    <text x="53.061" y="30.583" font-size="3.57" opacity="0.7">29</text>
+    <text x="64.278" y="16.127" font-size="3.57" opacity="0.7">30</text>
+    <text x="82.430" y="18.417" font-size="3.57" opacity="0.7">31</text>
+    <text x="98.325" y="33.240" font-size="4.42" opacity="0.6">Every pixel named</text>
+  </g>
+</svg>

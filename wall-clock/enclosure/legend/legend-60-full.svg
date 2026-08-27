@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="328.800mm" height="328.800mm" viewBox="0 0 328.800 328.800">
+  <!-- 60-LED legend collar, full variant. All labels upright.
+       bore 240.80 dia (body 240.00 + 0.40), outside 320.80 dia.
+       RED = cut through, BLACK = engrave. -->
+  <g id="CUT" inkscape:label="CUT" inkscape:groupmode="layer" fill="none" stroke="#ff0000" stroke-width="0.10">
+    <circle cx="164.400" cy="164.400" r="160.400"/>
+    <circle cx="164.400" cy="164.400" r="120.400"/>
+  </g>
+
+  <g id="ENGRAVE" inkscape:label="ENGRAVE" inkscape:groupmode="layer" fill="#000000" stroke="none" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" text-anchor="middle" dominant-baseline="central">
+    <line x1="164.400" y1="7.600" x2="164.400" y2="5.200" stroke="#000000" stroke-width="0.55"/>
+    <line x1="180.790" y1="8.459" x2="181.041" y2="6.072" stroke="#000000" stroke-width="0.25"/>
+    <line x1="197.001" y1="11.026" x2="197.500" y2="8.679" stroke="#000000" stroke-width="0.25"/>
+    <line x1="212.854" y1="15.274" x2="213.596" y2="12.992" stroke="#000000" stroke-width="0.25"/>
+    <line x1="228.176" y1="21.156" x2="229.152" y2="18.964" stroke="#000000" stroke-width="0.25"/>
+    <line x1="242.800" y1="28.607" x2="244.000" y2="26.529" stroke="#000000" stroke-width="0.55"/>
+    <line x1="256.565" y1="37.546" x2="257.975" y2="35.604" stroke="#000000" stroke-width="0.25"/>
+    <line x1="269.320" y1="47.875" x2="270.926" y2="46.091" stroke="#000000" stroke-width="0.25"/>
+    <line x1="280.925" y1="59.480" x2="282.709" y2="57.874" stroke="#000000" stroke-width="0.25"/>
+    <line x1="291.254" y1="72.235" x2="293.196" y2="70.825" stroke="#000000" stroke-width="0.25"/>
+    <line x1="300.193" y1="86.000" x2="302.271" y2="84.800" stroke="#000000" stroke-width="0.55"/>
+    <line x1="307.644" y1="100.624" x2="309.836" y2="99.648" stroke="#000000" stroke-width="0.25"/>
+    <line x1="313.526" y1="115.946" x2="315.808" y2="115.204" stroke="#000000" stroke-width="0.25"/>
+    <line x1="317.774" y1="131.799" x2="320.121" y2="131.300" stroke="#000000" stroke-width="0.25"/>
+    <line x1="320.341" y1="148.010" x2="322.728" y2="147.759" stroke="#000000" stroke-width="0.25"/>
+    <line x1="321.200" y1="164.400" x2="323.600" y2="164.400" stroke="#000000" stroke-width="0.55"/>
+    <line x1="320.341" y1="180.790" x2="322.728" y2="181.041" stroke="#000000" stroke-width="0.25"/>
+    <line x1="317.774" y1="197.001" x2="320.121" y2="197.500" stroke="#000000" stroke-width="0.25"/>
+    <line x1="313.526" y1="212.854" x2="315.808" y2="213.596" stroke="#000000" stroke-width="0.25"/>
+    <line x1="307.644" y1="228.176" x2="309.836" y2="229.152" stroke="#000000" stroke-width="0.25"/>
+    <line x1="300.193" y1="242.800" x2="302.271" y2="244.000" stroke="#000000" stroke-width="0.55"/>
+    <line x1="291.254" y1="256.565" x2="293.196" y2="257.975" stroke="#000000" stroke-width="0.25"/>
+    <line x1="280.925" y1="269.320" x2="282.709" y2="270.926" stroke="#000000" stroke-width="0.25"/>
+    <line x1="269.320" y1="280.925" x2="270.926" y2="282.709" stroke="#000000" stroke-width="0.25"/>
+    <line x1="256.565" y1="291.254" x2="257.975" y2="293.196" stroke="#000000" stroke-width="0.25"/>
+    <line x1="242.800" y1="300.193" x2="244.000" y2="302.271" stroke="#000000" stroke-width="0.55"/>
+    <line x1="228.176" y1="307.644" x2="229.152" y2="309.836" stroke="#000000" stroke-width="0.25"/>
+    <line x1="212.854" y1="313.526" x2="213.596" y2="315.808" stroke="#000000" stroke-width="0.25"/>
+    <line x1="197.001" y1="317.774" x2="197.500" y2="320.121" stroke="#000000" stroke-width="0.25"/>
+    <line x1="180.790" y1="320.341" x2="181.041" y2="322.728" stroke="#000000" stroke-width="0.25"/>
+    <line x1="164.400" y1="321.200" x2="164.400" y2="323.600" stroke="#000000" stroke-width="0.55"/>
+    <line x1="148.010" y1="320.341" x2="147.759" y2="322.728" stroke="#000000" stroke-width="0.25"/>
+    <line x1="131.799" y1="317.774" x2="131.300" y2="320.121" stroke="#000000" stroke-width="0.25"/>
+    <line x1="115.946" y1="313.526" x2="115.204" y2="315.808" stroke="#000000" stroke-width="0.25"/>
+    <line x1="100.624" y1="307.644" x2="99.648" y2="309.836" stroke="#000000" stroke-width="0.25"/>
+    <line x1="86.000" y1="300.193" x2="84.800" y2="302.271" stroke="#000000" stroke-width="0.55"/>
+    <line x1="72.235" y1="291.254" x2="70.825" y2="293.196" stroke="#000000" stroke-width="0.25"/>
+    <line x1="59.480" y1="280.925" x2="57.874" y2="282.709" stroke="#000000" stroke-width="0.25"/>
+    <line x1="47.875" y1="269.320" x2="46.091" y2="270.926" stroke="#000000" stroke-width="0.25"/>
+    <line x1="37.546" y1="256.565" x2="35.604" y2="257.975" stroke="#000000" stroke-width="0.25"/>
+    <line x1="28.607" y1="242.800" x2="26.529" y2="244.000" stroke="#000000" stroke-width="0.55"/>
+    <line x1="21.156" y1="228.176" x2="18.964" y2="229.152" stroke="#000000" stroke-width="0.25"/>
+    <line x1="15.274" y1="212.854" x2="12.992" y2="213.596" stroke="#000000" stroke-width="0.25"/>
+    <line x1="11.026" y1="197.001" x2="8.679" y2="197.500" stroke="#000000" stroke-width="0.25"/>
+    <line x1="8.459" y1="180.790" x2="6.072" y2="181.041" stroke="#000000" stroke-width="0.25"/>
+    <line x1="7.600" y1="164.400" x2="5.200" y2="164.400" stroke="#000000" stroke-width="0.55"/>
+    <line x1="8.459" y1="148.010" x2="6.072" y2="147.759" stroke="#000000" stroke-width="0.25"/>
+    <line x1="11.026" y1="131.799" x2="8.679" y2="131.300" stroke="#000000" stroke-width="0.25"/>
+    <line x1="15.274" y1="115.946" x2="12.992" y2="115.204" stroke="#000000" stroke-width="0.25"/>
+    <line x1="21.156" y1="100.624" x2="18.964" y2="99.648" stroke="#000000" stroke-width="0.25"/>
+    <line x1="28.607" y1="86.000" x2="26.529" y2="84.800" stroke="#000000" stroke-width="0.55"/>
+    <line x1="37.546" y1="72.235" x2="35.604" y2="70.825" stroke="#000000" stroke-width="0.25"/>
+    <line x1="47.875" y1="59.480" x2="46.091" y2="57.874" stroke="#000000" stroke-width="0.25"/>
+    <line x1="59.480" y1="47.875" x2="57.874" y2="46.091" stroke="#000000" stroke-width="0.25"/>
+    <line x1="72.235" y1="37.546" x2="70.825" y2="35.604" stroke="#000000" stroke-width="0.25"/>
+    <line x1="86.000" y1="28.607" x2="84.800" y2="26.529" stroke="#000000" stroke-width="0.55"/>
+    <line x1="100.624" y1="21.156" x2="99.648" y2="18.964" stroke="#000000" stroke-width="0.25"/>
+    <line x1="115.946" y1="15.274" x2="115.204" y2="12.992" stroke="#000000" stroke-width="0.25"/>
+    <line x1="131.799" y1="11.026" x2="131.300" y2="8.679" stroke="#000000" stroke-width="0.25"/>
+    <line x1="148.010" y1="8.459" x2="147.759" y2="6.072" stroke="#000000" stroke-width="0.25"/>
+    <text x="164.400" y="9.400" font-size="3.60" font-weight="700">BIN NIGHT</text>
+    <text x="179.812" y="17.768" font-size="3.60" opacity="0.7">1</text>
+    <text x="196.626" y="12.787" font-size="3.60" opacity="0.7">2</text>
+    <text x="209.961" y="24.176" font-size="3.60" opacity="0.7">3</text>
+    <text x="227.444" y="22.800" font-size="3.60" opacity="0.7">4</text>
+    <text x="238.120" y="36.713" font-size="3.60" opacity="0.7">5</text>
+    <text x="255.507" y="39.002" font-size="3.60" opacity="0.7">6</text>
+    <text x="263.057" y="54.831" font-size="3.60" opacity="0.7">7</text>
+    <text x="279.587" y="60.685" font-size="3.60" opacity="0.7">8</text>
+    <text x="283.681" y="77.737" font-size="3.60" opacity="0.7">9</text>
+    <text x="298.634" y="86.900" font-size="3.60" opacity="0.7">10</text>
+    <text x="299.093" y="104.431" font-size="3.60" opacity="0.7">11</text>
+    <text x="311.814" y="116.502" font-size="3.60" opacity="0.7">12</text>
+    <text x="308.618" y="133.746" font-size="3.60" opacity="0.7">13</text>
+    <text x="318.551" y="148.198" font-size="3.60" opacity="0.7">14</text>
+    <text x="311.840" y="164.400" font-size="3.60" font-weight="700">GARAGE</text>
+    <text x="318.551" y="180.602" font-size="3.60" opacity="0.7">16</text>
+    <text x="308.618" y="195.054" font-size="3.60" opacity="0.7">17</text>
+    <text x="311.814" y="212.298" font-size="3.60" opacity="0.7">18</text>
+    <text x="299.093" y="224.369" font-size="3.60" opacity="0.7">19</text>
+    <text x="298.634" y="241.900" font-size="3.60" opacity="0.7">20</text>
+    <text x="283.681" y="251.063" font-size="3.60" opacity="0.7">21</text>
+    <text x="279.587" y="268.115" font-size="3.60" opacity="0.7">22</text>
+    <text x="263.057" y="273.969" font-size="3.60" opacity="0.7">23</text>
+    <text x="255.507" y="289.798" font-size="3.60" opacity="0.7">24</text>
+    <text x="238.120" y="292.087" font-size="3.60" opacity="0.7">25</text>
+    <text x="227.444" y="306.000" font-size="3.60" opacity="0.7">26</text>
+    <text x="209.961" y="304.624" font-size="3.60" opacity="0.7">27</text>
+    <text x="196.626" y="316.013" font-size="3.60" opacity="0.7">28</text>
+    <text x="179.812" y="311.032" font-size="3.60" font-weight="700">SAM</text>
+    <text x="164.400" y="319.400" font-size="3.60" font-weight="700">LAURA</text>
+    <text x="148.988" y="311.032" font-size="3.60" font-weight="700">AMANDA</text>
+    <text x="132.174" y="316.013" font-size="3.60" font-weight="700">ZAC</text>
+    <text x="118.839" y="304.624" font-size="3.60" opacity="0.7">33</text>
+    <text x="101.356" y="306.000" font-size="3.60" opacity="0.7">34</text>
+    <text x="90.680" y="292.087" font-size="3.60" opacity="0.7">35</text>
+    <text x="73.293" y="289.798" font-size="3.60" opacity="0.7">36</text>
+    <text x="65.743" y="273.969" font-size="3.60" opacity="0.7">37</text>
+    <text x="49.213" y="268.115" font-size="3.60" opacity="0.7">38</text>
+    <text x="45.119" y="251.063" font-size="3.60" opacity="0.7">39</text>
+    <text x="30.166" y="241.900" font-size="3.60" opacity="0.7">40</text>
+    <text x="29.707" y="224.369" font-size="3.60" opacity="0.7">41</text>
+    <text x="16.986" y="212.298" font-size="3.60" opacity="0.7">42</text>
+    <text x="20.182" y="195.054" font-size="3.60" opacity="0.7">43</text>
+    <text x="10.249" y="180.602" font-size="3.60" opacity="0.7">44</text>
+    <text x="16.960" y="164.400" font-size="3.60" font-weight="700">DRIVEWAY</text>
+    <text x="10.249" y="148.198" font-size="3.60" opacity="0.7">46</text>
+    <text x="20.182" y="133.746" font-size="3.60" opacity="0.7">47</text>
+    <text x="16.986" y="116.502" font-size="3.60" opacity="0.7">48</text>
+    <text x="29.707" y="104.431" font-size="3.60" opacity="0.7">49</text>
+    <text x="30.166" y="86.900" font-size="3.60" opacity="0.7">50</text>
+    <text x="45.119" y="77.737" font-size="3.60" opacity="0.7">51</text>
+    <text x="49.213" y="60.685" font-size="3.60" opacity="0.7">52</text>
+    <text x="65.743" y="54.831" font-size="3.60" opacity="0.7">53</text>
+    <text x="73.293" y="39.002" font-size="3.60" opacity="0.7">54</text>
+    <text x="90.680" y="36.713" font-size="3.60" opacity="0.7">55</text>
+    <text x="101.356" y="22.800" font-size="3.60" opacity="0.7">56</text>
+    <text x="118.839" y="24.176" font-size="3.60" opacity="0.7">57</text>
+    <text x="132.174" y="12.787" font-size="3.60" opacity="0.7">58</text>
+    <text x="148.988" y="17.768" font-size="3.60" opacity="0.7">59</text>
+    <text x="164.400" y="38.400" font-size="5.20" opacity="0.6">Every pixel named</text>
+  </g>
+</svg>
