@@ -2593,8 +2593,35 @@ display:
       const Color c_hour  = Color(id(pal_scr)[0], id(pal_scr)[1],  id(pal_scr)[2]);
       const Color c_sec   = Color(id(pal_scr)[6], id(pal_scr)[7],  id(pal_scr)[8]);
       const Color c_timer = Color(id(pal_scr)[9], id(pal_scr)[10], id(pal_scr)[11]);
-      const Color ground  = Color(10, 12, 18);
-      it.fill(ground);
+
+      // ---- weather tint, the same blend the round face uses ------------------
+      // Deliberately identical to the round panel's, including the colours and
+      // the blend back toward the plain ground, so "Weather tint" means the
+      // same thing whichever screen is fitted. Without this the bar ignored
+      // both `show_weather`'s background and the tint slider entirely -- the
+      // control existed in Home Assistant and did nothing here.
+      const Color ground = Color(10, 12, 18);
+      Color bg = ground;
+      if (id(show_weather).state) {
+        const std::string cond = id(weather_condition).state;
+        if      (cond == "sunny")            bg = Color(46, 34,  6);
+        else if (cond == "clear-night")      bg = Color( 8, 10, 26);
+        else if (cond == "partlycloudy")     bg = Color(28, 30, 38);
+        else if (cond == "cloudy")           bg = Color(22, 24, 28);
+        else if (cond == "fog")              bg = Color(26, 26, 30);
+        else if (cond == "rainy" ||
+                 cond == "pouring")          bg = Color( 8, 20, 40);
+        else if (cond == "lightning" ||
+                 cond == "lightning-rainy")  bg = Color(38, 24, 46);
+        else if (cond == "snowy")            bg = Color(30, 36, 44);
+        else if (cond == "windy")            bg = Color(16, 30, 30);
+
+        const float ts = id(tint_strength).state / 100.0f;
+        bg = Color((uint8_t) lroundf(ground.r + (bg.r - ground.r) * ts),
+                   (uint8_t) lroundf(ground.g + (bg.g - ground.g) * ts),
+                   (uint8_t) lroundf(ground.b + (bg.b - ground.b) * ts));
+      }
+      it.fill(bg);
 
       if (!now.is_valid()) {
         it.print(W / 2, H / 2, id(font_med), c_sec, TextAlign::CENTER, "--:--");
@@ -2670,13 +2697,26 @@ display:
       // either side of a 320 px panel. font_big (118) would be 293 and would
       // crowd the seconds off the edge, so this is the largest honest size here
       // -- the same argument the round face makes for 118 over 132.
+      //
+      // "Digital time size" now picks the face, because the bar IS the digital
+      // time -- large/medium/small were round-only until this, which is why the
+      // control appeared to do nothing when the bar panel was selected.
+      // large = t96 (the largest that fits, per the note above), medium = t72,
+      // small = t48. The seconds offset follows the face so it keeps sitting on
+      // the time's baseline rather than floating away from a smaller number.
+      const std::string dsz = id(digi_size).current_option().str();
+      auto *f_time  = id(font_t96);
+      int   sec_off = 26;
+      if (dsz == "small")       { f_time = id(font_t48); sec_off = 12; }
+      else if (dsz == "medium") { f_time = id(font_t72); sec_off = 19; }
+
       const int ty = id(show_date).state || id(show_weather).state ? 58 : H / 2;
-      it.print(W / 2, ty, id(font_t96), c_hour, TextAlign::CENTER, tbuf);
+      it.print(W / 2, ty, f_time, c_hour, TextAlign::CENTER, tbuf);
 
       if (id(show_seconds).state) {
         char sbuf[6];
         snprintf(sbuf, sizeof(sbuf), ":%02d", now.second);
-        it.print(W - 8, ty + 26, id(font_med), c_sec, TextAlign::BASELINE_RIGHT, sbuf);
+        it.print(W - 8, ty + sec_off, id(font_med), c_sec, TextAlign::BASELINE_RIGHT, sbuf);
       }
 
       // ---- one subtitle line, date and weather sharing it --------------------
