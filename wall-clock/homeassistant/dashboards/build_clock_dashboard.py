@@ -39,6 +39,14 @@ import json, io, sys
 #         reflashing, because it is the entity id.
 CLOCKS = [
     {"slug": "mini_round_clock", "label": "Mini Round Clock"},
+    # The second clock, flashed 2026-08-27. Its ESPHome device name is
+    # `mini-round-clock-2`, so its entity prefix is `mini_round_clock_2`. It has
+    # a 32-LED ring rather than 24, but nothing here depends on that -- LED
+    # count is a runtime number, not a dashboard concern.
+    # `label` must match an option in input_select.wall_clock_target exactly
+    # (packages/wall_clock_ui.yaml); the visibility condition compares the
+    # picker's state against this string.
+    {"slug": "mini_round_clock_2", "label": "Mini Round Clock 2"},
     # {"slug": "kitchen_clock",  "label": "Kitchen"},
 ]
 
