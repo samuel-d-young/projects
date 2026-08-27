@@ -2601,8 +2601,19 @@ display:
       }
 
       // ---- is a timer running? ----------------------------------------------
+      // current_option(), NOT .state. `timer_screen` is a SELECT and a select's
+      // .state is a std::string, so `if (id(timer_screen).state)` does not
+      // compile -- "could not convert std::string to bool". It also would not
+      // have meant the right thing if it had: the options are "keep clock" and
+      // "countdown", and only the second one wants this branch. This is what
+      // the round panel does at its own timer block, and the two now agree.
+      //
+      // WORTH KNOWING: `esphome config` passes this file with the bug in it.
+      // Validation checks the YAML schema and never compiles the lambdas, so a
+      // type error inside one only appears at `esphome compile`. Validating is
+      // not the same as building.
       int left = -1;
-      if (id(timer_screen).state) {
+      if (id(timer_screen).current_option().str() == "countdown") {
         const float fin = id(timer_finish_epoch).state;
         if (!std::isnan(fin) && fin > 0) {
           const int rem = (int) lroundf(fin - (float) now.timestamp);
