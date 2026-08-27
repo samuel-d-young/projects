@@ -295,7 +295,11 @@ def build_view():
     section. Everything after that is regrouped per clock by clock_sections().
     """
     shared = build()[:3]
-    sections = [{"type": "grid", "cards": shared}]
+    # column_span 3: the header is short, and in a sections view a short section
+    # sitting in column one leaves a tall dead gap beside the clock's sections.
+    # Spanning it full width puts it across the top instead, so the three clock
+    # sections below start level and fill the row.
+    sections = [{"type": "grid", "column_span": 3, "cards": shared}]
     for c in CLOCKS:
         sections += clock_sections(c["slug"], c["label"])
     return {
@@ -304,6 +308,9 @@ def build_view():
         "icon": "mdi:tune",
         "type": "sections",
         "max_columns": 3,
+        # Let a short section be backfilled rather than reserving a full-height
+        # column for it -- the three clock sections are very different heights.
+        "dense_section_placement": True,
         "sections": sections,
     }
 
