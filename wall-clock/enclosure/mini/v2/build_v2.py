@@ -887,6 +887,18 @@ LEGEND_PRESENCE = ("SAM", "LAURA", "AMANDA", "ZAC")
 #: as DRIV / EWAY -- which is legible and looks like a mistake.
 LEGEND_SPLITS = {"DRIVEWAY": ("DRIVE", "WAY")}
 
+#: The four things on the ring that MOVE, so they can never be labelled by
+#: position. (fraction round the dial, role, the colour it ships as.)
+#: Placed in the diagonals, which is the space the positional names leave.
+#: Colours are the defaults from the theme table in the ring lambda -- every
+#: hue is adjustable in Home Assistant.
+LEGEND_KEY = [
+    (0.125, "HOUR",   "ORANGE"),
+    (0.375, "MINUTE", "BLUE"),
+    (0.625, "TIMER",  "TEAL"),
+    (0.875, "SECOND", "GREY"),
+]
+
 
 def legend_slots(n):
     """[(led_index, name)] for the pixels this ring actually lights.
@@ -1072,29 +1084,41 @@ def build_legend_diffuser(B, bar=False):
                             family=NUM_FONT, weight=NUM_WEIGHT,
                             fontfile=NUM_FONT_FILE)
 
-    # ---- the index numbers -------------------------------------------------
-    # Every pixel that is not named gets its number, so the brim says what each
-    # tick IS rather than leaving 25 anonymous marks. Front deboss only: these
-    # are a reference you read up close, not something that wants to glow, and
-    # relieving 25 more pockets from behind would riddle the brim.
-    named = {i for i, _ in legend_slots(B.n)}
-    # Outboard of the ticks, inboard of the names. At 0.16 of the band the
-    # numbers landed straight on top of the tick marks -- the ticks run from
-    # r_i + 0.4 to r_i + 0.4 + LEGEND_TICK_L, so anything inside that is on
-    # them. This clears the tick by a millimetre and still sits well inside
-    # where the names are pulled to.
-    r_idx = r_i + 0.4 + LEGEND_TICK_L + 1.0 + LEGEND_IDX_H / 2.0
-    for i in range(B.n):
-        if i in named:
-            continue
-        a = 360.0 / B.n * i
-        d -= text_prism(str(i), LEGEND_IDX_H,
-                        (r_idx * math.cos(math.radians(a)),
-                         r_idx * math.sin(math.radians(a))),
-                        z0 - 0.001, z0 + LEGEND_IDX_D,
-                        angle_deg=0.0, mirror=True,
-                        family=NUM_FONT, weight=NUM_WEIGHT,
-                        fontfile=NUM_FONT_FILE)
+    # ---- the key: what the MOVING lights are -------------------------------
+    # The names above answer "what is that dot at 3 o'clock". They cannot
+    # answer "what is the orange one", because the hands MOVE -- there is no
+    # pixel to label. So the four travelling elements get a key instead, in
+    # the empty diagonals between the positional names.
+    #
+    # These are roles and the colour each SHIPS as, read out of the theme
+    # table in the ring lambda: hue 17.9 hour, 216 minute, 0-and-desaturated
+    # second, 173.3 timer. Every hue is adjustable in Home Assistant, so the
+    # colour word is a default and not a promise -- worth knowing before
+    # anyone repaints a clock to match its own legend.
+    #
+    # No tick against them, and their own radius, so they read as a key rather
+    # than as a label pointing at whichever pixel they happen to sit beside.
+    for frac, role, colour in LEGEND_KEY:
+        a = frac * 360.0
+        rk = r_i + (r_o - r_i) * LEGEND_KEY_R_F
+        for k, ln in enumerate((role, colour)):
+            off = LEGEND_KEY_H * 1.30 * (0.5 - k)
+            cxk = rk * math.cos(math.radians(a)) + off
+            cyk = rk * math.sin(math.radians(a))
+            d -= text_prism(ln, LEGEND_KEY_H, (cxk, cyk),
+                            z0 - 0.001, z0 + LEGEND_TXT_D,
+                            angle_deg=0.0, mirror=True,
+                            family=NUM_FONT, weight=NUM_WEIGHT,
+                            fontfile=NUM_FONT_FILE)
+            if k == 0:
+                # the role line glows; the colour word under it does not. It
+                # is a footnote, and four more relieved pockets is enough
+                # holes in a 2.8 mm brim.
+                d -= text_prism(ln, LEGEND_KEY_H, (cxk, cyk),
+                                z0 + LEGEND_TXT_D + LEGEND_MEMBRANE, z1 + 0.001,
+                                angle_deg=0.0, mirror=True,
+                                family=NUM_FONT, weight=NUM_WEIGHT,
+                                fontfile=NUM_FONT_FILE)
     return d
 
 

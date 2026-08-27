@@ -1356,11 +1356,13 @@ LEGEND_TICK_D   = 0.40
 # cheapest of the three and its brim is the shallowest.
 LEGEND_MEMBRANE = 0.45
 
-# ---- the index numbers -------------------------------------------------------
-# Every pixel the firmware does NOT light gets its LED index instead of a name,
-# so the brim says what each tick IS. That is a fact rather than a guess, and it
-# is what you need to add a status later: pick a number, add a pixel at P(i/n)
-# in the ring lambda, and put the name in LEGEND_CARDINALS.
-LEGEND_IDX_H    = 2.20        # smaller than a name on purpose - it is a
-                              # reference, not a label
-LEGEND_IDX_D    = 0.40
+# ---- the key to the moving lights --------------------------------------------
+# The positional names say what a given DOT means. They cannot say what the
+# orange one is, because the hands move. The key does that, in the diagonals
+# the positional names leave empty.
+#
+# Smaller than a name and set further in, so it reads as a key rather than as
+# another label pointing at a pixel.
+LEGEND_KEY_H    = 2.60        # cap height for the key
+LEGEND_KEY_R_F  = 0.42        # where it sits across the brim, inboard of the
+                              # names at 0.55
