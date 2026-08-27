@@ -150,11 +150,36 @@ esp32:
   # Not set by default because the right board id depends on your module and a
   # wrong one is worse than the auto-selected default. (unverified)
 
-# 8 MB octal PSRAM. `octal` is what the R8 suffix means — a quad-PSRAM part
-# (R2, R8Q) needs `mode: quad` and will fail to initialise with this.
-psram:
-  mode: octal
-  speed: 80MHz
+# NO psram BLOCK, DELIBERATELY. This is the fix for a boot loop, and it is not
+# an oversight -- do not "restore" it without re-reading this.
+#
+# The PSRAM on this module does not work. Measured on the real board 2026-08-27,
+# one variable per build:
+#
+#   mode: octal, 80MHz -> panic ~5s after wifi associates, every boot
+#   mode: octal, 40MHz -> same panic, so not a timing/speed problem
+#   mode: quad,  80MHz -> "quad_psram: PSRAM chip is not connected, or wrong
+#                         PSRAM line mode" + "esp_psram: PSRAM enabled but
+#                         initialization failed. Bailing out." Still panics,
+#                         and the screen never draws at all (0 renders).
+#   no psram block     -> 0 panics, screen renders, wifi associates, API up,
+#                         Home Assistant reconnects all 101 entities.
+#
+# The failure mode under `octal` is the nasty one: init appears to SUCCEED and
+# then the first real access stalls the cache, which shows up as
+# "Interrupt wdt timeout on CPU0" with loopTask asleep and BOTH cores idle --
+# it reads like a hung SPI transfer or a scheduler bug, and is neither. It is
+# not an ESPHome regression either: 2026.8.0 and 2026.8.1 panic identically.
+#
+# Declaring psram in ANY mode is worse than omitting it, because CONFIG_SPIRAM
+# then expects memory the board cannot supply.
+#
+# Nothing here needs it. Both framebuffers -- 360x360x2 = 253 KB for face_lcd
+# and 320x170x2 = 108 KB for bar_lcd -- allocate fine in internal SRAM, with no
+# "Buffer allocation failed" and no measurable cost.
+#
+# If a future board has genuinely working PSRAM, re-enable it there and confirm
+# it survives wifi association before trusting it.
 
 logger:
   hardware_uart: UART0   # CH343 USB-UART bridge on this board (VID 1A86), NOT native USB-JTAG
