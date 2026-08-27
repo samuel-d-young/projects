@@ -872,6 +872,200 @@ def build_diffuser(B, bar=False):
 
 
 # =============================================================================
+#: The pixels the FIRMWARE actually drives, and nothing else.
+#: Read out of the ring lambda in mini-round-clock-with-display.yaml, by
+#: fraction round the dial rather than by LED index, so it lands correctly on
+#: any ring size. The same map is in enclosure/legend/build_legend.py, which
+#: makes the flat laser-cut version -- if you change one, change both.
+#: Do NOT add a name here for a pixel nothing lights. A legend that names a
+#: light which never comes on is worse than no legend.
+LEGEND_CARDINALS = {0.00: "BIN NIGHT", 0.25: "GARAGE", 0.75: "DRIVEWAY"}
+LEGEND_PRESENCE = ("SAM", "LAURA", "AMANDA", "ZAC")
+
+#: Where to break a name that has to go on two lines and has no space to break
+#: at. Without this the fallback splits down the middle, and DRIVEWAY comes out
+#: as DRIV / EWAY -- which is legible and looks like a mistake.
+LEGEND_SPLITS = {"DRIVEWAY": ("DRIVE", "WAY")}
+
+
+def legend_slots(n):
+    """[(led_index, name)] for the pixels this ring actually lights.
+
+    P() in the firmware rounds with C's lroundf -- half AWAY from zero. Python's
+    round() is banker's and goes to even, which puts 15.5 and 16.5 both on 16
+    and silently loses one of the presence names. Hence the explicit floor.
+    """
+    def lround(x):
+        return int(math.floor(x + 0.5))
+
+    out = {}
+    for frac, name in LEGEND_CARDINALS.items():
+        out[lround(frac * n) % n] = name
+    for w, who in enumerate(LEGEND_PRESENCE):
+        out[lround((0.5 + (w - 1.5) / n) * n) % n] = who
+    return sorted(out.items())
+
+
+def build_legend_diffuser(B, bar=False):
+    """The diffuser with a named brim: the legend, as the part it labels.
+
+    Everything the ordinary diffuser is, plus a flat brim standing proud of the
+    face and reaching LEGEND_BAND past the BODY wall, carrying the name of every
+    ambient pixel the firmware drives.
+
+    WHY IT IS ITS OWN PART AND NOT AN OPTION ON THE OTHER ONE
+    The plain diffuser is fitted, verified and printed. This adds 30 mm to its
+    diameter, which is a different print entirely -- a different plate, a
+    different bed, and on the 60 a size not every printer takes. Making it a
+    separate file means the existing one is bit-for-bit unchanged and nobody
+    prints a 150 mm disc who did not ask for one.
+
+    ORIENTATION. Same as the diffuser it extends: face down on the plate. The
+    brim is then a flat annulus lying ON the plate, which is the cheapest thing
+    an FDM printer can be asked to do -- no support, no bridging, and the
+    debossed text is a top surface rather than an overhang.
+    """
+    d = build_diffuser(B, bar=bar)
+
+    r_i = B.diff_outer                       # where the diffuser stops
+    r_o = B.r_body + LEGEND_BAND             # a fixed overhang past the BODY
+    # The brim grows the other way from everything else -- see LEGEND_BAND's
+    # note in params. z = 0 is the visible face; -LEGEND_T is proud of it.
+    z0 = -LEGEND_T
+
+    # IT HAS TO OVERLAP THE DIFFUSER, NOT MEET IT.
+    # Drawn from r_i to r_o and z0 to 0.0 the brim only touches the diffuser
+    # along the z = 0 plane -- a coincident face, which is a contact and not a
+    # union. finalise() caught it as body_count = 2: a brim floating a
+    # rounding error away from the part it belongs to, which a slicer would
+    # have printed as two loose pieces. So it reaches 1.00 mm inboard of the
+    # diffuser's edge and 0.80 mm up into its face, giving a real solid
+    # intersection. Both numbers are well outboard of the LED apertures, so
+    # nothing that has to glow is touched.
+    z1 = 0.80
+    d += tube(r_i - 1.00, r_o, z0, z1, SEG)
+
+    # One tick per LED on the brim's inner edge, so a name can be traced back
+    # to the pixel it belongs to. Debossed from the proud face.
+    r_t0 = r_i + 0.4
+    r_t1 = r_t0 + LEGEND_TICK_L
+    for i in range(B.n):
+        a = 360.0 / B.n * i
+        rm = (r_t0 + r_t1) / 2.0
+        cx = rm * math.cos(math.radians(a))
+        cy = rm * math.sin(math.radians(a))
+        d -= prism(rot_rect(cx, cy, r_t1 - r_t0, LEGEND_TICK_W, a),
+                   z0 - 0.001, z0 + LEGEND_TICK_D)
+
+    # The names. mirror=True for the same reason the numerals use it: this part
+    # is modelled face-at-z=0 and installed turned over, so text laid out the
+    # ordinary way would read back to front. With mirror on, the glyph's "up"
+    # is +x -- which is 12 o'clock -- and its "right" is +y, which is 3.
+    #
+    # EVERY NAME IS UPRIGHT: angle_deg stays 0, so the glyph's up is always
+    # 12 o'clock and the whole brim reads from across the room. Turning each
+    # name tangentially looks tidier in a render and is worse on a wall --
+    # everything from 4 to 8 o'clock ends up upside down.
+    #
+    # Two consequences have to be handled, and both were found by rendering
+    # this rather than by reasoning about it:
+    #
+    #  1. AT 3 AND 9 O'CLOCK an upright name's WIDTH points radially, so a long
+    #     one runs off the brim. The radius is pulled in per name, from its own
+    #     box -- fit is per-name and per-angle, not a fixed inset.
+    #  2. THE FOUR PRESENCE NAMES sit on adjacent LEDs, 360/n apart. On the 32
+    #     that is 11.25 deg, about 13 mm of arc out here, and "AMANDA" is wider
+    #     than that. So they alternate between two radii, which doubles the
+    #     spacing available to any two neighbours.
+    r_mid = r_i + (r_o - r_i) * LEGEND_TXT_R_F
+    stagger = LEGEND_TXT_H * LEGEND_TXT_STAGGER
+    usable = (r_o - 1.2) - (r_i + 1.2)
+
+    def glyph_w(s):
+        """The name's REAL width. Do not estimate this.
+
+        A characters-times-em guess of 0.62 em per cap is about right for
+        Liberation Sans -- which this machine does not have, so matplotlib
+        falls back to DejaVu Sans at nearly 1.0 em. DRIVEWAY measured 27.1 mm
+        against a 16.9 mm guess and ran off the brim reading "RIVEWAY".
+        """
+        pp = np.concatenate(csg.text_polys(
+            s, LEGEND_TXT_H, family=NUM_FONT, weight=NUM_WEIGHT,
+            fontfile=NUM_FONT_FILE))
+        return float(pp[:, 0].max() - pp[:, 0].min())
+
+    def radial_extent(w, h, a_deg):
+        """How much of the brim's DEPTH an upright block actually eats.
+
+        Every name is upright, so its width always lies along model y and its
+        height along model x. How much of that points radially depends on
+        where it sits: at 3 and 9 o'clock the width is fully radial, at 12 and
+        6 it is fully tangential and costs nothing at all. Wrapping on width
+        alone wrapped AMANDA at 6 o'clock into "AMA/NDA", which had acres of
+        room either side of it.
+        """
+        a = math.radians(a_deg)
+        return abs(w * math.sin(a)) + abs(h * math.cos(a))
+
+    def wrap(s, a_deg):
+        """One line, or two, whichever fits the brim's depth at this angle.
+
+        Wrapping beats widening: a one-line DRIVEWAY at 9 o'clock would need a
+        186 mm brim on a 120 mm clock. Two lines keep it at 160.
+        """
+        if radial_extent(glyph_w(s), LEGEND_TXT_H, a_deg) <= usable:
+            return [s]
+        if " " in s:                       # split at the space nearest middle
+            parts = s.split(" ")
+            best, bi = None, 1
+            for k in range(1, len(parts)):
+                lhs, rhs = " ".join(parts[:k]), " ".join(parts[k:])
+                score = abs(glyph_w(lhs) - glyph_w(rhs))
+                if best is None or score < best:
+                    best, bi = score, k
+            return [" ".join(parts[:bi]), " ".join(parts[bi:])]
+        if s in LEGEND_SPLITS:             # a name worth breaking by hand
+            return list(LEGEND_SPLITS[s])
+        k = len(s) // 2                    # otherwise, down the middle
+        return [s[:k], s[k:]]
+
+    for i, name in legend_slots(B.n):
+        a = 360.0 / B.n * i
+        lines = wrap(name, a)
+        step = LEGEND_TXT_H * 1.35
+        w = max(glyph_w(ln) for ln in lines)
+        h = LEGEND_TXT_H + step * (len(lines) - 1)
+        r = r_mid + (stagger / 2.0 if i % 2 == 0 else -stagger / 2.0)
+        # Pull the block inside the brim. The glyph's up is +x, so in the model
+        # frame its width lies along y and its height along x.
+        for _ in range(6):
+            cx = r * math.cos(math.radians(a))
+            cy = r * math.sin(math.radians(a))
+            corners = [(cx + sx * h / 2.0, cy + sy * w / 2.0)
+                       for sx in (-1, 1) for sy in (-1, 1)]
+            rmax = max(math.hypot(px, py) for px, py in corners)
+            rmin = min(math.hypot(px, py) for px, py in corners)
+            over = rmax - (r_o - 1.2)
+            under = (r_i + 1.2) - rmin
+            if over <= 0 and under <= 0:
+                break
+            r -= over if over > 0 else -under
+        cx = r * math.cos(math.radians(a))
+        cy = r * math.sin(math.radians(a))
+        # Lines stack along the GLYPH'S OWN UP, which with mirror on is model
+        # +x -- always, at every angle. Stacking them along the radial
+        # direction instead put DRIVEWAY's two lines side by side at 9
+        # o'clock, printing "DRIV" straight through "EWAY".
+        for k, ln in enumerate(lines):
+            off = step * ((len(lines) - 1) / 2.0 - k)
+            d -= text_prism(ln, LEGEND_TXT_H, (cx + off, cy),
+                            z0 - 0.001, z0 + LEGEND_TXT_D,
+                            angle_deg=0.0, mirror=True,
+                            family=NUM_FONT, weight=NUM_WEIGHT,
+                            fontfile=NUM_FONT_FILE)
+    return d
+
+
 def build_base(B, sam):
     """Sam's base for the 24-LED body; his base with a new outer ring for the 32.
 
@@ -1206,6 +1400,14 @@ if __name__ == '__main__':
         print(f'  battery shelves SKIPPED: a {BAT_T:.2f} mm cell needs a '
               f'{BATTERY_MIN_HOUSING:.2f} mm housing and this one is '
               f'{HOUSING_DEEP:.2f}. No internal battery in this build.')
+    # The legend brim, one per body. Additive: the plain diffusers above are
+    # untouched, so a build that does not want a 150 mm disc simply does not
+    # print these.
+    for _B in (BODY24, BODY32, BODY60):
+        _tg = _B.tag
+        parts.append((build_legend_diffuser(_B),
+                      f'mini-round-clock-diffuser{_tg}-legend', True))
+
     parts.append((build_light_guides(BODY60), 'mini-round-clock-light-guides-60', True))
     parts.append((build_collar_gauges(), 'mini-round-clock-collar-gauges', False))
     parts.append((build_board_clamp(), 'mini-round-clock-board-clamp', True))

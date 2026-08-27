@@ -88,6 +88,11 @@ PARTS = [
     ('mini-round-clock-numerals.stl',            'a part, not a print', 0.45),
     ('mini-round-clock-numerals-32.stl',         'a part, not a print', 0.45),
     ('mini-round-clock-numerals-60.stl',         'a part, not a print', 0.45),
+    # The legend brims. Same 0.18 as the other diffusers -- the 0.20 aperture
+    # membrane is the thinnest thing in them and it is deliberate.
+    ('mini-round-clock-diffuser-legend.stl',     'brim face down',  0.18),
+    ('mini-round-clock-diffuser-32-legend.stl',  'brim face down',  0.18),
+    ('mini-round-clock-diffuser-60-legend.stl',  'brim face down',  0.18),
     ('mini-round-clock-diffuser.stl',            'face down',       0.18),
     ('mini-round-clock-diffuser-32.stl',         'face down',       0.18),
     ('mini-round-clock-diffuser-60.stl',         'face down',       0.18),

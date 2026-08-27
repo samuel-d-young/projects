@@ -1281,3 +1281,53 @@ NUM_H_60        = 9.00
 # it filament 2. Both are exported in the same coordinates, so they land in
 # register with no moving about.
 NUM_INLAY_T     = NUM_DEPTH   # 0.50 -- at 0.20 mm layers that is 2 layers +.5
+
+# =============================================================================
+# THE LEGEND FLANGE
+# =============================================================================
+# Sam: "make this be the diffuser, but it sits a little outside of the width of
+# the wall clock to fit in the text."
+#
+# So the diffuser grows a flat brim OUTBOARD of the body, standing proud of the
+# face, and the ambient-pixel names are debossed into it. It is a separate part
+# file rather than a change to the diffuser everyone already has: the plain one
+# is verified and fitted, and a clock with no legend should not have to print a
+# 150 mm disc.
+#
+# WHY IT STANDS PROUD RATHER THAN SITTING FLUSH
+# The diffuser is modelled with its visible face at z = 0 and everything else
+# behind it at z > 0. Behind the face, between the diffuser's own outer edge
+# and the body wall, is where the body's front rim is -- so a brim grown into
+# z > 0 would be trying to occupy the rim. Grown the other way it lies ON the
+# rim, which also gives it something to bear on all the way round instead of
+# cantilevering off the diffuser's edge alone.
+#
+# LEGEND_BAND is measured from the BODY, not from the diffuser, because what
+# "sits a little outside the width of the clock" means is a fixed overhang past
+# the body wall on every size.
+# 18.00, not 15.00, and the number is forced rather than chosen. Every name is
+# UPRIGHT, so at 3 and 9 o'clock a name's WIDTH lies radially and the brim has
+# to be deep enough to hold the longest one that lands there. DRIVEWAY at 9 is
+# 8 characters; at LEGEND_TXT_H it needs 16.9 mm plus a margin each side, and
+# the 15.00 brim gave 18.7 mm total. It did not fit, and the render showed it
+# reading "RIVEW" off the edge of the part.
+LEGEND_BAND     = 20.00       # radial overhang past the body wall
+LEGEND_T        = 2.00        # brim thickness, 10 layers at 0.20
+# 3.40: the largest that lets DRIVEWAY sit radially in the brim above while
+# keeping the stem over two 0.4 mm beads (3.40 x 0.185 = 0.63 mm). Bigger text
+# means a wider brim, and it is already 156 mm across on the 32.
+LEGEND_TXT_H    = 3.40        # cap height
+LEGEND_TXT_D    = 0.50        # deboss depth, = NUM_DEPTH so the same inlay
+                              # trick works if you want it in a second colour
+LEGEND_TXT_R_F  = 0.55        # where the text sits across the brim, 0 = inner
+                              # edge, 1 = outer. 0.55 keeps it clear of both
+                              # the body seam and the outer rim
+# The four presence names sit on ADJACENT LEDs -- 11.25 deg apart on the 32,
+# about 13 mm of arc out here, and AMANDA is wider than that. They alternate
+# between two radii this far apart so that any two neighbours are two steps
+# apart on their own ring instead of one. 2.4 x cap height leaves 4.8 mm of
+# clear space between the rings; at 1.35 the render showed ZAC touching AMANDA.
+LEGEND_TXT_STAGGER = 2.40
+LEGEND_TICK_W   = 0.80        # one radial tick per LED, on the brim's inner
+LEGEND_TICK_L   = 2.60        # edge, so a name lines up with its own pixel
+LEGEND_TICK_D   = 0.40
