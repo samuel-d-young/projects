@@ -3870,3 +3870,76 @@ the ESP32-S3 framework notice.
   was not before, so the next attempt should get as far as compiling.
 * `Face -> colour test` is the first thing to look at afterwards.
 
+---
+
+## 2026-08-27 (later still) — The firmware has now been through a compiler. It did not survive the first pass
+
+Sam asked for a prompt to run on the PC the ESP is plugged into. Before handing it
+over I finished the compile here, because a build failure on his machine is a round
+trip and one on mine is not. Two more defects, both invisible to `esphome config`.
+
+### 1. A select's `.state` is a std::string, not a bool (verified)
+
+`mini-round-clock-with-display.yaml:2605`, in the bar panel's display lambda:
+
+```cpp
+if (id(timer_screen).state) {
+```
+
+`timer_screen` is a **select**. Its `.state` is a `std::string`, and the compiler
+refuses it outright — *"could not convert std::string to bool"*. It was wrong on the
+merits too: the options are `keep clock` and `countdown`, and only the second wants
+that branch. The round panel had it right all along, so the two now agree:
+
+```cpp
+if (id(timer_screen).current_option().str() == "countdown") {
+```
+
+Swept every other `id(<select>).state` in the file — 13 selects, one other use
+(`panel_choice`), assigned to a `std::string`, correct.
+
+**The thing worth carrying: `esphome config` PASSES this file with that bug in it.**
+Validation checks the YAML schema and never compiles the lambdas, so a type error
+inside one only appears at `esphome compile`. Two entries ago this log said the
+config "validates clean, exit 0" — true, and weaker than it sounded. **Validating is
+not building.** For a config whose logic lives almost entirely in lambdas, `config`
+is close to a syntax check on the parts that matter least.
+
+### 2. `Select::state` is deprecated and disappears in a version that does not exist yet
+
+```
+warning: 'esphome::select::Select::state' is deprecated:
+         Use current_option() instead of .state. Will be removed in 2026.7.0
+```
+
+The remaining use at line 1283 — the panel dispatcher — still built, but 2026.7.0 is
+the release *after* the newest one that exists, so this was a hard build failure
+scheduled for Sam's next ESPHome update, months from now, with nothing obviously
+connecting it back here. Fixed while it was cheap.
+
+### The build
+
+```
+RAM:   [==        ]  17.7% (used 58000 bytes from 327680 bytes)
+Flash: [======    ]  60.0% (used 1100731 bytes from 1835008 bytes)
+[SUCCESS] Took 50.21 seconds
+INFO Successfully compiled program.
+```
+
+Zero errors, zero warnings from this file. 1.17 MB factory image. The 253 KB
+framebuffer is not in that RAM figure — `buffer_size: 0.125` means partial
+buffering, and the PSRAM is what carries it.
+
+Getting here needed one environment fix worth writing down: PlatformIO could not
+fetch the ESP-IDF toolchain through this container's proxy, failing with
+`CERTIFICATE_VERIFY_FAILED`. Setting `SSL_CERT_FILE` / `REQUESTS_CA_BUNDLE` fixed
+*some* downloads but not the IDF tarball. What actually worked was appending the
+proxy CA to **certifi's own bundle**, in both the ESPHome venv and PlatformIO's
+separate `penv` — those two interpreters trust certifi, not the environment.
+
+### Open
+
+* Still not flashed, but the firmware is now known to **compile**, which is a much
+  stronger claim than the one made two entries ago.
+* `Face -> colour test` remains the first thing to look at afterwards.
+

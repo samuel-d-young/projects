@@ -1280,7 +1280,13 @@ interval:
   - interval: 1s
     then:
       - lambda: |-
-          const std::string want = id(panel_choice).state;
+          // current_option(), not .state. The compiler says: "'Select::state' is
+          // deprecated: Use current_option() instead of .state. Will be removed
+          // in 2026.7.0". This still built, but it is the LAST release where it
+          // does -- and 2026.7.0 does not exist yet, so this would have turned
+          // into a hard build failure on Sam's next ESPHome update, months from
+          // now, with nothing obviously connecting it to this file.
+          const std::string want = id(panel_choice).current_option().str();
           bool bar = id(bar_active);
           if      (want == "bar 320x170")   bar = true;
           else if (want == "round 360x360") bar = false;
