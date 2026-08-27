@@ -1058,11 +1058,43 @@ def build_legend_diffuser(B, bar=False):
         # o'clock, printing "DRIV" straight through "EWAY".
         for k, ln in enumerate(lines):
             off = step * ((len(lines) - 1) / 2.0 - k)
+            # front deboss: what you read when nothing is lit
             d -= text_prism(ln, LEGEND_TXT_H, (cx + off, cy),
                             z0 - 0.001, z0 + LEGEND_TXT_D,
                             angle_deg=0.0, mirror=True,
                             family=NUM_FONT, weight=NUM_WEIGHT,
                             fontfile=NUM_FONT_FILE)
+            # back relief: takes the letter down to LEGEND_MEMBRANE so it is
+            # the thinnest path through the brim and the light comes out there
+            d -= text_prism(ln, LEGEND_TXT_H, (cx + off, cy),
+                            z0 + LEGEND_TXT_D + LEGEND_MEMBRANE, z1 + 0.001,
+                            angle_deg=0.0, mirror=True,
+                            family=NUM_FONT, weight=NUM_WEIGHT,
+                            fontfile=NUM_FONT_FILE)
+
+    # ---- the index numbers -------------------------------------------------
+    # Every pixel that is not named gets its number, so the brim says what each
+    # tick IS rather than leaving 25 anonymous marks. Front deboss only: these
+    # are a reference you read up close, not something that wants to glow, and
+    # relieving 25 more pockets from behind would riddle the brim.
+    named = {i for i, _ in legend_slots(B.n)}
+    # Outboard of the ticks, inboard of the names. At 0.16 of the band the
+    # numbers landed straight on top of the tick marks -- the ticks run from
+    # r_i + 0.4 to r_i + 0.4 + LEGEND_TICK_L, so anything inside that is on
+    # them. This clears the tick by a millimetre and still sits well inside
+    # where the names are pulled to.
+    r_idx = r_i + 0.4 + LEGEND_TICK_L + 1.0 + LEGEND_IDX_H / 2.0
+    for i in range(B.n):
+        if i in named:
+            continue
+        a = 360.0 / B.n * i
+        d -= text_prism(str(i), LEGEND_IDX_H,
+                        (r_idx * math.cos(math.radians(a)),
+                         r_idx * math.sin(math.radians(a))),
+                        z0 - 0.001, z0 + LEGEND_IDX_D,
+                        angle_deg=0.0, mirror=True,
+                        family=NUM_FONT, weight=NUM_WEIGHT,
+                        fontfile=NUM_FONT_FILE)
     return d
 
 

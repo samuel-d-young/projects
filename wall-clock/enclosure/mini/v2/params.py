@@ -1331,3 +1331,36 @@ LEGEND_TXT_STAGGER = 2.40
 LEGEND_TICK_W   = 0.80        # one radial tick per LED, on the brim's inner
 LEGEND_TICK_L   = 2.60        # edge, so a name lines up with its own pixel
 LEGEND_TICK_D   = 0.40
+
+# ---- letting the LEDs through the brim ---------------------------------------
+# Sam: "make the LED light be seem through it."
+#
+# The brim is part of the DIFFUSER, not a separate collar, so it is already
+# optically continuous with the band the LEDs fire into -- light entering at an
+# aperture can travel outward through the material. What stops it showing is
+# 2.00 mm of PLA: plenty to hide a 5050 at this distance.
+#
+# So each letter is relieved from BEHIND as well as debossed in front, leaving
+# a membrane. That is the same trick the LED apertures already use at 0.20 mm,
+# only thicker, because these are read in daylight too and a 0.20 mm wall is
+# translucent enough to look grubby when it is not lit.
+#
+#   front deboss   LEGEND_TXT_D    0.50   visible unlit, and a paint/inlay key
+#   back relief    the rest                so the letter is the thinnest path
+#   membrane       LEGEND_MEMBRANE 0.45    what actually glows
+#
+# UNVERIFIED, and it is the one number here that wants a test print: how far
+# light actually carries radially through 2 mm of PLA is a property of the
+# filament, not of the geometry. White or natural will carry it; black will
+# not, and on black this is just a deboss. Print the 24 first -- it is the
+# cheapest of the three and its brim is the shallowest.
+LEGEND_MEMBRANE = 0.45
+
+# ---- the index numbers -------------------------------------------------------
+# Every pixel the firmware does NOT light gets its LED index instead of a name,
+# so the brim says what each tick IS. That is a fact rather than a guess, and it
+# is what you need to add a status later: pick a number, add a pixel at P(i/n)
+# in the ring lambda, and put the name in LEGEND_CARDINALS.
+LEGEND_IDX_H    = 2.20        # smaller than a name on purpose - it is a
+                              # reference, not a label
+LEGEND_IDX_D    = 0.40
