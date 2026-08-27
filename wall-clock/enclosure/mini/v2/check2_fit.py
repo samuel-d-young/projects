@@ -137,7 +137,14 @@ for B, tg in BODIES:
     ck((BASE ^ tab).volume() < 1e-6, 'the tab clears the slot', f'{(BASE ^ tab).volume():.5f} mm3')
 
     print('\n5. The S3 is actually HELD, and the frame can be printed')
-    ZP = Z_DECK - (PLATE_T + POCKET_DEEP) + PLATE_T
+    # PER BODY, not the 24's numbers for everything. The 32 and 60 have a
+    # shallower box on a thinner plate now (PLATE_T_BIG / HOUSING_DEEP_BIG), so
+    # their pocket floor is at a different z -- and testing their housings
+    # against the 24's floor made every probe in this section miss by 1.10 mm
+    # and report the board as fouled in 1961 mm3 of thin air.
+    PT   = PLATE_T if B.n == 24 else PLATE_T_BIG
+    PD   = POCKET_DEEP if B.n == 24 else HOUSING_DEEP_BIG - PLATE_T_BIG
+    ZP = Z_DECK - (PT + PD) + PT
     zt   = ZP + BRD_POST_H                  # PCB underside
     ztp  = zt + BOARD_T                     # PCB top
     zlip = ZP + BRD_LIP_Z0
@@ -415,9 +422,9 @@ for B, tg in BODIES:
        'and their outside diameters match', f'{2*B.r_body:.2f} mm')
     ck(abs(DEPTH - (Z_FRONT - Z_DECK + HOUSING_DEEP)) < 1e-6,
        'the clock is as deep as Sam asked for and no deeper',
-       f'housing {HOUSING_DEEP:.1f} mm, pocket {POCKET_DEEP:.1f} clear, '
+       f'housing {PT + PD:.1f} mm, pocket {PD:.1f} clear, '
        f'clock {DEPTH:.1f} overall (was 74.4)')
-    plenum = POCKET_DEEP - BRD_RAIL_TOP
+    plenum = PD - BRD_RAIL_TOP
     ck(plenum > 10.0, 'with the board and its frame in, the cables still have room',
        f'{plenum:.2f} mm of clear plenum above the frame, for the display ribbon '
        f'and the ring leads')

@@ -126,6 +126,25 @@ Z_DECK      = -DECK_T       # -2.40, the new flat mating face of the base
 WALL_T      = 3.00                    # outer wall
 R_INNER     = R_BODY - WALL_T         # 50.99  usable interior radius
 PLATE_T     = 3.50                    # rear plate; also what the keyhole cuts through
+# ...but 3.50 on a 234 mm disc is 150 cm^3, which is 71% of the 60-LED housing
+# and is another thin plate that prints ~100% solid. The big bodies drop to 2.40
+# (twelve layers) and pick up ribs instead. The keyhole still bears on it: the
+# screw shank presses on 4.6 x 2.40 mm, which under a 560 g clock is 0.50 MPa
+# against PLA's ~50 MPa yield -- a 100x margin, down from 200x.
+# The 24 keeps 3.50: nothing about it needed changing and Sam may have printed
+# one already.
+PLATE_T_BIG = 2.40
+# Depth follows the board rather than a round number. The board stack is 8.80 mm
+# above the pocket floor (4.00 posts + 1.60 PCB + 3.20 tallest part), and the
+# plenum over it carries the display ribbon and the ring leads. 6.00 of plenum
+# is enough for those and takes the 60's housing from 25.00 mm deep to 17.00.
+#
+# 17.00 WAS TOO SHALLOW AND check2 SAID SO: it leaves 7.20 mm of plenum above
+# the board frame against a 10.00 mm floor that exists because the display's
+# ribbon and the ring's leads both have to cross that space. Not relaxing the
+# floor to fit a number I picked -- the cables are real. 20.00 gives 10.20 mm of
+# plenum and is the shallowest box that clears it.
+HOUSING_DEEP_BIG = 20.00
 # Two variants, because the battery decision is genuinely a trade and it is
 # Sam's to make. Nothing else about the housing changes between them.
 #   slim    - no battery, or a flat cell + charger board. Clock 44.4 mm deep.

@@ -1,7 +1,32 @@
 [
   {
     "type": "markdown",
-    "content": "### Which clock\nPick a clock and every card below switches to it. The picker is `input_select.wall_clock_target`.\n\nAdding another clock: give it a different `name:` in ESPHome (that sets its entity prefix, hostname and OTA target), add it to `CLOCKS` in `build_clock_dashboard.py`, and to the options of the input_select."
+    "content": "# {{ states('input_select.wall_clock_target') }}\nEverything below is this clock. Tap another button to switch."
+  },
+  {
+    "type": "horizontal-stack",
+    "cards": [
+      {
+        "type": "button",
+        "name": "Mini Round Clock",
+        "icon": "mdi:clock-outline",
+        "show_state": false,
+        "tap_action": {
+          "action": "perform-action",
+          "perform_action": "input_select.select_option",
+          "target": {
+            "entity_id": "input_select.wall_clock_target"
+          },
+          "data": {
+            "option": "Mini Round Clock"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "type": "markdown",
+    "content": "{% set s = 'binary_sensor.mini_round_clock_status' %}{% if is_state('input_select.wall_clock_target', 'Mini Round Clock') %}**Mini Round Clock** &mdash; {% if is_state(s, 'on') %}online{% elif is_state(s, 'off') %}**offline** (changes will not reach it){% else %}status unknown &mdash; not adopted yet?{% endif %}{% endif %}"
   },
   {
     "type": "entities",
@@ -12,6 +37,10 @@
         "name": "Customising"
       }
     ]
+  },
+  {
+    "type": "markdown",
+    "content": "Adding another clock: give it a different `name:` in ESPHome (that sets its entity prefix, hostname and OTA target), add it to `CLOCKS` in `build_clock_dashboard.py`, and to the options of the input_select."
   },
   {
     "type": "entities",

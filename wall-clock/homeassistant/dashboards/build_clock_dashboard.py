@@ -212,20 +212,64 @@ def clock_cards(slug, label):
 
 def build():
     cards = [
+        # WHICH CLOCK YOU ARE EDITING, made obvious rather than inferred.
+        # This used to be a markdown paragraph over a dropdown row, which told
+        # you the picker's entity id but not which clock was live, and took
+        # three taps to change. Now: the name in a heading, one button per
+        # clock, and the device's own status underneath so you can see you are
+        # editing something that is actually on the network.
         {
             "type": "markdown",
             "content": (
-                "### Which clock\n"
-                "Pick a clock and every card below switches to it. The picker is "
-                "`input_select.wall_clock_target`.\n\n"
-                "Adding another clock: give it a different `name:` in ESPHome (that "
-                "sets its entity prefix, hostname and OTA target), add it to `CLOCKS` "
-                "in `build_clock_dashboard.py`, and to the options of the input_select."
+                "# {{ states('input_select.wall_clock_target') }}\n"
+                "Everything below is this clock. Tap another button to switch."
+            ),
+        },
+        {
+            "type": "horizontal-stack",
+            "cards": [
+                {
+                    "type": "button",
+                    "name": c["label"],
+                    "icon": "mdi:clock-outline",
+                    "show_state": False,
+                    "tap_action": {
+                        "action": "perform-action",
+                        "perform_action": "input_select.select_option",
+                        "target": {"entity_id": PICKER},
+                        "data": {"option": c["label"]},
+                    },
+                }
+                for c in CLOCKS
+            ],
+        },
+        # The status line degrades rather than erroring: a device that has never
+        # been adopted has no *_status entity at all, and a dashboard that shows
+        # "unknown" is more use than one that shows a red error card.
+        {
+            "type": "markdown",
+            "content": "".join(
+                "{%% set s = 'binary_sensor.%s_status' %%}"
+                "{%% if is_state('%s', '%s') %%}"
+                "**%s** &mdash; "
+                "{%% if is_state(s, 'on') %%}online"
+                "{%% elif is_state(s, 'off') %%}**offline** (changes will not reach it)"
+                "{%% else %%}status unknown &mdash; not adopted yet?{%% endif %%}"
+                "{%% endif %%}" % (c["slug"], PICKER, c["label"], c["label"])
+                for c in CLOCKS
             ),
         },
         {
             "type": "entities", "show_header_toggle": False,
             "entities": [row(PICKER, "Customising")],
+        },
+        {
+            "type": "markdown",
+            "content": (
+                "Adding another clock: give it a different `name:` in ESPHome (that "
+                "sets its entity prefix, hostname and OTA target), add it to `CLOCKS` "
+                "in `build_clock_dashboard.py`, and to the options of the input_select."
+            ),
         },
         # Timers are Home Assistant's, not any one clock's — the pool is shared,
         # so this card is deliberately outside the per-clock switching.

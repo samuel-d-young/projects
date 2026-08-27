@@ -3994,3 +3994,126 @@ needs a host.
 
 *(The move itself is Samuel's report, not something verified from here — this
 session has no route to either address.)*
+
+---
+
+## 2026-08-27 — v19. Less material on the 60, a wider cable gap, and numerals that stay on the face
+
+Five things, one of them a correction Sam should not have had to ask for.
+
+### The numerals were hanging over the window (verified)
+
+> *"Make sure that the numbers fit in the diffuser and don't stick out. I
+> shouldn't have to remind you."*
+
+He was right, and the assertion that existed was measuring the wrong thing.
+Measured on the built STL, the 24-LED numerals reached **r 27.069** against a bore
+at **27.633** — 0.56 mm of numeral over the hole — while two checks passed.
+
+The cause: **the numerals are upright.** They are not rotated to face outward, so
+a glyph at 10 o'clock presents a **corner** to the middle of the dial, not an
+edge, and the corner reaches further in than the edge does. Both checks used the
+nominal band `num_r ± num_h/2`, which is the right band only for radial text.
+
+The number that actually drives it is the **width**: the widest numeral is
+**7.2 mm across at 5 mm cap height**, and it is that half-width, swung around by
+the placement angle, which pushes the corner inward. Placement is now solved from
+the real glyph outlines and check4 measures the built inlay — innermost point,
+outermost point, and that every glyph lands on the face at all. The 24 now clears
+the hole by **+1.31 mm**.
+
+**Found while fixing it: the twelve hour marks are never drawn.** `mark_ri` and
+`mark_ro` exist on every Body and nothing in `build_diffuser` reads them; they
+only ever positioned the numerals. That band was reserving **3.20 mm for geometry
+that does not exist**, and it was squeezing the tick. `TICK_MARK_GAP` went with
+it: with no marks between them, it and `NUM_MARGIN` were one gap under two names.
+
+### Less material, and where a mm^3 is actually worth something
+
+> *"Update the 60LED stl files so that they use less material when printing.
+> Remember the basic principals of 3D printing."*
+
+The principle that decides where to cut is not "make everything thinner". A
+slicer prints perimeters, skins and sparse infill, so:
+
+* a **thin plate** (under about 2x the skin thickness) prints ~100% solid. Every
+  mm^3 out of it is a mm^3 of filament, 1:1.
+* a **tall thin wall** is already two perimeters. Thinning it buys grams and
+  costs stiffness.
+
+So the cuts went where the thin plates were:
+
+| part | was | now | |
+|---|---:|---:|---|
+| base-60 | 520.6 | **449.3** cm^3 | one floor instead of two stacked |
+| housing-60 | 211.5 | **152.9** cm^3 | 2.40 mm plate, 20 mm deep |
+| **60-LED set** | **901.0** | **771.1** cm^3 | **161 g saved** |
+| housing-32 | 66.4 | 49.6 cm^3 | same treatment |
+
+The base's fat was a **floor built twice**: the deck (2.40 mm) stacked under the
+base's own floor (3.00 mm) across a 42,412 mm^2 annulus. The big bodies' annulus
+now starts at `Z_DECK` and carries the only floor, at 2.00 mm.
+
+**The first attempt was wrong and check3 caught it in one line:**
+
+```
+[FAIL] every flat ceiling bridges <= 25 mm   worst 69.1 mm at z=-0.0
+```
+
+Stopping the deck short did not remove a redundant plate, it removed the part's
+**bottom layer** — the whole r 47..120 annulus then began 2.4 mm in the air. The
+island test still passed, because it was connected at the rim, just unsupported.
+**Connected and printable are different questions and it takes both checks.**
+
+The housing's bulk was the same story: a 234 mm plate at 3.50 mm is 150 cm^3,
+71% of the part, and prints solid. 2.40 on the big bodies; the 24 keeps 3.50.
+Depth 25 -> 20, not the 17 first tried: at 17 the plenum over the board frame is
+7.20 mm against a 10.00 floor that exists because the display ribbon and the ring
+leads both cross it. The floor was not relaxed to fit a number I picked.
+
+### The cable gap at the bottom
+
+> *"the spacing for the 2.1inch screen doesn't allow for the cables. Make the gap
+> at the bottom gap wider."* 40 mm, chosen by Sam.
+
+The real pinch was that the deck's opening was **20.00 mm under a slot 31.15 mm
+wide** — the deck was narrower than the slot above it, so the ribbon met a step.
+A flat 40 mm undercut the tab-slot walls (6 mm^3 of self-overlap, and those walls
+are what stopped the display tilting), so the opening is stepped — 40.00 inboard
+and outboard of the walls, 32.35 through them — and the walls now run down to
+`Z_DECK` and stand on the build plate themselves.
+
+### The ESP32 does not fit in the 60's ring cavities (verified)
+
+Sam: *"the ESP32 can fit in the base."* There is plenty of volume, but not in a
+usable shape, and the arithmetic is worth recording so nobody tries again:
+
+A straight 63.27 mm board laid tangentially in an **annular** cavity needs more
+radial room than its own width, because of the chord bulge. With rails it needs
+**38–40 mm**. The two cavities are **28.0 mm** (inner) and **25.0 mm** (outer).
+It does not fit at any radius in either. The centre is occupied by the display.
+
+So the board stays in the rear part — but that part is now a 20 mm cover on a
+2.40 mm plate rather than a 25 mm box on 3.50, which is where the saving came
+from. The USB-C also keeps working, which it would not if the board moved inboard:
+on a 240 mm clock the connector cannot reach the rim from any cavity.
+
+### The 1.9" bar screen
+
+Already done — `-bar` bases and diffusers exist for the 32 and the 60. The 24
+cannot take it: the module's corners land **0.35 mm** from its ring pocket wall
+(the 32 leaves 12.74, the 60 leaves 42.74). Sam chose to leave the 24 on the
+round panel.
+
+### Verification
+
+Five passes, three bodies, 23 parts, 0 failures. check2 gained a body-aware
+pocket floor — it was testing every housing against the 24's numbers, which made
+the 32 and 60 report a fouled board in 1961 mm^3 of thin air.
+
+### Open
+
+* **deskstand-60 is still 1002.9 cm^3**, by far the largest part in the set. It
+  is untouched because its mass is what stops a 240 mm clock tipping, and
+  check5's tip-over angle is derived from the geometry. Worth doing, needs the
+  stability check re-derived rather than assumed.

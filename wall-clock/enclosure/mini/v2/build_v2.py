@@ -276,7 +276,7 @@ def board_mount(z_floor, RB=None, RI=None):
 
 
 def build_rear_housing(pocket_d, r_body=None, r_inner=None, with_board=True,
-                       vent_ang=None, screw_ang=None, screw_r=None):
+                       vent_ang=None, screw_ang=None, screw_r=None, plate_t=None):
     """Electronics box + battery pocket + wall hanger. Prints rear-plate-down.
 
     v6 moved the S3 in here; v9 halves the depth. pocket_d is the clear depth;
@@ -289,9 +289,10 @@ def build_rear_housing(pocket_d, r_body=None, r_inner=None, with_board=True,
     VA = [50, 75, 100, 260, 285, 310] if vent_ang is None else vent_ang
     SA = SCREW_ANG if screw_ang is None else screw_ang
     SR = SCREW_R if screw_r is None else screw_r
+    PT = PLATE_T if plate_t is None else plate_t
     Z1 = Z_DECK                              # -2.40, mates to the base's deck
-    Z0 = Z1 - (PLATE_T + pocket_d)           # rear face, against the wall
-    Z_POCKET = Z0 + PLATE_T                  # floor of the pocket
+    Z0 = Z1 - (PT + pocket_d)                # rear face, against the wall
+    Z_POCKET = Z0 + PT                       # floor of the pocket
 
     body = cyl(RB, Z0, Z1, SEG)
     body -= cyl(RI, Z_POCKET, Z1 + 1.0, SEG)
@@ -316,7 +317,7 @@ def build_rear_housing(pocket_d, r_body=None, r_inner=None, with_board=True,
         x, y = SR*math.cos(math.radians(a)), SR*math.sin(math.radians(a))
         p = cyl(3.60, Z0, Z1, 40, centre=(x, y))
         h = (cyl(SCREW_CLEAR/2, Z0 - 1.0, Z1 + 1.0, 32, centre=(x, y))
-             + cyl(SCREW_HEAD/2, Z0 - 1.0, Z0 + 3.20, 40, centre=(x, y)))
+             + cyl(SCREW_HEAD/2, Z0 - 1.0, Z0 + min(3.20, PT - 0.60), 40, centre=(x, y)))
         pillars = p if pillars is None else pillars + p
         holes = h if holes is None else holes + h
     body += pillars
@@ -1315,9 +1316,11 @@ if __name__ == '__main__':
         tg = B.tag
         parts += [
             (assemble_base(B, sam),          f'mini-round-clock-base{tg}',      True),
-            (build_rear_housing(POCKET_DEEP, B.r_body, B.r_inner,
-                                vent_ang=B.vent_ang, screw_ang=B.screw_ang,
-                                screw_r=B.screw_r),
+            (build_rear_housing(
+                 POCKET_DEEP if B.n == 24 else HOUSING_DEEP_BIG - PLATE_T_BIG,
+                 B.r_body, B.r_inner,
+                 vent_ang=B.vent_ang, screw_ang=B.screw_ang, screw_r=B.screw_r,
+                 plate_t=None if B.n == 24 else PLATE_T_BIG),
                                              f'mini-round-clock-housing{tg}',   True),
             (build_diffuser(B),              f'mini-round-clock-diffuser{tg}',  True),
             (build_stand(B, Z_FRONT - (Z_DECK - HOUSING_DEEP)),
