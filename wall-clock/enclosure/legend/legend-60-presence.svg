@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="316.800mm" height="316.800mm" viewBox="0 0 316.800 316.800">
+  <!-- 60-LED legend collar, presence variant.
+       bore 240.80 dia (body 240.00 + 0.40 clearance), outside 308.80 dia.
+       RED = cut through, BLACK = engrave. -->
+  <defs>
+    <path id="lab0" fill="none" d="M 97.083 292.848 A 147.770 147.770 0 0 0 284.103 236.084"/>
+    <path id="lab1" fill="none" d="M 71.994 278.275 A 147.770 147.770 0 0 0 266.500 259.149"/>
+    <path id="lab2" fill="none" d="M 50.300 259.149 A 147.770 147.770 0 0 0 244.806 278.275"/>
+    <path id="lab3" fill="none" d="M 32.697 236.084 A 147.770 147.770 0 0 0 219.717 292.848"/>
+    <path id="title" fill="none" d="M 79.037 49.167 A 135.020 135.020 0 0 0 79.037 267.633"/>
+  </defs>
+
+  <g id="CUT" inkscape:label="CUT" inkscape:groupmode="layer" fill="none" stroke="#ff0000" stroke-width="0.10">
+    <circle cx="158.400" cy="158.400" r="154.400"/>
+    <circle cx="158.400" cy="158.400" r="120.400"/>
+  </g>
+
+  <g id="ENGRAVE" inkscape:label="ENGRAVE" inkscape:groupmode="layer" fill="#000000" stroke="none" font-family="DejaVu Sans, Helvetica, Arial, sans-serif">
+    <line x1="158.400" y1="8.500" x2="158.400" y2="5.500" stroke="#000000" stroke-width="0.60"/>
+    <line x1="174.069" y1="9.321" x2="174.382" y2="6.338" stroke="#000000" stroke-width="0.25"/>
+    <line x1="189.566" y1="11.776" x2="190.190" y2="8.841" stroke="#000000" stroke-width="0.25"/>
+    <line x1="204.722" y1="15.837" x2="205.649" y2="12.983" stroke="#000000" stroke-width="0.25"/>
+    <line x1="219.370" y1="21.460" x2="220.590" y2="18.719" stroke="#000000" stroke-width="0.25"/>
+    <line x1="233.350" y1="28.583" x2="234.850" y2="25.985" stroke="#000000" stroke-width="0.60"/>
+    <line x1="246.509" y1="37.128" x2="248.272" y2="34.701" stroke="#000000" stroke-width="0.25"/>
+    <line x1="258.703" y1="47.003" x2="260.710" y2="44.773" stroke="#000000" stroke-width="0.25"/>
+    <line x1="269.797" y1="58.097" x2="272.027" y2="56.090" stroke="#000000" stroke-width="0.25"/>
+    <line x1="279.672" y1="70.291" x2="282.099" y2="68.528" stroke="#000000" stroke-width="0.25"/>
+    <line x1="288.217" y1="83.450" x2="290.815" y2="81.950" stroke="#000000" stroke-width="0.60"/>
+    <line x1="295.340" y1="97.430" x2="298.081" y2="96.210" stroke="#000000" stroke-width="0.25"/>
+    <line x1="300.963" y1="112.078" x2="303.817" y2="111.151" stroke="#000000" stroke-width="0.25"/>
+    <line x1="305.024" y1="127.234" x2="307.959" y2="126.610" stroke="#000000" stroke-width="0.25"/>
+    <line x1="307.479" y1="142.731" x2="310.462" y2="142.418" stroke="#000000" stroke-width="0.25"/>
+    <line x1="308.300" y1="158.400" x2="311.300" y2="158.400" stroke="#000000" stroke-width="0.60"/>
+    <line x1="307.479" y1="174.069" x2="310.462" y2="174.382" stroke="#000000" stroke-width="0.25"/>
+    <line x1="305.024" y1="189.566" x2="307.959" y2="190.190" stroke="#000000" stroke-width="0.25"/>
+    <line x1="300.963" y1="204.722" x2="303.817" y2="205.649" stroke="#000000" stroke-width="0.25"/>
+    <line x1="295.340" y1="219.370" x2="298.081" y2="220.590" stroke="#000000" stroke-width="0.25"/>
+    <line x1="288.217" y1="233.350" x2="290.815" y2="234.850" stroke="#000000" stroke-width="0.60"/>
+    <line x1="279.672" y1="246.509" x2="282.099" y2="248.272" stroke="#000000" stroke-width="0.25"/>
+    <line x1="269.797" y1="258.703" x2="272.027" y2="260.710" stroke="#000000" stroke-width="0.25"/>
+    <line x1="258.703" y1="269.797" x2="260.710" y2="272.027" stroke="#000000" stroke-width="0.25"/>
+    <line x1="246.509" y1="279.672" x2="248.272" y2="282.099" stroke="#000000" stroke-width="0.25"/>
+    <line x1="233.350" y1="288.217" x2="234.850" y2="290.815" stroke="#000000" stroke-width="0.60"/>
+    <line x1="219.370" y1="295.340" x2="220.590" y2="298.081" stroke="#000000" stroke-width="0.25"/>
+    <line x1="204.722" y1="300.963" x2="205.649" y2="303.817" stroke="#000000" stroke-width="0.25"/>
+    <line x1="189.566" y1="305.024" x2="190.190" y2="307.959" stroke="#000000" stroke-width="0.25"/>
+    <line x1="174.069" y1="307.479" x2="174.382" y2="310.462" stroke="#000000" stroke-width="0.25"/>
+    <line x1="158.400" y1="308.300" x2="158.400" y2="311.300" stroke="#000000" stroke-width="0.60"/>
+    <line x1="142.731" y1="307.479" x2="142.418" y2="310.462" stroke="#000000" stroke-width="0.25"/>
+    <line x1="127.234" y1="305.024" x2="126.610" y2="307.959" stroke="#000000" stroke-width="0.25"/>
+    <line x1="112.078" y1="300.963" x2="111.151" y2="303.817" stroke="#000000" stroke-width="0.25"/>
+    <line x1="97.430" y1="295.340" x2="96.210" y2="298.081" stroke="#000000" stroke-width="0.25"/>
+    <line x1="83.450" y1="288.217" x2="81.950" y2="290.815" stroke="#000000" stroke-width="0.60"/>
+    <line x1="70.291" y1="279.672" x2="68.528" y2="282.099" stroke="#000000" stroke-width="0.25"/>
+    <line x1="58.097" y1="269.797" x2="56.090" y2="272.027" stroke="#000000" stroke-width="0.25"/>
+    <line x1="47.003" y1="258.703" x2="44.773" y2="260.710" stroke="#000000" stroke-width="0.25"/>
+    <line x1="37.128" y1="246.509" x2="34.701" y2="248.272" stroke="#000000" stroke-width="0.25"/>
+    <line x1="28.583" y1="233.350" x2="25.985" y2="234.850" stroke="#000000" stroke-width="0.60"/>
+    <line x1="21.460" y1="219.370" x2="18.719" y2="220.590" stroke="#000000" stroke-width="0.25"/>
+    <line x1="15.837" y1="204.722" x2="12.983" y2="205.649" stroke="#000000" stroke-width="0.25"/>
+    <line x1="11.776" y1="189.566" x2="8.841" y2="190.190" stroke="#000000" stroke-width="0.25"/>
+    <line x1="9.321" y1="174.069" x2="6.338" y2="174.382" stroke="#000000" stroke-width="0.25"/>
+    <line x1="8.500" y1="158.400" x2="5.500" y2="158.400" stroke="#000000" stroke-width="0.60"/>
+    <line x1="9.321" y1="142.731" x2="6.338" y2="142.418" stroke="#000000" stroke-width="0.25"/>
+    <line x1="11.776" y1="127.234" x2="8.841" y2="126.610" stroke="#000000" stroke-width="0.25"/>
+    <line x1="15.837" y1="112.078" x2="12.983" y2="111.151" stroke="#000000" stroke-width="0.25"/>
+    <line x1="21.460" y1="97.430" x2="18.719" y2="96.210" stroke="#000000" stroke-width="0.25"/>
+    <line x1="28.583" y1="83.450" x2="25.985" y2="81.950" stroke="#000000" stroke-width="0.60"/>
+    <line x1="37.128" y1="70.291" x2="34.701" y2="68.528" stroke="#000000" stroke-width="0.25"/>
+    <line x1="47.003" y1="58.097" x2="44.773" y2="56.090" stroke="#000000" stroke-width="0.25"/>
+    <line x1="58.097" y1="47.003" x2="56.090" y2="44.773" stroke="#000000" stroke-width="0.25"/>
+    <line x1="70.291" y1="37.128" x2="68.528" y2="34.701" stroke="#000000" stroke-width="0.25"/>
+    <line x1="83.450" y1="28.583" x2="81.950" y2="25.985" stroke="#000000" stroke-width="0.60"/>
+    <line x1="97.430" y1="21.460" x2="96.210" y2="18.719" stroke="#000000" stroke-width="0.25"/>
+    <line x1="112.078" y1="15.837" x2="111.151" y2="12.983" stroke="#000000" stroke-width="0.25"/>
+    <line x1="127.234" y1="11.776" x2="126.610" y2="8.841" stroke="#000000" stroke-width="0.25"/>
+    <line x1="142.731" y1="9.321" x2="142.418" y2="6.338" stroke="#000000" stroke-width="0.25"/>
+    <circle cx="201.861" cy="301.590" r="1.87" fill="none" stroke="#000000" stroke-width="0.35"/>
+    <!-- lit colour here is #002859 -->
+    <text font-size="6.29" font-weight="700" letter-spacing="0.38"><textPath xlink:href="#lab0" startOffset="50%" text-anchor="middle">SAM</textPath></text>
+    <circle cx="173.044" cy="307.322" r="1.87" fill="none" stroke="#000000" stroke-width="0.35"/>
+    <!-- lit colour here is #5a0046 -->
+    <text font-size="6.29" font-weight="700" letter-spacing="0.38"><textPath xlink:href="#lab1" startOffset="50%" text-anchor="middle">LAURA</textPath></text>
+    <circle cx="143.756" cy="307.322" r="1.87" fill="none" stroke="#000000" stroke-width="0.35"/>
+    <!-- lit colour here is #004628 -->
+    <text font-size="6.29" font-weight="700" letter-spacing="0.38"><textPath xlink:href="#lab2" startOffset="50%" text-anchor="middle">AMANDA</textPath></text>
+    <circle cx="114.939" cy="301.590" r="1.87" fill="none" stroke="#000000" stroke-width="0.35"/>
+    <!-- lit colour here is #463200 -->
+    <text font-size="6.29" font-weight="700" letter-spacing="0.38"><textPath xlink:href="#lab3" startOffset="50%" text-anchor="middle">ZAC</textPath></text>
+    <text font-size="4.42" fill="#000000" opacity="0.75"><textPath xlink:href="#title" startOffset="50%" text-anchor="middle">Who is home</textPath></text>
+  </g>
+</svg>

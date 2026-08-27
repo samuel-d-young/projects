@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="160.785mm" height="160.785mm" viewBox="0 0 160.785 160.785">
+  <!-- 24-LED legend collar, hours variant.
+       bore 108.79 dia (body 107.99 + 0.40 clearance), outside 152.79 dia.
+       RED = cut through, BLACK = engrave. -->
+  <defs>
+    <path id="title" fill="none" d="M 42.861 28.735 A 63.853 63.853 0 0 0 42.861 132.050"/>
+  </defs>
+
+  <g id="CUT" inkscape:label="CUT" inkscape:groupmode="layer" fill="none" stroke="#ff0000" stroke-width="0.10">
+    <circle cx="80.393" cy="80.393" r="76.393"/>
+    <circle cx="80.393" cy="80.393" r="54.393"/>
+  </g>
+
+  <g id="ENGRAVE" inkscape:label="ENGRAVE" inkscape:groupmode="layer" fill="#000000" stroke="none" font-family="DejaVu Sans, Helvetica, Arial, sans-serif">
+    <line x1="80.393" y1="8.500" x2="80.393" y2="5.500" stroke="#000000" stroke-width="0.60"/>
+    <line x1="99.000" y1="10.950" x2="99.776" y2="8.052" stroke="#000000" stroke-width="0.25"/>
+    <line x1="116.339" y1="18.132" x2="117.839" y2="15.534" stroke="#000000" stroke-width="0.60"/>
+    <line x1="131.228" y1="29.557" x2="133.350" y2="27.436" stroke="#000000" stroke-width="0.25"/>
+    <line x1="142.653" y1="44.446" x2="145.251" y2="42.946" stroke="#000000" stroke-width="0.60"/>
+    <line x1="149.836" y1="61.785" x2="152.733" y2="61.009" stroke="#000000" stroke-width="0.25"/>
+    <line x1="152.285" y1="80.393" x2="155.285" y2="80.393" stroke="#000000" stroke-width="0.60"/>
+    <line x1="149.836" y1="99.000" x2="152.733" y2="99.776" stroke="#000000" stroke-width="0.25"/>
+    <line x1="142.653" y1="116.339" x2="145.251" y2="117.839" stroke="#000000" stroke-width="0.60"/>
+    <line x1="131.228" y1="131.228" x2="133.350" y2="133.350" stroke="#000000" stroke-width="0.25"/>
+    <line x1="116.339" y1="142.653" x2="117.839" y2="145.251" stroke="#000000" stroke-width="0.60"/>
+    <line x1="99.000" y1="149.836" x2="99.776" y2="152.733" stroke="#000000" stroke-width="0.25"/>
+    <line x1="80.393" y1="152.285" x2="80.393" y2="155.285" stroke="#000000" stroke-width="0.60"/>
+    <line x1="61.785" y1="149.836" x2="61.009" y2="152.733" stroke="#000000" stroke-width="0.25"/>
+    <line x1="44.446" y1="142.653" x2="42.946" y2="145.251" stroke="#000000" stroke-width="0.60"/>
+    <line x1="29.557" y1="131.228" x2="27.436" y2="133.350" stroke="#000000" stroke-width="0.25"/>
+    <line x1="18.132" y1="116.339" x2="15.534" y2="117.839" stroke="#000000" stroke-width="0.60"/>
+    <line x1="10.950" y1="99.000" x2="8.052" y2="99.776" stroke="#000000" stroke-width="0.25"/>
+    <line x1="8.500" y1="80.393" x2="5.500" y2="80.393" stroke="#000000" stroke-width="0.60"/>
+    <line x1="10.950" y1="61.785" x2="8.052" y2="61.009" stroke="#000000" stroke-width="0.25"/>
+    <line x1="18.132" y1="44.446" x2="15.534" y2="42.946" stroke="#000000" stroke-width="0.60"/>
+    <line x1="29.557" y1="29.557" x2="27.436" y2="27.436" stroke="#000000" stroke-width="0.25"/>
+    <line x1="44.446" y1="18.132" x2="42.946" y2="15.534" stroke="#000000" stroke-width="0.60"/>
+    <line x1="61.785" y1="10.950" x2="61.009" y2="8.052" stroke="#000000" stroke-width="0.25"/>
+    <text x="114.409" y="21.475" font-size="5.29" text-anchor="middle" dominant-baseline="central" font-weight="600">1</text>
+    <text x="139.311" y="46.376" font-size="5.29" text-anchor="middle" dominant-baseline="central" font-weight="600">2</text>
+    <text x="148.425" y="80.393" font-size="5.29" text-anchor="middle" dominant-baseline="central" font-weight="600">3</text>
+    <text x="139.311" y="114.409" font-size="5.29" text-anchor="middle" dominant-baseline="central" font-weight="600">4</text>
+    <text x="114.409" y="139.311" font-size="5.29" text-anchor="middle" dominant-baseline="central" font-weight="600">5</text>
+    <text x="80.393" y="148.425" font-size="5.29" text-anchor="middle" dominant-baseline="central" font-weight="600">6</text>
+    <text x="46.376" y="139.311" font-size="5.29" text-anchor="middle" dominant-baseline="central" font-weight="600">7</text>
+    <text x="21.475" y="114.409" font-size="5.29" text-anchor="middle" dominant-baseline="central" font-weight="600">8</text>
+    <text x="12.360" y="80.393" font-size="5.29" text-anchor="middle" dominant-baseline="central" font-weight="600">9</text>
+    <text x="21.475" y="46.376" font-size="5.29" text-anchor="middle" dominant-baseline="central" font-weight="600">10</text>
+    <text x="46.376" y="21.475" font-size="5.29" text-anchor="middle" dominant-baseline="central" font-weight="600">11</text>
+    <text x="80.393" y="12.360" font-size="5.29" text-anchor="middle" dominant-baseline="central" font-weight="600">12</text>
+    <text font-size="2.86" fill="#000000" opacity="0.75"><textPath xlink:href="#title" startOffset="50%" text-anchor="middle">Hour numerals</textPath></text>
+  </g>
+</svg>

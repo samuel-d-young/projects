@@ -1,0 +1,95 @@
+# =============================================================================
+# wall_clock_weather.yaml — rain for the wall clock
+# =============================================================================
+# WHY THIS FILE EXISTS
+# --------------------
+# Everything else the clock shows about the weather is a plain attribute of the
+# weather entity — temperature, humidity, wind_speed, uv_index — and ESPHome
+# subscribes to those directly with no help from here.
+#
+# Rain is the exception. A Home Assistant weather entity carries NO current
+# precipitation attribute. Checked on this instance's own entity:
+#
+#     weather.forecast_home  ->  cloud_coverage, dew_point, humidity,
+#                                pressure, temperature, uv_index,
+#                                wind_bearing, wind_speed
+#
+# Precipitation lives in the FORECAST, and since 2024.4 the forecast is no
+# longer an attribute either — it is only reachable through the
+# `weather.get_forecasts` action. An action cannot be called from an ordinary
+# template sensor, which is why this is a TRIGGER-based template: the trigger
+# fires on a schedule, the action fetches the forecast, and the sensor is
+# rendered from what came back.
+#
+# THE ENTITY THE CLOCK LOOKS FOR
+# ------------------------------
+# `sensor.wall_clock_rain_today`, matching `rain_entity` in
+# mini-round-clock-with-display.yaml. Rename in both places or neither.
+#
+# If this package is not deployed the clock does not break: weather_rain stays
+# NaN, the renderer skips the fragment, and "Show rain" is a switch that does
+# nothing. That is deliberate — an undeployed package should cost a missing
+# word, not a "nan" on the wall.
+#
+# INSTALL
+# -------
+# Drop in /config/packages/ alongside the other wall_clock_*.yaml files and
+# restart Home Assistant. Requires `homeassistant: packages: !include_dir_named
+# packages` in configuration.yaml, which this instance already has.
+# =============================================================================
+
+template:
+  # ---------------------------------------------------------------------------
+  # RAIN TODAY — total precipitation in today's daily forecast
+  # ---------------------------------------------------------------------------
+  - trigger:
+      # Every 15 minutes, and once at startup so the clock is not blank for the
+      # first quarter of an hour after a restart. met.no updates roughly
+      # hourly, so 15 minutes is comfortably inside its resolution without
+      # hammering the integration.
+      - trigger: time_pattern
+        minutes: "/15"
+      - trigger: homeassistant
+        event: start
+    action:
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.forecast_home
+        data:
+          type: daily
+        response_variable: fc
+    sensor:
+      - name: "Wall clock rain today"
+        unique_id: wall_clock_rain_today
+        unit_of_measurement: "mm"
+        device_class: precipitation
+        state_class: measurement
+        # The first daily entry is today. `precipitation` is the accumulation
+        # for that day. default(0) rather than unknown, because "no rain in the
+        # forecast" and "the forecast does not mention rain" both mean 0 mm to
+        # someone glancing at a clock.
+        state: >-
+          {{ (fc['weather.forecast_home'].forecast[0].precipitation
+              | default(0) | float(0)) | round(1) }}
+        availability: >-
+          {{ fc is defined
+             and fc['weather.forecast_home'] is defined
+             and fc['weather.forecast_home'].forecast | count > 0 }}
+
+      # ---------------------------------------------------------------------
+      # RAIN CHANCE — the probability, which is the more useful number for
+      # "do I need a coat". Not read by the clock today; exposed because it is
+      # free once the forecast has been fetched, and it is the obvious next
+      # thing to want on the extras line.
+      # ---------------------------------------------------------------------
+      - name: "Wall clock rain chance"
+        unique_id: wall_clock_rain_chance
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: >-
+          {{ (fc['weather.forecast_home'].forecast[0].precipitation_probability
+              | default(0) | float(0)) | round(0) }}
+        availability: >-
+          {{ fc is defined
+             and fc['weather.forecast_home'] is defined
+             and fc['weather.forecast_home'].forecast | count > 0 }}

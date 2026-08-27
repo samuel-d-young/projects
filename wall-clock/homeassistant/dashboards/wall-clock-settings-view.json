@@ -358,6 +358,10 @@
               "label": "Subtitle lines"
             },
             {
+              "entity": "select.mini_round_clock_subtitle_text_size",
+              "name": "Subtitle size"
+            },
+            {
               "entity": "switch.mini_round_clock_show_date",
               "name": "Date"
             },
@@ -368,6 +372,30 @@
             {
               "entity": "switch.mini_round_clock_show_weather",
               "name": "Weather"
+            },
+            {
+              "type": "section",
+              "label": "Weather extras (bar panel)"
+            },
+            {
+              "entity": "switch.mini_round_clock_show_rain",
+              "name": "Rain"
+            },
+            {
+              "entity": "switch.mini_round_clock_show_humidity",
+              "name": "Humidity"
+            },
+            {
+              "entity": "switch.mini_round_clock_show_wind",
+              "name": "Wind"
+            },
+            {
+              "entity": "switch.mini_round_clock_show_uv_index",
+              "name": "UV index"
+            },
+            {
+              "entity": "switch.mini_round_clock_show_weather_in_words",
+              "name": "Weather in words"
             },
             {
               "type": "section",
@@ -782,6 +810,10 @@
               "label": "Subtitle lines"
             },
             {
+              "entity": "select.mini_round_clock_2_subtitle_text_size",
+              "name": "Subtitle size"
+            },
+            {
               "entity": "switch.mini_round_clock_2_show_date",
               "name": "Date"
             },
@@ -792,6 +824,30 @@
             {
               "entity": "switch.mini_round_clock_2_show_weather",
               "name": "Weather"
+            },
+            {
+              "type": "section",
+              "label": "Weather extras (bar panel)"
+            },
+            {
+              "entity": "switch.mini_round_clock_2_show_rain",
+              "name": "Rain"
+            },
+            {
+              "entity": "switch.mini_round_clock_2_show_humidity",
+              "name": "Humidity"
+            },
+            {
+              "entity": "switch.mini_round_clock_2_show_wind",
+              "name": "Wind"
+            },
+            {
+              "entity": "switch.mini_round_clock_2_show_uv_index",
+              "name": "UV index"
+            },
+            {
+              "entity": "switch.mini_round_clock_2_show_weather_in_words",
+              "name": "Weather in words"
             },
             {
               "type": "section",

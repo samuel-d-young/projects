@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="160.785mm" height="160.785mm" viewBox="0 0 160.785 160.785">
+  <!-- 24-LED legend collar, hands variant.
+       bore 108.79 dia (body 107.99 + 0.40 clearance), outside 152.79 dia.
+       RED = cut through, BLACK = engrave. -->
+  <defs>
+    <path id="lab0" fill="none" d="M 35.402 29.361 A 68.033 68.033 0 0 1 125.383 29.361"/>
+    <path id="sub0" fill="none" d="M 36.386 38.161 A 60.993 60.993 0 0 1 124.399 38.161"/>
+    <path id="lab1" fill="none" d="M 131.425 35.402 A 68.033 68.033 0 0 1 131.425 125.383"/>
+    <path id="sub1" fill="none" d="M 122.625 36.386 A 60.993 60.993 0 0 1 122.625 124.399"/>
+    <path id="lab2" fill="none" d="M 32.710 134.478 A 72.103 72.103 0 0 0 128.075 134.478"/>
+    <path id="sub2" fill="none" d="M 33.941 123.721 A 63.523 63.523 0 0 0 126.844 123.721"/>
+    <path id="lab3" fill="none" d="M 29.361 125.383 A 68.033 68.033 0 0 1 29.361 35.402"/>
+    <path id="sub3" fill="none" d="M 38.161 124.399 A 60.993 60.993 0 0 1 38.161 36.386"/>
+    <path id="title" fill="none" d="M 42.861 28.735 A 63.853 63.853 0 0 0 42.861 132.050"/>
+  </defs>
+
+  <g id="CUT" inkscape:label="CUT" inkscape:groupmode="layer" fill="none" stroke="#ff0000" stroke-width="0.10">
+    <circle cx="80.393" cy="80.393" r="76.393"/>
+    <circle cx="80.393" cy="80.393" r="54.393"/>
+  </g>
+
+  <g id="ENGRAVE" inkscape:label="ENGRAVE" inkscape:groupmode="layer" fill="#000000" stroke="none" font-family="DejaVu Sans, Helvetica, Arial, sans-serif">
+    <line x1="80.393" y1="8.500" x2="80.393" y2="5.500" stroke="#000000" stroke-width="0.60"/>
+    <line x1="99.000" y1="10.950" x2="99.776" y2="8.052" stroke="#000000" stroke-width="0.25"/>
+    <line x1="116.339" y1="18.132" x2="117.839" y2="15.534" stroke="#000000" stroke-width="0.60"/>
+    <line x1="131.228" y1="29.557" x2="133.350" y2="27.436" stroke="#000000" stroke-width="0.25"/>
+    <line x1="142.653" y1="44.446" x2="145.251" y2="42.946" stroke="#000000" stroke-width="0.60"/>
+    <line x1="149.836" y1="61.785" x2="152.733" y2="61.009" stroke="#000000" stroke-width="0.25"/>
+    <line x1="152.285" y1="80.393" x2="155.285" y2="80.393" stroke="#000000" stroke-width="0.60"/>
+    <line x1="149.836" y1="99.000" x2="152.733" y2="99.776" stroke="#000000" stroke-width="0.25"/>
+    <line x1="142.653" y1="116.339" x2="145.251" y2="117.839" stroke="#000000" stroke-width="0.60"/>
+    <line x1="131.228" y1="131.228" x2="133.350" y2="133.350" stroke="#000000" stroke-width="0.25"/>
+    <line x1="116.339" y1="142.653" x2="117.839" y2="145.251" stroke="#000000" stroke-width="0.60"/>
+    <line x1="99.000" y1="149.836" x2="99.776" y2="152.733" stroke="#000000" stroke-width="0.25"/>
+    <line x1="80.393" y1="152.285" x2="80.393" y2="155.285" stroke="#000000" stroke-width="0.60"/>
+    <line x1="61.785" y1="149.836" x2="61.009" y2="152.733" stroke="#000000" stroke-width="0.25"/>
+    <line x1="44.446" y1="142.653" x2="42.946" y2="145.251" stroke="#000000" stroke-width="0.60"/>
+    <line x1="29.557" y1="131.228" x2="27.436" y2="133.350" stroke="#000000" stroke-width="0.25"/>
+    <line x1="18.132" y1="116.339" x2="15.534" y2="117.839" stroke="#000000" stroke-width="0.60"/>
+    <line x1="10.950" y1="99.000" x2="8.052" y2="99.776" stroke="#000000" stroke-width="0.25"/>
+    <line x1="8.500" y1="80.393" x2="5.500" y2="80.393" stroke="#000000" stroke-width="0.60"/>
+    <line x1="10.950" y1="61.785" x2="8.052" y2="61.009" stroke="#000000" stroke-width="0.25"/>
+    <line x1="18.132" y1="44.446" x2="15.534" y2="42.946" stroke="#000000" stroke-width="0.60"/>
+    <line x1="29.557" y1="29.557" x2="27.436" y2="27.436" stroke="#000000" stroke-width="0.25"/>
+    <line x1="44.446" y1="18.132" x2="42.946" y2="15.534" stroke="#000000" stroke-width="0.60"/>
+    <line x1="61.785" y1="10.950" x2="61.009" y2="8.052" stroke="#000000" stroke-width="0.25"/>
+    <circle cx="80.393" cy="7.080" r="1.21" fill="none" stroke="#000000" stroke-width="0.35"/>
+    <!-- lit colour here is #ff7b1e -->
+    <text font-size="4.07" font-weight="700" letter-spacing="0.24"><textPath xlink:href="#lab0" startOffset="50%" text-anchor="middle">HOUR</textPath></text>
+    <text font-size="2.53"><textPath xlink:href="#sub0" startOffset="50%" text-anchor="middle">the short one, orange</textPath></text>
+    <circle cx="153.705" cy="80.393" r="1.21" fill="none" stroke="#000000" stroke-width="0.35"/>
+    <!-- lit colour here is #3c8cff -->
+    <text font-size="4.07" font-weight="700" letter-spacing="0.24"><textPath xlink:href="#lab1" startOffset="50%" text-anchor="middle">MINUTE</textPath></text>
+    <text font-size="2.53"><textPath xlink:href="#sub1" startOffset="50%" text-anchor="middle">blue</textPath></text>
+    <circle cx="80.393" cy="153.705" r="1.21" fill="none" stroke="#000000" stroke-width="0.35"/>
+    <!-- lit colour here is #9a9a9a -->
+    <text font-size="4.07" font-weight="700" letter-spacing="0.24"><textPath xlink:href="#lab2" startOffset="50%" text-anchor="middle">SECOND</textPath></text>
+    <text font-size="2.53"><textPath xlink:href="#sub2" startOffset="50%" text-anchor="middle">grey, off by default</textPath></text>
+    <circle cx="7.080" cy="80.393" r="1.21" fill="none" stroke="#000000" stroke-width="0.35"/>
+    <!-- lit colour here is #00b4a0 -->
+    <text font-size="4.07" font-weight="700" letter-spacing="0.24"><textPath xlink:href="#lab3" startOffset="50%" text-anchor="middle">TIMER</textPath></text>
+    <text font-size="2.53"><textPath xlink:href="#sub3" startOffset="50%" text-anchor="middle">teal arc, drains to zero</textPath></text>
+    <text font-size="2.86" fill="#000000" opacity="0.75"><textPath xlink:href="#title" startOffset="50%" text-anchor="middle">Hands and timer</textPath></text>
+  </g>
+</svg>

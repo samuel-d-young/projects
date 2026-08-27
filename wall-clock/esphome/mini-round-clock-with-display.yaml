@@ -125,7 +125,19 @@ substitutions:
   night_end_hour: "7"
 
   # ---- your Home Assistant weather entity ----------------------------------
-  weather_entity: weather.home
+  # CORRECTED 2026-08-27: this said `weather.home`, which does not exist on
+  # this instance -- so weather_temp and weather_condition were permanently
+  # unavailable and every weather feature on both panels silently did nothing.
+  # The real entity is the met.no one the default HA onboarding creates.
+  # Check yours with: curl .../api/states | grep '"weather\.'
+  weather_entity: weather.forecast_home
+
+  # Rain needs a sensor of its own: a weather entity carries no current
+  # precipitation attribute (it lives in the forecast, which only a service
+  # call can reach). packages/wall_clock_weather.yaml defines this one from
+  # weather.get_forecasts. If it is absent the clock just never shows rain --
+  # the switch is there, the line stays empty, nothing breaks.
+  rain_entity: sensor.wall_clock_rain_today
 
 esphome:
   name: ${device_name}
@@ -337,6 +349,31 @@ sensor:
     id: weather_temp
     entity_id: ${weather_entity}
     attribute: temperature
+
+  # ---- the rest of the weather entity's attributes -------------------------
+  # All four are plain attributes of the same entity, so they cost one HA
+  # subscription each and nothing else. Verified present on met.no's entity:
+  # humidity, wind_speed, pressure and uv_index are all published.
+  - platform: homeassistant
+    id: weather_humidity
+    entity_id: ${weather_entity}
+    attribute: humidity
+
+  - platform: homeassistant
+    id: weather_wind
+    entity_id: ${weather_entity}
+    attribute: wind_speed
+
+  - platform: homeassistant
+    id: weather_uv
+    entity_id: ${weather_entity}
+    attribute: uv_index
+
+  # Rain is NOT an attribute -- see rain_entity in the substitutions. Stays
+  # NaN when that sensor does not exist, and every use below guards for it.
+  - platform: homeassistant
+    id: weather_rain
+    entity_id: ${rain_entity}
 
 text_sensor:
   - platform: homeassistant
@@ -856,6 +893,22 @@ select:
     optimistic: true
     restore_value: true
 
+  # Size of the DATE and WEATHER lines under the time, independent of the time
+  # itself. Separate control because the two want opposite things: the time
+  # should be as large as the panel allows, and the subtitles want to be small
+  # enough that three of them fit across a 320 px line.
+  - platform: template
+    id: sub_size
+    name: "Subtitle text size"
+    entity_category: config
+    icon: mdi:format-size
+    options:
+      - "small"
+      - "medium"
+    initial_option: "medium"
+    optimistic: true
+    restore_value: true
+
   # What the SCREEN does while a timer runs. The ring drains either way — that
   # is the ring's job and it is not affected by this.
   #
@@ -1118,6 +1171,52 @@ switch:
     icon: mdi:weather-partly-cloudy
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
+
+  # ---- the extra weather line, bar panel only --------------------------------
+  # These four share ONE line under the date on the 320x170 bar. Each is off by
+  # default: a letterbox has room for two or three of them, not four, and the
+  # renderer simply stops when the line is full rather than overprinting.
+  # The round face does not offer them -- it has no spare line, which is the
+  # same reason it does not offer the analogue faces to the bar.
+  - platform: template
+    id: show_rain
+    name: "Show rain"
+    entity_category: config
+    icon: mdi:weather-rainy
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: template
+    id: show_humidity
+    name: "Show humidity"
+    entity_category: config
+    icon: mdi:water-percent
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: template
+    id: show_wind
+    name: "Show wind"
+    entity_category: config
+    icon: mdi:weather-windy
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: template
+    id: show_uv
+    name: "Show UV index"
+    entity_category: config
+    icon: mdi:weather-sunny-alert
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: template
+    id: show_condition
+    name: "Show weather in words"
+    entity_category: config
+    icon: mdi:text-short
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
 
   # ---------------------------------------------------------------------------
   # THE AMBIENT HINTS, ONE SWITCH EACH
@@ -2723,6 +2822,10 @@ display:
       // A bar has room for exactly one line under the time. Rather than pick
       // one and drop the other, they take an end each -- which is also what the
       // round face does with the digital sub-dial and the date.
+      // "Subtitle text size" picks the face for both lines. small buys room
+      // for a third item on the extras line; medium is easier from the room.
+      const bool sub_small = id(sub_size).current_option().str() == "small";
+      auto *f_sub = sub_small ? id(font_small) : id(font_med);
       const int sy = 128;
       if (id(show_date).state) {
         static const char *dows[7] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
@@ -2732,7 +2835,7 @@ display:
                    dows[now.day_of_week - 1], now.day_of_month, now.month);
         else
           snprintf(dbuf, sizeof(dbuf), "%d/%d", now.day_of_month, now.month);
-        it.print(id(show_weather).state ? 10 : W / 2, sy, id(font_med), c_sec,
+        it.print(id(show_weather).state ? 10 : W / 2, sy, f_sub, c_sec,
                  id(show_weather).state ? TextAlign::TOP_LEFT : TextAlign::TOP_CENTER,
                  dbuf);
       }
@@ -2740,8 +2843,81 @@ display:
       if (id(show_weather).state) {
         const float tC = id(weather_temp).state;
         if (!std::isnan(tC))
-          it.printf(W - 10, sy, id(font_med), c_hour, TextAlign::TOP_RIGHT,
+          it.printf(W - 10, sy, f_sub, c_hour, TextAlign::TOP_RIGHT,
                     "%.1f°", tC);
+      }
+
+      // ---- the extras line: rain, humidity, wind, UV, condition -------------
+      // One line, built left to right from whichever switches are on, and it
+      // STOPS when the line is full rather than overprinting -- a letterbox
+      // has room for two or three of these, not five, and a wall clock that
+      // prints one reading on top of another is worse than one that omits it.
+      //
+      // Anything NaN is skipped silently: rain in particular depends on a
+      // sensor that only exists once packages/wall_clock_weather.yaml is
+      // deployed, and an undeployed package should cost a missing word, not
+      // a "nan" on the wall.
+      if (id(show_weather).state) {
+        const int ey = sy + (sub_small ? 20 : 26);
+        if (ey + 14 < H) {
+          char ebuf[64];
+          int  used = 0;
+          ebuf[0] = '\0';
+          // ~6.2 px per character at font_small, ~8.4 at font_med. The budget
+          // is the panel width less both margins, converted to characters.
+          const int budget = (int) ((W - 20) / (sub_small ? 6.2f : 8.4f));
+
+          auto append = [&](const char *frag) {
+            const int need = (int) strlen(frag) + (used ? 2 : 0);
+            if (used + need > budget) return;          // full: stop, do not wrap
+            if (used) { strncat(ebuf, "  ", sizeof(ebuf) - strlen(ebuf) - 1); }
+            strncat(ebuf, frag, sizeof(ebuf) - strlen(ebuf) - 1);
+            used += need;
+          };
+
+          char frag[24];
+          if (id(show_rain).state) {
+            const float mm = id(weather_rain).state;
+            if (!std::isnan(mm)) {
+              snprintf(frag, sizeof(frag), "%.1fmm", mm);
+              append(frag);
+            }
+          }
+          if (id(show_humidity).state) {
+            const float h = id(weather_humidity).state;
+            if (!std::isnan(h)) {
+              snprintf(frag, sizeof(frag), "%.0f%%", h);
+              append(frag);
+            }
+          }
+          if (id(show_wind).state) {
+            const float ws = id(weather_wind).state;
+            if (!std::isnan(ws)) {
+              snprintf(frag, sizeof(frag), "%.0fkm/h", ws);
+              append(frag);
+            }
+          }
+          if (id(show_uv).state) {
+            const float uv = id(weather_uv).state;
+            if (!std::isnan(uv)) {
+              snprintf(frag, sizeof(frag), "UV%.0f", uv);
+              append(frag);
+            }
+          }
+          if (id(show_condition).state) {
+            // The condition slug with its hyphens opened out, so "partlycloudy"
+            // and "lightning-rainy" read as words rather than as identifiers.
+            std::string c = id(weather_condition).state;
+            if (!c.empty()) {
+              for (size_t i = 0; i < c.size(); i++) if (c[i] == '-') c[i] = ' ';
+              snprintf(frag, sizeof(frag), "%.20s", c.c_str());
+              append(frag);
+            }
+          }
+
+          if (ebuf[0])
+            it.print(W / 2, ey, id(font_small), c_sec, TextAlign::TOP_CENTER, ebuf);
+        }
       }
 
       // Stale-status hint, in the same corner and the same red the round face

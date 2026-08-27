@@ -167,9 +167,19 @@ def clock_cards(slug, label):
             section("While a timer runs"),
             row(e("select", "screen_during_a_timer"), "Screen shows"),
             section("Subtitle lines"),
+            row(e("select", "subtitle_text_size"), "Subtitle size"),
             row(e("switch", "show_date"), "Date"),
             row(e("switch", "show_day_of_week"), "Day of week"),
             row(e("switch", "show_weather"), "Weather"),
+            # The extras line is bar-panel only -- the round face has no spare
+            # line for it. Left visible on both so the controls do not appear
+            # and vanish when the panel is switched, which reads as a bug.
+            section("Weather extras (bar panel)"),
+            row(e("switch", "show_rain"), "Rain"),
+            row(e("switch", "show_humidity"), "Humidity"),
+            row(e("switch", "show_wind"), "Wind"),
+            row(e("switch", "show_uv_index"), "UV index"),
+            row(e("switch", "show_weather_in_words"), "Weather in words"),
             section("Background"),
             row(e("number", "weather_tint_strength"), "Weather tint"),
         ],
