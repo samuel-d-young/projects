@@ -3789,3 +3789,84 @@ braces balance, and the countdown arc simulated over 0–600 s on all three ring
   the first one in one look.
 * If the 24's 5.04 mm tick reads too short in print, the three levers above are the
   ones to pull, and they need a decision rather than a guess.
+
+---
+
+## 2026-08-27 (later) — The firmware could not have been flashed. Two blocking bugs, found by actually running `esphome config`
+
+Sam: *"Push the update to the clock plugged in. The colours are still opposite."*
+
+I cannot push it — this session runs in a cloud container with no route to his LAN,
+no Home Assistant credentials and no serial device attached (`/dev/ttyUSB*`,
+`/dev/ttyACM*`, `/dev/serial*` all absent, `list_ports.comports()` empty). Said
+plainly rather than attempted.
+
+What I could do was install ESPHome and **validate the config for the first time**,
+which turned up two errors that would each have failed his flash outright.
+
+### 1. `channel_colors` does not exist, and neither does the version I cited (verified)
+
+The ring's light block carried:
+
+```yaml
+# `rgb_order:` was DEPRECATED in ESPHome 2026.8.0 — this exact version.
+channel_colors: GRB
+```
+
+**There is no ESPHome 2026.8.0.** Checked against the package index on 2026-08-27:
+the newest release that exists is **2026.6.5**, and there is no 2026.7 or 2026.8 at
+all. In 2026.6.5, read out of the installed source rather than asserted:
+
+```python
+# components/esp32_rmt_led_strip/light.py:83
+cv.Required(CONF_RGB_ORDER): cv.enum(RGB_ORDERS, upper=True)
+```
+
+`rgb_order` is **required**, `channel_colors` is not a key, and `esphome config`
+fails the whole file. Reverted to `rgb_order: GRB`.
+
+This is a correction to a claim this file made about itself, and it is the second
+time on this project that a confidently-stated version number turned out to be the
+thing that was wrong. **A version number is a fact to be checked, not a citation to
+be reused** — and the check costs one command.
+
+It also settles when the clock was last flashed: whatever is running on the wall
+predates the `channel_colors` edit, because the config has not been valid since.
+Everything from the bar-panel work onward has never been on hardware.
+
+### 2. Two panels cannot share a DC pin without saying so (verified)
+
+```
+Pin 13 is used in multiple places.
+```
+
+Both `mipi_spi` displays declare `dc_pin: GPIO13`. The sharing is deliberate and
+safe — D/C is only sampled by a chip whose CS is low, and only one CS is ever low —
+but ESPHome's pin validator counts declarations and does not know that. The fix is
+`allow_other_uses: true`, and it has to go on **both** declarations; marking one and
+not the other still fails.
+
+### The colour fix, now confirmed against the real source
+
+The reasoning held up when read out of 2026.6.5 rather than out of memory:
+
+* `components/mipi/__init__.py:215` — `model.option(CONF_COLOR_ORDER, MODE_BGR)`.
+  The default really is **BGR**.
+* `get_madctl()` at :558 — `if config[CONF_COLOR_ORDER] == MODE_BGR: madctl |= MADCTL_BGR`
+  (`0x08`). RGB leaves bit 3 clear.
+* `get_sequence()` at :575 — appends `(PIXFMT, pixel_mode)` unconditionally (the
+  docstring's "if not already in the custom sequence" is not implemented), then
+  `add_madctl()` appends `(MADCTL, madctl)` **after** the custom sequence.
+
+So the panel was being driven BGR while xboot's verified driver drives it with
+`0x36 0x00`, which is RGB — red and blue in each other's channel, which is what Sam
+sees. `esphome config` now resolves `face_lcd` to `color_order: RGB`,
+`invert_colors: false`, and the whole file validates: **exit 0, no warnings** beyond
+the ESP32-S3 framework notice.
+
+### Open
+
+* Still not flashed. But the config is now known to validate, which it demonstrably
+  was not before, so the next attempt should get as far as compiling.
+* `Face -> colour test` is the first thing to look at afterwards.
+

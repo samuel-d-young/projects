@@ -1403,10 +1403,23 @@ light:
     # DID accept WS2812B, so a copy-paste from an old config fails validation.)
     chipset: WS2812
 
-    # `rgb_order:` was DEPRECATED in ESPHome 2026.8.0 — this exact version.
-    # channel_colors replaces it and absorbs the old is_rgbw/is_wrgb keys; the
-    # two cannot be combined. If red and green come out swapped, change to RGB.
-    channel_colors: GRB
+    # `rgb_order`, NOT `channel_colors`. CORRECTING A CLAIM THIS FILE MADE.
+    # The comment here used to say channel_colors replaced rgb_order in "ESPHome
+    # 2026.8.0 -- this exact version". There is no 2026.8.0. Checked against the
+    # index on 2026-08-27: the newest ESPHome that exists is 2026.6.5, and there
+    # is no 2026.7 or 2026.8 at all.
+    #
+    # Read out of the installed 2026.6.5 source rather than asserted:
+    # components/esp32_rmt_led_strip/light.py line 83 --
+    #     cv.Required(CONF_RGB_ORDER): cv.enum(RGB_ORDERS, upper=True)
+    # It is REQUIRED, channel_colors is not a key at all, and `esphome config`
+    # fails the whole file on it. So the config as it stood could not have been
+    # flashed. Accepted values are RGB RBG GRB GBR BGR BRG (light.py:36).
+    #
+    # If red and green come out swapped on the ring, change this to RGB. Note
+    # that this is the RING's byte order and has nothing to do with the screen's
+    # `color_order:` -- different component, different chip, different bug.
+    rgb_order: GRB
 
     # Gamma OFF by design. The default of 2.8 would make the brightness number
     # non-linear (50% would be ~14% duty), and the cap has to double as the
@@ -1804,7 +1817,18 @@ display:
     id: face_lcd
     spi_id: lcd_bus
     cs_pin: ${lcd_cs}
-    dc_pin: ${lcd_dc}
+    # allow_other_uses, because the bar panel shares this DC line. Without it
+    # ESPHome refuses the whole file with "Pin 13 is used in multiple places" --
+    # its pin validator counts every declaration, and does not know that two SPI
+    # devices with their own chip selects can share D/C safely. The sharing is
+    # deliberate and is safe for the same reason the bus itself is: DC is only
+    # sampled by a chip whose CS is low, and only one CS is ever low.
+    #
+    # It goes on BOTH declarations. ESPHome requires every user of a shared pin
+    # to opt in; marking one and not the other still fails.
+    dc_pin:
+      number: ${lcd_dc}
+      allow_other_uses: true
     reset_pin: ${lcd_reset}
     dimensions:
       width: 360
@@ -2504,7 +2528,9 @@ display:
     id: bar_lcd
     spi_id: lcd_bus
     cs_pin: ${lcd_cs_bar}         # its own — never the round panel's
-    dc_pin: ${lcd_dc}             # shared: only meaningful while CS is low
+    dc_pin:                       # shared: only meaningful while CS is low
+      number: ${lcd_dc}
+      allow_other_uses: true
     reset_pin: ${lcd_reset_bar}   # its own — see the dispatcher's comment
     dimensions:
       width: 170
