@@ -123,6 +123,22 @@
     ]
   },
   {
+    "type": "markdown",
+    "visibility": [
+      {
+        "condition": "state",
+        "entity": "input_select.wall_clock_target",
+        "state": "Mini Round Clock"
+      },
+      {
+        "condition": "state",
+        "entity": "binary_sensor.mini_round_clock_status",
+        "state_not": "on"
+      }
+    ],
+    "content": "### Mini Round Clock is not connected\n\nIts controls are hidden because the device is not on the network, so every one of them would read *Entity not found*.\n\nIf it is powered and on wifi, it needs flashing with firmware that declares the status sensor (`binary_sensor: platform: status`) before this page can tell it apart from a clock that is simply absent."
+  },
+  {
     "type": "entities",
     "title": "Mini Round Clock \u2014 Ring",
     "show_header_toggle": false,
@@ -801,6 +817,22 @@
         "name": "Blank screen at night"
       }
     ]
+  },
+  {
+    "type": "markdown",
+    "visibility": [
+      {
+        "condition": "state",
+        "entity": "input_select.wall_clock_target",
+        "state": "Mini Round Clock 2"
+      },
+      {
+        "condition": "state",
+        "entity": "binary_sensor.mini_round_clock_2_status",
+        "state_not": "on"
+      }
+    ],
+    "content": "### Mini Round Clock 2 is not connected\n\nIts controls are hidden because the device is not on the network, so every one of them would read *Entity not found*.\n\nIf it is powered and on wifi, it needs flashing with firmware that declares the status sensor (`binary_sensor: platform: status`) before this page can tell it apart from a clock that is simply absent."
   },
   {
     "type": "entities",
@@ -1483,6 +1515,22 @@
     ]
   },
   {
+    "type": "markdown",
+    "visibility": [
+      {
+        "condition": "state",
+        "entity": "input_select.wall_clock_target",
+        "state": "Mini Round Clock 3"
+      },
+      {
+        "condition": "state",
+        "entity": "binary_sensor.mini_round_clock_3_status",
+        "state_not": "on"
+      }
+    ],
+    "content": "### Mini Round Clock 3 is not connected\n\nIts controls are hidden because the device is not on the network, so every one of them would read *Entity not found*.\n\nIf it is powered and on wifi, it needs flashing with firmware that declares the status sensor (`binary_sensor: platform: status`) before this page can tell it apart from a clock that is simply absent."
+  },
+  {
     "type": "entities",
     "title": "Mini Round Clock 3 \u2014 Ring",
     "show_header_toggle": false,
@@ -2161,6 +2209,22 @@
         "name": "Blank screen at night"
       }
     ]
+  },
+  {
+    "type": "markdown",
+    "visibility": [
+      {
+        "condition": "state",
+        "entity": "input_select.wall_clock_target",
+        "state": "Test Clock (D1 mini)"
+      },
+      {
+        "condition": "state",
+        "entity": "binary_sensor.test_clock_status",
+        "state_not": "on"
+      }
+    ],
+    "content": "### Test Clock (D1 mini) is not connected\n\nIts controls are hidden because the device is not on the network, so every one of them would read *Entity not found*.\n\nIf it is powered and on wifi, it needs flashing with firmware that declares the status sensor (`binary_sensor: platform: status`) before this page can tell it apart from a clock that is simply absent."
   },
   {
     "type": "entities",

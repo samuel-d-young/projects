@@ -114,6 +114,43 @@ def section(label):
     return {"type": "section", "label": label}
 
 
+def absent_card(slug, label):
+    """Shown INSTEAD of a clock's controls when that clock is not there.
+
+    Gating the controls on `binary_sensor.<slug>_status` stops a page full of
+    yellow "Entity not found" rows, which is what Sam asked for -- but on its
+    own it replaces them with nothing at all, and a clock that silently
+    vanishes from its own picker is its own kind of wrong. The bench session
+    raised exactly this when it declined to paste the gated view over the live
+    one: clocks 1 and 2 would disappear rather than read as unavailable.
+
+    So each clock gets this, on the opposite condition. `state_not` is true
+    both when the sensor exists and is off (flashed, off the network) and when
+    the entity does not exist at all (never flashed) -- a missing entity has
+    no state, and no state is not "on". That second case is the one that
+    matters for clocks 1 and 2 today, and it is the case I can least verify
+    from here, so if it turns out that a missing entity renders nothing, this
+    card is no worse than the blank it replaces.
+    """
+    return {
+        "type": "markdown",
+        "visibility": [
+            {"condition": "state", "entity": PICKER, "state": label},
+            {"condition": "state", "entity": "binary_sensor.%s_status" % slug,
+             "state_not": "on"},
+        ],
+        "content": (
+            "### %s is not connected\n\n"
+            "Its controls are hidden because the device is not on the network, "
+            "so every one of them would read *Entity not found*.\n\n"
+            "If it is powered and on wifi, it needs flashing with firmware that "
+            "declares the status sensor (`binary_sensor: platform: status`) "
+            "before this page can tell it apart from a clock that is simply "
+            "absent." % label
+        ),
+    }
+
+
 def basic_cards(slug, label, backlight):
     """Everything a `basic` firmware actually exposes, and nothing it does not.
 
@@ -454,6 +491,7 @@ def build():
         },
     ]
     for c in CLOCKS:
+        cards.append(absent_card(c["slug"], c["label"]))
         if c.get("tier") == "basic":
             cards += basic_cards(c["slug"], c["label"], c.get("backlight", False))
         else:

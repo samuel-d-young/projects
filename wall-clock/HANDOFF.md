@@ -121,9 +121,18 @@ can see, so every flash is a hands step. What the bench session settled:
   re-downloads into the profile and the build fails on path length.
 - Never pipe the compile through `tail` or `Select-Object -Last`; it hides the
   error and the exit code.
-- Clock #1 (round 360x360, 24 LEDs, `mini-round-clock`) is **COM7**, on the
-  LAN as 192.168.1.23. Clock #2 (`mini-round-clock-2`, 32 LEDs) is **COM12**,
-  192.168.1.64, and needs its substitutions on the command line.
+- Clock #1 (round 360x360, 24 LEDs, `mini-round-clock`) is **COM7**. Clock #2
+  (`mini-round-clock-2`, 32 LEDs) is **COM12**, and needs its substitutions on
+  the command line. Clock 3 (`mini-round-clock-3`, 32 LEDs) is **COM11** and
+  **192.168.1.69**.
+- **THE OLD IP ADDRESSES ARE GONE.** Clock #1 was 192.168.1.23 and clock #2
+  was .64; as of 2026-09-03 neither answers. .23 now belongs to something
+  else entirely -- MAC C4-E7-AE-16-6B-A6 where the clocks are `ac:27:6e:*`,
+  port 80 open, 3232 and 6053 closed. **Do not flash blind at a recorded
+  address**: check the MAC or the mDNS name first, or you will push clock
+  firmware at a stranger's device. Neither `mini-round-clock.local` nor
+  `mini-round-clock-2.local` resolves. Both boards are off the network and
+  cannot be flashed until they are back on it.
 - Flash with the LED supply unplugged; USB and the external 5 V together can
   damage the board.
 
@@ -141,10 +150,13 @@ esphome run mini-round-clock-with-display.yaml --device 192.168.1.23
 esphome run mini-round-clock-with-display.yaml --device COM12 `
   -s device_name mini-round-clock-2 -s friendly_name "Mini Round Clock 2" -s num_leds 32
 
-# clock 3 -- the third board, 2026-09-03. num_leds is only the DEFAULT; the
-# ring size is a runtime number in Home Assistant, ceiling 60.
-esphome run mini-round-clock-with-display.yaml --device COMx `
-  -s device_name mini-round-clock-3 -s friendly_name "Mini Round Clock 3" -s num_leds 24
+# clock 3 -- the third board, 2026-09-03. THE ONE THAT IS ACTUALLY RUNNING.
+# COM11 on the bench; 192.168.1.69, MAC ac:27:6e:a3:3b:ac,
+# mini-round-clock-3.local. 32 LEDs, not 24 -- Sam said "32 LEDS" for this
+# board. num_leds is only the compile-time DEFAULT in any case; the ring size
+# is a runtime number in Home Assistant with a ceiling of 60.
+esphome run mini-round-clock-with-display.yaml --device COM11 `
+  -s device_name mini-round-clock-3 -s friendly_name "Mini Round Clock 3" -s num_leds 32
 ```
 
 **Identify a board before writing to it.** `esphome logs
