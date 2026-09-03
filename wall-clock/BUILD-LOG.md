@@ -4319,7 +4319,10 @@ pushes second merges; nothing is lost, but it is not automatic.
 
 ### Open, from the bench
 
-1. **Clock #2's screen is backlit but blank.** Already ruled out: panel
+1. **Clock #2's screen is backlit but blank.** *Resolved 2026-09-03: after
+   the grow-eyes flash Sam reports "screen works fine"; cause not
+   established, a reseated FPC is the likeliest — see that entry's "Bench
+   outcome".* Already ruled out: panel
    selection, the switches, brightness, firmware, and the strap. The firmware IS
    rendering (432 render events in its boot log). Suspect order: **RST GPIO14**,
    then CS GPIO10, DC GPIO13, then SCL/SDA. The FPC order is
@@ -4603,3 +4606,44 @@ the edge of the eye box, whether 10 fps at 20 MHz feels smooth or stutters
 when the ring effect and the API share the loop, and whether a 1-frame blink
 reads as a blink on a TFT that ghosts. The preview cannot tell; the first
 flash will.
+
+### Bench outcome, the same day
+
+Both boards were flashed from the cloud after all — not by this session,
+which has no serial port, but by handing the job to the Claude Code
+**Remote Control** session already running on Sam's PC (`claude
+remote-control`, bridge to his machine). The hand-off is a poke-only Routine
+bound to that session (`create_trigger` with `persistent_session_id`, then
+`fire_trigger`), carrying the full recipe as its prompt. Two things learned
+about that mechanism, both the expensive way:
+
+* **Cross-session messaging cannot reach a Remote Control session from
+  here** (`SendMessage` by name or id: "not reachable"); the Routine is the
+  only path, and it works.
+* **Firing a Routine at a session that is busy does not queue: it spawns a
+  fresh cloud session in the Routine's environment**, with no serial port,
+  and starts running the flash prompt there. One got as far as a minute of
+  work before it was interrupted. The rule now: check the target is IDLE
+  before firing, and delete a poke-only Routine the moment its firing has
+  landed, so nothing can re-fire it.
+
+Results, as reported by Sam:
+
+* **Clock #2 (`mini-round-clock-2`, 32 LEDs, COM12): "Screen works fine."**
+  This closes the "backlit but blank" fault open since 2026-08-27. Why it
+  is fixed is NOT known. The bench had already ruled the firmware out — the
+  08-27 log showed it rendering, 432 render events — so this is not the
+  PSRAM or safe-mode disguise from the corrections entry, and the two checks
+  on the open list (RST on GPIO14, a panel swap) were never made. What did
+  change is that the board was handled and plugged in again; the open
+  list's own top suspect was a skewed 10-pin FPC that powers the panel (BL
+  pin 3, VCC/GND pins 9–10) while leaving the signal pins open, and a
+  reseat is exactly what would clear that. Likely, not proven. If it goes
+  blank again, the connector is the first thing to look at, not the code.
+* **Clock #1 (24 LEDs, COM7):** flashed first, at 09:40 UTC. The three
+  questions the preview could not answer — a seam at the eye-box edge,
+  smoothness at 10 fps, whether the one-frame blink reads — are still
+  waiting on a look at the panel.
+
+The "Open, from the bench" list above is amended: clock #2's blank screen is
+resolved; its RST and panel-swap checks are dropped.
