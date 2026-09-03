@@ -5161,3 +5161,59 @@ not a reflash.
   only 8123 open, and the REST API has no file-write endpoint. It needs the
   Terminal & SSH or Samba add-on enabled, which is Sam's to do. Until then the
   clock picker's options are set at runtime and die at the next restart.
+
+## 2026-09-04 — The repaint that had nothing to repaint
+
+Sam, once the band fix was on the panel: *"The screen is now flickering the
+graphics."*
+
+That is mine. The band fix did not cause it, it **uncovered** it: while every
+animation frame was being discarded by the driver, the panel only ever redrew
+on the once-a-second full frame, and the second fault could not show. The
+moment those frames started arriving, it did.
+
+The 100 ms animation interval repainted **whether or not anything had moved**.
+The animator spends far longer holding a resting pose in an idle gap than it
+does inside a clip, so most of those repaints drew the identical eye box over
+the identical eye box — six lambda passes and four banded flushes each time,
+roughly 60 ms of SPI, ten times a second, to change nothing. On the panel that
+is the graphics flickering.
+
+The frame is skipped now unless the pose has actually changed: gaze, both
+lids, the smile, the height scale, the yawn, and the z-drift quantised to 8
+steps a cycle so it does not tick on its own ten times a second. Thresholds
+are below what a pixel can show. Through an idle gap nothing is drawn at all;
+inside a clip it runs at the full rate.
+
+Two details that are easy to get wrong and are worth the words:
+
+- The recorded pose is set **after** the update, not before, so a frame that
+  never reached the panel is not recorded as shown.
+- A **full** frame records it too. A full frame repaints the eye box as well,
+  so the next partial frame is correctly skipped — and recording it means
+  that staying correct does not depend on anyone remembering that.
+
+```
+RAM:   [==        ]  18.9% (used 61924 bytes from 327680 bytes)
+Flash: [======    ]  60.9% (used 1116707 bytes from 1835008 bytes)
+```
+
+0 errors. Up 128 bytes of RAM on the previous build, which is the eight
+globals. Not seen on the panel yet. The immediate workaround, and it is a
+real one, is the **Grow clock animate** switch: off, there are no partial
+frames at all.
+
+**Not a bug, reported the same minute:** the grow clock handing the panel back
+to the ordinary clock during the wake window is `Grow clock clock by day`
+doing exactly what it says. It defaults off. Sam found the switch himself
+before this could be read out of the code.
+
+### The shape of both of these
+
+Both faults were one layer below where the symptom pointed, and the second was
+hidden behind the first. A driver that silently discarded work made a wasteful
+caller invisible; fixing the driver made the caller's waste the loudest thing
+on the panel. Worth expecting the pattern rather than being surprised by it:
+**when a fix reveals a new symptom immediately, the first suspect is not the
+fix but whatever the old behaviour was masking.** The instinct to revert would
+have restored a screen that was calm because it was broken.
