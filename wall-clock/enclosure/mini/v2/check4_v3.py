@@ -104,10 +104,19 @@ for B, tg in BODIES:
             t = column_top(DIFF, *at(r, a_cell))
             ck(t is not None and abs(t - DIFF_MEM_T) < 0.02,
                f'r={r:.2f} is one layer, inside the tick', f'{t:.3f} mm' if t else 'n/a')
+        # AT LEAST FACE_T, not exactly it. What this asks is that the thinning
+        # is confined to the tick -- that nowhere outside it is the face down
+        # to a membrane. Thicker than FACE_T is not a violation of that: it is
+        # the standing rib, which on the 32 now begins 0.40 mm past the tick
+        # end and so is what a probe 0.60 mm out lands on. The equality test
+        # read 4.556 there and called a rib a fault. The rib's own continuity
+        # is checked separately, below, so nothing is lost by relaxing this to
+        # the direction that actually matters.
         for r in (B.tick_ri - 0.6, B.tick_ro + 0.6):
             t = column_top(DIFF, *at(r, a_cell))
-            ck(t is not None and abs(t - FACE_T) < 0.02,
-               f'r={r:.2f} is {FACE_T:.2f} mm, outside the tick', f'{t:.3f} mm' if t else 'n/a')
+            ck(t is not None and t >= FACE_T - 0.02,
+               f'r={r:.2f} is at least {FACE_T:.2f} mm, outside the tick',
+               f'{t:.3f} mm' if t else 'n/a')
         ticks = sum(1 for i in range(B.n)
                     if (lambda t: t is not None and t < 0.5)(
                         column_top(DIFF, *at((B.tick_ri+B.tick_ro)/2, B.wall_a0 + (i+0.5)*B.pitch))))

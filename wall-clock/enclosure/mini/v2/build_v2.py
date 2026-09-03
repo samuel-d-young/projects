@@ -509,38 +509,64 @@ class Body:
         # cutting the walls that stop light leaking between LEDs. The tighter
         # side binds, because the tick stays centred.
         if not guides:
-            cell = 2.0 * min(self.led_r - (self.rib_i_ro + TICK_CELL_MARGIN),
-                             (self.rib_o_ri - TICK_CELL_MARGIN) - self.led_r)
-            # ...and the face's own budget, which is the one that binds on the
-            # 24. Everything inboard of the tick is pushed toward the screen
-            # window as the tick grows, and the numeral is not allowed to reach
-            # it -- see NUM_BORE_CLR in params for the arithmetic and for the
-            # three levers if a longer line matters more.
-            # The numerals go as far IN as their real corners allow, which is
-            # what leaves the most room for everything outboard of them. Solved
-            # from the glyph geometry, not from num_h -- see numeral_box().
-            self.num_r = numeral_r_for_inner(DIFF_BORE_RI + NUM_BORE_CLR,
-                                             self.num_h)
-            num_out = numeral_reach(self.num_r, self.num_h)[1]
-            # NUM_MARGIN alone. The stack used to reserve MARK_LEN and two
-            # MARK_MAJ_EXTs as well -- 3.20 mm for the twelve hour marks --
-            # and THE HOUR MARKS ARE NEVER DRAWN. mark_ri/mark_ro exist on
-            # every Body and nothing in build_diffuser reads them; they only
-            # ever positioned the numerals. So that band was 3.20 mm of dead
-            # space squeezing the tick on behalf of geometry that does not
-            # exist. TICK_MARK_GAP went with it: with no marks between them,
-            # it and NUM_MARGIN were two names for the same single gap.
-            face = 2.0 * (self.led_r - num_out - NUM_MARGIN)
-            L = min(TICK_L_MAX, cell, face)
-            assert L > 2.0, f'{tag or "24"}: no room for a tick ({L:.2f} mm)'
-            self.tick_bound = ('the cell' if L == cell else
-                               'the screen window' if L == face else 'TICK_L_MAX')
-            self.tick_ri = self.led_r - L / 2
-            self.tick_ro = self.led_r + L / 2
-            # ...and the minute marks fall in behind it. Laid out from the tick
-            # inward so a longer tick pushes them along instead of running over
-            # them. The quarter marks are the outermost thing, so the gap is
-            # measured off those.
+            # ONE aperture length on every flat body: APER_L, the 5050 die.
+            # Sam: "make sure each of the plain diffusers have the same size
+            # LED hole ... they are not even at the moment." They were not,
+            # because each body used to take the longest tick it could carry
+            # and the two are bound by different things. Now the mark is fixed
+            # and the FACE gives way to it, in this order:
+            #
+            #   1. the cell has to physically hold it, leaving
+            #      TICK_CELL_MARGIN of rib standing at each end. This is an
+            #      assert, not a min(): a body too small for a 5 mm mark is a
+            #      body this rule does not fit, and it should say so rather
+            #      than quietly go back to per-body lengths.
+            #   2. it stays CENTRED ON THE LED. Centring it on the cell instead
+            #      buys 0.10 mm of rib on the 32's tight side and costs the one
+            #      thing the mark is for: check4 asserts the tick is centred on
+            #      the emitter, and it is right to -- a 5.00 mm slot over a 5.00
+            #      mm die is only exactly as long as the lit thing if the two
+            #      share a centre. The tenth is not worth it; 0.40 of standing
+            #      rib is enough, and the assert below proves it on both sides
+            #      separately rather than on the span.
+            #   3. the numerals are then solved DOWN from their nominal height
+            #      until they clear it -- see below.
+            half = APER_L / 2.0
+            room_i = self.led_r - half - self.rib_i_ro
+            room_o = self.rib_o_ri - (self.led_r + half)
+            assert min(room_i, room_o) >= TICK_CELL_MARGIN - 1e-9, (
+                f'{tag or "24"}: a {APER_L:.2f} mm mark centred on the LED leaves '
+                f'{room_i:.2f} / {room_o:.2f} mm of rib, and the floor is '
+                f'{TICK_CELL_MARGIN:.2f}')
+            self.tick_ri = self.led_r - half
+            self.tick_ro = self.led_r + half
+            self.tick_bound = 'the 5050 die'
+            # THE NUMERALS GIVE WAY, not the mark. Each is placed as far in as
+            # the screen window allows (numeral_r_for_inner), and if its outer
+            # corner still reaches within NUM_MARGIN of the tick, it is set
+            # smaller and placed again. Bisected on height: both reaches are
+            # monotonic in it. NUM_H_MIN is where a stem stops being two clean
+            # beads, and it is an assert rather than a clamp -- a face that
+            # cannot carry legible numerals under a 5 mm mark is a fact to
+            # report, not to round away.
+            limit = self.tick_ri - NUM_MARGIN
+            def _fits(h):
+                r = numeral_r_for_inner(DIFF_BORE_RI + NUM_BORE_CLR, h)
+                return numeral_reach(r, h)[1] <= limit, r
+            ok, r = _fits(self.num_h)
+            if not ok:
+                lo_h, hi_h = NUM_H_MIN, self.num_h
+                assert _fits(lo_h)[0], (
+                    f'{tag or "24"}: even {NUM_H_MIN:.2f} mm numerals reach the '
+                    f'aperture; the face cannot carry a {APER_L:.2f} mm mark')
+                for _ in range(40):
+                    m = (lo_h + hi_h) / 2.0
+                    if _fits(m)[0]: lo_h = m
+                    else:           hi_h = m
+                self.num_h = round(lo_h, 3)
+                r = _fits(self.num_h)[1]
+            self.num_r = r
+            # the minute marks fall in behind the tick, as before
             self.mark_ro_maj = self.tick_ri - TICK_MARK_GAP
             self.mark_ro     = self.mark_ro_maj - MARK_MAJ_EXT
             self.mark_ri     = self.mark_ro - MARK_LEN
@@ -672,6 +698,56 @@ def build_board_clamp():
     g -= text_prism('THIS SIDE UP', 3.20, ((X0 + X1)/2, 0.0), -0.10, 0.50,
                     family=NUM_FONT, weight=NUM_WEIGHT, fontfile=NUM_FONT_FILE)
     return g.translate([-(X0 + X1)/2, 0.0, 0.0])
+
+
+def build_board_fit_gauge():
+    """Does SAM'S board fit? Four channels, 0.40 mm apart, and he tells us which.
+
+    Sam, 2026-09-03: "before going ahead, give me some test prints to make sure
+    it will fit the ESP32. The width of the board is 32mm, and the length is
+    64mm."
+
+    32.00 is 3.81 mm wider than the board every mount in this file was derived
+    from, and the stand-box's tray was built for that narrower one: its rails
+    stand at |x| 13.10 and a 32 mm board is 16.00 to the edge. So the tray as
+    shipped does not take his board, and no amount of arithmetic here settles
+    what does -- a printed slot is not its nominal width, and this printer's
+    number for that is unknown. Hence four slots rather than one guess. It is
+    the same method as the collar gauge, which is the one thing in this project
+    that ended a run of wrong fits.
+
+    Each channel is BOARD2_GAUGE_LEN long -- a SECTION, not the whole 64 -- so
+    the print is minutes, and the board is checked on width, which is the axis
+    that has gone wrong. The number beside each channel is the slot's nominal
+    width in millimetres. The rails are the stand-box's own height, so a board
+    that sits down between them here sits down between them there.
+
+    Read it: drop the board in each, from 32.40 upward. The one it enters
+    without force, and cannot rattle sideways in, is the answer. Tell me that
+    number.
+    """
+    T   = 3.00                      # base plate
+    RH  = STANDBOX_RAIL_H           # rail height, as the tray's
+    RT  = STANDBOX_RAIL_T           # rail thickness, as the tray's
+    LN  = BOARD2_GAUGE_LEN
+    PAD = 8.00                      # bare plate at the labelled end
+    gap = 6.00                      # between channels, for the numbers
+    xs, x = [], 0.0
+    for w in BOARD2_GAUGE_SLOTS:
+        xs.append((x, w))
+        x += w + 2*RT + gap
+    W_total = x - gap
+    g = box_lwh(-4.0, W_total + 4.0, -PAD, LN + 4.0, 0.0, T)
+    for x0, w in xs:
+        # two rails making a slot w wide, open at the top and at both ends --
+        # an open channel, because his board has wires standing off the top of
+        # it and nothing may close over them
+        g += box_lwh(x0, x0 + RT, 0.0, LN, T - 0.01, T + RH)
+        g += box_lwh(x0 + RT + w, x0 + 2*RT + w, 0.0, LN, T - 0.01, T + RH)
+        # the number, debossed in the plate below the channel
+        g -= text_prism(f'{w:.1f}', 5.0, (x0 + RT + w/2, -PAD/2 - 0.5),
+                        T - 0.60, T + 0.10)
+    return g
 
 
 def build_board_gauge():

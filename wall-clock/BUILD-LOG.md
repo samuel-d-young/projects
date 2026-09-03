@@ -4929,3 +4929,147 @@ creates: **0 dangling, with no exemptions**.
 Not verified: the view has still not been opened in a browser. The flash of
 round three was in flight when this was found, so the boards need one more
 pass to pick the status sensor up — OTA, and queued behind the running job.
+
+## 2026-09-03 — One aperture, on both clocks, and it is the die
+
+Sam: *"Update the diffuser for the 32 and 24 clocks and make sure each of the
+plain diffusers have the same size LED hole for the LED to shine through. They
+are not even at the moment. And they can be slightly larger, each of the
+holes."*
+
+He is right, and it was measurable on the built files before anything was
+changed — the opening at the membrane, taken off the mesh:
+
+| | before | now |
+|---|---|---|
+| 24-LED | 4.74 × 1.43 mm | 5.02 × 1.82 mm |
+| 32-LED | 4.44 × 1.43 mm | 5.02 × 1.82 mm |
+
+They differed because each body solved for the longest tick **it** could
+carry, and the two are bound by different things: the 24 by the screen window
+inboard of the mark, the 32 by its own light-tight cell. "As long as this one
+can manage" is a reasonable rule for one part and the wrong rule across a set.
+Two clocks on one wall want one mark.
+
+So the length is a constant now, and it is the emitter: a 5050 die is 5.00 mm
+across, so the slot is exactly as long as the lit thing behind it. That is the
+only length with a reason — shorter wastes die, longer is spill — and it lands
+between the two it replaces. The growth Sam asked for is in the width, 1.40 →
+1.80, where it actually shows.
+
+**What gives way instead.** The mark is hardware and the typography is not, so
+the causality is inverted from before: the tick is placed first, and the
+numerals are solved DOWN from their nominal height until they clear it by
+`NUM_MARGIN`. On the 24 that takes them from 5.00 to 4.92 mm — the floor where
+a stem is still two clean 0.40 mm beads is 4.40, and it is an assert, not a
+clamp. On the 32 nothing moves: its numerals were never the binding
+constraint.
+
+**What it costs on the 32**, and it is paid where it cannot be seen: its cell
+has 6.02 mm between the ribs, so a 5.00 mm mark leaves 0.40 of standing rib at
+each end rather than 0.70.
+
+### The check earned its keep twice in ten minutes
+
+check4 failed the first build, on two counts, and only one was the part's
+fault.
+
+- **"and centred on the LED circle"** — I had centred the tick on the CELL
+  rather than the LED, to buy 0.10 mm of rib on the 32's tight side. The check
+  was right to refuse it: a 5.00 mm slot over a 5.00 mm die is only exactly as
+  long as the lit thing if the two share a centre, and that was the entire
+  argument for the length. The tenth was not worth it. Centred on the LED, the
+  rib is 0.61 inboard and 0.41 outboard, both over the floor.
+- **"r=48.76 is 2.90 mm, outside the tick" — measured 4.556** — this one was
+  the check's fault. It asked for *exactly* the face thickness at a point 0.60
+  mm past the tick's end, and on the 32 that point now lands on the standing
+  rib, which is thicker. What the assertion means is "the thinning is confined
+  to the tick", and thicker does not violate it. It reads `>=` now, with the
+  reason written next to it, and the rib's own continuity is checked
+  separately two lines below so nothing is lost.
+
+### Verified
+
+All six checks pass on all three bodies. check4 measures the mark on the built
+mesh: 5.00 radial × 1.80 tangential on both flat bodies, centred on the LED
+circle, spill +0.00 at each end, membrane 0.200 mm inside it and full face
+thickness outside, all 24 and all 32 cells present, cell walls continuous. The
+opening measured independently off the STL section is 5.02 × 1.82 on every
+diffuser variant of both clocks, numbered and plain alike.
+
+## 2026-09-03 — Correction: the partial flush never drew anything, and that is the "slight screen flashing"
+
+Sam: *"Update the clock to fix the slight screen flashing too."*
+
+### What I got wrong last week
+
+The build-log entry above, and a note in the vault, say that turning
+`auto_clear_enabled` off gives the grow-clock eyes a 36 ms partial flush
+instead of a 104 ms full one, and that this "is the difference between 10 fps
+eyes and none". The dirty-window half of that is true. The conclusion is not,
+and the eyes have never animated on the panel.
+
+`mipi_spi` with a partial buffer does not run the display lambda once per
+frame. It runs it **once per band** — six times down a 360-line panel at
+`buffer_size` 1/6 — flushing each band's dirty rectangle as it goes. And when
+a band comes back with nothing drawn in it, the driver does not skip that band:
+
+```cpp
+for (this->start_line_ = 0; this->start_line_ < this->get_height_internal();
+     this->start_line_ = this->end_line_) {
+  ...
+  (*this->writer_)(*this);
+  if (this->x_low_ > this->x_high_ || this->y_low_ > this->y_high_)
+    return;                       // <-- the whole frame, not this band
+```
+
+An animation frame draws only the eye box, at y 66..244. The first band is
+y 0..59. It came back empty, and `update()` returned before a single pixel
+reached the panel. **Every partial frame was thrown away.** The face changed
+only on the once-a-second full frame, which sweeps the panel band by band —
+and a face that jumps once a second in a top-to-bottom sweep is exactly what
+"the screen flashes a little" describes.
+
+Verified on the version the clock actually runs: esphome **2026.8.1**,
+`components/mipi_spi/mipi_spi.h`, read from the tag on GitHub, because this
+container's Python is too old to install that release. The 2026.6.5 source in
+a local venv says the same thing.
+
+### The fix
+
+One column of pixels at x = 0, the full height of the panel, drawn in the
+**field colour**, on partial frames only:
+
+```cpp
+if (partial) {
+  it.filled_rectangle(0, 0, 1, 360, field);
+  it.filled_rectangle(CX - 124, 66, 248, 178, field);
+}
+```
+
+Every band now has something in it, so no band aborts the frame. It costs 360
+pixels and is invisible: x = 0 is the extreme edge of the panel, and it is
+painted in the field's own colour rather than black — which matters, because
+the "eyes on colour" face has a field that is not black, and a black column
+there would have been a hairline down the left of the screen. The bar panel
+gets the same, 170 tall.
+
+The flush grows from the eye box (248 px wide) to x 0..304 in the bands the
+eyes occupy, and one pixel wide in the bands they do not. That is about 23%
+more than the box alone and roughly a third of a full frame.
+
+### What this says about the earlier claim
+
+The mistake was reading one half of a function and stopping at the part that
+confirmed what I wanted. `update()` was read for its dirty-window logic, found
+to have exactly the optimisation the design needed, and closed. The band loop
+is nine lines above it. **A source read that stops when it finds the answer
+it went looking for is a search, not a reading** — and the note it produced
+was filed as "verified by reading the source", which is how it then got
+believed twice.
+
+### Verification
+
+`esphome config` valid, and a full compile is recorded below. Not verified on
+the panel: nobody has yet seen the eyes animate, which is the whole point of
+the change, and it is the first thing to look at after the next flash.

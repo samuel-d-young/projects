@@ -3348,7 +3348,27 @@ display:
           // flushes only this box. Everything the eyes can reach -- gaze,
           // the yawn, the z's, "shh" -- stays inside it; the stars and the
           // time sit below it and are drawn by full frames alone.
-          if (partial) it.filled_rectangle(CX - 124, 66, 248, 178, field);
+          // KEEP EVERY BAND ALIVE. mipi_spi does not run this lambda once
+          // per frame: with a partial buffer it runs it once per BAND, six
+          // times down the panel, flushing each band's dirty rectangle as it
+          // goes -- and if a band comes back with nothing drawn in it, the
+          // driver does not skip that band, it RETURNS and abandons the rest
+          // of the frame (esphome 2026.8.1, mipi_spi.h, the loop over
+          // start_line_). An animation frame draws only the eye box, which
+          // lies in the middle bands, so the first band came back empty and
+          // every partial frame was thrown away before a single pixel
+          // reached the panel. The eyes were not slow; they were never
+          // drawn, and the face only ever changed on the once-a-second full
+          // frame -- which is the "slight screen flashing".
+          // One column of FIELD-coloured pixels at x = 0, the full height of
+          // the panel, puts a mark in every band for the cost of 360 pixels.
+          // It is at the extreme edge and in the field's own colour, so it
+          // is invisible; it must not be black, because the "eyes on colour"
+          // face has a field that is not black.
+          if (partial) {
+            it.filled_rectangle(0, 0, 1, 360, field);
+            it.filled_rectangle(CX - 124, 66, 248, 178, field);
+          }
           const float droop = st == 3 ? 1.0f : 0.0f;
           auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
             const int h = (int) (EH * hs), w = EW;
@@ -4023,7 +4043,12 @@ display:
           // The round panel's eyes at bar scale, from the same animator
           // globals. Mirrored in preview/grow_faces.py; change both.
           const int EX = 40, EY = 56, EW = 48, EH = 72, ER = 18, BAR = 10;
-          if (partial) it.filled_rectangle(FX - 92, 0, 184, 116, field);
+          // Every band alive, exactly as on the round panel -- see the long
+          // comment there. This panel is 170 tall after rotation.
+          if (partial) {
+            it.filled_rectangle(0, 0, 1, 170, field);
+            it.filled_rectangle(FX - 92, 0, 184, 116, field);
+          }
           const float droop = st == 3 ? 1.0f : 0.0f;
           auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
             const int h = (int) (EH * hs), w = EW;

@@ -97,6 +97,49 @@ Z_SEAT_BAR = Z_SEAT + DISP_T - BAR_T                       # 7.50
 # DXF_ESP32-S3-DevKitC-1_V1_20210312CB.pdf
 # =============================================================================
 BOARD_L, BOARD_W, BOARD_T = 63.27, 28.19, 1.60
+
+# --- SAM'S BOARD, measured 2026-09-03 -----------------------------------------
+# "The width of the board is 32mm, and the length is 64mm. The height is 14mm
+# but wires stick out the top because it is a dev board."
+#
+# That is 3.81 mm WIDER than the board every mount in this file was derived
+# from (28.19, off Espressif's DevKitC-1 v1.1 drawing, and asserted since v14
+# with BOARD_W_MAX = 28.40). A 3.8 mm disagreement is not a caliper slip: it is
+# a different board, or a board with something on it the drawing does not have.
+# Either way his calipers win over my drawing -- the board is in his hand.
+#
+# It is kept SEPARATE rather than overwriting BOARD_W, because the rear housing
+# and its snap fingers are derived from that drawing's pad rows and USB shells
+# and are verified against it; silently moving BOARD_W would move all of that
+# to fit a board nobody has a drawing for. The stand-box, which holds the board
+# by its OUTLINE and nothing else, uses these.
+#
+# 14.00 is the whole stack, not the PCB: board plus whatever stands on it. The
+# wires above it are why the stand-box becomes an open box -- see Sam's
+# instruction, and why there is no roof height here to fit them under.
+# CORRECTED by Sam minutes later: "The ESP32 is 29mm wide." So 29.00, not the
+# 32.00 he first gave. That lands 0.81 mm off the drawing's 28.19 rather than
+# 3.81 -- the difference between "a different board" and "calipers over a
+# drawing, across whatever stands proud of the edge". His number is still the
+# one that governs; the drawing does not have to be wrong for the part in his
+# hand to be 29.00.
+#
+# AND IT MAKES THE GAUGE MATTER MORE, not less. The tray as shipped puts its
+# rails 28.99 apart: on a 29.00 board that is a zero-clearance fit, which is
+# not a fit. A 0.81 mm error in the direction that closes a slot is exactly
+# the kind that a drawing cannot catch and a printed channel settles in a
+# minute.
+BOARD2_W, BOARD2_L, BOARD2_H = 29.00, 64.00, 14.00
+# The gauge brackets the slot, because a printed 32.40 mm slot is not 32.40 --
+# it is that minus the elephant's foot and the wall's own squish, and this
+# printer's number for that is unknown. Four channels, 0.40 apart, and the one
+# that takes the board without force is the one the stand is built to.
+# Bracketed around 29.00 + FDM_SLOT_UNDER: a nominal 29.40 slot prints about
+# 29.00, which is the board itself and will not go in; 29.80 gives 0.40 of
+# real clearance, 30.20 gives 0.80. So the answer is almost certainly the
+# middle pair, and the outer two are there to prove it.
+BOARD2_GAUGE_SLOTS = (29.40, 29.80, 30.20, 30.60)
+BOARD2_GAUGE_LEN   = 30.00   # a section of channel, not the whole 64
 BOARD_CLR   = 0.45          # per side, in the pocket
 BOARD_LIFT  = 1.20          # pads under the PCB, so header tails have somewhere to go
 BOARD_TALL  = 3.20          # tallest thing on top (USB-C shell ~3.2, WROOM ~3.1)
@@ -436,10 +479,40 @@ DIFF_OPAQUE_T = 2.00
 # If a genuinely long line is what is wanted, the mechanism that delivers it is
 # the 60-LED body's perspex light guides, which read 30 mm. An aperture alone
 # cannot outrun its own cell.
-TICK_W          = 1.40      # tangential width. Narrower as well as longer -- a
-                            # line is thin -- and 1.40 is still 3.5 bead widths.
-TICK_CELL_MARGIN = 0.70     # cell wall left standing at each end of the tick
-TICK_L_MAX      = 7.00      # ceiling, so a big cell cannot make a silly mark
+# --- v19: ONE aperture, on every flat body, and it is the die ----------------
+# Sam, 2026-09-03: "make sure each of the plain diffusers have the same size LED
+# hole for the LED to shine through. They are not even at the moment. And they
+# can be slightly larger, each of the holes."
+#
+# He is right, and it is measured: on the built plain diffusers the opening at
+# the membrane was 4.74 x 1.43 mm on the 24 and 4.44 x 1.43 on the 32. They
+# differed because each body solved for the longest tick IT could carry, and
+# the two bodies are bound by different things -- the 24 by the screen window
+# inboard of it, the 32 by its own cell. "As long as this one can manage" is a
+# reasonable rule per part and the wrong rule across a set: two clocks on one
+# wall want one mark.
+#
+# So the length is now a CONSTANT, and it is the emitter: a 5050 die is 5.00 mm
+# across, so a 5.00 mm tick is exactly as long as the lit thing behind it. That
+# is the only length with a reason -- shorter wastes die, longer is spill
+# (TICK_SPILL_MAX), and it lands between the two lengths it replaces, so it is
+# "slightly larger" on the 32 and on the 24 alike... in width, where the growth
+# he asked for actually shows: 1.40 -> 1.80.
+#
+# What it costs, and it is paid where he cannot see it: the 32's cell has only
+# 6.02 mm between its ribs, so a 5.00 tick leaves 0.40 of standing rib at the
+# ends rather than 0.70, and the tick is centred on the CELL rather than on the
+# LED (they are 0.10 apart -- a tenth of a millimetre on a five-millimetre die).
+# On the 24 the numerals give way instead: they are solved down from NUM_H_24
+# until they clear the tick, which is the lever this file already named as the
+# one to pull. check4 measures every one of these on the built mesh.
+LED_DIE_W       = 5.00      # a 5050 emitter, across. The aperture IS this.
+APER_L          = LED_DIE_W # every flat body, every diffuser, one length
+TICK_W          = 1.80      # tangential width. 1.40 was 3.5 bead widths and
+                            # read thin; 1.80 is 4.5 and is what "slightly
+                            # larger" means here.
+TICK_CELL_MARGIN = 0.40     # cell wall left standing at each end of the tick.
+                            # 0.70 on the 32 would cap the tick at 4.42.
 TICK_SPILL_MAX  = 1.00      # how far a tick may run past the 5.00 mm die at each
                             # end. Past this the end of the mark is lit by spill
                             # alone and reads as a gradient, not as a line, which
@@ -447,7 +520,7 @@ TICK_SPILL_MAX  = 1.00      # how far a tick may run past the 5.00 mm die at eac
                             # and no more. (unverified: an optical judgement --
                             # nothing has been printed to look at yet.)
 TICK_MARK_GAP   = 0.40      # clear space between the tick and the minute marks
-TICK_END_R      = 0.70      # radiused ends, half the width
+TICK_END_R      = TICK_W/2  # radiused ends, half the width
 # ...AND A SECOND LIMIT, WHICH IS THE ONE THAT ACTUALLY BINDS ON THE 24.
 # The tick grows inward as well as outward, and everything inboard of it -- the
 # hour marks, then the numerals -- gets pushed toward the screen window as it
@@ -1374,6 +1447,12 @@ NUM_MARGIN      = 1.20        # clear space between a numeral and the dots
 # face against the Echo's 3.2% of a 203 mm one, and a small clock needs the
 # proportionally bigger numeral anyway. The band inboard of the ticks runs
 # 30.95..37.55, so 5.00 still leaves 2.55 mm clear of the collar.
+# NOMINAL heights. On a body where the aperture leaves too little room inboard
+# of it, the numerals are solved DOWN from these until they clear it by
+# NUM_MARGIN -- the aperture is hardware and the typography is not. NUM_H_24 at
+# 5.00 does not fit a 5.00 tick and is reduced; the floor at which a stem is
+# still two clean 0.40 mm beads is 4.40, and check4 asserts it is not crossed.
+NUM_H_MIN       = 4.40
 NUM_H_24        = 5.00
 NUM_H_32        = 6.00
 NUM_H_60        = 9.00
