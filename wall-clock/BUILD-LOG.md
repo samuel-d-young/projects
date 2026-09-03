@@ -4858,3 +4858,74 @@ the M2-in-PLA pilot of 1.60 is the M3 rule scaled, not tested; a 24 mm
 bridge and a 47° teardrop are the checker's rules, which have held on
 every part so far but are rules, not prints. The renders
 (`render_*.py`) do not draw the stand-box yet.
+
+## 2026-09-03 — The dashboard was gated on an entity that does not exist, and clock 3
+
+Sam: *"Flash the new firmware to both clocks now. Only clock 3 is plugged in
+to my computer at the moment."* Then: *"Then update HASS with the settings
+I've asked to add."*
+
+### The gate
+
+Every card in the generated Settings view carries a visibility condition on
+`binary_sensor.<device>_status`, added a week ago so that a clock which is
+absent hides its rows instead of drawing twenty "Entity not found" boxes.
+The generator's own docstring said, in as many words, that this entity is
+"the entity the ESPHome integration creates for every device it adopts".
+
+It is not. `platform: status` is an opt-in ESPHome component (its
+documentation page, checked today), and nothing in either firmware declared
+it. So the entity never existed, and a `condition: state` on a missing
+entity is false — meaning the whole Settings view would have rendered
+**blank**. The mechanism that was supposed to hide one absent clock would
+have hidden all of them, including the two that work.
+
+Worth naming the shape, because it is the second time this project has been
+bitten by it: the failure is silent and total, and it is *downstream of a
+safety feature*. A gate that fails closed hides the thing it was protecting
+as thoroughly as it hides the fault. The give-away was not on the panel —
+the view has never been opened since the gate was added — it was a
+generated-file validator that resolves every entity reference in the cards
+against the entities the firmware actually creates. It had reported "0
+dangling" before only because I had exempted the three `_status` refs as
+"created by the integration". An exemption in a checker is a claim, and this
+one was never verified.
+
+Fixed by making the docstring true: the firmware declares
+
+```yaml
+binary_sensor:
+  - platform: status
+    name: "Status"
+    entity_category: diagnostic
+```
+
+which gives exactly `binary_sensor.${device_name}_status`, and the
+docstring now says where the entity comes from and that any clock added to
+`CLOCKS` needs firmware that declares it.
+
+### Clock 3
+
+There is a third board on Sam's bench and nothing in this repo has ever
+mentioned it, so the flash job sent to the bench session identifies the
+board before writing to it: read the boot banner, and flash as clock #1 or
+#2 if it names itself one of those, otherwise as `mini-round-clock-3` /
+"Mini Round Clock 3" with `num_leds 24`. The 24 is only a compile-time
+default — the ring size is a runtime number in Home Assistant with a
+ceiling of 60 — so a wrong guess there costs a dropdown, not a reflash.
+
+It is listed in `CLOCKS` and in the `input_select` options now. Listing a
+clock that may not exist costs nothing precisely *because* the gate works:
+its cards do not render until the device is on the network.
+
+### Verification
+
+`esphome config` valid on the full file (2026.6.5 in a throwaway venv here;
+the bench runs 2026.8.1). The status sensor resolves with `device_class:
+connectivity`. The generated view is 38 cards over 4 clocks, and all 303
+clock entity references in it check against the 102 entities the firmware
+creates: **0 dangling, with no exemptions**.
+
+Not verified: the view has still not been opened in a browser. The flash of
+round three was in flight when this was found, so the boards need one more
+pass to pick the status sensor up — OTA, and queued behind the running job.

@@ -140,7 +140,18 @@ esphome run mini-round-clock-with-display.yaml --device 192.168.1.23
 # clock #2
 esphome run mini-round-clock-with-display.yaml --device COM12 `
   -s device_name mini-round-clock-2 -s friendly_name "Mini Round Clock 2" -s num_leds 32
+
+# clock 3 -- the third board, 2026-09-03. num_leds is only the DEFAULT; the
+# ring size is a runtime number in Home Assistant, ceiling 60.
+esphome run mini-round-clock-with-display.yaml --device COMx `
+  -s device_name mini-round-clock-3 -s friendly_name "Mini Round Clock 3" -s num_leds 24
 ```
+
+**Identify a board before writing to it.** `esphome logs
+mini-round-clock-with-display.yaml --device COMx`, or any serial monitor at
+115200, prints the ESPHome banner with the device's name in it. Flashing a
+clock with another clock's substitutions renames it in Home Assistant and
+leaves the old entities behind as orphans.
 
 `esphome run` compiles, uploads and then opens the log; watch for the
 `[app]` banner once (a repeating banner is a boot loop) and `Boot: ring +
