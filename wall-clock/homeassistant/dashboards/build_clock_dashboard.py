@@ -280,7 +280,75 @@ def clock_cards(slug, label):
         ],
     }
 
-    return [ring, ring_note, colour_note, colour, screen, alert, alert_note, bright]
+    # ---- Grow clock ------------------------------------------------------
+    # One switch turns the whole clock into a child's sleep-training clock;
+    # everything else here only matters while it is on. Times are hour +
+    # minute pairs because a slider is easier on a phone than a time string.
+    grow = {
+        "type": "entities", "title": "%s — Grow clock" % label,
+        "show_header_toggle": False, "state_color": True, "visibility": v,
+        "entities": [
+            row(e("switch", "grow_clock"), "Grow clock on"),
+            row(e("sensor", "grow_clock_state"), "Right now it is"),
+            section("Wake up"),
+            row(e("number", "grow_clock_wake_hour"), "Hour"),
+            row(e("number", "grow_clock_wake_minute"), "Minute"),
+            row(e("number", "grow_clock_almost_time_minutes"), "\"Almost time\" before wake"),
+            section("Weekends"),
+            row(e("switch", "grow_clock_weekend_times"), "Different times at weekends"),
+            row(e("number", "grow_clock_weekend_wake_hour"), "Weekend hour"),
+            row(e("number", "grow_clock_weekend_wake_minute"), "Weekend minute"),
+            section("Bedtime"),
+            row(e("number", "grow_clock_bed_hour"), "Hour"),
+            row(e("number", "grow_clock_bed_minute"), "Minute"),
+            row(e("number", "grow_clock_bedtime_warning_minutes"), "Warning before bed"),
+            section("Right now"),
+            row(e("button", "grow_clock_wake_now"), "Wake now"),
+            row(e("button", "grow_clock_sleep_now"), "Sleep now"),
+            row(e("button", "grow_clock_start_nap"), "Start a nap"),
+            row(e("number", "grow_clock_nap_minutes"), "Nap length"),
+            row(e("button", "grow_clock_cancel_nap"), "Cancel the nap"),
+            row(e("button", "grow_clock_back_to_schedule"), "Back to the schedule"),
+            section("Look"),
+            row(e("select", "grow_clock_sleep_colour"), "Sleep colour"),
+            row(e("select", "grow_clock_wake_colour"), "Wake colour"),
+            row(e("select", "grow_clock_face"), "Face"),
+            row(e("switch", "grow_clock_stars"), "Stars until morning"),
+            row(e("switch", "grow_clock_show_time"), "Show the time"),
+            row(e("select", "grow_clock_expression"), "Force an expression (demo)"),
+            section("Night"),
+            row(e("switch", "grow_clock_dim_at_night"), "Dim at night"),
+            row(e("number", "grow_clock_night_brightness"), "Night brightness"),
+            row(e("number", "grow_clock_day_brightness"), "Day brightness"),
+            section("Sound"),
+            row(e("switch", "grow_clock_respond_to_sound"), "Respond to sound"),
+            row(e("number", "grow_clock_sound_response_seconds"), "Respond for"),
+            row(e("sensor", "grow_clock_sound_events"), "Sound events since boot"),
+            row("input_boolean.wall_clock_grow_sound", "Test: pretend a sound"),
+        ],
+    }
+
+    grow_note = {
+        "type": "markdown", "visibility": v,
+        "content": (
+            "**How the grow clock reads.** Sleep colour with stars that go out one by "
+            "one through the night; amber and a half-awake face for *almost time*; "
+            "the wake colour and a smile when it is fine to get up; a yawn in the "
+            "warning before bed. While it is on, this clock shows nothing else — no "
+            "hands, timers or status.\n\n"
+            "**Sound.** The clock has no microphone. *Test: pretend a sound* is the "
+            "same helper anything in Home Assistant can pulse — a Voice PE hearing "
+            "its wake word, a baby monitor, a noise sensor. See "
+            "`packages/wall_clock_grow.yaml` for a ready-made example. During sleep "
+            "it brightens in the **sleep** colour and says *shh*; it never shows the "
+            "wake colour for a noise, because that would reward calling out.\n\n"
+            "**Overrides** last until the schedule next changes on its own, so "
+            "*Wake now* at 6:40 lets go by itself at bedtime."
+        ),
+    }
+
+    return [ring, ring_note, colour_note, colour, screen, grow, grow_note,
+            alert, alert_note, bright]
 
 
 def build():

@@ -334,6 +334,15 @@ sensor:
     entity_id: ${weather_entity}
     attribute: temperature
 
+  # Grow clock: how many sound events since boot. Mostly so a parent can see in
+  # the morning whether the clock was being talked to at 5 a.m.
+  - platform: template
+    id: grow_sound_events
+    name: "Grow clock sound events"
+    icon: mdi:ear-hearing
+    accuracy_decimals: 0
+    update_interval: never
+
 text_sensor:
   - platform: homeassistant
     id: weather_condition
@@ -344,6 +353,13 @@ text_sensor:
   - platform: homeassistant
     id: timer_label
     entity_id: sensor.wall_clock_timer_label   # name of the next timer, or empty
+  # Grow clock: sleep / almost / awake / bedtime / nap. Published on change, so
+  # an automation can act on it -- a night light that follows the clock, say.
+  - platform: template
+    id: grow_state
+    name: "Grow clock state"
+    icon: mdi:baby-face-outline
+    update_interval: never
 
 binary_sensor:
   - platform: homeassistant
@@ -355,6 +371,19 @@ binary_sensor:
     # frame, and no timer is involved in that direction.
     on_press:
       - lambda: 'id(alert_since) = millis();'
+  # THE SOUND INPUT for the grow clock. Point this at whatever hears the room:
+  # the package ships input_boolean.wall_clock_grow_sound and an automation that
+  # pulses it, so any trigger in HA -- a Voice PE, a baby monitor, a noise
+  # sensor -- turns it on and the clock sees a rising edge. The board itself has
+  # no microphone, and this file does not pretend otherwise.
+  - platform: homeassistant
+    id: grow_sound_in
+    entity_id: input_boolean.wall_clock_grow_sound
+    on_press:
+      - lambda: |-
+          id(grow_sound_since) = millis();
+          id(grow_sound_count) += 1;
+          id(grow_sound_events).publish_state(id(grow_sound_count));
   - platform: homeassistant
     id: bin_night
     entity_id: binary_sensor.wall_clock_bin_night
@@ -755,6 +784,163 @@ number:
     optimistic: true
     restore_value: true
 
+  # ===========================================================================
+  # GROW CLOCK -- a toddler sleep-training clock, on the same hardware
+  # ===========================================================================
+  # Sam: "I want to create a 'grow clock' feature for my son so that it changes
+  # colour when to wake up etc." The Gro-Clock / Hatch Rest idea: the clock is
+  # one colour while it is still sleep time and another when it is OK to get
+  # up, so a child who cannot read a clock can still read this one. Everything
+  # below is what a consumer grow clock does, minus two things this hardware
+  # does not have -- a microphone and a speaker. The sound response is real but
+  # it is fed from Home Assistant (see grow_sound_in), not from a mic.
+  #
+  # Times are hour + minute pairs rather than a single "07:30" text field,
+  # because ESPHome's number entity is a slider or a box and either is easier
+  # on a phone than typing a time string. Minutes step in fives.
+  - platform: template
+    id: grow_wake_h
+    name: "Grow clock wake hour"
+    entity_category: config
+    icon: mdi:weather-sunset-up
+    min_value: 0
+    max_value: 23
+    step: 1
+    initial_value: 7
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_wake_m
+    name: "Grow clock wake minute"
+    entity_category: config
+    icon: mdi:weather-sunset-up
+    min_value: 0
+    max_value: 55
+    step: 5
+    initial_value: 0
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_wake_h_wknd
+    name: "Grow clock weekend wake hour"
+    entity_category: config
+    icon: mdi:calendar-weekend
+    min_value: 0
+    max_value: 23
+    step: 1
+    initial_value: 8
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_wake_m_wknd
+    name: "Grow clock weekend wake minute"
+    entity_category: config
+    icon: mdi:calendar-weekend
+    min_value: 0
+    max_value: 55
+    step: 5
+    initial_value: 0
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_bed_h
+    name: "Grow clock bed hour"
+    entity_category: config
+    icon: mdi:weather-night
+    min_value: 0
+    max_value: 23
+    step: 1
+    initial_value: 19
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_bed_m
+    name: "Grow clock bed minute"
+    entity_category: config
+    icon: mdi:weather-night
+    min_value: 0
+    max_value: 55
+    step: 5
+    initial_value: 0
+    optimistic: true
+    restore_value: true
+  # "Almost time": the amber window before wake, so a child who wakes at 6:50
+  # sees that morning is CLOSE without seeing that it is here. 0 turns it off.
+  - platform: template
+    id: grow_warn_min
+    name: "Grow clock almost time minutes"
+    entity_category: config
+    icon: mdi:timer-sand
+    min_value: 0
+    max_value: 60
+    step: 5
+    initial_value: 15
+    optimistic: true
+    restore_value: true
+  # The same idea at the other end of the day: a warning colour before bed.
+  - platform: template
+    id: grow_bed_warn_min
+    name: "Grow clock bedtime warning minutes"
+    entity_category: config
+    icon: mdi:timer-sand
+    min_value: 0
+    max_value: 60
+    step: 5
+    initial_value: 10
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_nap_min
+    name: "Grow clock nap minutes"
+    entity_category: config
+    icon: mdi:power-sleep
+    min_value: 10
+    max_value: 180
+    step: 5
+    initial_value: 90
+    optimistic: true
+    restore_value: true
+  # Brightness in the sleep states, and in the awake ones. These override the
+  # clock's ordinary day/night brightness while grow mode is on, on the ring AND
+  # the panel's backlight: a nursery at 3 a.m. wants a glow, not a lamp.
+  - platform: template
+    id: grow_night_bright
+    name: "Grow clock night brightness"
+    entity_category: config
+    icon: mdi:brightness-3
+    unit_of_measurement: "%"
+    min_value: 1
+    max_value: 100
+    step: 1
+    initial_value: 10
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_day_bright
+    name: "Grow clock day brightness"
+    entity_category: config
+    icon: mdi:brightness-7
+    unit_of_measurement: "%"
+    min_value: 10
+    max_value: 100
+    step: 1
+    initial_value: 80
+    optimistic: true
+    restore_value: true
+  # How long the clock reacts after a sound event -- see grow_sound_in.
+  - platform: template
+    id: grow_sound_secs
+    name: "Grow clock sound response seconds"
+    entity_category: config
+    icon: mdi:ear-hearing
+    unit_of_measurement: "s"
+    min_value: 5
+    max_value: 120
+    step: 5
+    initial_value: 20
+    optimistic: true
+    restore_value: true
+
 select:
   # ---- WHICH SCREEN ----------------------------------------------------------
   # "auto" follows the strap on ${panel_detect}. The two explicit options are
@@ -1017,6 +1203,70 @@ select:
     optimistic: true
     restore_value: true
 
+  # ---- Grow clock ----------------------------------------------------------
+  # Blue is the Gro-Clock's night colour and what most children have seen. Red
+  # is what sleep consultants tend to recommend -- it is the wavelength least
+  # likely to suppress melatonin -- so it is here as a choice rather than a
+  # default. "off" is for the child who sleeps better with nothing lit at all:
+  # the ring goes dark in the sleep state and only the wake colour ever shows.
+  - platform: template
+    id: grow_sleep_colour
+    name: "Grow clock sleep colour"
+    entity_category: config
+    icon: mdi:palette
+    options:
+      - "blue"
+      - "red"
+      - "purple"
+      - "off"
+    initial_option: "blue"
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_wake_colour
+    name: "Grow clock wake colour"
+    entity_category: config
+    icon: mdi:palette
+    options:
+      - "yellow"
+      - "green"
+      - "white"
+    initial_option: "yellow"
+    optimistic: true
+    restore_value: true
+  # What the panel draws. "expressions" is a face that sleeps, half-wakes,
+  # smiles and yawns with the state; "sun and moon" is the Gro-Clock's picture;
+  # "colour only" is just the field, for a child who finds faces too exciting.
+  - platform: template
+    id: grow_face
+    name: "Grow clock face"
+    entity_category: config
+    icon: mdi:emoticon-outline
+    options:
+      - "expressions"
+      - "sun and moon"
+      - "colour only"
+    initial_option: "expressions"
+    optimistic: true
+    restore_value: true
+  # Forces a state, for showing a child what each one looks like before the
+  # first night, and for checking the colours in daylight. "auto" is the real
+  # behaviour; the others hold that expression until this is put back.
+  - platform: template
+    id: grow_expression
+    name: "Grow clock expression"
+    entity_category: config
+    icon: mdi:emoticon-happy-outline
+    options:
+      - "auto"
+      - "sleeping"
+      - "almost"
+      - "awake"
+      - "bedtime"
+    initial_option: "auto"
+    optimistic: true
+    restore_value: true
+
 switch:
   # ---------------------------------------------------------------------------
   # POWER: one master, two surfaces
@@ -1196,7 +1446,169 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
+  # ---- Grow clock ----------------------------------------------------------
+  # THE MASTER. On, the whole clock becomes the child's clock: ring, panel and
+  # backlight follow the sleep/wake schedule and nothing else -- no timers, no
+  # status pixels, no hands. A nursery clock that lights up because the
+  # kitchen timer finished is a bug, not a feature. Off, everything above this
+  # comment behaves exactly as it did.
+  - platform: template
+    id: grow_mode
+    name: "Grow clock"
+    icon: mdi:baby-face-outline
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  # Off for a toddler -- the colour IS the clock. On for a child learning to
+  # read the time, who can then match "7:00" to the sun coming up.
+  - platform: template
+    id: grow_show_time
+    name: "Grow clock show time"
+    entity_category: config
+    icon: mdi:clock-digital
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  # The Gro-Clock's best idea: stars that go out one by one through the night,
+  # so "how long until morning" is something a child can count. Here the ring
+  # is the stars -- a 60-LED ring loses one about every ten minutes over a
+  # ten-hour night -- and the panel shows a row of eight.
+  - platform: template
+    id: grow_stars
+    name: "Grow clock stars"
+    entity_category: config
+    icon: mdi:star-four-points
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
+    id: grow_weekend
+    name: "Grow clock weekend times"
+    entity_category: config
+    icon: mdi:calendar-weekend
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: template
+    id: grow_dim
+    name: "Grow clock dim at night"
+    entity_category: config
+    icon: mdi:brightness-4
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # WHAT "RESPOND TO SOUND" MEANS HERE, honestly. This board has no microphone.
+  # The trigger is a Home Assistant entity (grow_sound_in) that anything can
+  # drive -- a Voice PE hearing its wake word, a baby monitor, a noise sensor.
+  # When it fires DURING SLEEP the clock brightens for grow_sound_secs and the
+  # face says "shh", in the SLEEP colour, never the wake one: the point is to
+  # answer "is it morning yet?" with a clear no, not to reward calling out.
+  - platform: template
+    id: grow_sound
+    name: "Grow clock respond to sound"
+    entity_category: config
+    icon: mdi:ear-hearing
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+# -----------------------------------------------------------------------------
+# GROW CLOCK BUTTONS -- the parent's overrides
+# -----------------------------------------------------------------------------
+# An override holds until the SCHEDULE next changes state on its own, then lets
+# go. So "wake now" at 6:40 gives the wake colour immediately and the schedule
+# takes back over at bedtime; "sleep now" at 18:30 gives the sleep colour and
+# lets go at the next wake. Nothing has to be remembered to be undone.
+button:
+  - platform: template
+    id: grow_wake_now
+    name: "Grow clock wake now"
+    icon: mdi:weather-sunny
+    on_press:
+      - lambda: |-
+          id(grow_nap_end) = 0;
+          id(grow_sched_at_override) = id(grow_sched);
+          id(grow_override) = 1;
+  - platform: template
+    id: grow_sleep_now
+    name: "Grow clock sleep now"
+    icon: mdi:weather-night
+    on_press:
+      - lambda: |-
+          id(grow_nap_end) = 0;
+          id(grow_sched_at_override) = id(grow_sched);
+          id(grow_override) = 2;
+  # A nap is a short sleep with its own countdown: the stars count the nap
+  # down instead of the night, and the wake colour comes on at the end.
+  - platform: template
+    id: grow_nap_start
+    name: "Grow clock start nap"
+    icon: mdi:power-sleep
+    on_press:
+      - lambda: |-
+          const auto now = id(ha_time).now();
+          if (now.is_valid()) {
+            id(grow_override) = 0;
+            id(grow_nap_end) = (uint32_t) now.timestamp
+                             + (uint32_t) lroundf(id(grow_nap_min).state * 60.0f);
+          }
+  - platform: template
+    id: grow_nap_cancel
+    name: "Grow clock cancel nap"
+    icon: mdi:cancel
+    on_press:
+      - lambda: 'id(grow_nap_end) = 0;'
+  - platform: template
+    id: grow_clear_override
+    name: "Grow clock back to schedule"
+    icon: mdi:calendar-clock
+    on_press:
+      - lambda: |-
+          id(grow_override) = 0;
+          id(grow_nap_end) = 0;
+
 globals:
+  # ---- Grow clock state, resolved ONCE a second by the dispatcher ----------
+  # so the ring, the panel, the backlight and the HA sensor all read the same
+  # answer. 0 sleep, 1 almost, 2 awake, 3 bedtime, 4 nap.
+  - id: grow_st
+    type: int
+    restore_value: no
+    initial_value: '2'
+  # the schedule's own state, ignoring overrides -- what an override is measured
+  # against to know when to let go
+  - id: grow_sched
+    type: int
+    restore_value: no
+    initial_value: '2'
+  - id: grow_sched_at_override
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: grow_override          # 0 none, 1 force awake, 2 force sleep
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: grow_nap_end           # epoch seconds; 0 = no nap running
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: grow_frac              # fraction of the night (or nap) still to go
+    type: float
+    restore_value: no
+    initial_value: '1.0'
+  - id: grow_sound_since       # millis() at the last sound event
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: grow_sound_count
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: grow_bl_last           # backlight level last set by grow mode; -1 = none
+    type: float
+    restore_value: no
+    initial_value: '-1.0'
+
   # Drives pulses and the test chase. Deliberately independent of wall-clock
   # time so animations still run before the first sync.
   - id: frame
@@ -1300,6 +1712,97 @@ interval:
   # exists rather than reusing ${lcd_reset}.
   - interval: 1s
     then:
+      # ---- GROW CLOCK STATE MACHINE ----------------------------------------
+      # Runs whether or not grow mode is on, so flipping the switch shows the
+      # right state on the very next frame instead of one second later.
+      - lambda: |-
+          const auto now = id(ha_time).now();
+          int st = 2, sched = 2; float frac = 1.0f;
+          if (now.is_valid()) {
+            const int m   = now.hour * 60 + now.minute;
+            const int dow = now.day_of_week;             // 1 = Sunday .. 7 = Saturday
+            const bool wknd = id(grow_weekend).state && (dow == 1 || dow == 7);
+            const int wake = wknd
+              ? (int) id(grow_wake_h_wknd).state * 60 + (int) id(grow_wake_m_wknd).state
+              : (int) id(grow_wake_h).state * 60      + (int) id(grow_wake_m).state;
+            const int bed   = (int) id(grow_bed_h).state * 60 + (int) id(grow_bed_m).state;
+            const int warn  = (int) id(grow_warn_min).state;
+            const int bwarn = (int) id(grow_bed_warn_min).state;
+            // Half-open windows on a 1440-minute circle. a <= b is an ordinary
+            // window; a > b is one that crosses midnight, which the sleep window
+            // always does and the "almost" window does for anyone waking before
+            // their warning length past midnight.
+            auto inwin = [](int a, int b, int x) {
+              return a <= b ? (x >= a && x < b) : (x >= a || x < b);
+            };
+            auto span = [](int a, int b) { return ((b - a) % 1440 + 1440) % 1440; };
+            const int almost0 = ((wake - warn)  % 1440 + 1440) % 1440;
+            const int bwarn0  = ((bed  - bwarn) % 1440 + 1440) % 1440;
+            if      (warn  > 0 && inwin(almost0, wake, m)) sched = 1;
+            else if (inwin(wake, bwarn0, m))               sched = 2;
+            else if (bwarn > 0 && inwin(bwarn0, bed, m))   sched = 3;
+            else                                           sched = 0;
+
+            // An override lasts until the schedule moves on by itself.
+            if (id(grow_override) != 0 && sched != id(grow_sched_at_override))
+              id(grow_override) = 0;
+            st = sched;
+            if (id(grow_override) == 1) st = 2;
+            if (id(grow_override) == 2) st = 0;
+
+            // Stars: the fraction of the night still to go. Measured from bed
+            // to wake so a "sleep now" at 18:30 still counts down to 7:00.
+            if (st == 0) {
+              int total = span(bed, wake); if (total <= 0) total = 1;
+              int left  = span(m, wake);   if (left > total) left = total;
+              frac = (float) left / (float) total;
+            }
+
+            // A nap beats everything, and ends itself.
+            const uint32_t ts = (uint32_t) now.timestamp;
+            if (id(grow_nap_end) > ts) {
+              st = 4;
+              const float tot = id(grow_nap_min).state * 60.0f;
+              frac = (float) (id(grow_nap_end) - ts) / (tot > 1.0f ? tot : 1.0f);
+              if (frac > 1.0f) frac = 1.0f;
+            } else if (id(grow_nap_end) != 0) {
+              id(grow_nap_end) = 0;                      // nap over: back to schedule
+            }
+          }
+          // A forced expression, for demos and daylight checks.
+          const std::string fx = id(grow_expression).current_option().str();
+          if      (fx == "sleeping") st = 0;
+          else if (fx == "almost")   st = 1;
+          else if (fx == "awake")    st = 2;
+          else if (fx == "bedtime")  st = 3;
+
+          id(grow_sched) = sched;
+          id(grow_st)    = st;
+          id(grow_frac)  = frac;
+          static const char *names[] = {"sleep", "almost", "awake", "bedtime", "nap"};
+          if (id(grow_state).state != names[st]) id(grow_state).publish_state(names[st]);
+
+          // ---- the backlight follows the state -----------------------------
+          // Only touched when the wanted level CHANGES, so this does not fight
+          // the Backlight light entity every second. Leaving grow mode puts the
+          // backlight back to full, once, and then leaves it alone.
+          if (id(grow_mode).state) {
+            const bool nightish = (st == 0 || st == 3 || st == 4);
+            float b = (nightish && id(grow_dim).state
+                       ? id(grow_night_bright).state : id(grow_day_bright).state) / 100.0f;
+            const bool sound = id(grow_sound).state && (st == 0 || st == 4)
+                && id(grow_sound_since) != 0
+                && (uint32_t)(millis() - id(grow_sound_since))
+                   < (uint32_t) lroundf(id(grow_sound_secs).state * 1000.0f);
+            if (sound && b < 0.6f) b = 0.6f;
+            if (fabsf(b - id(grow_bl_last)) > 0.005f) {
+              auto c = id(backlight).turn_on(); c.set_brightness(b); c.perform();
+              id(grow_bl_last) = b;
+            }
+          } else if (id(grow_bl_last) >= 0.0f) {
+            auto c = id(backlight).turn_on(); c.set_brightness(1.0f); c.perform();
+            id(grow_bl_last) = -1.0f;
+          }
       - lambda: |-
           // current_option(), not .state. The compiler says: "'Select::state' is
           // deprecated: Use current_option() instead of .state. Will be removed
@@ -1507,6 +2010,61 @@ light:
             // the LED's on the outside" does not take the screen with it.
             if (!id(display_on).state || !id(ring_on).state) {
               it.all() = Color::BLACK; return;
+            }
+
+            // ---- GROW CLOCK: the ring is the colour, and the stars ---------
+            // Takes the whole ring and returns. Nothing below -- hands, timers,
+            // status -- is for a child's bedroom.
+            if (id(grow_mode).state) {
+              const int st = id(grow_st);
+              const std::string sc = id(grow_sleep_colour).current_option().str();
+              const std::string wc = id(grow_wake_colour).current_option().str();
+              int r = 0, g = 0, b = 0;
+              float k = 1.0f;
+              const float ph = (id(frame) % 80) / 80.0f;               // 4 s breathe
+              const float breathe = 0.55f + 0.45f * fabsf(1.0f - 2.0f * ph);
+              bool stars = false;
+              if (st == 0 || st == 4) {
+                if      (sc == "red")    { r = 120; g = 0;  b = 0;   }
+                else if (sc == "purple") { r = 60;  g = 0;  b = 90;  }
+                else if (sc == "off")    { r = 0;   g = 0;  b = 0;   }
+                else                     { r = 0;   g = 20; b = 120; }
+                stars = id(grow_stars).state;
+              } else if (st == 1) { r = 255; g = 120; b = 0; k = breathe; }
+              else if (st == 2) {
+                if      (wc == "green") { r = 0;   g = 200; b = 40;  }
+                else if (wc == "white") { r = 200; g = 200; b = 200; }
+                else                    { r = 255; g = 200; b = 0;   }
+              } else { r = 200; g = 80; b = 0; k = breathe; }
+
+              // Sound during sleep: brighter and pulsing, in the SLEEP colour.
+              const bool sound = id(grow_sound).state && (st == 0 || st == 4)
+                  && id(grow_sound_since) != 0
+                  && (uint32_t)(millis() - id(grow_sound_since))
+                     < (uint32_t) lroundf(id(grow_sound_secs).state * 1000.0f);
+              const bool nightish = (st == 0 || st == 3 || st == 4);
+              float bri = (nightish && id(grow_dim).state
+                           ? id(grow_night_bright).state : id(grow_day_bright).state) / 100.0f;
+              if (sound) {
+                if (bri < 0.6f) bri = 0.6f;
+                k = 0.6f + 0.4f * fabsf(1.0f - 2.0f * ((id(frame) % 20) / 20.0f));
+              }
+
+              // Stars go out from the far end, anticlockwise from 12, so the
+              // last one standing is at the top -- where the sun comes up.
+              int lit = N;
+              if (stars) {
+                lit = (int) ceilf(id(grow_frac) * N);
+                if (lit < 0) lit = 0; if (lit > N) lit = N;
+              }
+              for (int i = 0; i < PHYS; i++) it[i] = Color::BLACK;
+              for (int i = 0; i < lit; i++) {
+                const int p = P(stars ? -(float) i / N : (float) i / N);
+                it[p] = Color((uint8_t) lroundf(r * k * bri),
+                              (uint8_t) lroundf(g * k * bri),
+                              (uint8_t) lroundf(b * k * bri));
+              }
+              return;
             }
 
             // ---- THEME ------------------------------------------------------
@@ -2100,6 +2658,113 @@ display:
         it.fill(Color::BLACK); return;
       }
 
+      // ---- GROW CLOCK ------------------------------------------------------
+      // Before the night-blank check on purpose: a grow clock's whole job is
+      // to be visible at night. Before the weather and the timers because none
+      // of that belongs in a child's room. The backlight level is set by the
+      // dispatcher, so the field here can be drawn at full colour.
+      if (id(grow_mode).state) {
+        const int st = id(grow_st);
+        const std::string sc = id(grow_sleep_colour).current_option().str();
+        const std::string wc = id(grow_wake_colour).current_option().str();
+        const std::string fs = id(grow_face).current_option().str();
+        Color field, ink;
+        if (st == 0 || st == 4) {
+          field = sc == "red"    ? Color(90, 10, 10)
+                : sc == "purple" ? Color(50, 10, 80)
+                : sc == "off"    ? Color(0, 0, 0)
+                :                  Color(10, 18, 80);
+          ink = Color(225, 228, 240);
+        } else if (st == 1) { field = Color(200, 120, 20); ink = Color(40, 24, 4); }
+        else if (st == 2) {
+          field = wc == "green" ? Color(40, 180, 60)
+                : wc == "white" ? Color(220, 220, 220)
+                :                 Color(240, 200, 40);
+          ink = Color(40, 32, 8);
+        } else { field = Color(140, 60, 20); ink = Color(240, 225, 200); }
+        it.fill(field);
+        const bool sound = id(grow_sound).state && (st == 0 || st == 4)
+            && id(grow_sound_since) != 0
+            && (uint32_t)(millis() - id(grow_sound_since))
+               < (uint32_t) lroundf(id(grow_sound_secs).state * 1000.0f);
+
+        // A thick arc, drawn as a run of dots. r is the radius, a0..a1 the
+        // sweep in degrees measured from straight down, ky squashes it.
+        auto arc = [&](int cx, int cy, int r, float ky, int a0, int a1, int w, Color c) {
+          for (int t = a0; t <= a1; t += 3) {
+            const float a = t * 3.14159265f / 180.0f;
+            it.filled_circle(cx + (int) lroundf(r * sinf(a)),
+                             cy + (int) lroundf(r * ky * cosf(a)), w, c);
+          }
+        };
+
+        if (fs == "expressions") {
+          const int ex = 62, ey = CY - 30, er = 22;
+          if (st == 2) {
+            // AWAKE: wide eyes with a highlight, and a big smile
+            it.filled_circle(CX - ex, ey, er, ink);  it.filled_circle(CX + ex, ey, er, ink);
+            it.filled_circle(CX - ex + 7, ey - 7, 6, field);
+            it.filled_circle(CX + ex + 7, ey - 7, 6, field);
+            arc(CX, CY + 40, 90, 0.55f, -60, 60, 6, ink);
+          } else if (st == 1) {
+            // ALMOST: half-lidded eyes -- the lower half of each, and a small
+            // smile. Morning is close.
+            it.filled_circle(CX - ex, ey, er, ink);  it.filled_circle(CX + ex, ey, er, ink);
+            it.filled_rectangle(CX - ex - er - 1, ey - er - 1, 2 * er + 2, er + 1, field);
+            it.filled_rectangle(CX + ex - er - 1, ey - er - 1, 2 * er + 2, er + 1, field);
+            arc(CX, CY + 40, 60, 0.45f, -45, 45, 5, ink);
+          } else if (st == 3) {
+            // BEDTIME: drooping eyes and a yawn
+            arc(CX - ex, ey - 6, er, 0.5f, -50, 50, 5, ink);
+            arc(CX + ex, ey - 6, er, 0.5f, -50, 50, 5, ink);
+            it.filled_circle(CX, CY + 62, 24, ink);
+            it.filled_circle(CX, CY + 64, 16, Color(90, 30, 30));
+          } else {
+            // SLEEP / NAP: closed eyes, a small mouth, and z z z
+            arc(CX - ex, ey - 6, er, 0.55f, -55, 55, 5, ink);
+            arc(CX + ex, ey - 6, er, 0.55f, -55, 55, 5, ink);
+            it.filled_rectangle(CX - 14, CY + 62, 28, 5, ink);
+            it.print(CX + 78, CY - 100, id(font_med), ink, TextAlign::CENTER, "z z z");
+          }
+          if (sound) it.print(CX, CY + 100, id(font_med), ink, TextAlign::CENTER, "shh");
+        } else if (fs == "sun and moon") {
+          if (st == 0 || st == 4 || st == 3) {
+            it.filled_circle(CX, CY - 10, 70, ink);              // moon...
+            it.filled_circle(CX + 28, CY - 24, 62, field);       // ...with a bite out
+            const int sx[5] = {-120, -95, 105, 125, 60}, sy[5] = {-60, 70, -80, 20, -125};
+            for (int i = 0; i < 5; i++) it.filled_circle(CX + sx[i], CY + sy[i], 5, ink);
+          } else {
+            it.filled_circle(CX, CY - 10, 60, ink);
+            for (int i = 0; i < 12; i++) {
+              const float a = i * 3.14159265f / 6.0f;
+              it.line(CX + (int) lroundf(78 * cosf(a)),  CY - 10 + (int) lroundf(78 * sinf(a)),
+                      CX + (int) lroundf(105 * cosf(a)), CY - 10 + (int) lroundf(105 * sinf(a)), ink);
+            }
+          }
+          if (sound) it.print(CX, CY + 100, id(font_med), ink, TextAlign::CENTER, "shh");
+        }
+
+        // Stars until morning: a row of eight along the bottom, lit ones
+        // solid, spent ones faint. On a 360 round panel y = CY + 128 still has
+        // 126 px of half-width, which an eight-star row at 30 px pitch fits.
+        if (id(grow_stars).state && (st == 0 || st == 4)) {
+          const int NS = 8;
+          int lit = (int) ceilf(id(grow_frac) * NS); if (lit > NS) lit = NS;
+          for (int i = 0; i < NS; i++)
+            it.filled_circle(CX - (NS - 1) * 15 + i * 30, CY + 128, 6,
+                             i < lit ? ink : dim(ink, 0.18f));
+        }
+
+        // The time, small and at the top, for a child who is ready for it.
+        if (id(grow_show_time).state && now.is_valid()) {
+          char tb[8]; int hh = now.hour;
+          if (!h24) { hh %= 12; if (hh == 0) hh = 12; }
+          snprintf(tb, sizeof(tb), "%d:%02d", hh, now.minute);
+          it.print(CX, CY - 138, id(font_t48), ink, TextAlign::CENTER, tb);
+        }
+        return;
+      }
+
       // Night blanks the SCREEN only. The ring keeps the time, because the
       // clock is the one thing that must survive every setting on this page.
       if (id(night_blank).state && id(auto_dim).state && now.is_valid()) {
@@ -2586,6 +3251,87 @@ display:
       // and not the other would be a bug that only shows up at 3 a.m.
       if (!id(display_on).state || !id(screen_on).state) {
         it.fill(Color::BLACK); return;
+      }
+
+      // ---- GROW CLOCK, on the bar: the same states, laid out for 320 x 170 --
+      if (id(grow_mode).state) {
+        const int st = id(grow_st);
+        const std::string sc = id(grow_sleep_colour).current_option().str();
+        const std::string wc = id(grow_wake_colour).current_option().str();
+        const std::string fs = id(grow_face).current_option().str();
+        Color field, ink;
+        if (st == 0 || st == 4) {
+          field = sc == "red" ? Color(90, 10, 10) : sc == "purple" ? Color(50, 10, 80)
+                : sc == "off" ? Color(0, 0, 0) : Color(10, 18, 80);
+          ink = Color(225, 228, 240);
+        } else if (st == 1) { field = Color(200, 120, 20); ink = Color(40, 24, 4); }
+        else if (st == 2) {
+          field = wc == "green" ? Color(40, 180, 60) : wc == "white" ? Color(220, 220, 220)
+                : Color(240, 200, 40);
+          ink = Color(40, 32, 8);
+        } else { field = Color(140, 60, 20); ink = Color(240, 225, 200); }
+        it.fill(field);
+        const bool sound = id(grow_sound).state && (st == 0 || st == 4)
+            && id(grow_sound_since) != 0
+            && (uint32_t)(millis() - id(grow_sound_since))
+               < (uint32_t) lroundf(id(grow_sound_secs).state * 1000.0f);
+        auto arc = [&](int cx, int cy, int r, float ky, int a0, int a1, int w, Color c) {
+          for (int t = a0; t <= a1; t += 4) {
+            const float a = t * 3.14159265f / 180.0f;
+            it.filled_circle(cx + (int) lroundf(r * sinf(a)),
+                             cy + (int) lroundf(r * ky * cosf(a)), w, c);
+          }
+        };
+        const int FX = W / 2, EY = 58, EX = 46, ER = 15;
+        if (fs == "expressions") {
+          if (st == 2) {
+            it.filled_circle(FX - EX, EY, ER, ink); it.filled_circle(FX + EX, EY, ER, ink);
+            it.filled_circle(FX - EX + 5, EY - 5, 4, field); it.filled_circle(FX + EX + 5, EY - 5, 4, field);
+            arc(FX, EY + 30, 60, 0.5f, -55, 55, 4, ink);
+          } else if (st == 1) {
+            it.filled_circle(FX - EX, EY, ER, ink); it.filled_circle(FX + EX, EY, ER, ink);
+            it.filled_rectangle(FX - EX - ER - 1, EY - ER - 1, 2 * ER + 2, ER + 1, field);
+            it.filled_rectangle(FX + EX - ER - 1, EY - ER - 1, 2 * ER + 2, ER + 1, field);
+            arc(FX, EY + 32, 40, 0.45f, -40, 40, 3, ink);
+          } else if (st == 3) {
+            arc(FX - EX, EY - 4, ER, 0.5f, -50, 50, 3, ink);
+            arc(FX + EX, EY - 4, ER, 0.5f, -50, 50, 3, ink);
+            it.filled_circle(FX, EY + 48, 15, ink); it.filled_circle(FX, EY + 49, 10, Color(90, 30, 30));
+          } else {
+            arc(FX - EX, EY - 4, ER, 0.55f, -55, 55, 3, ink);
+            arc(FX + EX, EY - 4, ER, 0.55f, -55, 55, 3, ink);
+            it.filled_rectangle(FX - 10, EY + 48, 20, 4, ink);
+            it.print(FX + 70, 22, id(font_med), ink, TextAlign::CENTER, "z z z");
+          }
+        } else if (fs == "sun and moon") {
+          if (st == 0 || st == 4 || st == 3) {
+            it.filled_circle(FX, 70, 46, ink); it.filled_circle(FX + 18, 60, 40, field);
+          } else {
+            it.filled_circle(FX, 70, 40, ink);
+            for (int i = 0; i < 12; i++) {
+              const float a = i * 3.14159265f / 6.0f;
+              it.line(FX + (int) lroundf(52 * cosf(a)), 70 + (int) lroundf(52 * sinf(a)),
+                      FX + (int) lroundf(68 * cosf(a)), 70 + (int) lroundf(68 * sinf(a)), ink);
+            }
+          }
+        }
+        if (sound) it.print(W - 12, 10, id(font_med), ink, TextAlign::TOP_RIGHT, "shh");
+        if (id(grow_stars).state && (st == 0 || st == 4)) {
+          const int NS = 8;
+          int lit = (int) ceilf(id(grow_frac) * NS); if (lit > NS) lit = NS;
+          for (int i = 0; i < NS; i++)
+            it.filled_circle(FX - (NS - 1) * 16 + i * 32, H - 18, 5,
+                             i < lit ? ink : Color((uint8_t)(ink.r * 0.18f),
+                                                   (uint8_t)(ink.g * 0.18f),
+                                                   (uint8_t)(ink.b * 0.18f)));
+        }
+        if (id(grow_show_time).state && now.is_valid()) {
+          char tb[8]; int hh = now.hour;
+          if (!id(fmt_24h).state) { hh %= 12; if (hh == 0) hh = 12; }
+          snprintf(tb, sizeof(tb), "%d:%02d", hh, now.minute);
+          it.print(12, 10, id(font_med), ink, TextAlign::TOP_LEFT, tb);
+        }
+        return;
       }
       if (id(night_blank).state && id(auto_dim).state && now.is_valid()) {
         const int h  = now.hour;

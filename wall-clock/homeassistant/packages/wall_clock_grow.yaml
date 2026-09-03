@@ -1,0 +1,72 @@
+# =============================================================================
+# wall_clock_grow.yaml — the grow clock's Home Assistant side
+# =============================================================================
+# Install: drop in /config/packages/ next to wall_clock.yaml, then
+# `homeassistant.reload_all` (input_boolean and automation both hot-reload).
+#
+# The grow clock itself lives entirely in the firmware: schedule, colours,
+# faces, stars, nap, overrides -- all of it is on the device and works with
+# Home Assistant unreachable, which is the project's standing rule (reliable
+# clock > everything). This file exists for exactly one thing the device cannot
+# do on its own: HEAR THE ROOM.
+#
+# THE BOARD HAS NO MICROPHONE. "Respond to sound" on a consumer grow clock
+# means a mic in the clock. Here it means: something in Home Assistant hears
+# the room and pulses the helper below; the clock sees the rising edge and
+# reacts (brightens in the SLEEP colour and says "shh", for
+# `Grow clock sound response seconds`). What hears the room is yours to pick --
+# a Voice PE in the nursery catching its wake word, a baby monitor with an HA
+# integration, a cheap sound-level sensor on a Zigbee board. Wire any of them to
+# turn this helper ON; the automation below turns it back off, so every trigger
+# is a clean pulse whatever drives it.
+# =============================================================================
+
+input_boolean:
+  wall_clock_grow_sound:
+    name: Wall clock grow sound
+    icon: mdi:ear-hearing
+
+automation:
+  # Auto-reset, so the helper is an EVENT and not a state. Two seconds is long
+  # enough for the ESPHome binary_sensor to see it go high; the clock's own
+  # response window is separate and longer (default 20 s, set on the device).
+  - id: wall_clock_grow_sound_reset
+    alias: "Wall clock: grow sound pulse reset"
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id: input_boolean.wall_clock_grow_sound
+        to: "on"
+    actions:
+      - delay:
+          seconds: 2
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.wall_clock_grow_sound
+
+  # EXAMPLE SOURCE, disabled by default because it names an entity you may not
+  # have. It shows the shape: any trigger, one action. Enable it and change the
+  # entity to whatever hears the room. A Voice PE exposes its assist_satellite
+  # state, which goes to "listening" when it hears the wake word -- in a
+  # nursery at 5 a.m. that is a child calling out, which is exactly the moment
+  # the clock should say "shh".
+  - id: wall_clock_grow_sound_from_voice_pe
+    alias: "Wall clock: grow sound from the nursery Voice PE"
+    initial_state: false
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: assist_satellite.nursery_assist_satellite   # <-- yours here
+        to: "listening"
+    conditions:
+      # Only while the clock says it is sleep time. Outside that a wake word
+      # is just a wake word.
+      - condition: state
+        entity_id: sensor.mini_round_clock_grow_clock_state
+        state:
+          - "sleep"
+          - "nap"
+    actions:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.wall_clock_grow_sound

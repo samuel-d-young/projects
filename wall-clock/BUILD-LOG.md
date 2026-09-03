@@ -4334,3 +4334,124 @@ pushes second merges; nothing is lost, but it is not automatic.
 3. **Clock #1's GPIO18 strap is faulty** — reads `on` with the round panel
    fitted. Worked around by pinning Screen to "round 360x360" (persists in NVS).
    Needs a continuity check to GND on that cable.
+
+---
+
+## 2026-09-03 — Grow clock: a toddler sleep-training clock on the same hardware
+
+Sam: *"I want to create a 'grow clock' feature for my son so that it changes
+colour when to wake up etc. Add an option to change the screen to a kids grow
+clock. Add options like, what time to change colour, facial expressions, dim at
+night, respond to sound, and any features consumer grow clocks have."*
+
+### What it does
+
+One switch, **Grow clock**, and the whole device becomes the child's clock —
+ring, panel and backlight follow a sleep/wake schedule and show **nothing
+else**. No hands, timers or status pixels: a nursery clock lighting up because
+the kitchen timer finished is a bug. Off, every earlier behaviour is untouched.
+
+| state | when | ring | panel |
+|---|---|---|---|
+| **sleep** | bed → wake | sleep colour, stars going out | closed eyes, *z z z* |
+| **almost** | `almost time minutes` before wake | amber, breathing | half-lidded eyes, small smile |
+| **awake** | wake → bedtime warning | wake colour | wide eyes, big smile, sun |
+| **bedtime** | `bedtime warning minutes` before bed | amber, breathing | drooping eyes, yawn |
+| **nap** | after *Start nap* | as sleep, counting the nap | as sleep |
+
+Everything a consumer grow clock has, mapped onto what this hardware can do:
+
+* **Colour at a time** — wake hour/minute, bed hour/minute, separate weekend
+  wake time behind a switch. Times are hour + minute pairs because a slider is
+  easier on a phone than a time string.
+* **Stars until morning** — the Gro-Clock's best idea. The ring *is* the stars:
+  lit count = ceil(N × fraction of the night left), going out anticlockwise
+  from 12 so the last one standing is at the top where the sun comes up. On a
+  60-LED ring that is one star every ~10 min over a ten-hour night. The panel
+  shows a row of eight.
+* **Facial expressions** — `Grow clock face`: *expressions* (above), *sun and
+  moon* (the Gro-Clock picture), *colour only* for a child who finds faces too
+  exciting. `Grow clock expression` forces a state for demos and daylight
+  checks.
+* **Dim at night** — its own night/day brightness, applied to the ring AND the
+  panel backlight, overriding the ordinary auto-dim while grow mode is on.
+* **Nap** — *Start nap* runs `nap minutes` with its own countdown and ends
+  itself. *Cancel nap*.
+* **Overrides** — *Wake now* / *Sleep now* hold until the schedule next changes
+  by itself, then let go. Nothing has to be remembered to be undone. *Back to
+  the schedule* clears everything.
+* **Show the time** — off for a toddler; on for a child matching "7:00" to the
+  sun coming up.
+* **Sleep colour** blue (Gro-Clock's), red (what sleep consultants recommend —
+  least melatonin suppression), purple, or *off* for the child who sleeps
+  better with nothing lit. **Wake colour** yellow, green or white.
+* **State to HA** — `sensor.<clock>_grow_clock_state` publishes
+  sleep/almost/awake/bedtime/nap on change, so a night light can follow the
+  clock.
+
+### "Respond to sound", honestly
+
+**This board has no microphone**, and consumer grow clocks that respond to
+sound have one. So the sound input is a Home Assistant entity,
+`input_boolean.wall_clock_grow_sound`, shipped in the new
+`packages/wall_clock_grow.yaml` with an automation that pulses it back off, so
+anything in HA that hears the room — a Voice PE catching its wake word, a baby
+monitor, a noise sensor — can drive it. An example wired to a Voice PE is in
+the package, disabled, because it names an entity Sam may not have.
+
+What the clock does with it is deliberate: during **sleep** it brightens to at
+least 60% and pulses **in the sleep colour**, and the face says *shh*, for
+`sound response seconds`. It never shows the wake colour for a noise — the
+point is to answer "is it morning yet?" with a clear *no*, not to reward
+calling out. Events are counted to `sensor.<clock>_grow_clock_sound_events` so
+a parent can see in the morning whether the clock was being talked to at 5 a.m.
+
+Also not here, for the same reason: a sound machine / white noise. No speaker.
+
+### How it is built
+
+The state is resolved **once a second in the dispatcher** and stored in
+globals (`grow_st`, `grow_frac`, `grow_sched`), so the ring at 20 fps, both
+panels and the HA sensor all read the same answer rather than each computing
+its own. Windows are half-open on a 1440-minute circle, so the sleep window
+crossing midnight — and the *almost* window crossing it for anyone who wakes
+within `almost time minutes` of it — is the same code path as any other.
+
+The backlight is set from the dispatcher only when the wanted level **changes**,
+so grow mode does not fight the Backlight light entity every second; leaving
+grow mode puts it back to full once and then leaves it alone.
+
+Both panels' grow branches sit **before the night-blank check**, on purpose: a
+grow clock's whole job is to be visible at night.
+
+### Verification
+
+`esphome config` and a full `esphome compile` on the edited file:
+
+```
+
+
+```
+
+0 errors; 0 warnings from this file. All new lambda code — the state
+machine, the ring branch, two panel branches with the arc/face drawing, five
+button handlers — went through the compiler, which is the check that mattered
+after the `Select::state` lesson earlier in this log.
+
+Dashboard: a **Grow clock** card per full-tier clock, 184 rows across three
+clocks, 0 dangling against each clock's own firmware. The validator now maps
+ESPHome `text_sensor` to HA's `sensor` domain, which it did not before.
+
+`homeassistant/INSTALL.md` now lists all four packages. `install.sh` installs
+`wall_clock.yaml` only, which is exactly how a box ended up with the pre-v18
+timers package and three helpers missing.
+
+### Open
+
+* Not flashed. The face geometry — where the eyes and smile land on a 360 mm
+  round panel — has been checked against the panel's circle only by
+  arithmetic (the star row at y = CY+128 has 126 px of half-width, which an
+  8 × 30 px row fits). It wants a look on the real thing.
+* Entity ids are new, so the dashboard JSON has to be reinstalled for the card
+  to resolve.
+
