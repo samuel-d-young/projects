@@ -5073,3 +5073,91 @@ believed twice.
 `esphome config` valid, and a full compile is recorded below. Not verified on
 the panel: nobody has yet seen the eyes animate, which is the whole point of
 the change, and it is the first thing to look at after the next flash.
+
+## 2026-09-03 — Three clocks, one of them new; the panel in sections; and the LED that is a lamp
+
+A long round with the bench session, and most of what it produced was
+corrections to things this log already asserted.
+
+### There are three boards, and the one on the desk is not clock #2
+
+The board Sam plugged in tonight identified itself, was flashed as
+`mini-round-clock-2`, and **Home Assistant refused to adopt it**: the MAC did
+not match the one already registered under that name (new `ac:27:6e:a3:3b:ac`
+against the existing `ac:27:6e:a4:cd:98`). It is a third physical board. It
+was reflashed as `mini-round-clock-3` and adopted cleanly — 192.168.1.69, 32
+LEDs, 102 entities, status sensor on.
+
+Which means **the entry above claiming both boards were flashed and clock #2's
+blank screen was resolved cannot be corroborated**. Clock #2 has been
+unavailable in Home Assistant since 2026-08-31T23:53Z. Whatever was flashed
+that day, the bench cannot reach it now.
+
+**And the recorded addresses are dangerous.** 192.168.1.23 was clock #1; it
+now answers on MAC `C4-E7-AE-16-6B-A6` with port 80 open and 3232/6053 closed.
+Another device holds that lease. Flashing at a remembered address would have
+pushed clock firmware at a stranger's hardware, and the bench was right to
+refuse. HANDOFF.md now carries the addresses as dead, with the rule: check the
+MAC or the mDNS name before an OTA, never the address alone.
+
+### The gate I was so pleased with was not in the live view at all
+
+The entry above says the settings view would have rendered blank because every
+card is gated on a status sensor nothing declared. True of **this** repo's
+generator. The live dashboard is a different one: when the bench ported the
+grow-clock cards into Sam's sections layout it deliberately left `vis()`
+behind, having spotted that gating would hide everything. So the live view has
+42 visibility conditions and not one of them mentions the status sensor. The
+"Entity not found" icons Sam is seeing are two offline clocks with nothing
+hiding them, which is a different fault with the same fix.
+
+### And the fix needed a second half
+
+Gating alone replaces a page of yellow rows with **nothing**, and the bench
+declined to paste it for exactly that reason: clocks 1 and 2 would vanish from
+their own picker rather than read as unavailable. It was right, and the
+refusal was worth more than compliance. Each clock now gets an `absent_card()`
+on the opposite condition, saying it is not connected and why. Whether it
+renders for a clock whose status entity does not exist *at all* is the one
+thing that cannot be checked from here; the bench is looking.
+
+### An instruction of mine inverted between writing and reading
+
+I told the bench: if the two generators collide, keep yours and delete mine.
+By the time it got there I had pushed a generator that was ahead of its own —
+a real sections view, 39 card groups against 14 — so obeying me would have
+deleted the better work. It read the diff, saw that, and stopped. Taken
+literally it would also have dropped the `tier` mechanism and the Test Clock
+entry, which only my side had.
+
+The rule I should have written, and the one it acted on: **keep the layout
+that is live, keep every feature either side has, and never resolve a
+collision by deleting work you have not read.** An instruction about a merge
+is written before you can see the merge.
+
+### The LED is a lamp, and the number says so
+
+*"The LED is too bright!"* — three times now. The ring brightness is a linear
+multiplier straight onto the emitter, so 45 really is 45% of a 32-LED ring at
+full tilt, which in a bedroom is a lamp and not a night light. Day 45 → 25,
+grow ring day 45 → 25, grow ring night 12 → 7, and the step is 1 rather than 5
+with the floor at 1: at 5% steps there were three positions below a quarter.
+
+`restore_value` is true on all of them, so this is what a **fresh flash**
+ships with. A clock already running keeps its stored value, which is why the
+answer to "it is too bright right now" is the device page in Home Assistant,
+not a reflash.
+
+### Still open, and none of it can be settled from here
+
+- **The flicker is on the ring AND the screen.** That is new information and it
+  points away from the backlight PWM, which cannot affect the ring, and toward
+  the 5 V rail: a 32-LED ring at 45% is ~0.9 A on top of the panel and the
+  radio, and the build notes have the board powered from its own USB port. The
+  decisive test is one click — switch the ring off and watch the screen.
+- **The eye animation has still never been seen.** The band fix is flashed
+  nowhere yet.
+- **The packages cannot be installed.** 192.168.1.75 has 22 and 445 closed and
+  only 8123 open, and the REST API has no file-write endpoint. It needs the
+  Terminal & SSH or Samba add-on enabled, which is Sam's to do. Until then the
+  clock picker's options are set at runtime and die at the next restart.
