@@ -56,6 +56,13 @@ CLOCKS = [
      "backlight": True},
     {"slug": "mini_round_clock_2", "label": "Mini Round Clock 2", "tier": "full",
      "backlight": True},
+    # Clock 3, 2026-09-03. Sam had a third board on the bench and called it
+    # "clock 3"; it is flashed with -s device_name mini-round-clock-3. Listing
+    # it here costs nothing if it never appears: every card is gated on
+    # binary_sensor.mini_round_clock_3_status, so until the device is on the
+    # network the rows are simply not rendered.
+    {"slug": "mini_round_clock_3", "label": "Mini Round Clock 3", "tier": "full",
+     "backlight": True},
     {"slug": "test_clock",         "label": "Test Clock (D1 mini)", "tier": "basic",
      "backlight": False},
 ]
@@ -81,11 +88,16 @@ def vis(label, slug=None):
     entities card renders one error row per missing entity, which looks like
     twenty faults instead of one absent device.
 
-    `binary_sensor.<slug>_status` is the entity the ESPHome integration creates
-    for every device it adopts. If the device does not exist the condition is
-    simply false and the card does not render. The status line at the top of the
-    view is NOT gated this way, so there is always something on screen saying
-    why the rest is missing.
+    `binary_sensor.<slug>_status` comes from `platform: status` in the clock's
+    firmware. It is NOT created automatically -- an earlier version of this
+    docstring said the ESPHome integration makes one for every adopted device,
+    and that is wrong (ESPHome docs, checked 2026-09-03: the status binary
+    sensor is opt-in). It matters because the failure is silent: the condition
+    on a missing entity is false, so a firmware without it renders this whole
+    view BLANK rather than filling it with "Entity not found" rows. Any clock
+    added to CLOCKS must be running firmware that declares it. The status line
+    at the top of the view is NOT gated this way, so there is always something
+    on screen saying why the rest is missing.
     """
     c = [{"condition": "state", "entity": PICKER, "state": label}]
     if slug:

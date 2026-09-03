@@ -376,6 +376,19 @@ text_sensor:
     update_interval: never
 
 binary_sensor:
+  # IS THE CLOCK THERE. Home Assistant does NOT create a connection-status
+  # entity for an ESPHome device by itself -- checked against the ESPHome docs
+  # 2026-09-03, `platform: status` is opt-in and there is no automatic one.
+  # The Settings dashboard gates every card on binary_sensor.<device>_status,
+  # so a device that never declared this renders NOTHING: the condition is
+  # false for a missing entity, and the whole view comes up blank rather than
+  # filling with "Entity not found" rows. Declaring it here is what makes that
+  # gate true. `name: Status` gives exactly binary_sensor.${device_name}_status
+  # because the object id is the name slugged onto the device prefix.
+  - platform: status
+    name: "Status"
+    entity_category: diagnostic
+
   - platform: homeassistant
     id: timer_alert
     entity_id: binary_sensor.wall_clock_timer_alert
