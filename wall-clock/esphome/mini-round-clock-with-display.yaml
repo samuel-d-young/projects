@@ -1928,6 +1928,46 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  # WHAT THE PANEL IS ALREADY SHOWING. The animation frame used to be drawn
+  # ten times a second whether or not anything had moved, which is most of the
+  # time: the animator spends far longer in an idle gap holding a resting pose
+  # than it does inside a clip. Every one of those repaints is six lambda
+  # passes and four banded flushes, and on the panel it reads as the graphics
+  # flickering. These hold the pose as last DRAWN, and the frame is skipped
+  # unless the pose has actually changed. Set after the update, not before, so
+  # a frame that never made it to the panel is not recorded as shown.
+  - id: an_dgx
+    type: float
+    restore_value: no
+    initial_value: '-999'
+  - id: an_dgy
+    type: float
+    restore_value: no
+    initial_value: '-999'
+  - id: an_dlidl
+    type: float
+    restore_value: no
+    initial_value: '-999'
+  - id: an_dlidr
+    type: float
+    restore_value: no
+    initial_value: '-999'
+  - id: an_dsmile
+    type: float
+    restore_value: no
+    initial_value: '-999'
+  - id: an_dhs
+    type: float
+    restore_value: no
+    initial_value: '-999'
+  - id: an_dmouth
+    type: float
+    restore_value: no
+    initial_value: '-999'
+  - id: an_dzq                 # the z-drift, quantised: 8 steps a cycle, not 10 a second
+    type: int
+    restore_value: no
+    initial_value: '-1'
   - id: grow_bl_last           # backlight level last set by grow mode; -1 = none
     type: float
     restore_value: no
@@ -2347,7 +2387,24 @@ interval:
               if (!id(display_on).state || !id(screen_on).state) return false;
               if (id(clock_face).current_option().str() == "colour test") return false;
               const std::string fs = id(grow_face).current_option().str();
-              return fs == "eyes" || fs == "eyes and sky" || fs == "eyes on colour";
+              if (!(fs == "eyes" || fs == "eyes and sky" || fs == "eyes on colour"))
+                return false;
+              // ...AND ONLY IF THE EYES HAVE MOVED. Without this the panel is
+              // repainted ten times a second through an idle gap in which
+              // nothing changes, which is what Sam saw as the graphics
+              // flickering. The thresholds are below what a pixel can show:
+              // the gaze moves the pupil by a few pixels per unit, and the
+              // lids, the smile, the squash and the yawn are all 0..1 over
+              // the eye's own height.
+              const int zq = (int) (id(an_zph) * 8.0f);
+              return fabsf(id(an_gx)    - id(an_dgx))    > 0.02f
+                  || fabsf(id(an_gy)    - id(an_dgy))    > 0.02f
+                  || fabsf(id(an_lidl)  - id(an_dlidl))  > 0.01f
+                  || fabsf(id(an_lidr)  - id(an_dlidr))  > 0.01f
+                  || fabsf(id(an_smile) - id(an_dsmile)) > 0.01f
+                  || fabsf(id(an_hs)    - id(an_dhs))    > 0.01f
+                  || fabsf(id(an_mouth) - id(an_dmouth)) > 0.01f
+                  || zq != id(an_dzq);
           then:
             - lambda: 'id(an_partial) = true;'
             - if:
@@ -2357,7 +2414,14 @@ interval:
                   - component.update: bar_lcd
                 else:
                   - component.update: face_lcd
-            - lambda: 'id(an_partial) = false;'
+            - lambda: |-
+                id(an_partial) = false;
+                // record what the panel is now showing
+                id(an_dgx)    = id(an_gx);    id(an_dgy)    = id(an_gy);
+                id(an_dlidl)  = id(an_lidl);  id(an_dlidr)  = id(an_lidr);
+                id(an_dsmile) = id(an_smile); id(an_dhs)    = id(an_hs);
+                id(an_dmouth) = id(an_mouth);
+                id(an_dzq)    = (int) (id(an_zph) * 8.0f);
 
   - interval: 250ms
     then:
@@ -3198,7 +3262,21 @@ display:
       - [0xFE]
       - [0xEE]
     lambda: |-
-      if (!id(an_partial)) it.fill(Color::BLACK);   // what auto-clear used to do
+      if (!id(an_partial)) {
+        it.fill(Color::BLACK);                     // what auto-clear used to do
+        // A full frame has just repainted the eye box too, so whatever the
+        // animator last drew is on the panel again. Not invalidating here
+        // would be the subtler bug: the pose is unchanged, so the dirty
+        // check would skip the next partial frame, which is correct -- and
+        // it stays correct only because the full frame drew the SAME pose.
+        // Recorded rather than reasoned about, so that a change to what a
+        // full frame draws cannot silently break the skip.
+        id(an_dgx)    = id(an_gx);    id(an_dgy)    = id(an_gy);
+        id(an_dlidl)  = id(an_lidl);  id(an_dlidr)  = id(an_lidr);
+        id(an_dsmile) = id(an_smile); id(an_dhs)    = id(an_hs);
+        id(an_dmouth) = id(an_mouth);
+        id(an_dzq)    = (int) (id(an_zph) * 8.0f);
+      }
       const int CX = 180, CY = 180;
       const auto now = id(ha_time).now();
       const std::string face = id(clock_face).current_option().str();
