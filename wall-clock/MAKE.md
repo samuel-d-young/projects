@@ -37,12 +37,17 @@ All in `enclosure/mini/v2/`, all prefixed `mini-round-clock`.
 | **collar gauge** — print this FIRST | `-collar-gauges` — one part, any body | | |
 | **board gauge** — print this FIRST | `-board-gauge` — one part, any body | | |
 | **board clamp** + 2 × M3 × 10 | `-board-clamp` — one part, any body | | |
+| diffuser, **no numerals** | `-diffuser-plain` | `-diffuser-32-plain` | `-diffuser-60-plain` |
+| diffuser **with the flange** (`-flange-plain` = no numerals) | `-diffuser-flange` | `-diffuser-32-flange` | — |
+| **stand-box** *(instead of the housing + desk stand)* | `-standbox` | `-standbox-32` | `-standbox-60` |
+| **stand-box tray** + 2 × M2 × 8 | `-standbox-tray` — one part, any body | | |
+| **back cover** *(with the stand-box)* | `-backcover` | `-backcover-32` | `-backcover-60` |
 
 ### The 1.9" bar screen instead of the round one
 
 Two extra parts, and **only for the 32 and 60 bodies** — `-base-32-bar` +
-`-diffuser-32-bar`, or the 60 equivalents. Housing, numerals and stand are the
-round ones unchanged.
+`-diffuser-32-bar` (or `-diffuser-32-bar-plain` without numerals), or the 60
+equivalents. Housing, numerals and stand are the round ones unchanged.
 
 Everything works because of one derived number. The module is seated so its
 **front face lands exactly where the round module's does** —
@@ -72,12 +77,49 @@ same lead-in — **the collar gauge still applies unchanged**.
 | light guides *(optional)* | — | — | `-light-guides-60` |
 | desk stand *(optional)* | `-deskstand` | `-deskstand-32` | `-deskstand-60` |
 
+### The S3 in the stand instead of the clock
+
+> *"create the back of the clock to house the ESP32 S3. It could be housed at
+> the bottom of the clock in the stand. Make the clock lean back a bit though."*
+
+Three parts replace the housing and the desk stand: **`-backcover`**, a flat
+8.9 mm back with the same screw holes and keyhole as the housing and a notch
+at 6 o'clock for the leads; **`-standbox`**, the cradle leaning back **12°**
+(the plain stand is 10°) on a 29 mm plinth with a bay in it; and
+**`-standbox-tray`**, which carries the board on the same pads and rails the
+housing did and *is* the lid — its end plate closes the bay, with the USB-C
+window in it, and takes **two M2 × 8 self-tappers** into 1.6 mm pilots in the
+plinth's back face. The bay is open at the back only; the plinth's lightening
+pockets are open underneath.
+
+Assembly, in this order: **(1)** base, ring, display and diffuser as usual;
+**(2)** back cover on with the housing's M3 screws, leads out through its
+6 o'clock notch — **allow 120 mm of lead from the deck**, which is about
+30 mm down through the plinth's roof and up to 67 mm along the bay to the
+board (from the model, not measured on a print); **(3)** board onto the
+tray's pads, under the two corner hooks, up against the end stop;
+**(4)** clock into the cradle, notch down; **(5)** leads down through the
+notch into the bay, onto the board; **(6)** tray in from the back, screws.
+The USB-C comes out of the back of the plinth, at desk level.
+
+The **`-flange`** diffusers fill the trough between the diffuser and the
+base's lip — *"larger on the outside to fit to the edge of the base"* — and
+print exactly like the diffuser, face down; nothing on them stands in front
+of the face. They stop at the lip, not over it, because the lip is only
+0.07 mm short of the face and anything covering it would put the face
+1.6 mm off the print bed. The 60's diffuser already reaches its lip and has
+no flange variant. **`-plain`** on any diffuser means no numerals.
+
 | File | Material | Settings |
 |---|---|---|
 | base | PETG (PLA fine) | **Deck face down.** 0.2 mm, 3 walls, 15% gyroid |
 | housing | **PETG** if a cell goes in | **Rear plate down.** No supports |
 | diffuser | **White PLA** | Face **down**. **0.20 mm layers.** **SOLID face — 100% infill**, no supports |
 | numerals | **Black PLA** (filament 2) | Not a print of its own — added *as a part of the diffuser* and assigned filament 2. See below |
+| diffuser -plain / -flange | **White PLA** | Exactly as the diffuser |
+| back cover | PLA | **Plate down.** No supports |
+| stand-box | PLA | **Flat on its desk face.** 3 walls, 8–10% infill, no supports — the bay roof is a 24 mm bridge with 54° chamfers into it |
+| stand-box tray | PLA | **Flat**, the lid standing. No supports |
 | desk stand | anything | Flat on its desk face. **8–10% infill** — it is a big blocky part and the volume figures are solid volume, not filament |
 | light guides (60 only) | **clear or natural PETG** | Flat. White PLA is opaque and would do nothing |
 

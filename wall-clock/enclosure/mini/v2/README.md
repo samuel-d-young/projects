@@ -1,15 +1,19 @@
-# mini-round-clock enclosure — v14
+# mini-round-clock enclosure — v15
 
 Built on top of the base and diffuser Sam remodelled. Three clock sizes: the
 **24-LED** body at 107.99 mm, which is his; a **32-LED** body at 119.85 mm,
 which the bigger ring forces; and a **60-LED** body at **240 mm**, where perspex
 light guides make each LED read 30 mm long. All three share one rear housing
-design that carries the ESP32-S3, and all three get a desk stand.
+design that carries the ESP32-S3, and all three get a desk stand — or, since
+v15, a **stand-box** that carries the S3 under the clock behind a flat back
+cover, with the clock leaning back 12° (§12). Any other ring size builds from
+`--custom`.
 
 ```
 python3 measure_uploaded.py    # re-derive every number in params.py from his STLs
 python3 build_v2.py            # write the STLs and 3MFs
-./runchecks.sh                 # five verification passes, all three bodies
+./runchecks.sh                 # six verification passes, all three bodies
+python3 build_v2.py --custom 45 160 140 --tag -45   # another size, from a measured ring
 python3 render.py              # picture sheets
 ```
 
@@ -32,9 +36,14 @@ Pick a body. Everything in one column goes together; nothing crosses over.
 | **collar gauge** — print FIRST, §2 | `-collar-gauges` — one part, any body | | |
 | **board gauge** — print FIRST, §2 | `-board-gauge` — one part, any body | | |
 | **board clamp** + 2 × M3 × 10, §2 | `-board-clamp` — one part, any body | | |
-| **bar screen** *(alternative)* | — | `-base-32-bar` + `-diffuser-32-bar` | `-base-60-bar` + `-diffuser-60-bar` |
+| **bar screen** *(alternative)* | — | `-base-32-bar` + `-diffuser-32-bar` (`-bar-plain`: no numerals) | `-base-60-bar` + `-diffuser-60-bar` (or `-bar-plain`) |
 | light guides *(optional)* | — | — | `-light-guides-60`, or cut perspex — §7 |
 | desk stand *(optional)* | `-deskstand` | `-deskstand-32` | `-deskstand-60` (a very big print) |
+| **diffuser, no numerals** | `-diffuser-plain` | `-diffuser-32-plain` | `-diffuser-60-plain` |
+| **diffuser with the flange**, §12 (`-flange-plain`: no numerals) | `-diffuser-flange` | `-diffuser-32-flange` | — |
+| **stand-box**, §12 *(instead of housing + stand)* | `-standbox` | `-standbox-32` | `-standbox-60` |
+| **stand-box tray** + 2 × M2 × 8, §12 | `-standbox-tray` — one part, any body | | |
+| **back cover**, §12 *(with the stand-box)* | `-backcover` | `-backcover-32` | `-backcover-60` |
 
 Every filename is prefixed `mini-round-clock`.
 
@@ -50,6 +59,11 @@ Every filename is prefixed `mini-round-clock`.
 | board clamp | **top face down** | none | 0.8 cm³, any body |
 | base **-bar** | **deck face down** | see note | — / 140 / 523 cm³ |
 | diffuser **-bar** | **face down, 0.20 mm layers, SOLID face** | none | — / 25 / 138 cm³ |
+| diffuser **-plain** | as the diffuser | none | 14 / 24 / 138 cm³ |
+| diffuser **-flange** | as the diffuser | none | 19 / 25 / — cm³ |
+| back cover | **plate down** | none | 28 / 34 / 123 cm³ |
+| stand-box | flat on its desk face | none | 172 / 213 / 902 cm³ |
+| stand-box tray | flat, lid standing | none | 9.9 cm³, any body |
 
 **Those are solid volumes, not filament.** The stand is a big blocky part —
 print it at 8–10% infill with 3 walls and it lands around 60–80 g. Mass is not a
@@ -1354,3 +1368,106 @@ Both now derive from the body's own shelf height.
 - The 95 mA display figure is still the weakest number in the power budget.
 - The interior temperature rise is an estimate, and the safety argument in §7
   rests on it. Worth a probe before a cell goes in.
+
+---
+
+## 12. The stand-box, the back cover, and the flange — v15
+
+> *"create the back of the clock to house the ESP32 S3. It could be housed at
+> the bottom of the clock in the stand. Make the clock lean back a bit though.
+> … update the diffuser to be larger on the outside to fit to the edge of the
+> base. Add more options to change the size of the clock too. … Create a
+> diffuser that doesn't have numbers on it."*
+
+### The S3 moves out of the clock
+
+The housing stays in the folder for a clock on the wall. For a clock on the
+desk, three parts replace it and the stand:
+
+- **`-backcover`** — 2.40 mm plate, 6.50 mm pocket, the same screw pillars
+  and keyhole as the housing so the base does not know the difference, and a
+  notch through the rim at 6 o'clock the full depth of the pocket for the
+  leads. The clock is 33.3 mm deep with it on, against 49.4 with the housing.
+- **`-standbox`** — `_stand_solid` (the desk stand's own cradle, now a
+  function of the tilt) at **12°**, on a **plinth** 29 mm high in the desk
+  frame. In the plinth: a **bay** 34.2 × 67.4 × 23 mm opening at the back,
+  a lightening pocket open underneath either side of it, two pillars in the
+  pockets' back corners carrying 1.6 mm pilots for the lid screws, and the
+  cradle's **own 6 o'clock notch cut again through the plinth's roof** — the
+  same solid through the same transform, so the two cuts cannot disagree —
+  which is how the leads get from the clock into the bay.
+- **`-standbox-tray`** — the board on the housing's pads and rails, a hook
+  over each far corner, an end stop, and an end plate that **is the lid**:
+  it closes the bay, carries the 22 × 6 USB-C window at the connector's
+  height, and screws to the plinth's back face with two M2 × 8.
+
+How deep the plinth runs is not a number in `params.py`; it is **whatever
+tipping needs**, both ways, with the clock's centre where the back cover puts
+it (`depth/2` behind the cradle axis). The toe in front is set by the forward
+angle and the back edge by the backward one, each to
+`STANDBOX_TIP_TARGET` = 21°, and `STANDBOX_PLINTH_D` = 78 is only the floor.
+On the 108 and 120 mm clocks that floor governs and the back edge is 35° and
+31° away; on the 240 mm clock the centre is 137 mm up and the plinth runs
+106 mm deep, or it tips back at 10°. On that body the bay also runs forward
+under the notch, because the notch stays under the clock while the plinth is
+pushed back; a longer bay is a longer tunnel, not a wider bridge.
+
+### Three things the checker caught before you did
+
+1. **The bay's roof was a 34 mm bridge**, and the tray's cross bar a 26 mm
+   one, against check3's 25. The bay's top corners are now chamfered 5.2 in
+   and 7.3 up (54.5°, steeper than the 45° rule) leaving a 24.1 mm flat,
+   measured; the bar became two 5 mm hooks over the board's far corners.
+2. **The lid ran 2 mm below the tray's floor**, to hide the plinth's floor
+   lip — which would have printed on air. It now stops at the floor plane;
+   the plinth's 2 mm floor shows under it, and is the stop the lid lands on.
+3. **The screw bosses vanished.** Cutting the bay and pockets from the
+   assembled solid (needed, or the cradle's stop wall was left hanging inside
+   the bay) also cut away the bosses that had been unioned in first. They are
+   pillars now, desk to roof in the pockets' back corners, added after the
+   cut, and check6 measures 10 mm of pilot with solid all round.
+4. **The lid was 0.35 mm thick beside its screw holes**, and both horizontal
+   holes — the pilots in the plinth, the clearances in the lid — had ceilings
+   of 22–37° facets. The lid's lip is 8 mm, not 6, and both holes are
+   teardrops with a 47° point on top (`_teardrop`); the first teardrop's
+   edges were secants and left two facets outside, which check3 also caught.
+
+### The flange, and why it stops at the lip
+
+What Sam sees around the diffuser is the base's own recess floor, 2.93 mm
+below the face and exposed from the band's outer wall at r 46.35 out to the
+lip at 51.98 — a 5.6 mm trough. The flange fills it: the face's front plane
+carries on outward as **one disc**, 2.63 deep, to 0.30 short of the lip, and
+stops 0.30 above the recess floor so the face still seats on the wall crest.
+Nothing stands in front of the face, so it prints face down like every other
+diffuser, and inside the band it is the same mesh to the last triangle
+(check6 measures 0.00 mm³ of difference, membrane included).
+
+The first version stood 1.6 mm **proud** of the face to cover the lip. Two
+things were wrong with it, both measured: the lip is 0.07 mm short of the
+face, not behind it, so the flange hit it (211 mm³ on the 24); and face-down
+printing would have put the whole face, membrane included, 1.6 mm off the
+bed. It cannot go over the lip for the second reason alone. The 60's diffuser
+already runs out to its lip and gets no flange; `parts_for` says so when it
+skips it.
+
+### Sizes
+
+`make_body(n, ring_od, ring_id)` derives every radius from a measured ring
+the way the 32 was derived, and `build_v2.py --custom N OD ID [--tag -N]`
+builds one body from it. No preset for a ring nobody has measured.
+
+### Verified
+
+check6 (`check6_standbox.py`), all measured on the built STLs, all three
+bodies: bay clear and 23 mm tall; roof flat span 24.1 mm; tray clears the
+bay by 1.20 mm even printed narrow; both rails and both hooks present; USB
+window open; the notch runs through the roof into the bay (0 mm³ in the
+way); both pilots 10 mm deep with 100% solid around them; tips forward past
+21.0° and back past 34.7 / 31.5 / 21.2°; back cover 8.90 deep, notch open;
+plain diffuser = numbered + numerals; flange reaches 0.30 short of the lip,
+front on the face plane, 2.63 deep, seated overlap with the base 0.00 mm³.
+check1 and check3 cover the new parts too.
+
+Not verified: nothing here has been printed. The 120 mm lead figure is from
+the model. The M2 pilot at 1.60 mm in PLA is the same rule as the M3 at 2.50.

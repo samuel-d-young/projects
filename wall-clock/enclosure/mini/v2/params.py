@@ -263,6 +263,9 @@ def summary():
   diffuser press fit    {2*COLLAR_RIB_H:.2f} mm on diameter at {COLLAR_RIB_N} collar ribs, INSIDE
   outer wall            {-2*DIFF_FIT:.2f} mm of clearance on diameter -- it grips nothing
   desk stand            clock {STAND_LIFT:.0f} mm off the desk, leaning back {STAND_TILT:.0f} deg
+  stand-box             the S3 under the clock in a {STANDBOX_PLINTH_H:.0f} mm plinth, leaning back {STANDBOX_TILT:.0f} deg,
+                        with a {BACKCOVER_PLATE + BACKCOVER_POCKET:.1f} mm back cover instead of the housing
+  diffuser flange       flush with the face, {DIFF_FLANGE_D:.2f} deep, out to the lip less {DIFF_FLANGE_CLR:.2f}
 """
 
 
@@ -1404,21 +1407,55 @@ STANDBOX_BAY_CLR  = 0.60     # tray to bay, per side: FDM_SLOT_UNDER + 0.20
 STANDBOX_TRAY_T   = 2.00     # the tray's floor
 STANDBOX_RAIL_T   = 2.00     # its side rails
 STANDBOX_RAIL_H   = 6.00     # above the tray floor -- 0.40 over the board's top
-STANDBOX_BAR_W    = 3.00     # the cross bar over the antenna end
+STANDBOX_BAR_W    = 3.00     # the two hooks over the board's far corners: how
+                             # far along the board they reach
+STANDBOX_HOOK_W   = 5.00     # and how far in from each rail. Two hooks, not one
+                             # bar: a bar between the rails is a 26 mm flat
+                             # ceiling, and check3 draws the line at 25
 STANDBOX_LID_T    = 2.50     # the lid IS the tray's end plate
-STANDBOX_LID_LIP  = 3.00     # and overlaps the back face by this each side
+STANDBOX_LID_LIP  = 8.00     # and overlaps the back face by this each side,
+                             # far enough to carry the two screws: the holes
+                             # are at bay_w/2 + 4.5 and 2.3 across, and 6
+                             # left 0.35 mm of lid outside them (check3)
+STANDBOX_BOSS_R   = 3.00     # bosses behind the back wall for the screws to
+STANDBOX_BOSS_L   = 8.00     # bite into -- the wall alone is 3 mm
 STANDBOX_SCREW_PILOT = 1.60  # M2 self-tapper, into the plinth's back face
 STANDBOX_SCREW_CLEAR = 2.30  # through the lid
-STANDBOX_CELL_MAX = 40.00    # widest unsupported roof span in the lightening
-                             # pockets; wider gets a 2 mm rib
+# Both are HORIZONTAL holes in parts printed flat, so both are teardrops: a
+# round hole's ceiling is a run of near-flat facets, and check3 flags them at
+# 22-37 degrees. A 45-degree point on top prints clean and the screw does
+# not care. The point stands r*sqrt(2) above the centre.
+STANDBOX_CELL_MAX = 24.00    # widest unsupported roof span in the lightening
+                             # pockets; wider gets a 2 mm rib. 24 because check3
+                             # allows a 25 mm bridge and nothing here is exempt
 STANDBOX_RIB_T    = 2.00
+STANDBOX_TIP_TARGET = 21.0   # tipping design angle, forward AND back; check6
+                             # wants 20 measured. Forward it sets the toe; back
+                             # it sets how far behind the clock the plinth runs,
+                             # which on the 60 is more than STANDBOX_PLINTH_D
+# The bay is 34.19 wide, and its roof would be a 34 mm bridge. So its two top
+# corners are chamfered: STANDBOX_BAY_CHAMF_W in from each wall, rising
+# STANDBOX_BAY_CHAMF_H, which is 54.5 degrees from the horizontal (steeper than
+# check3's 45) and leaves a 23.8 mm flat in the middle (inside its 25). The
+# corners it takes are above the rails, where the board's pin headers are not.
+STANDBOX_BAY_CHAMF_W = 5.20
+STANDBOX_BAY_CHAMF_H = 7.30
 
-# The diffuser can carry a FLANGE out to the edge of the base, proud of the
-# base's front rim by its own thickness, so the face reads as one disc the
-# full width of the clock. Sam: "larger on the outside to fit to the edge of
-# the base." It sits in FRONT of the face (z < 0 in the diffuser's frame)
-# because behind the face is the base's rim; and it stops short of the band,
-# because the 0.20 mm membrane over the LEDs has to stay 0.20.
-DIFF_FLANGE_T     = 1.60
-DIFF_FLANGE_CLR   = 0.30     # radial, to the base's outer wall
-DIFF_FLANGE_CHAMF = 0.60
+# The diffuser can carry a FLANGE out to the base's rim. Sam: "larger on the
+# outside to fit to the edge of the base." What he sees is the trough around
+# the diffuser: the base's front recess floor at Z_RECESS is 2.93 below the
+# diffuser's face, and it is exposed from the band's outer wall at r_ring_o
+# out to the lip at r_lip_i -- 5.6 mm of it on his 108 mm clock. The flange
+# fills that trough, FLUSH with the face, DIFF_FLANGE_D deep so it stops
+# DIFF_FLANGE_CLR above the recess floor and the face still seats on the wall
+# crest as before. It is built as one disc with the face, not a ring in front
+# of it: the first version stood 1.60 proud, which would have hit the lip
+# (0.07 short of the face, not 1.60 behind it -- 211 mm3 of overlap on the
+# 24, measured), and would have put the whole face 1.6 mm off the print bed.
+# It cannot go OVER the lip for the same reason: face down is the only way
+# the 0.20 mm membrane prints, and face down means the face is the lowest
+# thing. The 60's diffuser already reaches its lip and gets no flange.
+DIFF_FLANGE_D     = DIFF_SEAT_Z - Z_RECESS - 0.30    # 2.63, behind the face
+DIFF_FLANGE_CLR   = 0.30     # radial, to the lip's inner wall
+DIFF_FLANGE_CHAMF = 0.60     # on its front outer edge
+DIFF_FLANGE_MIN   = 1.00     # narrower than this and there is nothing to add

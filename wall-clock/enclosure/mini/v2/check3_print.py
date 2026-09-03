@@ -75,6 +75,15 @@ PARTS = [
     ('mini-round-clock-base-60.stl',             'deck face down',  MIN_WALL),
     ('mini-round-clock-housing-60.stl',          'rear plate down', MIN_WALL),
     ('mini-round-clock-deskstand-60.stl',        'flat on the desk face', MIN_WALL),
+    ('mini-round-clock-standbox.stl',            'flat on the desk face', MIN_WALL),
+    ('mini-round-clock-standbox-32.stl',         'flat on the desk face', MIN_WALL),
+    ('mini-round-clock-standbox-60.stl',         'flat on the desk face', MIN_WALL),
+    ('mini-round-clock-standbox-tray.stl',       'flat, lid standing',    MIN_WALL),
+    ('mini-round-clock-standbox-tray-32.stl',    'flat, lid standing',    MIN_WALL),
+    ('mini-round-clock-standbox-tray-60.stl',    'flat, lid standing',    MIN_WALL),
+    ('mini-round-clock-backcover.stl',           'plate down',            MIN_WALL),
+    ('mini-round-clock-backcover-32.stl',        'plate down',            MIN_WALL),
+    ('mini-round-clock-backcover-60.stl',        'plate down',            MIN_WALL),
     ('mini-round-clock-light-guides-60.stl',     'flat',            MIN_WALL),
     ('mini-round-clock-battery-shelf-x2.stl',    'flat',            MIN_WALL),
     ('mini-round-clock-board-gauge.stl',         'plate down',      MIN_WALL),
@@ -91,6 +100,10 @@ PARTS = [
     ('mini-round-clock-diffuser.stl',            'face down',       0.18),
     ('mini-round-clock-diffuser-32.stl',         'face down',       0.18),
     ('mini-round-clock-diffuser-60.stl',         'face down',       0.18),
+    ('mini-round-clock-diffuser-plain.stl',      'face down',       0.18),
+    ('mini-round-clock-diffuser-flange.stl',     'face down',       0.18),
+    ('mini-round-clock-diffuser-flange-plain.stl', 'face down',     0.18),
+    ('mini-round-clock-diffuser-32-flange.stl',  'face down',       0.18),
 ]
 
 def bridge_span(m, face_idx):

@@ -961,22 +961,24 @@ def build_diffuser(B, bar=False, numerals_on=True, flange=False):
     if numerals_on:
         d -= numerals(B, -0.10, NUM_DEPTH)
 
-    # --- 5. the flange, out to the edge of the base --------------------------
-    # An annulus IN FRONT of the face (z < 0), from just inside the band's
-    # outer wall to DIFF_FLANGE_CLR short of the base's outer wall, so it
-    # covers the base's front rim. Overlaps the face by 1.00 mm radially and
-    # 0.30 mm into it in z, so it is buried, not butted. Chamfered on the
-    # outer edge. It stops at the band because the membrane over the LEDs is
-    # 0.20 mm and must stay so; the face inside the flange is unchanged, which
-    # leaves it DIFF_FLANGE_T recessed inside a raised rim -- a bezel.
+    # --- 5. the flange, out to the base's lip --------------------------------
+    # The face's front plane carries on outward, over the trough between the
+    # band and the lip, as one disc: an annulus from 1.00 mm inside the band's
+    # outer wall (buried in it) to DIFF_FLANGE_CLR short of the lip, from the
+    # face plane back to DIFF_FLANGE_D -- which is neither FACE_T nor the
+    # FACE_T - 0.05 of the inner fill, so its back lands on no other plane.
+    # Its front IS the face plane, the way every other tube on this face is,
+    # so face down it prints as the same first layer. It fills the front
+    # chamfer 2b cut at the band's edge, and gets its own on the new outer
+    # edge. The membrane over the LEDs is untouched: the flange starts
+    # outboard of the band's outer wall.
     if flange:
-        ro = B.r_body - DIFF_FLANGE_CLR
-        ri = B.diff_outer - 1.00
-        f = tube(ri, ro, -DIFF_FLANGE_T, 0.30, SEG)
-        f -= (cyl(ro + 2.0, -DIFF_FLANGE_T - 0.10, -DIFF_FLANGE_T + DIFF_FLANGE_CHAMF, SEG)
-              - cone(ro - DIFF_FLANGE_CHAMF - 0.10, ro,
-                     -DIFF_FLANGE_T - 0.10, -DIFF_FLANGE_T + DIFF_FLANGE_CHAMF, SEG))
-        d += f
+        ro = B.r_lip_i - DIFF_FLANGE_CLR
+        assert ro - B.diff_outer >= DIFF_FLANGE_MIN, (
+            f'{B.n}-LED: the diffuser already reaches the lip; no flange to add')
+        d += tube(B.diff_outer - 1.00, ro, 0.0, DIFF_FLANGE_D, SEG)
+        d -= (cyl(ro + 2.0, -0.10, DIFF_FLANGE_CHAMF, SEG)
+              - cone(ro - DIFF_FLANGE_CHAMF - 0.10, ro, -0.10, DIFF_FLANGE_CHAMF, SEG))
 
     return d
 
@@ -1402,29 +1404,58 @@ def _stand_solid(B, depth, tilt):
     return s, xf(notch), h0
 
 
+def _teardrop(r, z0, z1, seg=24):
+    """A hole for printing sideways: a cylinder along z with a point on its
+    local -y side (which rotate([-90, 0, 0]) turns into +z, up). The point is
+    a pentagon: a box 0.02 wider than the circle's 45-degree chord, from
+    inside the circle down to the chord's height, then two edges to an apex
+    at 2c + 0.05 -- 47 degrees from the horizontal, so every facet of the
+    circle above the chord is inside them. A triangle with its base 0.05
+    INSIDE the circle was tried first: its edges were secants that re-entered
+    the circle, and the 240 and 255 degree facets were left outside them
+    (10.5 mm2 of 22-37 degree faces, check3)."""
+    c = r*math.cos(math.radians(45.0)) + 0.02
+    apex = 2.0*c + 0.05
+    return cyl(r, z0, z1, seg) + prism([(-c, 0.2), (-c, -c), (0.0, -apex), (c, -c), (c, 0.2)], z0, z1)
+
+
 def build_standbox(B, depth):
     """The stand with the S3 in it. Sam: "housed at the bottom of the clock in
     the stand. Make the clock lean back a bit though."
 
     The cradle is _stand_solid at STANDBOX_TILT, for a clock wearing the flat
     back cover. Under and behind it, in the desk frame so everything in it is
-    level, a plinth: a box the width of the clock and STANDBOX_PLINTH_D deep,
-    with a BAY for the board tray opening at the back, two lightening pockets
-    open at the bottom either side of it (roof bridged, ribbed past
-    STANDBOX_CELL_MAX), and the cradle's own 6 o'clock notch re-cut through
-    the plinth's roof so the leads drop straight from the clock into the bay.
-    The notch is the SAME solid the cradle was cut with, put through the same
-    transform -- so the two cuts cannot disagree.
+    level, a plinth: a box the width of the clock, with a BAY for the board
+    tray opening at the back, a lightening pocket open at the bottom either
+    side of it (roof bridged, ribbed past STANDBOX_CELL_MAX), and the cradle's
+    own 6 o'clock notch re-cut through the plinth's roof so the leads drop
+    straight from the clock into the bay. The notch is the SAME solid the
+    cradle was cut with, put through the same transform -- so the two cuts
+    cannot disagree.
+
+    How deep the plinth runs is set by tipping, both ways: the toe in front by
+    the forward angle, the back edge by the backward one, each to
+    STANDBOX_TIP_TARGET with the clock's centre where the cover puts it.
+    STANDBOX_PLINTH_D is the floor, not the answer -- on the 60 the centre is
+    137 mm up and the plinth runs 56 mm behind the cradle axis.
 
     Returns (stand, tray). The tray carries the board and IS the lid: a floor
-    with pads and rails, a cross bar over the antenna end, and an end plate
-    with the USB-C window that closes the bay and screws to the back face.
+    with pads and rails, a hook over each far corner, and an end plate with
+    the USB-C window that closes the bay and screws to the back face.
     """
     t = STANDBOX_TILT
     s, notch, h0 = _stand_solid(B, depth, t)
     bb = s.bounding_box()
-    y0 = bb[1]                                  # the stand's front-most point
-    y1 = y0 + STANDBOX_PLINTH_D
+    tip = math.tan(math.radians(STANDBOX_TIP_TARGET))
+    y_com = (depth/2)*math.sin(math.radians(t))
+    z_com = h0 - (depth/2)*math.cos(math.radians(t))
+    # The plinth's front face sits PROUD of the cradle's front-most point,
+    # never on it: on the 32 body, whose cradle needs no toe, the cradle's
+    # tilted front face meets a flush vertical face along the foot's front
+    # edge -- a line tangency, and in float32 that is exactly a NotManifold.
+    toe = max(0.5, z_com*tip + bb[1] - y_com)
+    y0 = bb[1] - toe
+    y1 = max(y0 + STANDBOX_PLINTH_D + max(0.0, toe - 4.0), y_com + z_com*tip + 0.5)
     hw = B.r_body
     H = STANDBOX_PLINTH_H
 
@@ -1436,37 +1467,81 @@ def build_standbox(B, depth):
     bay_z0 = STANDBOX_FLOOR
     bay_z1 = H - STANDBOX_ROOF
     assert bay_z1 - bay_z0 >= BRD_POST_H + BOARD_T + 14.0, 'bay too low for the leads'
-    assert bay_l + STANDBOX_WALL <= STANDBOX_PLINTH_D, 'bay longer than the plinth'
     assert bay_w + 2*STANDBOX_WALL <= 2*hw, 'bay wider than the clock'
+    # The bay opens at the back and runs forward at least the tray's length,
+    # and further -- to 2 mm past the front of the cradle's notch -- when the
+    # notch lands ahead of that. On the 60 the plinth is pushed back for
+    # stability while the notch stays under the clock, and a bay that stopped
+    # short would leave the leads a dead-end trench in the roof. A longer bay
+    # is a longer tunnel, not a wider bridge.
+    nb = (notch ^ box_lwh(-300, 300, -300, 300, bay_z1 - 1.0, H + 1.0)).bounding_box()
+    bay_y0 = min(y1 - bay_l, nb[1] - 2.0)
+    assert bay_y0 - y0 >= STANDBOX_WALL, 'bay runs into the plinth\'s front wall'
 
-    plinth = box_lwh(-hw, hw, y0, y1, 0.0, H)
-    plinth -= box_lwh(-bay_w/2, bay_w/2, y1 - bay_l, y1 + 1.0, bay_z0, bay_z1)
-    # lightening pockets either side of the bay, open at the bottom, roof
-    # bridged. Split into cells no wider than STANDBOX_CELL_MAX.
-    for sign in (-1, 1):
-        xi = bay_w/2 + STANDBOX_WALL
-        xo = hw - STANDBOX_WALL
-        span = xo - xi
-        if span < 8.0:
-            continue
+    # 0.4 mm WIDER than the cradle each side, not flush with it: the cradle's
+    # side faces are the planes x = +-hw, and a box with its sides on those
+    # same planes unions into coplanar faces that come apart in float32 --
+    # the 32 and the 60 both failed finalise on exactly that. Proud, the
+    # cradle's sides are buried. Built from z = -1 and cut at the desk plane
+    # at the very end, with everything else, so the bottom is one face.
+    plinth = box_lwh(-hw - 0.4, hw + 0.4, y0, y1, -1.0, H)
+    # The bay: its section in x-z is a box with the two top corners chamfered
+    # (STANDBOX_BAY_CHAMF_W in, _H up: 54.5 deg, steeper than check3's 45),
+    # so the flat ceiling is bay_w - 2*CHAMF_W = 23.8 mm and not a 34 mm
+    # bridge. Drawn in x-y, extruded along z, stood up about x.
+    cw, chh = STANDBOX_BAY_CHAMF_W, STANDBOX_BAY_CHAMF_H
+    sec = [(-bay_w/2, bay_z0), (bay_w/2, bay_z0), (bay_w/2, bay_z1 - chh),
+           (bay_w/2 - cw, bay_z1), (-bay_w/2 + cw, bay_z1), (-bay_w/2, bay_z1 - chh)]
+    bay = prism(sec, 0.0, (y1 + 1.0) - bay_y0).rotate([90.0, 0.0, 0.0]) \
+              .translate([0.0, y1 + 1.0, 0.0])
+    # The bay and the lightening pockets are cut from the ASSEMBLED solid,
+    # not from the plinth alone: the cradle's stop wall runs down into the
+    # plinth's roof and 3 mm past it, and cut from the plinth alone that
+    # lower lip was left hanging inside the bay (1.2 cm3 of it, check6) and
+    # as a fin in each pocket with nothing under it to print on.
+    # Pockets either side of the bay, open at the bottom, roof bridged, split
+    # into cells no wider than STANDBOX_CELL_MAX -- and stopping short of the
+    # cradle's legs at |x| = STAND_ARCH_HW, which stay solid to the desk.
+    pockets = None
+    xi = bay_w/2 + STANDBOX_WALL
+    xo = min(hw - STANDBOX_WALL, STAND_ARCH_HW - 1.0)
+    span = xo - xi
+    if span >= 8.0:
         ncell = max(1, int(math.ceil(span / STANDBOX_CELL_MAX)))
-        cw = (span - (ncell - 1)*STANDBOX_RIB_T) / ncell
-        for k in range(ncell):
-            a = xi + k*(cw + STANDBOX_RIB_T)
-            b = a + cw
-            plinth -= box_lwh(sign*a if sign > 0 else -b, sign*b if sign > 0 else -a,
-                              y0 + STANDBOX_WALL, y1 - STANDBOX_WALL,
-                              -1.0, bay_z1)
-    # M2 pilots for the lid, in the back face either side of the bay
-    for sx in (-1, 1):
-        plinth -= cyl(STANDBOX_SCREW_PILOT/2, 0.0, 8.0, 24,
-                      centre=(sx*(bay_w/2 + STANDBOX_LID_LIP/2 + 0.6), 0.0)) \
-                  .rotate([-90.0, 0.0, 0.0]).translate([0.0, y1 + 0.001, (bay_z0 + bay_z1)/2])
+        cwid = (span - (ncell - 1)*STANDBOX_RIB_T) / ncell
+        for sign in (-1, 1):
+            for k in range(ncell):
+                a = xi + k*(cwid + STANDBOX_RIB_T)
+                b = a + cwid
+                c = box_lwh(a if sign > 0 else -b, b if sign > 0 else -a,
+                            y0 + STANDBOX_WALL, y1 - STANDBOX_WALL, -1.0, bay_z1)
+                pockets = c if pockets is None else pockets + c
 
     stand = s + plinth
+    stand -= bay
+    if pockets is not None:
+        stand -= pockets
+    # M2 pilots for the lid, in the back face either side of the bay. The
+    # back wall is 3 mm, which is one turn of an M2; so each pilot gets a
+    # PILLAR behind the wall, in the back corner of the pocket, from the desk
+    # to the roof -- added AFTER the pocket is cut, or the pocket takes it
+    # away again (which is what happened to the first version's bosses).
+    # Buried 1 mm into the back wall, the side wall and the roof, and it
+    # stands on the desk, so it prints as a post and not as a cantilever.
+    zs = (bay_z0 + bay_z1)/2
+    for sx in (-1, 1):
+        xs = sx*(bay_w/2 + 4.5)
+        stand += box_lwh(xs - STANDBOX_BOSS_R, xs + STANDBOX_BOSS_R,
+                         y1 - STANDBOX_WALL - STANDBOX_BOSS_L, y1 - 2.0,
+                         -1.0, bay_z1 + 1.0)
+        # ...and the pilot runs 1 mm PAST the back face, so its end cap never
+        # lands on that face
+        stand -= _teardrop(STANDBOX_SCREW_PILOT/2, 0.0, STANDBOX_WALL + STANDBOX_BOSS_L) \
+                 .rotate([-90.0, 0.0, 0.0]).translate([xs, y1 - STANDBOX_WALL - STANDBOX_BOSS_L + 1.0, zs])
     # the notch, through the roof and into the bay: the leads' way down.
     # Only down to just under the roof, not through the bay floor.
     stand -= notch ^ box_lwh(-200, 200, -200, 200, bay_z1 - 1.0, 400.0)
+    stand = stand ^ box_lwh(-300, 300, -300, 300, 0.0, 400.0)
 
     # --- the tray, printed flat, in its own frame: floor on z = 0, board
     #     along +y with the connector end at y = 0 where the lid is ----------
@@ -1480,27 +1555,35 @@ def build_standbox(B, depth):
     # end stop at the antenna end
     tray += box_lwh(-tray_w/2, tray_w/2, tray_l - STANDBOX_RAIL_T, tray_l,
                     T - 0.01, T + BRD_RAIL_TOP)
-    # cross bar over the antenna end, the board slides under it
-    tray += box_lwh(-(BRD_RAIL_Y + STANDBOX_RAIL_T), BRD_RAIL_Y + STANDBOX_RAIL_T,
-                    tray_l - STANDBOX_RAIL_T - STANDBOX_BAR_W, tray_l - STANDBOX_RAIL_T + 0.01,
-                    T + BRD_LIP_Z0, T + BRD_RAIL_TOP)
+    # a hook over each far corner of the board, from the rail STANDBOX_HOOK_W
+    # inward, the board slides under them. Not one bar across: that is a 26 mm
+    # flat ceiling between the rails, over check3's 25.
+    for sx in (-1, 1):
+        x_in = BRD_RAIL_Y - STANDBOX_HOOK_W
+        tray += box_lwh(x_in if sx > 0 else -(BRD_RAIL_Y + STANDBOX_RAIL_T),
+                        BRD_RAIL_Y + STANDBOX_RAIL_T if sx > 0 else -x_in,
+                        tray_l - STANDBOX_RAIL_T - STANDBOX_BAR_W, tray_l - STANDBOX_RAIL_T + 0.01,
+                        T + BRD_LIP_Z0, T + BRD_RAIL_TOP)
     # four pads under the board, between the pad rows
     for yy in (10.0, BOARD_L - 8.0):
         for sx in (-1, 1):
             tray += cyl(BRD_POST_D/2, T - 0.01, T + BRD_POST_H, 32,
                         centre=(sx*BRD_POST_HY, yy))
-    # the lid: the tray's end plate at y = 0, covering the whole back face
+    # the lid: the tray's end plate at y = 0, covering the bay's opening and
+    # the roof above it, out to STANDBOX_LID_LIP past the bay each side. Its
+    # bottom edge is the tray's floor plane -- the plinth's own 2 mm floor
+    # shows under it -- so the whole part sits flat on the bed. The first
+    # version ran 2 mm below the floor, which would have printed on air.
     lid_w = bay_w + 2*STANDBOX_LID_LIP
-    lid = box_lwh(-lid_w/2, lid_w/2, -STANDBOX_LID_T, 0.01, -bay_z0, H - bay_z0)
+    lid = box_lwh(-lid_w/2, lid_w/2, -STANDBOX_LID_T, 0.01, 0.0, H - bay_z0)
     # USB-C window, centred on the connectors' height above the tray floor
     z_usb = T + BRD_POST_H + BOARD_T + BOARD_TALL/2
     lid -= box_lwh(-USB_WIN_W/2, USB_WIN_W/2, -STANDBOX_LID_T - 1.0, 1.0,
                    z_usb - USB_WIN_H/2, z_usb + USB_WIN_H/2)
     # screw clearance, matching the pilots
     for sx in (-1, 1):
-        lid -= cyl(STANDBOX_SCREW_CLEAR/2, -STANDBOX_LID_T - 1.0, 1.0, 24,
-                   centre=(sx*(bay_w/2 + STANDBOX_LID_LIP/2 + 0.6), 0.0)) \
-               .rotate([-90.0, 0.0, 0.0]).translate([0.0, 0.0, (bay_z1 - bay_z0)/2])
+        lid -= _teardrop(STANDBOX_SCREW_CLEAR/2, -STANDBOX_LID_T - 1.0, 1.0) \
+               .rotate([-90.0, 0.0, 0.0]).translate([sx*(bay_w/2 + 4.5), 0.0, zs - bay_z0])
     tray += lid
     return stand, tray
 
@@ -1541,15 +1624,23 @@ def parts_for(B, sam, full=True):
         (build_diffuser(B),              f'mini-round-clock-diffuser{tg}',  True),
         (build_diffuser(B, numerals_on=False),
                                          f'mini-round-clock-diffuser{tg}-plain', True),
-        (build_diffuser(B, flange=True), f'mini-round-clock-diffuser{tg}-flange', True),
-        (build_diffuser(B, numerals_on=False, flange=True),
-                                         f'mini-round-clock-diffuser{tg}-flange-plain', True),
         (build_stand(B, Z_FRONT - (Z_DECK - HOUSING_DEEP)),
                                          f'mini-round-clock-deskstand{tg}', True),
         (standbox,                       f'mini-round-clock-standbox{tg}',  True),
         (tray,                           f'mini-round-clock-standbox-tray{tg}', True),
         (build_numerals(B),              f'mini-round-clock-numerals{tg}',  False),
     ]
+    # the flange only where there is a trough to fill: the 60's diffuser
+    # already runs out to its lip
+    if (B.r_lip_i - DIFF_FLANGE_CLR) - B.diff_outer >= DIFF_FLANGE_MIN:
+        parts += [
+            (build_diffuser(B, flange=True), f'mini-round-clock-diffuser{tg}-flange', True),
+            (build_diffuser(B, numerals_on=False, flange=True),
+                                             f'mini-round-clock-diffuser{tg}-flange-plain', True),
+        ]
+    else:
+        print(f'  diffuser{tg}-flange SKIPPED: the diffuser reaches r {B.diff_outer:.2f} and '
+              f'the lip is at {B.r_lip_i:.2f}; there is no trough to fill')
     if full and B.n != 24 and B.n in (32, 60):
         parts += [
             (assemble_base(B, sam, bar=True),
