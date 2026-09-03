@@ -4458,3 +4458,148 @@ timers package and three helpers missing.
 * Entity ids are new, so the dashboard JSON has to be reinstalled for the card
   to resolve.
 
+
+## 2026-09-03 — Grow clock faces: Deskimon eyes, a 20-minute animation programme, the time along the bottom
+
+Sam asked to see the faces, wanted eyes like **Deskimon** (CreativeChance's
+3D-printed desk robots on a round ESP32-S3 AMOLED), the digital time at the
+bottom of the face, and then — while that was being drawn — animations: eyes
+that randomly look around, smile, yawn when it is late, "a full 20 minutes
+worth". And to flash it to the clock on his PC.
+
+### Showing the faces before flashing them
+
+There was no way to *look* at the faces short of a flash, and the first
+version had been reviewed by the compiler alone. So the first thing built was
+`esphome/preview/`: a stand-in for ESPHome's `Display` drawing API on a PIL
+canvas (`esphome_canvas.py`, same call names and argument order, the same
+Roboto TTF ESPHome downloaded for the build), and `grow_faces.py`, which draws
+every face and state from the **same coordinates as the lambdas** into one
+sheet. It is a mirror, not the source of truth — the YAML runs, the preview
+only shows — and every number in it has to be kept in step by hand, which the
+file says at the top. The as-shipped faces went to Sam as one image, the
+redraw as another, both before the YAML changed.
+
+### What Deskimon's eyes are
+
+Four photos from the Thangs and CircuitDigest pages, since the text on those
+pages describes nothing about the face: black screen, two big glowing
+rounded-rectangle eyes about a fifth of the screen wide each, no mouth, and
+every expression is an eyelid — flat bars asleep, a straight lid cutting the
+eye to a half when sleepy, arches when happy. That is the whole design
+language, and it suits a toddler's clock better than the cartoon face it
+replaced: it reads from across a room.
+
+### The redraw
+
+- **`eyes`** (the new default): black field, everything in the state colour.
+  Eye 80 x 112 with 28 px corners, centres 60 px either side, 34 px above
+  centre so the stars and the time fit beneath inside the circle. Sleep: bars
+  80 x 16. Almost: a lid over 45%. Bedtime: a lid over 55% with the outer
+  corner drooping 14 px (tired, not sad). Awake: open with a gentle smile.
+- **`eyes on colour`**: the same eyes in dark ink on a field of the state
+  colour, for a room where the whole panel should read as the colour.
+- `sun and moon` and `colour only` stay.
+- A rounded rectangle is two rectangles and four circles; there is no such
+  primitive in `Display` and no bitmap. Lids and smiles are painted over an
+  open eye *in the field colour*, which is only sound because nothing is ever
+  drawn behind the eyes — and is why the yawn's mouth and the "shh" had to be
+  placed clear of them.
+- **The time along the bottom**, 48 px at CY + 120 where the chord is still
+  249 px wide. `grow_show_time` now defaults ON. The stars moved up under the
+  eyes (CY + 72, 28 px pitch).
+
+### The animator
+
+An eye can only do so much, so the animation is a **clip library and a
+scheduler**, not key-framed footage:
+
+- Eighteen clips: blink, double blink, look, look around, smile, wink, bounce,
+  wide eyes, squint, eye roll, wiggle, yawn, slow blink, peek, drift, nod off,
+  twitch, happy dance. Each is an envelope over a normalised time `u` that
+  sets the frame's numbers: gaze (x, y), a lid share per eye, a smile, an eye
+  height scale, a mouth.
+- Each state has its own weighted table and idle gap. Awake looks around,
+  blinks and smiles with the odd wink, bounce, eye roll and dance, 1.5–5 s
+  apart. Almost-morning is slow blinks, peeks, drifting lids and yawns.
+  Bedtime is mostly yawns and nodding off. Sleep is closed eyes, three z's
+  rising and fading on a 3 s cycle, and a twitch every 12–30 s — a sleeping
+  face must not look around, or the child learns the clock is awake.
+- The next clip, its length within a range, and its gaze targets come from a
+  32-bit LCG (Numerical Recipes constants), stirred once with `millis()` at
+  the first pick so two clocks do not blink in step. The sequence period is
+  2^32 draws. Simulated over 20 minutes: awake plays about 225 clips with no
+  two identical, almost 185, bedtime 179, sleep 60 twitches. "Twenty minutes
+  worth" is therefore not a loop of that length but a programme that does not
+  repeat within it, or within a lifetime.
+- `preview/grow_anim.py` is the same engine — constants, tables, envelopes,
+  generator — and renders 40 s GIFs per state and an 8-frame strip of every
+  clip, which is what Sam was sent. That is the check: the C++ was transcribed
+  from a Python that had been watched.
+- `switch.grow_clock_animate` (default on) stills the face.
+
+### Frame rate, and the flush that made it possible
+
+The panel is redrawn once a second by the dispatcher. Eyes need 10 fps. The
+SPI bus is 20 MHz (`data_rate`, proven on the bench; xboot runs 50) and a full
+360 x 360 x 16-bit frame is 104 ms of blocking write — 10 fps would be the
+whole loop. Reading the installed `mipi_spi.h`: the driver tracks a dirty
+window (`x_low_ .. y_high_`) and `update()` flushes **only that rectangle** —
+but `Display::do_update_()` calls `clear()` first when `auto_clear_enabled`,
+which fills the buffer and marks it all dirty, so in practice every update was
+a full flush. So:
+
+- `auto_clear_enabled: false` on both panels, and `if (!id(an_partial))
+  it.fill(Color::BLACK);` as the first line of both lambdas — exactly what
+  auto-clear used to do, on full frames.
+- A 100 ms `interval:` runs the animator, then, if grow mode is on, animation
+  is on, the panel is on, the face is an eyes face and the clock face is not
+  the colour test, sets `an_partial`, updates the active panel, clears it. The
+  lambda, seeing `an_partial`, repaints only the eye box (248 x 184 on the
+  round panel, 184 x 116 on the bar) and returns; the driver flushes only that.
+  36 ms per frame on the round panel at 20 MHz instead of 104. Everything an
+  eye can reach — gaze, the yawn's mouth, the z's, the "shh" — is inside the
+  box; the stars and the time are below it and belong to full frames.
+- The ring effect's 50 ms interval gets jittered by the flush. Invisible: in
+  grow mode the ring is a solid colour, a breathe or the stars, never a
+  sweeping second hand.
+
+The alternative, raising the SPI clock, would have changed a bench-proven
+setting in the same flash as a large feature; if the screen then misbehaved,
+nothing would say which. Left at 20 MHz, noted as the lever if 10 fps is ever
+not enough.
+
+### Flashing
+
+The board is on Sam's PC, not on any network this session can reach, so the
+flash is a hands step; the exact PowerShell recipe is now in `HANDOFF.md`
+("Flashing from the bench"), with the IDF prefix, the COM ports and the
+no-`tail` rule the bench session paid for.
+
+### Verification
+
+`esphome config` clean, then a full `esphome compile` (2026.6.5 here; the
+bench runs 2026.8.1) of the final file:
+
+```
+RAM:   [==        ]  18.4% (used 60404 bytes from 327680 bytes)
+Flash: [======    ]  60.5% (used 1109663 bytes from 1835008 bytes)
+```
+
+0 errors, 0 warnings from this file. The first compile of the animator
+failed — `partial` was declared in the round lambda and used in the bar's,
+which `esphome config` cannot see; the second passed. Up from 18.3% / 60.2%
+with the still faces: 600 bytes of RAM for the animator's globals, 5.8 KB of
+flash for the clips and the eye drawing on two panels.
+
+The dashboard regained the new switch (*Animate the eyes*); the generator
+checks its 186 entity references for the main clock against the names the
+firmware creates — 0 dangling — and now writes the paste-ready Settings view
+itself (`--view`), so the header that claims it is generated is true.
+
+**Not verified: the panel.** Nothing here has been flashed. The three things
+only the hardware can answer are whether the partial flush leaves any seam at
+the edge of the eye box, whether 10 fps at 20 MHz feels smooth or stutters
+when the ring effect and the API share the loop, and whether a 1-frame blink
+reads as a blink on a TFT that ghosts. The preview cannot tell; the first
+flash will.

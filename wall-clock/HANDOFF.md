@@ -111,6 +111,41 @@ A Claude session running **on Samuel's own machine** is on the LAN and can.
 - `assist_satellite.*` entity naming in the announce automation — guessed,
   because the Voice PE units had not arrived
 
+## Flashing from the bench
+
+The clock is on the bench PC over USB, not on the network the cloud session
+can see, so every flash is a hands step. What the bench session settled:
+
+- Run `esphome` from the PowerShell where its venv is active, with
+  `$env:ESPHOME_ESP_IDF_PREFIX = "K:\idf"` set first, or the ESP-IDF toolchain
+  re-downloads into the profile and the build fails on path length.
+- Never pipe the compile through `tail` or `Select-Object -Last`; it hides the
+  error and the exit code.
+- Clock #1 (round 360x360, 24 LEDs, `mini-round-clock`) is **COM7**, on the
+  LAN as 192.168.1.23. Clock #2 (`mini-round-clock-2`, 32 LEDs) is **COM12**,
+  192.168.1.64, and needs its substitutions on the command line.
+- Flash with the LED supply unplugged; USB and the external 5 V together can
+  damage the board.
+
+```powershell
+$env:ESPHOME_ESP_IDF_PREFIX = "K:\idf"
+cd <repo>\wall-clock\esphome
+
+# clock #1, over USB
+esphome run mini-round-clock-with-display.yaml --device COM7
+
+# the same, over the air once it is on WiFi
+esphome run mini-round-clock-with-display.yaml --device 192.168.1.23
+
+# clock #2
+esphome run mini-round-clock-with-display.yaml --device COM12 `
+  -s device_name mini-round-clock-2 -s friendly_name "Mini Round Clock 2" -s num_leds 32
+```
+
+`esphome run` compiles, uploads and then opens the log; watch for the
+`[app]` banner once (a repeating banner is a boot loop) and `Boot: ring +
+display up`. Ctrl-C leaves the clock running.
+
 ## How to resume on Windows (PowerShell)
 
 This conversation ran in a cloud session, so its transcript is **not** in the

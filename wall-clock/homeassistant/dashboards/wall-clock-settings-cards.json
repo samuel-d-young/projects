@@ -541,6 +541,10 @@
         "name": "Stars until morning"
       },
       {
+        "entity": "switch.mini_round_clock_grow_clock_animate",
+        "name": "Animate the eyes"
+      },
+      {
         "entity": "switch.mini_round_clock_grow_clock_show_time",
         "name": "Show the time"
       },
@@ -600,7 +604,7 @@
         "state": "on"
       }
     ],
-    "content": "**How the grow clock reads.** Sleep colour with stars that go out one by one through the night; amber and a half-awake face for *almost time*; the wake colour and a smile when it is fine to get up; a yawn in the warning before bed. While it is on, this clock shows nothing else \u2014 no hands, timers or status.\n\n**Sound.** The clock has no microphone. *Test: pretend a sound* is the same helper anything in Home Assistant can pulse \u2014 a Voice PE hearing its wake word, a baby monitor, a noise sensor. See `packages/wall_clock_grow.yaml` for a ready-made example. During sleep it brightens in the **sleep** colour and says *shh*; it never shows the wake colour for a noise, because that would reward calling out.\n\n**Overrides** last until the schedule next changes on its own, so *Wake now* at 6:40 lets go by itself at bedtime."
+    "content": "**How the grow clock reads.** Sleep colour with stars that go out one by one through the night; amber and a half-awake face for *almost time*; the wake colour and a smile when it is fine to get up; a yawn in the warning before bed. The eyes are Deskimon-style and move on their own \u2014 looks, blinks, smiles, yawns when it is late; *Animate the eyes* off leaves them still. While it is on, this clock shows nothing else \u2014 no hands, timers or status.\n\n**Sound.** The clock has no microphone. *Test: pretend a sound* is the same helper anything in Home Assistant can pulse \u2014 a Voice PE hearing its wake word, a baby monitor, a noise sensor. See `packages/wall_clock_grow.yaml` for a ready-made example. During sleep it brightens in the **sleep** colour and says *shh*; it never shows the wake colour for a noise, because that would reward calling out.\n\n**Overrides** last until the schedule next changes on its own, so *Wake now* at 6:40 lets go by itself at bedtime."
   },
   {
     "type": "entities",
@@ -1153,6 +1157,10 @@
         "name": "Stars until morning"
       },
       {
+        "entity": "switch.mini_round_clock_2_grow_clock_animate",
+        "name": "Animate the eyes"
+      },
+      {
         "entity": "switch.mini_round_clock_2_grow_clock_show_time",
         "name": "Show the time"
       },
@@ -1212,7 +1220,7 @@
         "state": "on"
       }
     ],
-    "content": "**How the grow clock reads.** Sleep colour with stars that go out one by one through the night; amber and a half-awake face for *almost time*; the wake colour and a smile when it is fine to get up; a yawn in the warning before bed. While it is on, this clock shows nothing else \u2014 no hands, timers or status.\n\n**Sound.** The clock has no microphone. *Test: pretend a sound* is the same helper anything in Home Assistant can pulse \u2014 a Voice PE hearing its wake word, a baby monitor, a noise sensor. See `packages/wall_clock_grow.yaml` for a ready-made example. During sleep it brightens in the **sleep** colour and says *shh*; it never shows the wake colour for a noise, because that would reward calling out.\n\n**Overrides** last until the schedule next changes on its own, so *Wake now* at 6:40 lets go by itself at bedtime."
+    "content": "**How the grow clock reads.** Sleep colour with stars that go out one by one through the night; amber and a half-awake face for *almost time*; the wake colour and a smile when it is fine to get up; a yawn in the warning before bed. The eyes are Deskimon-style and move on their own \u2014 looks, blinks, smiles, yawns when it is late; *Animate the eyes* off leaves them still. While it is on, this clock shows nothing else \u2014 no hands, timers or status.\n\n**Sound.** The clock has no microphone. *Test: pretend a sound* is the same helper anything in Home Assistant can pulse \u2014 a Voice PE hearing its wake word, a baby monitor, a noise sensor. See `packages/wall_clock_grow.yaml` for a ready-made example. During sleep it brightens in the **sleep** colour and says *shh*; it never shows the wake colour for a noise, because that would reward calling out.\n\n**Overrides** last until the schedule next changes on its own, so *Wake now* at 6:40 lets go by itself at bedtime."
   },
   {
     "type": "entities",

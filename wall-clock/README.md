@@ -62,11 +62,22 @@ sleep-training clock, the Gro-Clock idea on this hardware. The ring and the
 panel show a *sleep* colour until it is time to get up and a *wake* colour
 after, with an amber *almost time* window before wake and a warning before bed.
 The ring is the stars: they go out one by one through the night, so "how long
-until morning" is something a child can count. The panel draws a face that
-sleeps, half-wakes, smiles and yawns with the state (or a sun and moon, or just
-the colour). Weekend times, naps with their own countdown, *wake now* / *sleep
-now* overrides that let go by themselves, dimming at night, and an optional
-digital time for a child ready to read it.
+until morning" is something a child can count. The panel draws two big
+Deskimon-style eyes glowing in the state colour on black — flat bars asleep,
+half-lidded when morning is close, open and smiling awake, heavy drooping lids
+at bedtime — and the digital time along the bottom. The eyes are alive: an
+animator plays random clips from a library of eighteen (looks around, blinks,
+smiles, winks, bounces, eye-rolls, a happy dance when awake; slow blinks,
+peeks and yawns when morning is close; yawns, nodding off and drooping lids at
+bedtime; drifting z's and a rare twitch asleep), at 10 fps, drawn from a
+random generator so the same twenty minutes is never seen twice. *Grow clock
+animate* turns it off for a still face. The same eyes on a field of the
+colour, a sun and moon, or the colour alone are the other faces. Weekend
+times, naps with their own countdown, *wake now* / *sleep now* overrides that
+let go by themselves, and dimming at night. The time is a switch, on by
+default. `esphome/preview/grow_faces.py` renders every face and state to a
+PNG and `grow_anim.py` renders the animator to GIFs, both from the same
+numbers the firmware draws with, so a change can be watched before a flash.
 
 **It has no microphone.** *Respond to sound* is real, but the clock is told
 about sound by Home Assistant — `packages/wall_clock_grow.yaml` ships the

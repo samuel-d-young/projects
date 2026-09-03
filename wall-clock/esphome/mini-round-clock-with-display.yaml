@@ -1234,8 +1234,11 @@ select:
     initial_option: "yellow"
     optimistic: true
     restore_value: true
-  # What the panel draws. "expressions" is a face that sleeps, half-wakes,
-  # smiles and yawns with the state; "sun and moon" is the Gro-Clock's picture;
+  # What the panel draws. "sun and moon" is the Gro-Clock's picture;
+  # "eyes" is the Deskimon look Sam asked for: two big rounded eyes glowing in
+  # the state colour on a black field, no mouth, every expression an eyelid.
+  # "eyes on colour" is the same eyes in dark ink on a field of the state
+  # colour, for a room where the whole screen should read as the colour.
   # "colour only" is just the field, for a child who finds faces too exciting.
   - platform: template
     id: grow_face
@@ -1243,10 +1246,11 @@ select:
     entity_category: config
     icon: mdi:emoticon-outline
     options:
-      - "expressions"
+      - "eyes"
+      - "eyes on colour"
       - "sun and moon"
       - "colour only"
-    initial_option: "expressions"
+    initial_option: "eyes"
     optimistic: true
     restore_value: true
   # Forces a state, for showing a child what each one looks like before the
@@ -1459,15 +1463,16 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
 
-  # Off for a toddler -- the colour IS the clock. On for a child learning to
-  # read the time, who can then match "7:00" to the sun coming up.
+  # The digital time along the bottom of the face. On by default -- Sam asked
+  # for it, and it is the parent at 3 a.m. who reads it, not the child. Off if
+  # the numbers turn out to be a distraction: the colour is still the clock.
   - platform: template
     id: grow_show_time
     name: "Grow clock show time"
     entity_category: config
     icon: mdi:clock-digital
     optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
+    restore_mode: RESTORE_DEFAULT_ON
 
   # The Gro-Clock's best idea: stars that go out one by one through the night,
   # so "how long until morning" is something a child can count. Here the ring
@@ -1478,6 +1483,16 @@ switch:
     name: "Grow clock stars"
     entity_category: config
     icon: mdi:star-four-points
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # The eyes move: random looks, blinks, smiles, yawns at bedtime, a twitch in
+  # the night. Off leaves the resting face of each state, still.
+  - platform: template
+    id: grow_animate
+    name: "Grow clock animate"
+    entity_category: config
+    icon: mdi:motion-play-outline
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
@@ -1604,6 +1619,87 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
+
+  # ---- Grow eye animator. Written by the 100 ms interval, read by both panel
+  # lambdas, so a full frame from the dispatcher and an animation frame draw
+  # the same eyes. Mirrored in preview/grow_anim.py.
+  - id: an_seed                # 32-bit LCG state
+    type: uint32_t
+    restore_value: no
+    initial_value: '2463534242'
+  - id: an_clip                # running clip, 0 = resting
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: an_t0                  # millis() the clip started
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: an_dur                 # its length, ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '1'
+  - id: an_next                # millis() the next clip may start
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: an_p1
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: an_p2
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: an_p3
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: an_p4
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: an_stlast              # state the animator last saw
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  # per-frame outputs
+  - id: an_gx                  # gaze, px at round scale
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: an_gy
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: an_lidl                # share of the left eye covered from the top
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: an_lidr
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: an_smile               # 0 open .. 1 a happy arch
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: an_hs                  # eye height scale (bounce, wide)
+    type: float
+    restore_value: no
+    initial_value: '1'
+  - id: an_mouth               # 0 .. 1, the yawn
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: an_zph                 # phase of the drifting z's, 0 .. 1
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: an_partial             # true while an animation frame is being drawn
+    type: bool
+    restore_value: no
+    initial_value: 'false'
   - id: grow_bl_last           # backlight level last set by grow mode; -1 = none
     type: float
     restore_value: no
@@ -1823,6 +1919,177 @@ interval:
             - component.update: bar_lcd
           else:
             - component.update: face_lcd
+
+  # ---- Grow eye animator, 10 fps -----------------------------------------------
+  # A clip library and a scheduler. Each state has a table of clips with
+  # weights and an idle gap; the scheduler draws the next clip, its length
+  # and its gaze targets from a 32-bit LCG, plays it through envelopes, and
+  # rests the eyes between clips. The outputs are per-frame numbers (gaze,
+  # lids, smile, height, mouth) that both panel lambdas turn into pixels.
+  #
+  # This is the SAME engine as preview/grow_anim.py, constant for constant;
+  # that file renders it to GIFs so a change can be watched before a flash.
+  # Awake draws about 225 clips in 20 minutes, none of them identical -- the
+  # variety is in the parameters, the sequence period is 2^32 draws.
+  - interval: 100ms
+    then:
+      - lambda: |-
+          if (!id(grow_mode).state) { id(an_clip) = 0; return; }
+          const uint32_t ms = millis();
+          const int st = id(grow_st);
+
+          // resting pose: how much of the eye the lid covers, and the smile
+          float base_lid, base_smile;
+          if      (st == 0 || st == 4) { base_lid = 1.0f;  base_smile = 0.0f;  }
+          else if (st == 1)            { base_lid = 0.45f; base_smile = 0.0f;  }
+          else if (st == 2)            { base_lid = 0.0f;  base_smile = 0.35f; }
+          else                         { base_lid = 0.55f; base_smile = 0.0f;  }
+
+          auto rnd = [&]() -> uint32_t {
+            id(an_seed) = id(an_seed) * 1664525u + 1013904223u;
+            return (id(an_seed) >> 8) & 0xFFFFFFu;
+          };
+          auto rr = [&](int lo, int hi) -> int {
+            return lo + (int) (rnd() % (uint32_t) (hi - lo + 1));
+          };
+          auto ease = [](float u) -> float {
+            u = u < 0 ? 0 : u > 1 ? 1 : u; return u * u * (3 - 2 * u);
+          };
+          auto tri = [](float u) -> float { return u < 0.5f ? u * 2 : 2 - u * 2; };
+          auto hold = [&](float u, float a, float b) -> float {
+            return u < a ? ease(u / a) : u < b ? 1.0f : ease((1 - u) / (1 - b));
+          };
+
+          // clips
+          enum { NONE, BLINK, DBLINK, LOOK, LOOK_AROUND, SMILE, WINK, BOUNCE, WIDE,
+                 SQUINT, ROLL, WIGGLE, YAWN, SLOW_BLINK, PEEK, DRIFT, NOD, TWITCH, DANCE };
+          static const uint16_t DLO[19] = {0, 360, 800, 1500, 4000, 2000, 700, 900, 1200,
+                                           1500, 1600, 900, 3000, 1200, 1800, 4000, 2400, 400, 2400};
+          static const uint16_t DHI[19] = {0, 360, 800, 3500, 6000, 4000, 700, 900, 1200,
+                                           2500, 1600, 900, 3000, 1200, 1800, 6000, 2400, 400, 2400};
+          // {clip, weight} per state, weights sum to 100
+          static const uint8_t T_AWAKE[12][2]   = {{LOOK, 22}, {LOOK_AROUND, 14}, {BLINK, 14},
+                                                   {DBLINK, 5}, {SMILE, 16}, {WINK, 4}, {BOUNCE, 6},
+                                                   {WIDE, 3}, {SQUINT, 4}, {ROLL, 3}, {WIGGLE, 4},
+                                                   {DANCE, 5}};
+          static const uint8_t T_ALMOST[8][2]   = {{SLOW_BLINK, 22}, {BLINK, 10}, {LOOK, 15},
+                                                   {YAWN, 15}, {PEEK, 12}, {DRIFT, 14}, {SQUINT, 6},
+                                                   {SMILE, 6}};
+          static const uint8_t T_BEDTIME[7][2]  = {{YAWN, 26}, {SLOW_BLINK, 20}, {NOD, 16},
+                                                   {DRIFT, 14}, {LOOK, 10}, {BLINK, 9}, {SQUINT, 5}};
+          static const uint8_t T_SLEEP[1][2]    = {{TWITCH, 100}};
+          const uint8_t (*tbl)[2]; int tn; int glo, ghi;
+          if      (st == 2) { tbl = T_AWAKE;   tn = 12; glo = 1500;  ghi = 5000;  }
+          else if (st == 1) { tbl = T_ALMOST;  tn = 8;  glo = 2000;  ghi = 6000;  }
+          else if (st == 3) { tbl = T_BEDTIME; tn = 7;  glo = 2000;  ghi = 7000;  }
+          else              { tbl = T_SLEEP;   tn = 1;  glo = 12000; ghi = 30000; }
+          const int GAZE_X = 20, GAZE_Y = 12;
+
+          if (st != id(an_stlast)) {
+            // a state change cancels the clip and rests the eyes. The first
+            // one after boot also stirs the seed, so two clocks do not blink
+            // in step.
+            if (id(an_stlast) < 0) id(an_seed) ^= ms * 2654435761u;
+            id(an_clip) = 0; id(an_next) = ms + 1500; id(an_stlast) = st;
+          }
+          if (id(grow_animate).state && (int32_t) (ms - id(an_next)) >= 0) {
+            const int r = rr(0, 99);
+            int acc = 0, c = tbl[tn - 1][0];
+            for (int i = 0; i < tn; i++) { acc += tbl[i][1]; if (r < acc) { c = tbl[i][0]; break; } }
+            id(an_clip) = c; id(an_t0) = ms; id(an_dur) = rr(DLO[c], DHI[c]);
+            const float k = st == 2 ? 1.0f : 0.6f;       // small looks when sleepy
+            id(an_p1) = (int) (rr(-GAZE_X, GAZE_X) * k); id(an_p2) = (int) (rr(-GAZE_Y, GAZE_Y) * k);
+            id(an_p3) = (int) (rr(-GAZE_X, GAZE_X) * k); id(an_p4) = (int) (rr(-GAZE_Y, GAZE_Y) * k);
+            id(an_next) = ms + id(an_dur) + rr(glo, ghi);
+          }
+
+          int c = id(an_clip);
+          float u = c ? (float) (ms - id(an_t0)) / (float) id(an_dur) : 1.0f;
+          if (u >= 1.0f) { c = NONE; u = 1.0f; id(an_clip) = 0; }
+
+          float lidl = base_lid, lidr = base_lid, smile = base_smile, hs = 1.0f, mouth = 0.0f;
+          float tx = 0, ty = 0; bool direct = false; float dx = 0, dy = 0;
+          const int p1 = id(an_p1), p2 = id(an_p2), p3 = id(an_p3), p4 = id(an_p4);
+          const float PI2 = 6.2831853f;
+          switch (c) {
+            case BLINK:      lidl = lidr = std::max(base_lid, tri(u)); break;
+            case DBLINK:     lidl = lidr = std::max(base_lid, tri(fmodf(u * 2, 1.0f))); break;
+            case LOOK:       tx = p1; ty = p2; break;
+            case LOOK_AROUND:
+              if (u < 0.45f) { tx = p1; ty = p2; } else if (u < 0.9f) { tx = p3; ty = p4; }
+              break;
+            case SMILE:      smile = std::max(base_smile, hold(u, 0.2f, 0.75f)); break;
+            case WINK:
+              lidr = std::max(base_lid, hold(u, 0.25f, 0.65f));
+              smile = std::max(base_smile, 0.6f * hold(u, 0.25f, 0.65f));
+              break;
+            case BOUNCE:     hs = 1 + 0.16f * sinf(PI2 * u) * (1 - u); break;
+            case WIDE:
+              lidl = lidr = 0; hs = 1 + 0.15f * hold(u, 0.2f, 0.7f); ty = -3 * hold(u, 0.2f, 0.7f);
+              break;
+            case SQUINT:
+              lidl = lidr = std::max(base_lid, 0.45f * hold(u, 0.25f, 0.75f)); tx = p1; ty = -6;
+              break;
+            case ROLL:       direct = true; dx = 14 * cosf(PI2 * u); dy = 9 * sinf(PI2 * u); break;
+            case WIGGLE:     direct = true; dx = 10 * sinf(2 * PI2 * u) * (1 - u); break;
+            case YAWN: {
+              const float e = hold(u, 0.3f, 0.8f);
+              lidl = lidr = std::max(base_lid, e); mouth = hold(u, 0.35f, 0.7f); ty = 4 * mouth;
+              break;
+            }
+            case SLOW_BLINK: lidl = lidr = std::max(base_lid, tri(u)); break;
+            case PEEK: {
+              const float e = hold(u, 0.3f, 0.7f);
+              lidl = lidr = base_lid * (1 - e); ty = -3 * e;
+              break;
+            }
+            case DRIFT:      lidl = lidr = std::min(0.95f, base_lid + 0.25f * sinf(3.14159265f * u)); break;
+            case NOD:
+              if (u < 0.55f) {
+                const float e = ease(u / 0.55f);
+                lidl = lidr = base_lid + (0.95f - base_lid) * e; ty = 10 * e;
+              } else if (u < 0.7f) { lidl = lidr = 0.15f; ty = -4; }
+              else {
+                const float e = 1 - ease((u - 0.7f) / 0.3f);
+                lidl = lidr = base_lid + (0.15f - base_lid) * e;
+              }
+              break;
+            case TWITCH:     direct = true; dx = 3 * sinf(2 * PI2 * u) * (1 - u); break;
+            case DANCE:
+              smile = 1; hs = 1 + 0.14f * sinf(2 * PI2 * u) * (1 - 0.5f * u);
+              direct = true; dx = 10 * sinf(PI2 * u);
+              break;
+            default: break;
+          }
+          if (direct) { id(an_gx) = dx; id(an_gy) = dy; }
+          else {
+            id(an_gx) += (tx - id(an_gx)) * 0.4f;
+            id(an_gy) += (ty - id(an_gy)) * 0.4f;
+          }
+          id(an_lidl) = lidl; id(an_lidr) = lidr; id(an_smile) = smile;
+          id(an_hs) = hs; id(an_mouth) = mouth;
+          id(an_zph) = (ms % 3000) / 3000.0f;
+      # An animation frame: only when there is something to animate and the
+      # panel is showing it. The lambda sees an_partial and repaints just the
+      # eye box, so the driver flushes just that.
+      - if:
+          condition:
+            lambda: |-
+              if (!id(grow_mode).state || !id(grow_animate).state) return false;
+              if (!id(display_on).state || !id(screen_on).state) return false;
+              if (id(clock_face).current_option().str() == "colour test") return false;
+              const std::string fs = id(grow_face).current_option().str();
+              return fs == "eyes" || fs == "eyes on colour";
+          then:
+            - lambda: 'id(an_partial) = true;'
+            - if:
+                condition:
+                  lambda: 'return id(bar_active);'
+                then:
+                  - component.update: bar_lcd
+                else:
+                  - component.update: face_lcd
+            - lambda: 'id(an_partial) = false;'
 
   - interval: 250ms
     then:
@@ -2490,6 +2757,14 @@ display:
     # about 100 ms, a tenth of the bus, spent on a panel that is not there, and
     # the panel that IS there would stutter for it.
     update_interval: never
+    # The driver flushes only the rectangle that was drawn on since the last
+    # update. With auto-clear on, every update clears the whole buffer and so
+    # flushes the whole panel: 360 x 360 x 16 bit at 20 MHz is 104 ms. With it
+    # off, a grow-clock animation frame repaints the eye box alone (248 x 184,
+    # 36 ms) and a full frame clears itself, first thing, exactly as auto-clear
+    # did. This is what makes 10 fps eyes possible without touching the SPI
+    # clock that the bench has proven at 20 MHz.
+    auto_clear_enabled: false
     init_sequence:
       # =====================================================================
       # GENUINE GC9B72 INIT SEQUENCE
@@ -2597,6 +2872,7 @@ display:
       - [0xFE]
       - [0xEE]
     lambda: |-
+      if (!id(an_partial)) it.fill(Color::BLACK);   // what auto-clear used to do
       const int CX = 180, CY = 180;
       const auto now = id(ha_time).now();
       const std::string face = id(clock_face).current_option().str();
@@ -2668,8 +2944,28 @@ display:
         const std::string sc = id(grow_sleep_colour).current_option().str();
         const std::string wc = id(grow_wake_colour).current_option().str();
         const std::string fs = id(grow_face).current_option().str();
+        // Two palettes. "eyes" is the Deskimon look: a black field with
+        // everything drawn in the state colour, so the eyes glow. The other
+        // faces put the state colour on the whole field with dark ink on it.
+        // Mirrored in preview/grow_faces.py -- change both.
+        const bool glow = fs == "eyes";
+        const bool partial = id(an_partial);
+        if (partial && fs != "eyes" && fs != "eyes on colour") return;
         Color field, ink;
-        if (st == 0 || st == 4) {
+        if (glow) {
+          field = Color(0, 0, 0);
+          if (st == 0 || st == 4) {
+            ink = sc == "red"    ? Color(255, 40, 30)
+                : sc == "purple" ? Color(170, 60, 255)
+                : sc == "off"    ? Color(50, 50, 60)
+                :                  Color(40, 100, 255);
+          } else if (st == 1) { ink = Color(255, 150, 30); }
+          else if (st == 2) {
+            ink = wc == "green" ? Color(60, 230, 80)
+                : wc == "white" ? Color(240, 240, 240)
+                :                 Color(255, 210, 40);
+          } else { ink = Color(255, 120, 50); }
+        } else if (st == 0 || st == 4) {
           field = sc == "red"    ? Color(90, 10, 10)
                 : sc == "purple" ? Color(50, 10, 80)
                 : sc == "off"    ? Color(0, 0, 0)
@@ -2682,51 +2978,77 @@ display:
                 :                 Color(240, 200, 40);
           ink = Color(40, 32, 8);
         } else { field = Color(140, 60, 20); ink = Color(240, 225, 200); }
-        it.fill(field);
+        if (!partial) it.fill(field);
         const bool sound = id(grow_sound).state && (st == 0 || st == 4)
             && id(grow_sound_since) != 0
             && (uint32_t)(millis() - id(grow_sound_since))
                < (uint32_t) lroundf(id(grow_sound_secs).state * 1000.0f);
 
-        // A thick arc, drawn as a run of dots. r is the radius, a0..a1 the
-        // sweep in degrees measured from straight down, ky squashes it.
-        auto arc = [&](int cx, int cy, int r, float ky, int a0, int a1, int w, Color c) {
-          for (int t = a0; t <= a1; t += 3) {
-            const float a = t * 3.14159265f / 180.0f;
-            it.filled_circle(cx + (int) lroundf(r * sinf(a)),
-                             cy + (int) lroundf(r * ky * cosf(a)), w, c);
-          }
+        // rrect: a rounded rectangle from two rectangles and four circles,
+        // the only way to get one out of Display without a bitmap.
+        auto rrect = [&](int x, int y, int w, int h, int r, Color c) {
+          it.filled_rectangle(x + r, y, w - 2 * r, h, c);
+          it.filled_rectangle(x, y + r, w, h - 2 * r, c);
+          it.filled_circle(x + r, y + r, r, c);
+          it.filled_circle(x + w - 1 - r, y + r, r, c);
+          it.filled_circle(x + r, y + h - 1 - r, r, c);
+          it.filled_circle(x + w - 1 - r, y + h - 1 - r, r, c);
         };
 
-        if (fs == "expressions") {
-          const int ex = 62, ey = CY - 30, er = 22;
-          if (st == 2) {
-            // AWAKE: wide eyes with a highlight, and a big smile
-            it.filled_circle(CX - ex, ey, er, ink);  it.filled_circle(CX + ex, ey, er, ink);
-            it.filled_circle(CX - ex + 7, ey - 7, 6, field);
-            it.filled_circle(CX + ex + 7, ey - 7, 6, field);
-            arc(CX, CY + 40, 90, 0.55f, -60, 60, 6, ink);
-          } else if (st == 1) {
-            // ALMOST: half-lidded eyes -- the lower half of each, and a small
-            // smile. Morning is close.
-            it.filled_circle(CX - ex, ey, er, ink);  it.filled_circle(CX + ex, ey, er, ink);
-            it.filled_rectangle(CX - ex - er - 1, ey - er - 1, 2 * er + 2, er + 1, field);
-            it.filled_rectangle(CX + ex - er - 1, ey - er - 1, 2 * er + 2, er + 1, field);
-            arc(CX, CY + 40, 60, 0.45f, -45, 45, 5, ink);
-          } else if (st == 3) {
-            // BEDTIME: drooping eyes and a yawn
-            arc(CX - ex, ey - 6, er, 0.5f, -50, 50, 5, ink);
-            arc(CX + ex, ey - 6, er, 0.5f, -50, 50, 5, ink);
-            it.filled_circle(CX, CY + 62, 24, ink);
-            it.filled_circle(CX, CY + 64, 16, Color(90, 30, 30));
-          } else {
-            // SLEEP / NAP: closed eyes, a small mouth, and z z z
-            arc(CX - ex, ey - 6, er, 0.55f, -55, 55, 5, ink);
-            arc(CX + ex, ey - 6, er, 0.55f, -55, 55, 5, ink);
-            it.filled_rectangle(CX - 14, CY + 62, 28, 5, ink);
-            it.print(CX + 78, CY - 100, id(font_med), ink, TextAlign::CENTER, "z z z");
+        if (fs == "eyes" || fs == "eyes on colour") {
+          // Deskimon-style: two big rounded eyes, no mouth, and every
+          // expression is an eyelid painted over an open eye in the field
+          // colour -- which only works because nothing is drawn behind them.
+          // The numbers come from the animator's globals, so the dispatcher's
+          // full frame and the 100 ms animation frame draw the same eyes.
+          // Geometry is mirrored in preview/grow_faces.py; change both.
+          const int EX = 60, EY = CY - 34, EW = 80, EH = 112, ER = 28, BAR = 16;
+          // An animation frame repaints only this box, and the driver
+          // flushes only this box. Everything the eyes can reach -- gaze,
+          // the yawn, the z's, "shh" -- stays inside it; the stars and the
+          // time sit below it and are drawn by full frames alone.
+          if (partial) it.filled_rectangle(CX - 124, 60, 248, 184, field);
+          const float droop = st == 3 ? 1.0f : 0.0f;
+          auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
+            const int h = (int) (EH * hs), w = EW;
+            const int r = std::min(ER, h / 2 - 1);
+            if (lid >= 0.9f) {                       // closed: a flat bar
+              rrect(cx - w / 2, cy - BAR / 2, w, BAR, BAR / 2, ink);
+              return;
+            }
+            rrect(cx - w / 2, cy - h / 2, w, h, r, ink);
+            const int x0 = cx - w / 2 - 1, top = cy - h / 2 - 1;
+            if (lid > 0.02f) {                       // the lid, from the top
+              const int L = (int) (h * lid);
+              it.filled_rectangle(x0, top, w + 2, L + 1, field);
+              if (droop > 0.0f) {                    // outer corner droops: tired
+                const int d = std::max(4, (int) (EH / 8.0f * droop));
+                if (outer_left) it.filled_triangle(x0, top + L, x0 + w + 2, top + L, x0, top + L + d, field);
+                else            it.filled_triangle(x0, top + L, x0 + w + 2, top + L, x0 + w + 2, top + L + d, field);
+              }
+            }
+            if (smile > 0.02f) {                     // a bite from below: a happy arch
+              const int Rb = (int) (w * 0.9f);
+              it.filled_circle(cx, cy + h / 2 + Rb - (int) (smile * h * 0.78f), Rb, field);
+            }
+          };
+          const int gx = (int) lroundf(id(an_gx)), gy = (int) lroundf(id(an_gy));
+          eye(CX - EX + gx, EY + gy, id(an_lidl), id(an_smile), id(an_hs), true);
+          eye(CX + EX + gx, EY + gy, id(an_lidr), id(an_smile), id(an_hs), false);
+          if (id(an_mouth) > 0.05f) {                // the yawn
+            const int r = 4 + (int) (12 * id(an_mouth));
+            it.filled_circle(CX + gx, EY + EH / 2 + 20 + gy, r, ink);
+            if (r > 6) it.filled_circle(CX + gx, EY + EH / 2 + 20 + gy, r - 5, field);
           }
-          if (sound) it.print(CX, CY + 100, id(font_med), ink, TextAlign::CENTER, "shh");
+          if (st == 0 || st == 4) {                  // three z's, rising and fading
+            for (int i = 0; i < 3; i++) {
+              const float ph = fmodf(id(an_zph) + i / 3.0f, 1.0f);
+              it.print(CX + 70 + (int) (14 * ph), CY - 74 - (int) (24 * ph), id(font_med),
+                       dim(ink, 1.0f - ph * 0.9f), TextAlign::CENTER, "z");
+            }
+          }
+          if (sound) it.print(CX, CY + 40, id(font_med), ink, TextAlign::CENTER, "shh");
+          if (partial) return;
         } else if (fs == "sun and moon") {
           if (st == 0 || st == 4 || st == 3) {
             it.filled_circle(CX, CY - 10, 70, ink);              // moon...
@@ -2744,23 +3066,24 @@ display:
           if (sound) it.print(CX, CY + 100, id(font_med), ink, TextAlign::CENTER, "shh");
         }
 
-        // Stars until morning: a row of eight along the bottom, lit ones
-        // solid, spent ones faint. On a 360 round panel y = CY + 128 still has
-        // 126 px of half-width, which an eight-star row at 30 px pitch fits.
+        // Stars until morning: a row of eight under the eyes, lit ones solid,
+        // spent ones faint. 8 at 28 px pitch is 196 px wide; y = CY + 72 has
+        // 165 px of half-width on the round panel.
         if (id(grow_stars).state && (st == 0 || st == 4)) {
           const int NS = 8;
           int lit = (int) ceilf(id(grow_frac) * NS); if (lit > NS) lit = NS;
           for (int i = 0; i < NS; i++)
-            it.filled_circle(CX - (NS - 1) * 15 + i * 30, CY + 128, 6,
+            it.filled_circle(CX - (NS - 1) * 14 + i * 28, CY + 72, 6,
                              i < lit ? ink : dim(ink, 0.18f));
         }
 
-        // The time, small and at the top, for a child who is ready for it.
+        // The time, digital, along the bottom. 48 px digits centred at
+        // CY + 120: "12:34" is about 119 px wide and the chord there is 249.
         if (id(grow_show_time).state && now.is_valid()) {
           char tb[8]; int hh = now.hour;
           if (!h24) { hh %= 12; if (hh == 0) hh = 12; }
           snprintf(tb, sizeof(tb), "%d:%02d", hh, now.minute);
-          it.print(CX, CY - 138, id(font_t48), ink, TextAlign::CENTER, tb);
+          it.print(CX, CY + 120, id(font_t48), ink, TextAlign::CENTER, tb);
         }
         return;
       }
@@ -3241,7 +3564,9 @@ display:
     data_rate: 40MHz
     pixel_mode: 16bit
     update_interval: never        # the dispatcher drives this
+    auto_clear_enabled: false     # see face_lcd: partial flushes for the eyes
     lambda: |-
+      if (!id(an_partial)) it.fill(Color::BLACK);   // what auto-clear used to do
       // Canvas after rotation: 320 wide, 170 tall.
       const int W = 320, H = 170;
       auto now = id(ha_time).now();
@@ -3259,8 +3584,22 @@ display:
         const std::string sc = id(grow_sleep_colour).current_option().str();
         const std::string wc = id(grow_wake_colour).current_option().str();
         const std::string fs = id(grow_face).current_option().str();
+        // Same two palettes as the round panel; see there.
+        const bool glow = fs == "eyes";
+        const bool partial = id(an_partial);
+        if (partial && fs != "eyes" && fs != "eyes on colour") return;
         Color field, ink;
-        if (st == 0 || st == 4) {
+        if (glow) {
+          field = Color(0, 0, 0);
+          if (st == 0 || st == 4) {
+            ink = sc == "red" ? Color(255, 40, 30) : sc == "purple" ? Color(170, 60, 255)
+                : sc == "off" ? Color(50, 50, 60) : Color(40, 100, 255);
+          } else if (st == 1) { ink = Color(255, 150, 30); }
+          else if (st == 2) {
+            ink = wc == "green" ? Color(60, 230, 80) : wc == "white" ? Color(240, 240, 240)
+                : Color(255, 210, 40);
+          } else { ink = Color(255, 120, 50); }
+        } else if (st == 0 || st == 4) {
           field = sc == "red" ? Color(90, 10, 10) : sc == "purple" ? Color(50, 10, 80)
                 : sc == "off" ? Color(0, 0, 0) : Color(10, 18, 80);
           ink = Color(225, 228, 240);
@@ -3270,39 +3609,69 @@ display:
                 : Color(240, 200, 40);
           ink = Color(40, 32, 8);
         } else { field = Color(140, 60, 20); ink = Color(240, 225, 200); }
-        it.fill(field);
+        if (!partial) it.fill(field);
         const bool sound = id(grow_sound).state && (st == 0 || st == 4)
             && id(grow_sound_since) != 0
             && (uint32_t)(millis() - id(grow_sound_since))
                < (uint32_t) lroundf(id(grow_sound_secs).state * 1000.0f);
-        auto arc = [&](int cx, int cy, int r, float ky, int a0, int a1, int w, Color c) {
-          for (int t = a0; t <= a1; t += 4) {
-            const float a = t * 3.14159265f / 180.0f;
-            it.filled_circle(cx + (int) lroundf(r * sinf(a)),
-                             cy + (int) lroundf(r * ky * cosf(a)), w, c);
-          }
+        auto rrect = [&](int x, int y, int w, int h, int r, Color c) {
+          it.filled_rectangle(x + r, y, w - 2 * r, h, c);
+          it.filled_rectangle(x, y + r, w, h - 2 * r, c);
+          it.filled_circle(x + r, y + r, r, c);
+          it.filled_circle(x + w - 1 - r, y + r, r, c);
+          it.filled_circle(x + r, y + h - 1 - r, r, c);
+          it.filled_circle(x + w - 1 - r, y + h - 1 - r, r, c);
         };
-        const int FX = W / 2, EY = 58, EX = 46, ER = 15;
-        if (fs == "expressions") {
-          if (st == 2) {
-            it.filled_circle(FX - EX, EY, ER, ink); it.filled_circle(FX + EX, EY, ER, ink);
-            it.filled_circle(FX - EX + 5, EY - 5, 4, field); it.filled_circle(FX + EX + 5, EY - 5, 4, field);
-            arc(FX, EY + 30, 60, 0.5f, -55, 55, 4, ink);
-          } else if (st == 1) {
-            it.filled_circle(FX - EX, EY, ER, ink); it.filled_circle(FX + EX, EY, ER, ink);
-            it.filled_rectangle(FX - EX - ER - 1, EY - ER - 1, 2 * ER + 2, ER + 1, field);
-            it.filled_rectangle(FX + EX - ER - 1, EY - ER - 1, 2 * ER + 2, ER + 1, field);
-            arc(FX, EY + 32, 40, 0.45f, -40, 40, 3, ink);
-          } else if (st == 3) {
-            arc(FX - EX, EY - 4, ER, 0.5f, -50, 50, 3, ink);
-            arc(FX + EX, EY - 4, ER, 0.5f, -50, 50, 3, ink);
-            it.filled_circle(FX, EY + 48, 15, ink); it.filled_circle(FX, EY + 49, 10, Color(90, 30, 30));
-          } else {
-            arc(FX - EX, EY - 4, ER, 0.55f, -55, 55, 3, ink);
-            arc(FX + EX, EY - 4, ER, 0.55f, -55, 55, 3, ink);
-            it.filled_rectangle(FX - 10, EY + 48, 20, 4, ink);
-            it.print(FX + 70, 22, id(font_med), ink, TextAlign::CENTER, "z z z");
+        auto dim = [](Color c, float k) {
+          return Color((uint8_t) (c.r * k), (uint8_t) (c.g * k), (uint8_t) (c.b * k));
+        };
+        const int FX = W / 2;
+        if (fs == "eyes" || fs == "eyes on colour") {
+          // The round panel's eyes at bar scale, from the same animator
+          // globals. Mirrored in preview/grow_faces.py; change both.
+          const int EX = 40, EY = 56, EW = 48, EH = 72, ER = 18, BAR = 10;
+          if (partial) it.filled_rectangle(FX - 92, 0, 184, 116, field);
+          const float droop = st == 3 ? 1.0f : 0.0f;
+          auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
+            const int h = (int) (EH * hs), w = EW;
+            const int r = std::min(ER, h / 2 - 1);
+            if (lid >= 0.9f) {
+              rrect(cx - w / 2, cy - BAR / 2, w, BAR, BAR / 2, ink);
+              return;
+            }
+            rrect(cx - w / 2, cy - h / 2, w, h, r, ink);
+            const int x0 = cx - w / 2 - 1, top = cy - h / 2 - 1;
+            if (lid > 0.02f) {
+              const int L = (int) (h * lid);
+              it.filled_rectangle(x0, top, w + 2, L + 1, field);
+              if (droop > 0.0f) {
+                const int d = std::max(4, (int) (EH / 8.0f * droop));
+                if (outer_left) it.filled_triangle(x0, top + L, x0 + w + 2, top + L, x0, top + L + d, field);
+                else            it.filled_triangle(x0, top + L, x0 + w + 2, top + L, x0 + w + 2, top + L + d, field);
+              }
+            }
+            if (smile > 0.02f) {
+              const int Rb = (int) (w * 0.9f);
+              it.filled_circle(cx, cy + h / 2 + Rb - (int) (smile * h * 0.78f), Rb, field);
+            }
+          };
+          // gaze at 0.6 of the round panel's, like everything else here
+          const int gx = (int) lroundf(id(an_gx) * 0.6f), gy = (int) lroundf(id(an_gy) * 0.6f);
+          eye(FX - EX + gx, EY + gy, id(an_lidl), id(an_smile), id(an_hs), true);
+          eye(FX + EX + gx, EY + gy, id(an_lidr), id(an_smile), id(an_hs), false);
+          if (id(an_mouth) > 0.05f) {
+            const int r = 3 + (int) (7 * id(an_mouth));
+            it.filled_circle(FX + gx, EY + EH / 2 + 12 + gy, r, ink);
+            if (r > 5) it.filled_circle(FX + gx, EY + EH / 2 + 12 + gy, r - 4, field);
           }
+          if (st == 0 || st == 4) {
+            for (int i = 0; i < 3; i++) {
+              const float ph = fmodf(id(an_zph) + i / 3.0f, 1.0f);
+              it.print(FX + 62 + (int) (10 * ph), 24 - (int) (16 * ph), id(font_med),
+                       dim(ink, 1.0f - ph * 0.9f), TextAlign::CENTER, "z");
+            }
+          }
+          if (partial) return;
         } else if (fs == "sun and moon") {
           if (st == 0 || st == 4 || st == 3) {
             it.filled_circle(FX, 70, 46, ink); it.filled_circle(FX + 18, 60, 40, field);
@@ -3320,16 +3689,17 @@ display:
           const int NS = 8;
           int lit = (int) ceilf(id(grow_frac) * NS); if (lit > NS) lit = NS;
           for (int i = 0; i < NS; i++)
-            it.filled_circle(FX - (NS - 1) * 16 + i * 32, H - 18, 5,
+            it.filled_circle(FX - (NS - 1) * 10 + i * 20, 120, 4,
                              i < lit ? ink : Color((uint8_t)(ink.r * 0.18f),
                                                    (uint8_t)(ink.g * 0.18f),
                                                    (uint8_t)(ink.b * 0.18f)));
         }
+        // The time, digital, along the bottom.
         if (id(grow_show_time).state && now.is_valid()) {
           char tb[8]; int hh = now.hour;
           if (!id(fmt_24h).state) { hh %= 12; if (hh == 0) hh = 12; }
           snprintf(tb, sizeof(tb), "%d:%02d", hh, now.minute);
-          it.print(12, 10, id(font_med), ink, TextAlign::TOP_LEFT, tb);
+          it.print(FX, 148, id(font_med), ink, TextAlign::CENTER, tb);
         }
         return;
       }
