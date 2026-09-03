@@ -507,10 +507,18 @@ number:
     name: "Brightness"
     entity_category: config
     unit_of_measurement: "%"
-    min_value: 5
+    min_value: 1
     max_value: 100
-    step: 5
-    initial_value: 45
+    step: 1
+    # 45 was too bright, reported three times. This is a LINEAR multiplier on
+    # the emitter, not a perceptual one, so 45 really is 45% of a 5050 at full
+    # tilt and in a bedroom that is a lamp. 25, and the step is 1 rather than 5
+    # so the bottom of the range is actually usable -- at 5% steps the useful
+    # night range was three positions.
+    # NOTE: restore_value is true, so this only applies to a clock that has
+    # never stored a value. On a clock already running, the number has to be
+    # set -- from Home Assistant, or by whoever is at the bench.
+    initial_value: 25
     optimistic: true
     restore_value: true
   - platform: template
@@ -964,7 +972,7 @@ number:
     min_value: 1
     max_value: 100
     step: 1
-    initial_value: 12
+    initial_value: 7           # was 12; a night light, not a lamp
     optimistic: true
     restore_value: true
   - platform: template
@@ -976,7 +984,7 @@ number:
     min_value: 5
     max_value: 100
     step: 1
-    initial_value: 45
+    initial_value: 25          # was 45; see the note on day_brightness
     optimistic: true
     restore_value: true
   # Sunrise: the wake colour fades up from the night level to the day level
