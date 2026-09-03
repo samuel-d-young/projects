@@ -4429,9 +4429,12 @@ grow clock's whole job is to be visible at night.
 `esphome config` and a full `esphome compile` on the edited file:
 
 ```
-
-
+RAM:   [==        ]  18.3% (used 59812 bytes from 327680 bytes)
+Flash: [======    ]  60.2% (used 1103887 bytes from 1835008 bytes)
 ```
+
+Up from 17.5% / 59.5% before the grow clock — 2.4 KB of RAM for the
+globals and the extra entities, 0.7% of flash for the drawing code.
 
 0 errors; 0 warnings from this file. All new lambda code — the state
 machine, the ring branch, two panel branches with the arc/face drawing, five
