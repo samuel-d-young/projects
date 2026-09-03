@@ -280,6 +280,12 @@ output:
   - platform: ledc
     pin: ${lcd_backlight}
     id: backlight_out
+    # Sam: "the screen flickers a little". ESPHome's ledc default is 1 kHz,
+    # and a TFT backlight at a low duty on a 1 kHz PWM is visible flicker to a
+    # sideways glance and to every phone camera. 5 kHz is above anything an
+    # eye or a rolling shutter resolves, and the S3 still gets 13 bits of
+    # resolution at that rate.
+    frequency: 5000 Hz
 
 # -----------------------------------------------------------------------------
 # STATE IMPORTED FROM HOME ASSISTANT
@@ -336,6 +342,14 @@ sensor:
 
   # Grow clock: how many sound events since boot. Mostly so a parent can see in
   # the morning whether the clock was being talked to at 5 a.m.
+  # Minutes until the scheduled wake, for an automation or a bedside card.
+  - platform: template
+    id: grow_minutes_to_wake
+    name: "Grow clock minutes to wake"
+    icon: mdi:timer-sand
+    unit_of_measurement: "min"
+    accuracy_decimals: 0
+    update_interval: never
   - platform: template
     id: grow_sound_events
     name: "Grow clock sound events"
@@ -900,24 +914,25 @@ number:
     initial_value: 90
     optimistic: true
     restore_value: true
-  # Brightness in the sleep states, and in the awake ones. These override the
-  # clock's ordinary day/night brightness while grow mode is on, on the ring AND
-  # the panel's backlight: a nursery at 3 a.m. wants a glow, not a lamp.
+  # Brightness in the sleep states and in the awake ones, SCREEN and RING
+  # apart. Sam: "the LEDs are too bright and the screen is too low" -- one
+  # number for both could only ever get one of them right. These override the
+  # clock's ordinary day/night brightness while grow mode is on.
   - platform: template
     id: grow_night_bright
-    name: "Grow clock night brightness"
+    name: "Grow clock screen night brightness"
     entity_category: config
     icon: mdi:brightness-3
     unit_of_measurement: "%"
     min_value: 1
     max_value: 100
     step: 1
-    initial_value: 10
+    initial_value: 20
     optimistic: true
     restore_value: true
   - platform: template
     id: grow_day_bright
-    name: "Grow clock day brightness"
+    name: "Grow clock screen day brightness"
     entity_category: config
     icon: mdi:brightness-7
     unit_of_measurement: "%"
@@ -925,6 +940,96 @@ number:
     max_value: 100
     step: 1
     initial_value: 80
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_ring_night_bright
+    name: "Grow clock ring night brightness"
+    entity_category: config
+    icon: mdi:led-strip-variant
+    unit_of_measurement: "%"
+    min_value: 1
+    max_value: 100
+    step: 1
+    initial_value: 12
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_ring_day_bright
+    name: "Grow clock ring day brightness"
+    entity_category: config
+    icon: mdi:led-strip-variant
+    unit_of_measurement: "%"
+    min_value: 5
+    max_value: 100
+    step: 1
+    initial_value: 45
+    optimistic: true
+    restore_value: true
+  # Sunrise: the wake colour fades up from the night level to the day level
+  # over this many minutes after wake time, ring and screen. 0 is a hard cut.
+  - platform: template
+    id: grow_fade_min
+    name: "Grow clock sunrise fade minutes"
+    entity_category: config
+    icon: mdi:weather-sunset-up
+    unit_of_measurement: "min"
+    min_value: 0
+    max_value: 60
+    step: 1
+    initial_value: 10
+    optimistic: true
+    restore_value: true
+  # How many stars the screen counts down through the night.
+  - platform: template
+    id: grow_star_count
+    name: "Grow clock star count"
+    entity_category: config
+    icon: mdi:star-four-points
+    min_value: 3
+    max_value: 12
+    step: 1
+    initial_value: 8
+    optimistic: true
+    restore_value: true
+  # With "clock by day" on, the grow face gives way to the ordinary clock this
+  # long after wake time, and comes back for the bedtime warning.
+  - platform: template
+    id: grow_wake_hold_min
+    name: "Grow clock wake hold minutes"
+    entity_category: config
+    icon: mdi:clock-end
+    unit_of_measurement: "min"
+    min_value: 5
+    max_value: 240
+    step: 5
+    initial_value: 60
+    optimistic: true
+    restore_value: true
+  # "Five more minutes": the snooze button starts a short sleep of this length.
+  - platform: template
+    id: grow_snooze_min
+    name: "Grow clock snooze minutes"
+    entity_category: config
+    icon: mdi:alarm-snooze
+    unit_of_measurement: "min"
+    min_value: 1
+    max_value: 30
+    step: 1
+    initial_value: 5
+    optimistic: true
+    restore_value: true
+  # How long the wake-up effect (rainbow, sparkle) runs on the ring after wake.
+  - platform: template
+    id: grow_wake_effect_min
+    name: "Grow clock wake effect minutes"
+    entity_category: config
+    icon: mdi:party-popper
+    unit_of_measurement: "min"
+    min_value: 1
+    max_value: 60
+    step: 1
+    initial_value: 5
     optimistic: true
     restore_value: true
   # How long the clock reacts after a sound event -- see grow_sound_in.
@@ -1234,9 +1339,65 @@ select:
     initial_option: "yellow"
     optimistic: true
     restore_value: true
+  # The two in-between colours. Amber before wake is the convention; some
+  # children do better with a colour that is clearly not the wake one.
+  - platform: template
+    id: grow_almost_colour
+    name: "Grow clock almost colour"
+    entity_category: config
+    icon: mdi:palette
+    options:
+      - "amber"
+      - "yellow"
+      - "green"
+      - "white"
+    initial_option: "amber"
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_bedtime_colour
+    name: "Grow clock bedtime colour"
+    entity_category: config
+    icon: mdi:palette
+    options:
+      - "orange"
+      - "red"
+      - "purple"
+      - "blue"
+    initial_option: "orange"
+    optimistic: true
+    restore_value: true
+  # The stars on the screen: plain dots, or little four-point sparkles.
+  - platform: template
+    id: grow_star_shape
+    name: "Grow clock star shape"
+    entity_category: config
+    icon: mdi:star-four-points-outline
+    options:
+      - "dots"
+      - "stars"
+    initial_option: "stars"
+    optimistic: true
+    restore_value: true
+  # What the ring does for the first minutes after wake: the wake colour, a
+  # slow rainbow, or the wake colour with sparkles. A small celebration.
+  - platform: template
+    id: grow_wake_effect
+    name: "Grow clock wake effect"
+    entity_category: config
+    icon: mdi:party-popper
+    options:
+      - "solid"
+      - "rainbow"
+      - "sparkle"
+    initial_option: "rainbow"
+    optimistic: true
+    restore_value: true
   # What the panel draws. "sun and moon" is the Gro-Clock's picture;
   # "eyes" is the Deskimon look Sam asked for: two big rounded eyes glowing in
   # the state colour on a black field, no mouth, every expression an eyelid.
+  # "eyes and sky" is the same with a sun or a moon above them and the stars
+  # under them -- Sam: "the face and also the stars/moon or sun". The default.
   # "eyes on colour" is the same eyes in dark ink on a field of the state
   # colour, for a room where the whole screen should read as the colour.
   # "colour only" is just the field, for a child who finds faces too exciting.
@@ -1246,11 +1407,12 @@ select:
     entity_category: config
     icon: mdi:emoticon-outline
     options:
+      - "eyes and sky"
       - "eyes"
       - "eyes on colour"
       - "sun and moon"
       - "colour only"
-    initial_option: "eyes"
+    initial_option: "eyes and sky"
     optimistic: true
     restore_value: true
   # Forces a state, for showing a child what each one looks like before the
@@ -1496,6 +1658,36 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
+  # "12 min" under the eyes while it is almost morning, and again before bed:
+  # for a child who can count, and for the parent who wants to know.
+  - platform: template
+    id: grow_show_countdown
+    name: "Grow clock show countdown"
+    entity_category: config
+    icon: mdi:timer-sand
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # A grow clock at night, an ordinary clock by day: once the wake window has
+  # held for grow_wake_hold_min, the normal face comes back until the bedtime
+  # warning. Off keeps the grow face all day.
+  - platform: template
+    id: grow_day_clock
+    name: "Grow clock clock by day"
+    entity_category: config
+    icon: mdi:clock-outline
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  # Holidays: the weekend times apply every day until this is turned off.
+  - platform: template
+    id: grow_holiday
+    name: "Grow clock holiday"
+    entity_category: config
+    icon: mdi:beach
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
   - platform: template
     id: grow_weekend
     name: "Grow clock weekend times"
@@ -1572,6 +1764,21 @@ button:
     icon: mdi:cancel
     on_press:
       - lambda: 'id(grow_nap_end) = 0;'
+  # "Five more minutes": a short sleep in the sleep colour that ends itself in
+  # the wake colour. It is a nap of grow_snooze_min, and the nap machinery
+  # already does exactly that.
+  - platform: template
+    id: grow_snooze
+    name: "Grow clock five more minutes"
+    icon: mdi:alarm-snooze
+    on_press:
+      - lambda: |-
+          const auto now = id(ha_time).now();
+          if (now.is_valid()) {
+            id(grow_override) = 0;
+            id(grow_nap_end) = (uint32_t) now.timestamp
+                             + (uint32_t) lroundf(id(grow_snooze_min).state * 60.0f);
+          }
   - platform: template
     id: grow_clear_override
     name: "Grow clock back to schedule"
@@ -1704,6 +1911,18 @@ globals:
     type: float
     restore_value: no
     initial_value: '-1.0'
+  - id: grow_since_wake        # minutes since the scheduled wake; -1 outside the wake window
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: grow_min_to            # minutes to the next change of state; -1 unknown
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: grow_daytime           # "clock by day" has handed the panel back to the clock
+    type: bool
+    restore_value: no
+    initial_value: 'false'
 
   # Drives pulses and the test chase. Deliberately independent of wall-clock
   # time so animations still run before the first sync.
@@ -1817,7 +2036,8 @@ interval:
           if (now.is_valid()) {
             const int m   = now.hour * 60 + now.minute;
             const int dow = now.day_of_week;             // 1 = Sunday .. 7 = Saturday
-            const bool wknd = id(grow_weekend).state && (dow == 1 || dow == 7);
+            const bool wknd = id(grow_holiday).state
+                           || (id(grow_weekend).state && (dow == 1 || dow == 7));
             const int wake = wknd
               ? (int) id(grow_wake_h_wknd).state * 60 + (int) id(grow_wake_m_wknd).state
               : (int) id(grow_wake_h).state * 60      + (int) id(grow_wake_m).state;
@@ -1864,6 +2084,27 @@ interval:
             } else if (id(grow_nap_end) != 0) {
               id(grow_nap_end) = 0;                      // nap over: back to schedule
             }
+
+            // Minutes since the scheduled wake (the sunrise fade, the wake
+            // effect and "clock by day" all count from it), and minutes to
+            // whatever comes next, for the countdown and the sensor.
+            id(grow_since_wake) = (sched == 2 && id(grow_override) == 0 && st == 2)
+                                ? span(wake, m) : -1;
+            int nxt;
+            if      (st == 2) nxt = span(m, bwarn > 0 ? bwarn0 : bed);
+            else if (st == 3) nxt = span(m, bed);
+            else              nxt = span(m, wake);
+            id(grow_min_to) = nxt;
+            const float mtw = (float) span(m, wake);
+            if (isnan(id(grow_minutes_to_wake).state)
+                || fabsf(id(grow_minutes_to_wake).state - mtw) >= 0.5f)
+              id(grow_minutes_to_wake).publish_state(mtw);
+            // "Clock by day": the wake window has held long enough, hand the
+            // panel and the ring back to the ordinary clock.
+            id(grow_daytime) = id(grow_day_clock).state && st == 2
+                               && id(grow_since_wake) >= (int) id(grow_wake_hold_min).state;
+          } else {
+            id(grow_since_wake) = -1; id(grow_min_to) = -1; id(grow_daytime) = false;
           }
           // A forced expression, for demos and daylight checks.
           const std::string fx = id(grow_expression).current_option().str();
@@ -1871,6 +2112,7 @@ interval:
           else if (fx == "almost")   st = 1;
           else if (fx == "awake")    st = 2;
           else if (fx == "bedtime")  st = 3;
+          if (fx != "auto") id(grow_daytime) = false;   // a demo shows the face
 
           id(grow_sched) = sched;
           id(grow_st)    = st;
@@ -1882,10 +2124,15 @@ interval:
           // Only touched when the wanted level CHANGES, so this does not fight
           // the Backlight light entity every second. Leaving grow mode puts the
           // backlight back to full, once, and then leaves it alone.
-          if (id(grow_mode).state) {
+          if (id(grow_mode).state && !id(grow_daytime)) {
             const bool nightish = (st == 0 || st == 3 || st == 4);
-            float b = (nightish && id(grow_dim).state
-                       ? id(grow_night_bright).state : id(grow_day_bright).state) / 100.0f;
+            const float bn = id(grow_night_bright).state / 100.0f;
+            const float bd = id(grow_day_bright).state / 100.0f;
+            float b = (nightish && id(grow_dim).state) ? bn : bd;
+            // sunrise: fade up from the night level over grow_fade_min
+            const int fade = (int) id(grow_fade_min).state, sw = id(grow_since_wake);
+            if (st == 2 && fade > 0 && sw >= 0 && sw < fade)
+              b = bn + (bd - bn) * ((float) sw + 0.5f) / (float) fade;
             const bool sound = id(grow_sound).state && (st == 0 || st == 4)
                 && id(grow_sound_since) != 0
                 && (uint32_t)(millis() - id(grow_sound_since))
@@ -1934,7 +2181,7 @@ interval:
   - interval: 100ms
     then:
       - lambda: |-
-          if (!id(grow_mode).state) { id(an_clip) = 0; return; }
+          if (!id(grow_mode).state || id(grow_daytime)) { id(an_clip) = 0; return; }
           const uint32_t ms = millis();
           const int st = id(grow_st);
 
@@ -2075,11 +2322,11 @@ interval:
       - if:
           condition:
             lambda: |-
-              if (!id(grow_mode).state || !id(grow_animate).state) return false;
+              if (!id(grow_mode).state || id(grow_daytime) || !id(grow_animate).state) return false;
               if (!id(display_on).state || !id(screen_on).state) return false;
               if (id(clock_face).current_option().str() == "colour test") return false;
               const std::string fs = id(grow_face).current_option().str();
-              return fs == "eyes" || fs == "eyes on colour";
+              return fs == "eyes" || fs == "eyes and sky" || fs == "eyes on colour";
           then:
             - lambda: 'id(an_partial) = true;'
             - if:
@@ -2185,6 +2432,11 @@ light:
     id: backlight
     name: "Backlight"
     restore_mode: ALWAYS_ON
+    # Sam: "the screen is too low". The light's default gamma is 2.8, so the
+    # grow clock's 10% night level was a 0.16% duty -- the panel was off in all
+    # but name. With gamma 1.0 a percentage is a duty, 10% is a real glow, and
+    # the two screen-brightness numbers mean what they say.
+    gamma_correct: 1.0
 
   - platform: esp32_rmt_led_strip
     id: ring
@@ -2282,10 +2534,12 @@ light:
             // ---- GROW CLOCK: the ring is the colour, and the stars ---------
             // Takes the whole ring and returns. Nothing below -- hands, timers,
             // status -- is for a child's bedroom.
-            if (id(grow_mode).state) {
+            if (id(grow_mode).state && !id(grow_daytime)) {
               const int st = id(grow_st);
               const std::string sc = id(grow_sleep_colour).current_option().str();
               const std::string wc = id(grow_wake_colour).current_option().str();
+              const std::string ac = id(grow_almost_colour).current_option().str();
+              const std::string bc = id(grow_bedtime_colour).current_option().str();
               int r = 0, g = 0, b = 0;
               float k = 1.0f;
               const float ph = (id(frame) % 80) / 80.0f;               // 4 s breathe
@@ -2297,24 +2551,75 @@ light:
                 else if (sc == "off")    { r = 0;   g = 0;  b = 0;   }
                 else                     { r = 0;   g = 20; b = 120; }
                 stars = id(grow_stars).state;
-              } else if (st == 1) { r = 255; g = 120; b = 0; k = breathe; }
-              else if (st == 2) {
+              } else if (st == 1) {
+                if      (ac == "yellow") { r = 255; g = 200; b = 0;   }
+                else if (ac == "green")  { r = 0;   g = 200; b = 40;  }
+                else if (ac == "white")  { r = 200; g = 200; b = 200; }
+                else                     { r = 255; g = 120; b = 0;   }
+                k = breathe;
+              } else if (st == 2) {
                 if      (wc == "green") { r = 0;   g = 200; b = 40;  }
                 else if (wc == "white") { r = 200; g = 200; b = 200; }
                 else                    { r = 255; g = 200; b = 0;   }
-              } else { r = 200; g = 80; b = 0; k = breathe; }
+              } else {
+                if      (bc == "red")    { r = 120; g = 0;  b = 0;   }
+                else if (bc == "purple") { r = 60;  g = 0;  b = 90;  }
+                else if (bc == "blue")   { r = 0;   g = 20; b = 120; }
+                else                     { r = 200; g = 80; b = 0;   }
+                k = breathe;
+              }
 
               // Sound during sleep: brighter and pulsing, in the SLEEP colour.
               const bool sound = id(grow_sound).state && (st == 0 || st == 4)
                   && id(grow_sound_since) != 0
                   && (uint32_t)(millis() - id(grow_sound_since))
                      < (uint32_t) lroundf(id(grow_sound_secs).state * 1000.0f);
+              // The RING's own brightness numbers; the screen has its own pair.
               const bool nightish = (st == 0 || st == 3 || st == 4);
-              float bri = (nightish && id(grow_dim).state
-                           ? id(grow_night_bright).state : id(grow_day_bright).state) / 100.0f;
+              const float bn = id(grow_ring_night_bright).state / 100.0f;
+              const float bd = id(grow_ring_day_bright).state / 100.0f;
+              float bri = (nightish && id(grow_dim).state) ? bn : bd;
+              const int fade = (int) id(grow_fade_min).state, sw = id(grow_since_wake);
+              if (st == 2 && fade > 0 && sw >= 0 && sw < fade)
+                bri = bn + (bd - bn) * ((float) sw + 0.5f) / (float) fade;   // sunrise
               if (sound) {
                 if (bri < 0.6f) bri = 0.6f;
                 k = 0.6f + 0.4f * fabsf(1.0f - 2.0f * ((id(frame) % 20) / 20.0f));
+              }
+
+              // The wake-up effect: for the first grow_wake_effect_min of the
+              // wake window the ring celebrates -- a slow rainbow, or the wake
+              // colour with sparkles. Then it settles to the plain colour.
+              const std::string fx = id(grow_wake_effect).current_option().str();
+              if (st == 2 && fx != "solid" && sw >= 0
+                  && sw < (int) id(grow_wake_effect_min).state) {
+                for (int i = 0; i < PHYS; i++) it[i] = Color::BLACK;
+                uint32_t seed = id(frame) * 2654435761u;
+                for (int i = 0; i < N; i++) {
+                  int rr = r, gg = g, bb = b;
+                  if (fx == "rainbow") {
+                    // hue walks once round the ring and once round every 8 s
+                    const float h = fmodf((float) i / N + (id(frame) % 160) / 160.0f, 1.0f) * 6.0f;
+                    const int   q = (int) h; const float f = h - q;
+                    const int   x = (int) (255 * (1 - f)), y = (int) (255 * f);
+                    switch (q) {
+                      case 0: rr = 255; gg = y;   bb = 0;   break;
+                      case 1: rr = x;   gg = 255; bb = 0;   break;
+                      case 2: rr = 0;   gg = 255; bb = y;   break;
+                      case 3: rr = 0;   gg = x;   bb = 255; break;
+                      case 4: rr = y;   gg = 0;   bb = 255; break;
+                      default: rr = 255; gg = 0;  bb = x;   break;
+                    }
+                  } else {
+                    // sparkle: about one pixel in six flashes white this frame
+                    seed = seed * 1664525u + 1013904223u;
+                    if (((seed >> 8) % 6) == 0) { rr = 255; gg = 255; bb = 255; }
+                  }
+                  it[P((float) i / N)] = Color((uint8_t) lroundf(rr * bri),
+                                               (uint8_t) lroundf(gg * bri),
+                                               (uint8_t) lroundf(bb * bri));
+                }
+                return;
               }
 
               // Stars go out from the far end, anticlockwise from 12, so the
@@ -2939,18 +3244,21 @@ display:
       // to be visible at night. Before the weather and the timers because none
       // of that belongs in a child's room. The backlight level is set by the
       // dispatcher, so the field here can be drawn at full colour.
-      if (id(grow_mode).state) {
+      if (id(grow_mode).state && !id(grow_daytime)) {
         const int st = id(grow_st);
         const std::string sc = id(grow_sleep_colour).current_option().str();
         const std::string wc = id(grow_wake_colour).current_option().str();
+        const std::string ac = id(grow_almost_colour).current_option().str();
+        const std::string bc = id(grow_bedtime_colour).current_option().str();
         const std::string fs = id(grow_face).current_option().str();
-        // Two palettes. "eyes" is the Deskimon look: a black field with
-        // everything drawn in the state colour, so the eyes glow. The other
-        // faces put the state colour on the whole field with dark ink on it.
-        // Mirrored in preview/grow_faces.py -- change both.
-        const bool glow = fs == "eyes";
+        // Two palettes. "eyes" and "eyes and sky" are the Deskimon look: a
+        // black field with everything drawn in the state colour, so the eyes
+        // glow. The other faces put the state colour on the whole field with
+        // dark ink on it. Mirrored in preview/grow_faces.py -- change both.
+        const bool glow = fs == "eyes" || fs == "eyes and sky";
+        const bool sky  = fs == "eyes and sky";
         const bool partial = id(an_partial);
-        if (partial && fs != "eyes" && fs != "eyes on colour") return;
+        if (partial && !glow && fs != "eyes on colour") return;
         Color field, ink;
         if (glow) {
           field = Color(0, 0, 0);
@@ -2959,25 +3267,45 @@ display:
                 : sc == "purple" ? Color(170, 60, 255)
                 : sc == "off"    ? Color(50, 50, 60)
                 :                  Color(40, 100, 255);
-          } else if (st == 1) { ink = Color(255, 150, 30); }
-          else if (st == 2) {
+          } else if (st == 1) {
+            ink = ac == "yellow" ? Color(255, 220, 60)
+                : ac == "green"  ? Color(60, 230, 80)
+                : ac == "white"  ? Color(240, 240, 240)
+                :                  Color(255, 150, 30);
+          } else if (st == 2) {
             ink = wc == "green" ? Color(60, 230, 80)
                 : wc == "white" ? Color(240, 240, 240)
                 :                 Color(255, 210, 40);
-          } else { ink = Color(255, 120, 50); }
+          } else {
+            ink = bc == "red"    ? Color(255, 40, 30)
+                : bc == "purple" ? Color(170, 60, 255)
+                : bc == "blue"   ? Color(40, 100, 255)
+                :                  Color(255, 120, 50);
+          }
         } else if (st == 0 || st == 4) {
           field = sc == "red"    ? Color(90, 10, 10)
                 : sc == "purple" ? Color(50, 10, 80)
                 : sc == "off"    ? Color(0, 0, 0)
                 :                  Color(10, 18, 80);
           ink = Color(225, 228, 240);
-        } else if (st == 1) { field = Color(200, 120, 20); ink = Color(40, 24, 4); }
-        else if (st == 2) {
+        } else if (st == 1) {
+          field = ac == "yellow" ? Color(230, 200, 40)
+                : ac == "green"  ? Color(40, 160, 60)
+                : ac == "white"  ? Color(200, 200, 200)
+                :                  Color(200, 120, 20);
+          ink = ac == "green" ? Color(10, 40, 16) : Color(40, 24, 4);
+        } else if (st == 2) {
           field = wc == "green" ? Color(40, 180, 60)
                 : wc == "white" ? Color(220, 220, 220)
                 :                 Color(240, 200, 40);
           ink = Color(40, 32, 8);
-        } else { field = Color(140, 60, 20); ink = Color(240, 225, 200); }
+        } else {
+          field = bc == "red"    ? Color(90, 10, 10)
+                : bc == "purple" ? Color(50, 10, 80)
+                : bc == "blue"   ? Color(10, 18, 80)
+                :                  Color(140, 60, 20);
+          ink = Color(240, 225, 200);
+        }
         if (!partial) it.fill(field);
         const bool sound = id(grow_sound).state && (st == 0 || st == 4)
             && id(grow_sound_since) != 0
@@ -2995,7 +3323,7 @@ display:
           it.filled_circle(x + w - 1 - r, y + h - 1 - r, r, c);
         };
 
-        if (fs == "eyes" || fs == "eyes on colour") {
+        if (glow || fs == "eyes on colour") {
           // Deskimon-style: two big rounded eyes, no mouth, and every
           // expression is an eyelid painted over an open eye in the field
           // colour -- which only works because nothing is drawn behind them.
@@ -3007,7 +3335,7 @@ display:
           // flushes only this box. Everything the eyes can reach -- gaze,
           // the yawn, the z's, "shh" -- stays inside it; the stars and the
           // time sit below it and are drawn by full frames alone.
-          if (partial) it.filled_rectangle(CX - 124, 60, 248, 184, field);
+          if (partial) it.filled_rectangle(CX - 124, 66, 248, 178, field);
           const float droop = st == 3 ? 1.0f : 0.0f;
           auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
             const int h = (int) (EH * hs), w = EW;
@@ -3049,6 +3377,25 @@ display:
           }
           if (sound) it.print(CX, CY + 40, id(font_med), ink, TextAlign::CENTER, "shh");
           if (partial) return;
+          // The sky, above the eyes and outside the animation box: a moon at
+          // night and bedtime, a sun by day, a sun half-risen when it is
+          // almost morning. Full frames only.
+          if (sky) {
+            const int sy = CY - 138;
+            if (st == 0 || st == 4 || st == 3) {
+              it.filled_circle(CX, sy, 16, ink);
+              it.filled_circle(CX + 7, sy - 4, 13, field);
+            } else {
+              it.filled_circle(CX, sy, 11, ink);
+              for (int i = 0; i < 8; i++) {
+                const float a = i * 3.14159265f / 4.0f;
+                it.line(CX + (int) lroundf(15 * cosf(a)), sy + (int) lroundf(15 * sinf(a)),
+                        CX + (int) lroundf(22 * cosf(a)), sy + (int) lroundf(22 * sinf(a)), ink);
+              }
+              if (st == 1)                          // the horizon: half a sun
+                it.filled_rectangle(CX - 26, sy + 2, 52, 24, field);
+            }
+          }
         } else if (fs == "sun and moon") {
           if (st == 0 || st == 4 || st == 3) {
             it.filled_circle(CX, CY - 10, 70, ink);              // moon...
@@ -3066,15 +3413,33 @@ display:
           if (sound) it.print(CX, CY + 100, id(font_med), ink, TextAlign::CENTER, "shh");
         }
 
-        // Stars until morning: a row of eight under the eyes, lit ones solid,
-        // spent ones faint. 8 at 28 px pitch is 196 px wide; y = CY + 72 has
-        // 165 px of half-width on the round panel.
+        // Stars until morning: a row under the eyes, lit ones solid, spent
+        // ones faint. The row is grow_star_count wide at up to 28 px pitch;
+        // y = CY + 72 has 165 px of half-width on the round panel.
         if (id(grow_stars).state && (st == 0 || st == 4)) {
-          const int NS = 8;
+          const int NS = std::max(3, std::min(12, (int) id(grow_star_count).state));
+          const int pitch = std::min(28, 220 / std::max(1, NS - 1));
+          const bool pointy = id(grow_star_shape).current_option().str() == "stars";
           int lit = (int) ceilf(id(grow_frac) * NS); if (lit > NS) lit = NS;
-          for (int i = 0; i < NS; i++)
-            it.filled_circle(CX - (NS - 1) * 14 + i * 28, CY + 72, 6,
-                             i < lit ? ink : dim(ink, 0.18f));
+          for (int i = 0; i < NS; i++) {
+            const int x = CX - (NS - 1) * pitch / 2 + i * pitch, y = CY + 72;
+            const Color c = i < lit ? ink : dim(ink, 0.18f);
+            if (pointy) {                          // a four-point sparkle
+              it.filled_triangle(x, y - 9, x - 3, y, x + 3, y, c);
+              it.filled_triangle(x, y + 9, x - 3, y, x + 3, y, c);
+              it.filled_triangle(x - 9, y, x, y - 3, x, y + 3, c);
+              it.filled_triangle(x + 9, y, x, y - 3, x, y + 3, c);
+            } else it.filled_circle(x, y, 6, c);
+          }
+        }
+        // The countdown: minutes to wake while it is almost morning, minutes
+        // to bed in the bedtime warning. Where the stars would be.
+        if (id(grow_show_countdown).state && (st == 1 || st == 3) && id(grow_min_to) >= 0) {
+          char cb[12]; snprintf(cb, sizeof(cb), "%d min", id(grow_min_to));
+          // under the eyes; on the sun-and-moon face the picture owns that
+          // space, so it goes up top where the chord is still 100 px wide
+          const int cy_ = (fs == "sun and moon") ? CY - 150 : CY + 72;
+          it.print(CX, cy_, id(font_med), ink, TextAlign::CENTER, cb);
         }
 
         // The time, digital, along the bottom. 48 px digits centred at
@@ -3579,36 +3944,51 @@ display:
       }
 
       // ---- GROW CLOCK, on the bar: the same states, laid out for 320 x 170 --
-      if (id(grow_mode).state) {
+      if (id(grow_mode).state && !id(grow_daytime)) {
         const int st = id(grow_st);
         const std::string sc = id(grow_sleep_colour).current_option().str();
         const std::string wc = id(grow_wake_colour).current_option().str();
+        const std::string ac = id(grow_almost_colour).current_option().str();
+        const std::string bc = id(grow_bedtime_colour).current_option().str();
         const std::string fs = id(grow_face).current_option().str();
         // Same two palettes as the round panel; see there.
-        const bool glow = fs == "eyes";
+        const bool glow = fs == "eyes" || fs == "eyes and sky";
+        const bool sky  = fs == "eyes and sky";
         const bool partial = id(an_partial);
-        if (partial && fs != "eyes" && fs != "eyes on colour") return;
+        if (partial && !glow && fs != "eyes on colour") return;
         Color field, ink;
         if (glow) {
           field = Color(0, 0, 0);
           if (st == 0 || st == 4) {
             ink = sc == "red" ? Color(255, 40, 30) : sc == "purple" ? Color(170, 60, 255)
                 : sc == "off" ? Color(50, 50, 60) : Color(40, 100, 255);
-          } else if (st == 1) { ink = Color(255, 150, 30); }
-          else if (st == 2) {
+          } else if (st == 1) {
+            ink = ac == "yellow" ? Color(255, 220, 60) : ac == "green" ? Color(60, 230, 80)
+                : ac == "white" ? Color(240, 240, 240) : Color(255, 150, 30);
+          } else if (st == 2) {
             ink = wc == "green" ? Color(60, 230, 80) : wc == "white" ? Color(240, 240, 240)
                 : Color(255, 210, 40);
-          } else { ink = Color(255, 120, 50); }
+          } else {
+            ink = bc == "red" ? Color(255, 40, 30) : bc == "purple" ? Color(170, 60, 255)
+                : bc == "blue" ? Color(40, 100, 255) : Color(255, 120, 50);
+          }
         } else if (st == 0 || st == 4) {
           field = sc == "red" ? Color(90, 10, 10) : sc == "purple" ? Color(50, 10, 80)
                 : sc == "off" ? Color(0, 0, 0) : Color(10, 18, 80);
           ink = Color(225, 228, 240);
-        } else if (st == 1) { field = Color(200, 120, 20); ink = Color(40, 24, 4); }
-        else if (st == 2) {
+        } else if (st == 1) {
+          field = ac == "yellow" ? Color(230, 200, 40) : ac == "green" ? Color(40, 160, 60)
+                : ac == "white" ? Color(200, 200, 200) : Color(200, 120, 20);
+          ink = ac == "green" ? Color(10, 40, 16) : Color(40, 24, 4);
+        } else if (st == 2) {
           field = wc == "green" ? Color(40, 180, 60) : wc == "white" ? Color(220, 220, 220)
                 : Color(240, 200, 40);
           ink = Color(40, 32, 8);
-        } else { field = Color(140, 60, 20); ink = Color(240, 225, 200); }
+        } else {
+          field = bc == "red" ? Color(90, 10, 10) : bc == "purple" ? Color(50, 10, 80)
+                : bc == "blue" ? Color(10, 18, 80) : Color(140, 60, 20);
+          ink = Color(240, 225, 200);
+        }
         if (!partial) it.fill(field);
         const bool sound = id(grow_sound).state && (st == 0 || st == 4)
             && id(grow_sound_since) != 0
@@ -3626,7 +4006,7 @@ display:
           return Color((uint8_t) (c.r * k), (uint8_t) (c.g * k), (uint8_t) (c.b * k));
         };
         const int FX = W / 2;
-        if (fs == "eyes" || fs == "eyes on colour") {
+        if (glow || fs == "eyes on colour") {
           // The round panel's eyes at bar scale, from the same animator
           // globals. Mirrored in preview/grow_faces.py; change both.
           const int EX = 40, EY = 56, EW = 48, EH = 72, ER = 18, BAR = 10;
@@ -3672,6 +4052,20 @@ display:
             }
           }
           if (partial) return;
+          if (sky) {                               // top-left, outside the box
+            const int sx = 30, sy = 24;
+            if (st == 0 || st == 4 || st == 3) {
+              it.filled_circle(sx, sy, 11, ink); it.filled_circle(sx + 5, sy - 3, 9, field);
+            } else {
+              it.filled_circle(sx, sy, 8, ink);
+              for (int i = 0; i < 8; i++) {
+                const float a = i * 3.14159265f / 4.0f;
+                it.line(sx + (int) lroundf(11 * cosf(a)), sy + (int) lroundf(11 * sinf(a)),
+                        sx + (int) lroundf(16 * cosf(a)), sy + (int) lroundf(16 * sinf(a)), ink);
+              }
+              if (st == 1) it.filled_rectangle(sx - 18, sy + 2, 36, 16, field);
+            }
+          }
         } else if (fs == "sun and moon") {
           if (st == 0 || st == 4 || st == 3) {
             it.filled_circle(FX, 70, 46, ink); it.filled_circle(FX + 18, 60, 40, field);
@@ -3686,13 +4080,25 @@ display:
         }
         if (sound) it.print(W - 12, 10, id(font_med), ink, TextAlign::TOP_RIGHT, "shh");
         if (id(grow_stars).state && (st == 0 || st == 4)) {
-          const int NS = 8;
+          const int NS = std::max(3, std::min(12, (int) id(grow_star_count).state));
+          const int pitch = std::min(20, 160 / std::max(1, NS - 1));
+          const bool pointy = id(grow_star_shape).current_option().str() == "stars";
           int lit = (int) ceilf(id(grow_frac) * NS); if (lit > NS) lit = NS;
-          for (int i = 0; i < NS; i++)
-            it.filled_circle(FX - (NS - 1) * 10 + i * 20, 120, 4,
-                             i < lit ? ink : Color((uint8_t)(ink.r * 0.18f),
-                                                   (uint8_t)(ink.g * 0.18f),
-                                                   (uint8_t)(ink.b * 0.18f)));
+          for (int i = 0; i < NS; i++) {
+            const int x = FX - (NS - 1) * pitch / 2 + i * pitch, y = 120;
+            const Color c = i < lit ? ink : dim(ink, 0.18f);
+            if (pointy) {
+              it.filled_triangle(x, y - 6, x - 2, y, x + 2, y, c);
+              it.filled_triangle(x, y + 6, x - 2, y, x + 2, y, c);
+              it.filled_triangle(x - 6, y, x, y - 2, x, y + 2, c);
+              it.filled_triangle(x + 6, y, x, y - 2, x, y + 2, c);
+            } else it.filled_circle(x, y, 4, c);
+          }
+        }
+        if (id(grow_show_countdown).state && (st == 1 || st == 3) && id(grow_min_to) >= 0) {
+          char cb[12]; snprintf(cb, sizeof(cb), "%d min", id(grow_min_to));
+          if (fs == "sun and moon") it.print(12, 10, id(font_small), ink, TextAlign::TOP_LEFT, cb);
+          else                      it.print(FX, 120, id(font_small), ink, TextAlign::CENTER, cb);
         }
         // The time, digital, along the bottom.
         if (id(grow_show_time).state && now.is_valid()) {

@@ -780,7 +780,7 @@ def build_numerals(B):
 
 
 # =============================================================================
-def build_diffuser(B, bar=False):
+def build_diffuser(B, bar=False, numerals_on=True, flange=False):
     """Sam's diffuser, with everything he has asked for since first test-fitting.
 
     1. PRESS FIT, and this time a real one. v3 grew the wall to a 0.10 mm
@@ -955,7 +955,28 @@ def build_diffuser(B, bar=False):
         d -= ticks
 
     # --- 4. all twelve hours, written on the face ---------------------------
-    d -= numerals(B, -0.10, NUM_DEPTH)
+    # ...unless this is the plain one. Sam: "a diffuser that doesn't have
+    # numbers on it." Same part in every other respect, so the numerals inlay
+    # simply has nowhere to go and is not emitted for it.
+    if numerals_on:
+        d -= numerals(B, -0.10, NUM_DEPTH)
+
+    # --- 5. the flange, out to the edge of the base --------------------------
+    # An annulus IN FRONT of the face (z < 0), from just inside the band's
+    # outer wall to DIFF_FLANGE_CLR short of the base's outer wall, so it
+    # covers the base's front rim. Overlaps the face by 1.00 mm radially and
+    # 0.30 mm into it in z, so it is buried, not butted. Chamfered on the
+    # outer edge. It stops at the band because the membrane over the LEDs is
+    # 0.20 mm and must stay so; the face inside the flange is unchanged, which
+    # leaves it DIFF_FLANGE_T recessed inside a raised rim -- a bezel.
+    if flange:
+        ro = B.r_body - DIFF_FLANGE_CLR
+        ri = B.diff_outer - 1.00
+        f = tube(ri, ro, -DIFF_FLANGE_T, 0.30, SEG)
+        f -= (cyl(ro + 2.0, -DIFF_FLANGE_T - 0.10, -DIFF_FLANGE_T + DIFF_FLANGE_CHAMF, SEG)
+              - cone(ro - DIFF_FLANGE_CHAMF - 0.10, ro,
+                     -DIFF_FLANGE_T - 0.10, -DIFF_FLANGE_T + DIFF_FLANGE_CHAMF, SEG))
+        d += f
 
     return d
 
@@ -1306,40 +1327,270 @@ def build_stand(B, depth):
     return s - (box_lwh(-200, 200, -200, 200, -1.0, STAND_FOOT) - keep)
 
 
+def build_backcover(B):
+    """A flat back for a clock whose S3 lives in the stand-box.
+
+    The 25 mm housing carried the board; this carries nothing but the plate
+    the clock hangs from and a shallow pocket for the leads to turn the corner
+    in. Same screw pillars and keyhole as the housing, so the base does not
+    know the difference, and the lead exit is a notch in the rim at 6 o'clock
+    the full depth of the pocket.
+    """
+    RB, RI = B.r_body, B.r_inner
+    PT, PD = BACKCOVER_PLATE, BACKCOVER_POCKET
+    Z1 = Z_DECK
+    Z0 = Z1 - (PT + PD)
+    ZP = Z0 + PT
+    body = cyl(RB, Z0, Z1, SEG) - cyl(RI, ZP, Z1 + 1.0, SEG)
+    # keyhole, one solid
+    kx, kd = HANG_R, KEY_DROP
+    zt = ZP + 1.0
+    key = (cyl(KEY_ENTRY_D/2, Z0 - 1.0, zt, 48, centre=(kx - kd, 0))
+           + box_lwh(kx - kd, kx, -KEY_SLOT_W/2, KEY_SLOT_W/2, Z0 - 1.0, zt)
+           + cyl(KEY_SLOT_W/2, Z0 - 1.0, zt, 32, centre=(kx, 0)))
+    body -= key
+    # screw pillars up to the deck, same places as the housing
+    pillars, holes = None, None
+    for a in B.screw_ang:
+        x, y = B.screw_r*math.cos(math.radians(a)), B.screw_r*math.sin(math.radians(a))
+        p = cyl(3.60, Z0, Z1, 40, centre=(x, y))
+        h = (cyl(SCREW_CLEAR/2, Z0 - 1.0, Z1 + 1.0, 32, centre=(x, y))
+             + cyl(SCREW_HEAD/2, Z0 - 1.0, Z0 + min(3.20, PT - 0.60), 40, centre=(x, y)))
+        pillars = p if pillars is None else pillars + p
+        holes = h if holes is None else holes + h
+    body += pillars
+    body -= holes
+    # the leads leave at 6 o'clock: a notch through the rim, pocket-deep
+    body -= box_lwh(-RB - 2.0, -RI + 2.0, -CABLE_W/2, CABLE_W/2, ZP, Z1 + 1.0)
+    return body
+
+
+def _stand_solid(B, depth, tilt):
+    """build_stand's body, parameterised on the tilt, returned in the DESK
+    frame with its flat foot. Kept separate so the stand-box can reuse it."""
+    t = tilt
+    R = B.r_body + STAND_CLR
+    y_top = -R * math.cos(math.radians(STAND_WRAP))
+    x_out = math.sqrt((R + STAND_WALL)**2 - y_top**2)
+    hw = B.r_body
+    Y_LOW = -160.0
+    h_com = STAND_LIFT + B.r_body*math.cos(math.radians(t))
+    com_back = depth/2 * math.cos(math.radians(t))
+    toe = max(0.0, math.cos(math.radians(t)) *
+              (h_com*math.tan(math.radians(STAND_TOE_TARGET))
+               - h_com*math.tan(math.radians(t)) - com_back))
+    prof = [( x_out, y_top), ( hw, y_top - STAND_FLARE), ( hw, Y_LOW),
+            (-hw, Y_LOW), (-hw, y_top - STAND_FLARE), (-x_out, y_top)]
+    s = prism(prof, -(depth + STAND_STOP_T), toe)
+    s -= cyl(R, -depth - 0.001, toe + 5.0, SEG)
+    s -= cyl(STAND_STOP_RI, -(depth + STAND_STOP_T) - 1.0, -depth, SEG)
+    crown = -(R + STAND_SHELL)
+    arch = [(-STAND_ARCH_HW, Y_LOW), (STAND_ARCH_HW, Y_LOW),
+            (STAND_ARCH_HW, crown - (STAND_ARCH_HW - 10.0)),
+            (10.0, crown), (-10.0, crown),
+            (-STAND_ARCH_HW, crown - (STAND_ARCH_HW - 10.0))]
+    s -= prism(arch, -(depth + STAND_STOP_T) - 1.0, toe + 5.0)
+    notch = box_lwh(-STAND_NOTCH_HW, STAND_NOTCH_HW, Y_LOW - 1.0, -(STAND_STOP_RI - 6.0),
+                    -(depth + STAND_STOP_T) - 1.0, -(depth - STAND_NOTCH_BACK))
+    s -= notch
+    h0 = STAND_LIFT + B.r_body * math.cos(math.radians(t))
+    xf = lambda m: m.rotate([90.0 - t, 0.0, 0.0]).translate([0.0, 0.0, h0])
+    s = xf(s) ^ box_lwh(-200, 200, -200, 200, 0.0, 400.0)
+    sec = s.slice(STAND_FOOT).offset(-STAND_FOOT_OFF, JoinType.Miter, 2.0)
+    keep = Manifold.extrude(sec, STAND_FOOT + 1.0).translate([0.0, 0.0, -1.0])
+    s = s - (box_lwh(-200, 200, -200, 200, -1.0, STAND_FOOT) - keep)
+    return s, xf(notch), h0
+
+
+def build_standbox(B, depth):
+    """The stand with the S3 in it. Sam: "housed at the bottom of the clock in
+    the stand. Make the clock lean back a bit though."
+
+    The cradle is _stand_solid at STANDBOX_TILT, for a clock wearing the flat
+    back cover. Under and behind it, in the desk frame so everything in it is
+    level, a plinth: a box the width of the clock and STANDBOX_PLINTH_D deep,
+    with a BAY for the board tray opening at the back, two lightening pockets
+    open at the bottom either side of it (roof bridged, ribbed past
+    STANDBOX_CELL_MAX), and the cradle's own 6 o'clock notch re-cut through
+    the plinth's roof so the leads drop straight from the clock into the bay.
+    The notch is the SAME solid the cradle was cut with, put through the same
+    transform -- so the two cuts cannot disagree.
+
+    Returns (stand, tray). The tray carries the board and IS the lid: a floor
+    with pads and rails, a cross bar over the antenna end, and an end plate
+    with the USB-C window that closes the bay and screws to the back face.
+    """
+    t = STANDBOX_TILT
+    s, notch, h0 = _stand_solid(B, depth, t)
+    bb = s.bounding_box()
+    y0 = bb[1]                                  # the stand's front-most point
+    y1 = y0 + STANDBOX_PLINTH_D
+    hw = B.r_body
+    H = STANDBOX_PLINTH_H
+
+    # --- the bay, sized off the tray ----------------------------------------
+    tray_w = BOARD_W + 2*(BRD_RAIL_CLR + STANDBOX_RAIL_T)          # 32.99
+    tray_l = BOARD_L + BRD_END_CLR + STANDBOX_RAIL_T                # 66.77
+    bay_w = tray_w + 2*STANDBOX_BAY_CLR
+    bay_l = tray_l + STANDBOX_BAY_CLR
+    bay_z0 = STANDBOX_FLOOR
+    bay_z1 = H - STANDBOX_ROOF
+    assert bay_z1 - bay_z0 >= BRD_POST_H + BOARD_T + 14.0, 'bay too low for the leads'
+    assert bay_l + STANDBOX_WALL <= STANDBOX_PLINTH_D, 'bay longer than the plinth'
+    assert bay_w + 2*STANDBOX_WALL <= 2*hw, 'bay wider than the clock'
+
+    plinth = box_lwh(-hw, hw, y0, y1, 0.0, H)
+    plinth -= box_lwh(-bay_w/2, bay_w/2, y1 - bay_l, y1 + 1.0, bay_z0, bay_z1)
+    # lightening pockets either side of the bay, open at the bottom, roof
+    # bridged. Split into cells no wider than STANDBOX_CELL_MAX.
+    for sign in (-1, 1):
+        xi = bay_w/2 + STANDBOX_WALL
+        xo = hw - STANDBOX_WALL
+        span = xo - xi
+        if span < 8.0:
+            continue
+        ncell = max(1, int(math.ceil(span / STANDBOX_CELL_MAX)))
+        cw = (span - (ncell - 1)*STANDBOX_RIB_T) / ncell
+        for k in range(ncell):
+            a = xi + k*(cw + STANDBOX_RIB_T)
+            b = a + cw
+            plinth -= box_lwh(sign*a if sign > 0 else -b, sign*b if sign > 0 else -a,
+                              y0 + STANDBOX_WALL, y1 - STANDBOX_WALL,
+                              -1.0, bay_z1)
+    # M2 pilots for the lid, in the back face either side of the bay
+    for sx in (-1, 1):
+        plinth -= cyl(STANDBOX_SCREW_PILOT/2, 0.0, 8.0, 24,
+                      centre=(sx*(bay_w/2 + STANDBOX_LID_LIP/2 + 0.6), 0.0)) \
+                  .rotate([-90.0, 0.0, 0.0]).translate([0.0, y1 + 0.001, (bay_z0 + bay_z1)/2])
+
+    stand = s + plinth
+    # the notch, through the roof and into the bay: the leads' way down.
+    # Only down to just under the roof, not through the bay floor.
+    stand -= notch ^ box_lwh(-200, 200, -200, 200, bay_z1 - 1.0, 400.0)
+
+    # --- the tray, printed flat, in its own frame: floor on z = 0, board
+    #     along +y with the connector end at y = 0 where the lid is ----------
+    T = STANDBOX_TRAY_T
+    tray = box_lwh(-tray_w/2, tray_w/2, 0.0, tray_l, 0.0, T)
+    # rails, touching only the board's edge
+    for sx in (-1, 1):
+        tray += box_lwh(sx*BRD_RAIL_Y if sx > 0 else -(BRD_RAIL_Y + STANDBOX_RAIL_T),
+                        BRD_RAIL_Y + STANDBOX_RAIL_T if sx > 0 else -BRD_RAIL_Y,
+                        0.0, tray_l, T - 0.01, T + STANDBOX_RAIL_H)
+    # end stop at the antenna end
+    tray += box_lwh(-tray_w/2, tray_w/2, tray_l - STANDBOX_RAIL_T, tray_l,
+                    T - 0.01, T + BRD_RAIL_TOP)
+    # cross bar over the antenna end, the board slides under it
+    tray += box_lwh(-(BRD_RAIL_Y + STANDBOX_RAIL_T), BRD_RAIL_Y + STANDBOX_RAIL_T,
+                    tray_l - STANDBOX_RAIL_T - STANDBOX_BAR_W, tray_l - STANDBOX_RAIL_T + 0.01,
+                    T + BRD_LIP_Z0, T + BRD_RAIL_TOP)
+    # four pads under the board, between the pad rows
+    for yy in (10.0, BOARD_L - 8.0):
+        for sx in (-1, 1):
+            tray += cyl(BRD_POST_D/2, T - 0.01, T + BRD_POST_H, 32,
+                        centre=(sx*BRD_POST_HY, yy))
+    # the lid: the tray's end plate at y = 0, covering the whole back face
+    lid_w = bay_w + 2*STANDBOX_LID_LIP
+    lid = box_lwh(-lid_w/2, lid_w/2, -STANDBOX_LID_T, 0.01, -bay_z0, H - bay_z0)
+    # USB-C window, centred on the connectors' height above the tray floor
+    z_usb = T + BRD_POST_H + BOARD_T + BOARD_TALL/2
+    lid -= box_lwh(-USB_WIN_W/2, USB_WIN_W/2, -STANDBOX_LID_T - 1.0, 1.0,
+                   z_usb - USB_WIN_H/2, z_usb + USB_WIN_H/2)
+    # screw clearance, matching the pilots
+    for sx in (-1, 1):
+        lid -= cyl(STANDBOX_SCREW_CLEAR/2, -STANDBOX_LID_T - 1.0, 1.0, 24,
+                   centre=(sx*(bay_w/2 + STANDBOX_LID_LIP/2 + 0.6), 0.0)) \
+               .rotate([-90.0, 0.0, 0.0]).translate([0.0, 0.0, (bay_z1 - bay_z0)/2])
+    tray += lid
+    return stand, tray
+
+
+def make_body(n, ring_od, ring_id, tag=None):
+    """A clock of another size: give it the LED count and the ring's outer and
+    inner diameter, measured, and every other radius follows the rules the 32
+    was derived by. Sam: "Add more options to change the size of the clock."
+    No preset for a ring nobody has measured -- the numbers come from the
+    part in your hand.
+    """
+    r_ring_i = ring_id/2 - 0.50
+    r_ring_o = ring_od/2 + 0.50
+    r_body   = r_ring_o + 3.50
+    r_lip_i  = r_body - 2.00
+    screw_r  = r_ring_i - 3.50
+    assert r_ring_i > DIFF_BORE_RI + 6.0, (
+        f'a {ring_id} mm ring does not clear the {2*DIFF_BORE_RI:.1f} mm screen window')
+    return Body(tag if tag is not None else f'-{n}', n, ring_od, ring_id, r_body,
+                r_ring_i, r_ring_o, r_lip_i, DECK_RI, screw_r,
+                [60, 120, 240, 300], [80, 105, 255, 280])
+
+
+def parts_for(B, sam, full=True):
+    """Everything one body needs. full=False skips the bar variants."""
+    tg = B.tag
+    cover_depth = Z_FRONT - (Z_DECK - (BACKCOVER_PLATE + BACKCOVER_POCKET))
+    standbox, tray = build_standbox(B, cover_depth)
+    parts = [
+        (assemble_base(B, sam),          f'mini-round-clock-base{tg}',      True),
+        (build_rear_housing(
+             POCKET_DEEP if B.n == 24 else HOUSING_DEEP_BIG - PLATE_T_BIG,
+             B.r_body, B.r_inner,
+             vent_ang=B.vent_ang, screw_ang=B.screw_ang, screw_r=B.screw_r,
+             plate_t=None if B.n == 24 else PLATE_T_BIG),
+                                         f'mini-round-clock-housing{tg}',   True),
+        (build_backcover(B),             f'mini-round-clock-backcover{tg}', True),
+        (build_diffuser(B),              f'mini-round-clock-diffuser{tg}',  True),
+        (build_diffuser(B, numerals_on=False),
+                                         f'mini-round-clock-diffuser{tg}-plain', True),
+        (build_diffuser(B, flange=True), f'mini-round-clock-diffuser{tg}-flange', True),
+        (build_diffuser(B, numerals_on=False, flange=True),
+                                         f'mini-round-clock-diffuser{tg}-flange-plain', True),
+        (build_stand(B, Z_FRONT - (Z_DECK - HOUSING_DEEP)),
+                                         f'mini-round-clock-deskstand{tg}', True),
+        (standbox,                       f'mini-round-clock-standbox{tg}',  True),
+        (tray,                           f'mini-round-clock-standbox-tray{tg}', True),
+        (build_numerals(B),              f'mini-round-clock-numerals{tg}',  False),
+    ]
+    if full and B.n != 24 and B.n in (32, 60):
+        parts += [
+            (assemble_base(B, sam, bar=True),
+             f'mini-round-clock-base{tg}-bar', True),
+            (build_diffuser(B, bar=True),
+             f'mini-round-clock-diffuser{tg}-bar', True),
+            (build_diffuser(B, bar=True, numerals_on=False),
+             f'mini-round-clock-diffuser{tg}-bar-plain', True),
+        ]
+    return parts
+
+
 # =============================================================================
 if __name__ == '__main__':
+    import argparse
+    ap = argparse.ArgumentParser(description='mini-round-clock parts')
+    ap.add_argument('--custom', nargs=3, type=float, metavar=('N', 'RING_OD', 'RING_ID'),
+                    help='build one body of another size: LED count, ring outer '
+                         'and inner diameter in mm, measured off the ring')
+    ap.add_argument('--tag', default=None, help='file suffix for a custom body, e.g. -45')
+    ap.add_argument('--only', default=None, help='build only this body tag ("", -32, -60)')
+    args = ap.parse_args()
     print(summary())
     print('building...')
     sam = load_sams_base()
     parts = []
-    for B in (BODY24, BODY32, BODY60):
-        tg = B.tag
-        parts += [
-            (assemble_base(B, sam),          f'mini-round-clock-base{tg}',      True),
-            (build_rear_housing(
-                 POCKET_DEEP if B.n == 24 else HOUSING_DEEP_BIG - PLATE_T_BIG,
-                 B.r_body, B.r_inner,
-                 vent_ang=B.vent_ang, screw_ang=B.screw_ang, screw_r=B.screw_r,
-                 plate_t=None if B.n == 24 else PLATE_T_BIG),
-                                             f'mini-round-clock-housing{tg}',   True),
-            (build_diffuser(B),              f'mini-round-clock-diffuser{tg}',  True),
-            (build_stand(B, Z_FRONT - (Z_DECK - HOUSING_DEEP)),
-                                             f'mini-round-clock-deskstand{tg}', True),
-            (build_numerals(B),              f'mini-round-clock-numerals{tg}',  False),
-        ]
-        # -bar: the same base with the rectangular relief for the 1.9" ST7789.
-        # Only the 32 and 60 get one. On the 108 mm body the module's corners
-        # reach r 34.22 against a ring pocket that starts at 35.11, which would
-        # leave 0.89 mm of wall -- see BUILD-LOG. Everything else about a bar
-        # clock is the round parts: same housing, same diffuser, same numerals,
-        # same stand.
-        if B.n != 24:
-            parts += [
-                (assemble_base(B, sam, bar=True),
-                 f'mini-round-clock-base{tg}-bar', True),
-                (build_diffuser(B, bar=True),
-                 f'mini-round-clock-diffuser{tg}-bar', True),
-            ]
+    if args.custom:
+        n, od, idm = int(args.custom[0]), args.custom[1], args.custom[2]
+        B = make_body(n, od, idm, args.tag)
+        print(f'  custom body: {n} LEDs, ring {od} / {idm}, body {2*B.r_body:.2f} mm, '
+              f'tag "{B.tag}"')
+        parts += parts_for(B, sam, full=False)
+    else:
+        for B in (BODY24, BODY32, BODY60):
+            if args.only is not None and B.tag != args.only:
+                continue
+            # -bar: the same base with the rectangular relief for the 1.9"
+            # ST7789. Only the 32 and 60 get one. On the 108 mm body the
+            # module's corners reach r 34.22 against a ring pocket that starts
+            # at 35.11, which would leave 0.89 mm of wall -- see BUILD-LOG.
+            parts += parts_for(B, sam)
     # The battery shelves only mean anything if a battery fits, and at
     # HOUSING_DEEP = 25.00 one does not. Emitting the part anyway would put a
     # file in the folder that cannot be used, so it is skipped and said out loud.
@@ -1349,10 +1600,12 @@ if __name__ == '__main__':
         print(f'  battery shelves SKIPPED: a {BAT_T:.2f} mm cell needs a '
               f'{BATTERY_MIN_HOUSING:.2f} mm housing and this one is '
               f'{HOUSING_DEEP:.2f}. No internal battery in this build.')
-    parts.append((build_light_guides(BODY60), 'mini-round-clock-light-guides-60', True))
-    parts.append((build_collar_gauges(), 'mini-round-clock-collar-gauges', False))
-    parts.append((build_board_clamp(), 'mini-round-clock-board-clamp', True))
-    parts.append((build_board_gauge(), 'mini-round-clock-board-gauge', True))
+    if not args.custom and args.only in (None, '-60'):
+        parts.append((build_light_guides(BODY60), 'mini-round-clock-light-guides-60', True))
+    if not args.custom and args.only is None:
+        parts.append((build_collar_gauges(), 'mini-round-clock-collar-gauges', False))
+        parts.append((build_board_clamp(), 'mini-round-clock-board-clamp', True))
+        parts.append((build_board_gauge(), 'mini-round-clock-board-gauge', True))
     for man, fn, strict in parts:
         t = csg.finalise(man, fn, strict=strict)
         t.export(fn + '.stl')

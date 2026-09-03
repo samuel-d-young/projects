@@ -1380,3 +1380,45 @@ NUM_H_60        = 9.00
 # it filament 2. Both are exported in the same coordinates, so they land in
 # register with no moving about.
 NUM_INLAY_T     = NUM_DEPTH   # 0.50 -- at 0.20 mm layers that is 2 layers +.5
+
+# --- 6. the stand-box, the back cover, the flange, and custom sizes ---------
+# Sam, 2026-09-03: "create the back of the clock to house the ESP32 S3. It
+# could be housed at the bottom of the clock in the stand. Make the clock lean
+# back a bit though." So: the S3 leaves the clock and lives in a box under the
+# cradle; the clock gets a flat BACK COVER instead of the 25 mm housing, and
+# the stand leans a little further than the plain cradle.
+STANDBOX_TILT     = 12.00    # degrees back from vertical; the cradle alone is 10
+BACKCOVER_POCKET  = 6.50     # clear depth behind the deck: room for the leads to
+                             # turn the corner, nothing else lives in here
+BACKCOVER_PLATE   = 2.40     # the plate itself, like PLATE_T_BIG
+STANDBOX_PLINTH_H = 29.00    # top of the box. The cradle shell's lowest point
+                             # is STAND_LIFT - STAND_SHELL = 30 at the front, so
+                             # this stays 1 mm under it and never lands ON it
+STANDBOX_PLINTH_D = 78.00    # front to back. The bay is 67.4 deep and needs a
+                             # 3 mm front wall; the rest is footprint, which is
+                             # stability -- see check6
+STANDBOX_FLOOR    = 2.00     # under the bay
+STANDBOX_ROOF     = 4.00     # over it, bridged: the widest span is the bay
+STANDBOX_WALL     = 3.00     # around the bay and the outside
+STANDBOX_BAY_CLR  = 0.60     # tray to bay, per side: FDM_SLOT_UNDER + 0.20
+STANDBOX_TRAY_T   = 2.00     # the tray's floor
+STANDBOX_RAIL_T   = 2.00     # its side rails
+STANDBOX_RAIL_H   = 6.00     # above the tray floor -- 0.40 over the board's top
+STANDBOX_BAR_W    = 3.00     # the cross bar over the antenna end
+STANDBOX_LID_T    = 2.50     # the lid IS the tray's end plate
+STANDBOX_LID_LIP  = 3.00     # and overlaps the back face by this each side
+STANDBOX_SCREW_PILOT = 1.60  # M2 self-tapper, into the plinth's back face
+STANDBOX_SCREW_CLEAR = 2.30  # through the lid
+STANDBOX_CELL_MAX = 40.00    # widest unsupported roof span in the lightening
+                             # pockets; wider gets a 2 mm rib
+STANDBOX_RIB_T    = 2.00
+
+# The diffuser can carry a FLANGE out to the edge of the base, proud of the
+# base's front rim by its own thickness, so the face reads as one disc the
+# full width of the clock. Sam: "larger on the outside to fit to the edge of
+# the base." It sits in FRONT of the face (z < 0 in the diffuser's frame)
+# because behind the face is the base's rim; and it stops short of the band,
+# because the 0.20 mm membrane over the LEDs has to stay 0.20.
+DIFF_FLANGE_T     = 1.60
+DIFF_FLANGE_CLR   = 0.30     # radial, to the base's outer wall
+DIFF_FLANGE_CHAMF = 0.60

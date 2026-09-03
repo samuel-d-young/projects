@@ -60,24 +60,27 @@ for as long as it sounds); a cancel clears the lights instantly either way.
 One switch — **Grow clock** — turns the whole clock into a child's
 sleep-training clock, the Gro-Clock idea on this hardware. The ring and the
 panel show a *sleep* colour until it is time to get up and a *wake* colour
-after, with an amber *almost time* window before wake and a warning before bed.
-The ring is the stars: they go out one by one through the night, so "how long
-until morning" is something a child can count. The panel draws two big
-Deskimon-style eyes glowing in the state colour on black — flat bars asleep,
-half-lidded when morning is close, open and smiling awake, heavy drooping lids
-at bedtime — and the digital time along the bottom. The eyes are alive: an
-animator plays random clips from a library of eighteen (looks around, blinks,
-smiles, winks, bounces, eye-rolls, a happy dance when awake; slow blinks,
-peeks and yawns when morning is close; yawns, nodding off and drooping lids at
-bedtime; drifting z's and a rare twitch asleep), at 10 fps, drawn from a
-random generator so the same twenty minutes is never seen twice. *Grow clock
-animate* turns it off for a still face. The same eyes on a field of the
-colour, a sun and moon, or the colour alone are the other faces. Weekend
-times, naps with their own countdown, *wake now* / *sleep now* overrides that
-let go by themselves, and dimming at night. The time is a switch, on by
-default. `esphome/preview/grow_faces.py` renders every face and state to a
-PNG and `grow_anim.py` renders the animator to GIFs, both from the same
-numbers the firmware draws with, so a change can be watched before a flash.
+after, with an *almost time* window before wake and a warning before bed, each
+in a colour of its own. The ring is the stars: they go out one by one through
+the night, so "how long until morning" is something a child can count. The
+panel draws two big Deskimon-style eyes glowing in the state colour on black —
+flat bars asleep, half-lidded when morning is close, happy arches awake, heavy
+drooping lids at bedtime, and they look around, blink, smile and yawn on their
+own — with the digital time along the bottom. The default face, *eyes and
+sky*, adds a sun or a moon above the eyes and the stars beneath; the same eyes
+on a field of the colour, a sun and moon, or the colour alone are the other
+faces.
+
+The dials, every one of them an entity that lands in Home Assistant by itself:
+weekday and weekend wake times, bedtime, the almost and bedtime warnings,
+**ring and screen brightness on separate numbers** for night and day, a
+sunrise fade, star count and shape, a minutes-to-go countdown, naps, *wake
+now* / *sleep now*, *five more minutes*, holiday mode, a wake-up rainbow or
+sparkle on the ring, and *clock by day*, which hands the panel back to the
+ordinary clock an hour after wake and takes it back for the bedtime warning.
+`esphome/preview/grow_faces.py` renders every face and state to a PNG from
+the same coordinates the firmware draws, so a layout can be looked at before
+it is flashed.
 
 **It has no microphone.** *Respond to sound* is real, but the clock is told
 about sound by Home Assistant — `packages/wall_clock_grow.yaml` ships the

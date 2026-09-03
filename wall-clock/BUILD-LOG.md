@@ -4647,3 +4647,80 @@ Results, as reported by Sam:
 
 The "Open, from the bench" list above is amended: clock #2's blank screen is
 resolved; its RST and panel-swap checks are dropped.
+
+## 2026-09-03 — Grow clock, round three: brightness apart, a flicker, the sky, and every dial a grow clock has
+
+Sam, with both clocks running the eyes: *"the LEDs are too bright, and the
+screen flickers a little. Add an option to change the LED brightness alone,
+or even the screen brightness. The screen is too low and the LED is too
+bright. Also, make it have the face and also the stars/moon or sun on the
+screen. Add as many options as you can think of for a kids grow clock.
+Automatically add them into HASS."*
+
+### Why one number could never fix it
+
+Grow mode drove the ring and the backlight from the SAME two numbers
+(`grow_night_bright`, `grow_day_bright`). A WS2812 ring at 10% is a lamp; a
+TFT backlight at 10% through the light's default gamma of 2.8 is a duty of
+0.16%, which is off in all but name. So the ring was too bright and the
+screen too dim at the same setting, and no value of that setting could have
+been right for both. Now:
+
+- **Screen** keeps the two ids, renamed *screen night/day brightness*, with
+  `gamma_correct: 1.0` on the backlight so a percentage is a duty. Night
+  default 20.
+- **Ring** gets *ring night/day brightness*, defaults 12 and 45.
+- **The flicker** was the PWM: ESPHome's `ledc` defaults to 1 kHz, and a
+  backlight at low duty on 1 kHz is visible flicker to a sideways glance and
+  to any phone camera. `frequency: 5000 Hz`; the S3 keeps 13 bits at that.
+  Not measured on the panel yet; the reasoning is in the YAML comment.
+
+### The sky
+
+`grow_face` gains **eyes and sky**, now the default: the Deskimon eyes, a
+moon above them at night and bedtime, a sun by day, half a sun on the horizon
+when it is almost morning, and the stars beneath. The icon sits at CY − 138,
+above the animation box, which moved from y = 60 to 66 to make room; the
+z's still clear it. Full frames only, since it never moves.
+
+### Every dial a grow clock has
+
+Each is an ESPHome entity, so it appears in Home Assistant by itself; the
+dashboard builder gained a row for each.
+
+| Option | Entity |
+|---|---|
+| Almost colour (amber / yellow / green / white), bedtime colour (orange / red / purple / blue) | two selects |
+| Star count 3–12, star shape (dots / four-point sparkles) | number, select |
+| Minutes-to-go countdown under the eyes in the almost and bedtime windows | switch, plus `sensor.…_minutes_to_wake` |
+| Sunrise fade: ring and screen ramp from night to day level over N minutes after wake | number |
+| Wake-up effect on the ring for the first N minutes: solid, rainbow, sparkle | select, number |
+| Five more minutes: a snooze button that starts a short nap | button, number |
+| Holiday: weekend times every day | switch |
+| Clock by day: after N minutes of the wake window the ordinary clock comes back until the bedtime warning | switch, number |
+
+The last one changes the shape of the state machine slightly: a
+`grow_daytime` flag, resolved by the dispatcher, gates every grow branch
+(ring, both panels, the animator, the partial-frame interval, the backlight
+follower). A forced expression clears it, so a demo always shows the face.
+
+### Verification
+
+`esphome config` clean on the full file; the compile is recorded below when
+it finishes. The dashboard generator's 218 entity references for the main
+clock check against the 46 grow-clock entities the firmware now creates:
+0 dangling. The preview sheet was re-rendered with the sky and the stars
+before the C++ was written, and one thing it caught: the countdown sat on
+top of the sun-and-moon picture, so on that face it goes to the top of the
+panel instead.
+
+Full compile of the final file (2026.6.5 here):
+
+```
+RAM:   [==        ]  18.8% (used 61740 bytes from 327680 bytes)
+Flash: [======    ]  60.8% (used 1115731 bytes from 1835008 bytes)
+```
+
+0 errors, 0 warnings from this file. Up 1.3 KB of RAM and 6 KB of flash on
+the animator build. Not flashed; the flicker fix and the brightness defaults
+are the two things to look at on the panel first.

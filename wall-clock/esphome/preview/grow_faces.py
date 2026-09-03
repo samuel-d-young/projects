@@ -28,6 +28,9 @@ from esphome_canvas import BLACK, Canvas, Color, Font, TextAlign, dim  # noqa: E
 
 STATES = ["sleep", "almost", "awake", "bedtime"]
 FRAC = 0.6          # of the night still to go: 5 of 8 stars lit
+STAR_COUNT = 8      # grow_star_count
+STAR_SHAPE = "stars"  # grow_star_shape: "dots" or "stars"
+MIN_TO = 12         # grow_min_to, for the countdown
 CLOCK = "6:45"
 SLEEP_COLOUR = "blue"
 WAKE_COLOUR = "yellow"
@@ -123,6 +126,35 @@ def draw_eye(it, cx, cy, geom, lid, smile, hs, droop, outer_left, ink, field):
         it.filled_circle(cx, cy + h // 2 + Rb - int(smile * h * 0.78), Rb, field)
 
 
+def star(it, x, y, r, c, pointy):
+    """A four-point sparkle from four triangles, or a dot."""
+    if pointy:
+        a, b = r, max(2, r // 3)
+        it.filled_triangle(x, y - a, x - b, y, x + b, y, c)
+        it.filled_triangle(x, y + a, x - b, y, x + b, y, c)
+        it.filled_triangle(x - a, y, x, y - b, x, y + b, c)
+        it.filled_triangle(x + a, y, x, y - b, x, y + b, c)
+    else:
+        it.filled_circle(x, y, r * 2 // 3, c)
+
+
+def sky(it, cx, sy, st, ink, field, r=16):
+    """Moon at night and bedtime, sun by day, half a sun when it is almost
+    morning. Sits above the eyes, outside the animation box."""
+    k = r / 16.0
+    if st in (0, 4, 3):
+        it.filled_circle(cx, sy, r, ink)
+        it.filled_circle(cx + int(7 * k), sy - int(4 * k), int(13 * k), field)
+    else:
+        it.filled_circle(cx, sy, int(11 * k), ink)
+        for i in range(8):
+            a = i * math.pi / 4
+            it.line(cx + round(15 * k * math.cos(a)), sy + round(15 * k * math.sin(a)),
+                    cx + round(22 * k * math.cos(a)), sy + round(22 * k * math.sin(a)), ink)
+        if st == 1:
+            it.filled_rectangle(cx - int(26 * k), sy + 2, int(52 * k), int(24 * k), field)
+
+
 def draw_eyes_resting(it, cx, st, geom, ink, field):
     EX, EY = geom[0], geom[1]
     lid, smile, droop = base_pose(st)
@@ -134,12 +166,12 @@ def draw_eyes_resting(it, cx, st, geom, ink, field):
 def draw_round(st: int, face: str, sound=False) -> Canvas:
     it = Canvas(360, 360, round_=True)
     CX = CY = 180
-    glow = face == "eyes"
+    glow = face in ("eyes", "eyes and sky")
     field, ink = palette(st, glow)
     it.fill(field)
     font_med, font_t48 = Font(32), Font(48)
 
-    if face in ("eyes", "eyes on colour"):
+    if face in ("eyes", "eyes and sky", "eyes on colour"):
         # Two eyes, about half the panel wide, a little above centre so the
         # stars and the time fit underneath inside the circle.
         draw_eyes_resting(it, CX, st, ROUND_EYES, ink, field)
@@ -150,6 +182,8 @@ def draw_round(st: int, face: str, sound=False) -> Canvas:
                          dim(ink, 1 - ph * 0.9), TextAlign.CENTER, "z")
         if sound:
             it.print(CX, CY + 40, font_med, ink, TextAlign.CENTER, "shh")
+        if face == "eyes and sky":
+            sky(it, CX, CY - 138, st, ink, field)
     elif face == "sun and moon":
         if st in (0, 4, 3):
             it.filled_circle(CX, CY - 10, 70, ink)
@@ -165,12 +199,18 @@ def draw_round(st: int, face: str, sound=False) -> Canvas:
         if sound:
             it.print(CX, CY + 100, font_med, ink, TextAlign.CENTER, "shh")
 
-    # Stars until morning, a row of eight under the eyes.
+    # Stars until morning, a row under the eyes; the countdown in their place
+    # when it is almost morning or almost bed.
     if st in (0, 4):
-        NS = 8
+        NS = max(3, min(12, STAR_COUNT))
+        pitch = min(28, 220 // max(1, NS - 1))
         lit = min(NS, math.ceil(FRAC * NS))
         for i in range(NS):
-            it.filled_circle(CX - (NS - 1) * 14 + i * 28, CY + 72, 6, ink if i < lit else dim(ink, 0.18))
+            star(it, CX - (NS - 1) * pitch // 2 + i * pitch, CY + 72, 9,
+                 ink if i < lit else dim(ink, 0.18), STAR_SHAPE == "stars")
+    elif st in (1, 3):
+        it.print(CX, CY - 150 if face == "sun and moon" else CY + 72, font_med, ink,
+                 TextAlign.CENTER, f"{MIN_TO} min")
 
     # The time, digital, along the bottom.
     it.print(CX, CY + 120, font_t48, ink, TextAlign.CENTER, CLOCK)
@@ -182,18 +222,20 @@ def draw_bar(st: int, face: str, sound=False) -> Canvas:
     it = Canvas(320, 170)
     W, H = 320, 170
     FX = W // 2
-    glow = face == "eyes"
+    glow = face in ("eyes", "eyes and sky")
     field, ink = palette(st, glow)
     it.fill(field)
-    font_med = Font(32)
+    font_med, font_small = Font(32), Font(22)
 
-    if face in ("eyes", "eyes on colour"):
+    if face in ("eyes", "eyes and sky", "eyes on colour"):
         draw_eyes_resting(it, FX, st, BAR_EYES, ink, field)
         if st in (0, 4):
             for i in range(3):
                 ph = i / 3.0
                 it.print(FX + 62 + int(10 * ph), 24 - int(16 * ph), font_med,
                          dim(ink, 1 - ph * 0.9), TextAlign.CENTER, "z")
+        if face == "eyes and sky":
+            sky(it, 30, 24, st, ink, field, r=11)
     elif face == "sun and moon":
         if st in (0, 4, 3):
             it.filled_circle(FX, 70, 46, ink)
@@ -207,20 +249,28 @@ def draw_bar(st: int, face: str, sound=False) -> Canvas:
     if sound:
         it.print(W - 12, 10, font_med, ink, TextAlign.TOP_RIGHT, "shh")
     if st in (0, 4):
-        NS = 8
+        NS = max(3, min(12, STAR_COUNT))
+        pitch = min(20, 160 // max(1, NS - 1))
         lit = min(NS, math.ceil(FRAC * NS))
         for i in range(NS):
-            it.filled_circle(FX - (NS - 1) * 10 + i * 20, 120, 4, ink if i < lit else dim(ink, 0.18))
+            star(it, FX - (NS - 1) * pitch // 2 + i * pitch, 120, 6,
+                 ink if i < lit else dim(ink, 0.18), STAR_SHAPE == "stars")
+    elif st in (1, 3):
+        if face == "sun and moon":
+            it.print(12, 10, font_small, ink, TextAlign.TOP_LEFT, f"{MIN_TO} min")
+        else:
+            it.print(FX, 120, font_small, ink, TextAlign.CENTER, f"{MIN_TO} min")
     it.print(FX, 148, font_med, ink, TextAlign.CENTER, CLOCK)
     return it
 
 
 def sheet(out: str):
     rows = [
-        ("eyes  (Deskimon-style, glowing on black)", lambda st: draw_round(st, "eyes")),
+        ("eyes and sky  (the default: Deskimon eyes, a sun or moon, the stars)", lambda st: draw_round(st, "eyes and sky")),
+        ("eyes", lambda st: draw_round(st, "eyes")),
         ("eyes on colour", lambda st: draw_round(st, "eyes on colour")),
         ("sun and moon", lambda st: draw_round(st, "sun and moon")),
-        ("bar panel, eyes", lambda st: draw_bar(st, "eyes")),
+        ("bar panel, eyes and sky", lambda st: draw_bar(st, "eyes and sky")),
     ]
     cell, pad, label_h = 360, 16, 34
     W = pad + 4 * (cell + pad)
