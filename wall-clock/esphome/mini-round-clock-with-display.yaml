@@ -1053,25 +1053,26 @@ number:
   # fixed. It is not a fault in the drawing; it is the panel being repainted
   # faster than it can be repainted.
   #
-  # NOW THAT THE REPAINT IS CLIPPED this reads the other way round. A frame
-  # is about 24 ms rather than 104, so the panel can be fed at 10 fps and the
-  # eyes MOVE instead of jumping. 600 ms was hiding the animation, not
-  # calming it: at that rate a blink is never caught in the act, and a big
-  # jump between two distant poses is exactly what reads as a flicker.
+  # THE DIAL IS THE POINT: turn it live and watch, no reflash. 600 is where
+  # it goes back to, because that is the value on the panel when Sam said the
+  # clipped repaint "worked on the first try". 100 was tried as a default and
+  # was too much -- see the animator interval below; the ordinary clock face
+  # began flickering, which it never had before.
   #
-  # 100 is 10 fps and is the default. 50 is 20 and is the floor, which is
-  # also the animator's own tick -- below that there is nothing new to draw.
-  # Raise it if the panel cannot keep up; lower it for smoother eyes.
+  # Lower is smoother eyes and more load; higher is calmer and jumpier. The
+  # floor is 100, the animator's own tick, below which there is nothing new
+  # to draw. Somewhere between 200 and 600 is likely right and it is a thing
+  # to look at, not to derive.
   - platform: template
     id: grow_anim_ms
     name: "Grow clock animation interval"
     entity_category: config
     icon: mdi:filmstrip
     unit_of_measurement: "ms"
-    min_value: 50
+    min_value: 100
     max_value: 2000
     step: 10
-    initial_value: 100
+    initial_value: 600
     optimistic: true
     restore_value: true
 
@@ -2306,13 +2307,14 @@ interval:
   # Awake draws about 225 clips in 20 minutes, none of them identical -- the
   # variety is in the parameters, the sequence period is 2^32 draws.
   #
-  # 50 ms, not 100. Every envelope in here is driven off millis() rather than
-  # off a tick count, so halving the interval samples the SAME animation more
-  # finely -- no clip gets faster or slower. It exists to give the panel
-  # something new to show at up to 20 fps, now that a clipped frame is about
-  # 24 ms instead of a full frame's 104. The gaze smoothing below is the one
-  # thing that is per-tick and it is re-derived to match.
-  - interval: 50ms
+  # 100 ms. It was briefly 50, to allow 20 fps once the clipped repaint made
+  # a frame cheap -- and that is the change that made the ORDINARY CLOCK
+  # start flickering too, which it never had. A clipped frame being cheap is
+  # not the same as the loop being free: at 50 ms of animator plus 10 fps of
+  # repaint the board stopped keeping up, and everything sharing that loop --
+  # the clock face, the ring -- went with it. Reverted, and the lesson is
+  # that the budget is the LOOP, not the SPI.
+  - interval: 100ms
     then:
       - lambda: |-
           if (!id(grow_mode).state || id(grow_daytime)) { id(an_clip) = 0; return; }
@@ -2444,11 +2446,8 @@ interval:
           }
           if (direct) { id(an_gx) = dx; id(an_gy) = dy; }
           else {
-            // 0.225 at 50 ms is 0.4 at 100: (1 - 0.225)^2 = 0.60 = 1 - 0.4.
-            // A per-tick smoother is a frame-rate dependency, and halving the
-            // tick without this would have made every glance twice as quick.
-            id(an_gx) += (tx - id(an_gx)) * 0.225f;
-            id(an_gy) += (ty - id(an_gy)) * 0.225f;
+            id(an_gx) += (tx - id(an_gx)) * 0.4f;
+            id(an_gy) += (ty - id(an_gy)) * 0.4f;
           }
           id(an_lidl) = lidl; id(an_lidr) = lidr; id(an_smile) = smile;
           id(an_hs) = hs; id(an_mouth) = mouth;
