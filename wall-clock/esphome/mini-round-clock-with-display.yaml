@@ -1924,7 +1924,30 @@ globals:
     type: float
     restore_value: no
     initial_value: '0'
-  - id: an_partial             # true while an animation frame is being drawn
+  # NEVER SET NOW, and the reason is worth keeping. The idea was that an
+  # animation frame would repaint only the eye box and the driver would flush
+  # only the eye box. The driver does flush only what was drawn -- but it
+  # flushes the BOUNDING BOX of it, out of a buffer that is one band tall and
+  # reused for all six bands, and that is never cleared while auto_clear is
+  # off. So every pixel inside that bounding box which was NOT drawn on this
+  # pass is sent to the panel as whatever the buffer happened to hold, which
+  # is a different slice of the screen from the previous pass.
+  #
+  # That is unfixable by drawing more carefully. Anything that keeps the empty
+  # bands alive -- a marker column, say -- widens the bounding box to include
+  # pixels nothing drew, and on the band that straddles the bottom of the eye
+  # box the box then reaches down over the digital time. Which is exactly what
+  # Sam kept reporting: the time flickering. Making the drawn set equal its own
+  # bounding box means drawing a full-width strip, and then there is nothing
+  # partial left to save.
+  #
+  # So animation frames are FULL frames. `it.fill()` writes every pixel of the
+  # band and sets the box to the whole band, so nothing stale can survive. The
+  # cost is paid back by only drawing when the pose has actually moved, and at
+  # most every 200 ms. The guards that read this global are left in place
+  # because they are harmless with it false, and because the next person to try
+  # this optimisation should find them and this note together.
+  - id: an_partial
     type: bool
     restore_value: no
     initial_value: 'false'
@@ -1968,6 +1991,10 @@ globals:
     type: int
     restore_value: no
     initial_value: '-1'
+  - id: an_lastdraw            # millis() of the last animation repaint
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
   - id: grow_bl_last           # backlight level last set by grow mode; -1 = none
     type: float
     restore_value: no
@@ -2396,6 +2423,11 @@ interval:
               // the gaze moves the pupil by a few pixels per unit, and the
               // lids, the smile, the squash and the yawn are all 0..1 over
               // the eye's own height.
+              // A full frame is about 104 ms of SPI on this panel, so the
+              // repaint cannot run at the animator's own 100 ms tick. The
+              // animator keeps stepping at 100 ms -- the interpolation stays
+              // smooth -- and the panel is redrawn at most every 200.
+              if (millis() - id(an_lastdraw) < 200) return false;
               const int zq = (int) (id(an_zph) * 8.0f);
               return fabsf(id(an_gx)    - id(an_dgx))    > 0.02f
                   || fabsf(id(an_gy)    - id(an_dgy))    > 0.02f
@@ -2406,7 +2438,8 @@ interval:
                   || fabsf(id(an_mouth) - id(an_dmouth)) > 0.01f
                   || zq != id(an_dzq);
           then:
-            - lambda: 'id(an_partial) = true;'
+            # A FULL frame, deliberately. an_partial is never set now -- see
+            # the globals for why the partial repaint was unsound.
             - if:
                 condition:
                   lambda: 'return id(bar_active);'
@@ -2415,7 +2448,7 @@ interval:
                 else:
                   - component.update: face_lcd
             - lambda: |-
-                id(an_partial) = false;
+                id(an_lastdraw) = millis();
                 // record what the panel is now showing
                 id(an_dgx)    = id(an_gx);    id(an_dgy)    = id(an_gy);
                 id(an_dlidl)  = id(an_lidl);  id(an_dlidr)  = id(an_lidr);
@@ -3451,10 +3484,8 @@ display:
           // It is at the extreme edge and in the field's own colour, so it
           // is invisible; it must not be black, because the "eyes on colour"
           // face has a field that is not black.
-          if (partial) {
-            it.filled_rectangle(0, 0, 1, 360, field);
-            it.filled_rectangle(CX - 124, 66, 248, 178, field);
-          }
+          // (An animation frame used to repaint only this box. It cannot:
+          // see the note on an_partial in the globals.)
           const float droop = st == 3 ? 1.0f : 0.0f;
           auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
             const int h = (int) (EH * hs), w = EW;
@@ -4149,10 +4180,7 @@ display:
           const int EX = 40, EY = 56, EW = 48, EH = 72, ER = 18, BAR = 10;
           // Every band alive, exactly as on the round panel -- see the long
           // comment there. This panel is 170 tall after rotation.
-          if (partial) {
-            it.filled_rectangle(0, 0, 1, 170, field);
-            it.filled_rectangle(FX - 92, 0, 184, 116, field);
-          }
+          // (Same as the round panel: no partial repaint. See an_partial.)
           const float droop = st == 3 ? 1.0f : 0.0f;
           auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
             const int h = (int) (EH * hs), w = EW;
