@@ -1953,29 +1953,34 @@ globals:
     type: float
     restore_value: no
     initial_value: '0'
-  # NEVER SET NOW, and the reason is worth keeping. The idea was that an
-  # animation frame would repaint only the eye box and the driver would flush
-  # only the eye box. The driver does flush only what was drawn -- but it
-  # flushes the BOUNDING BOX of it, out of a buffer that is one band tall and
-  # reused for all six bands, and that is never cleared while auto_clear is
-  # off. So every pixel inside that bounding box which was NOT drawn on this
-  # pass is sent to the panel as whatever the buffer happened to hold, which
-  # is a different slice of the screen from the previous pass.
+  # TRUE WHILE AN ANIMATION FRAME IS BEING DRAWN, and this time it is sound.
   #
-  # That is unfixable by drawing more carefully. Anything that keeps the empty
-  # bands alive -- a marker column, say -- widens the bounding box to include
-  # pixels nothing drew, and on the band that straddles the bottom of the eye
-  # box the box then reaches down over the digital time. Which is exactly what
-  # Sam kept reporting: the time flickering. Making the drawn set equal its own
-  # bounding box means drawing a full-width strip, and then there is nothing
-  # partial left to save.
+  # The first attempt was not. mipi_spi flushes the BOUNDING BOX of what was
+  # drawn, out of a buffer one band tall that is reused for all six bands and
+  # never cleared while auto_clear is off -- so any pixel inside that box which
+  # the pass did not draw is sent to the panel as a different slice of the
+  # screen. Drawing just the eye box left most of its own bounding box
+  # untouched on the band straddling its bottom edge, and that is what erased
+  # Sam's clock time ten times a second.
   #
-  # So animation frames are FULL frames. `it.fill()` writes every pixel of the
-  # band and sets the box to the whole band, so nothing stale can survive. The
-  # cost is paid back by only drawing when the pose has actually moved, and at
-  # most every 200 ms. The guards that read this global are left in place
-  # because they are harmless with it false, and because the next person to try
-  # this optimisation should find them and this note together.
+  # What makes it work is CLIPPING, which I dismissed without reading:
+  # Display::fill() is filled_rectangle over the whole screen, and every pixel
+  # of it goes through the clipping test. So with a clip set, a fill touches
+  # exactly the clipped region and marks exactly it dirty. The drawn set IS
+  # its own bounding box, which is the property the first attempt lacked.
+  #
+  # The clip starts at y = 0 on purpose. The driver abandons the whole frame
+  # at the first band that comes back empty, so a region starting at y = 66
+  # would abort in band 0 before anything reached the glass. Starting at the
+  # top means the bands that abort are the ones BELOW the region -- the ones
+  # with nothing to say, whose time and countdown keep what they have.
+  #
+  # Why it is worth the trouble: a full frame is 360 x 360 x 2 bytes, which
+  # the bench measured at 207 ms at 10 MHz, so 52 at 40. A panel refresh is
+  # about 16. No clock rate makes a full-frame change arrive inside one
+  # refresh -- that is arithmetic, and it is why raising the SPI clock alone
+  # could not fix this. The clipped region is 248 x 244, about 121 KB, which
+  # is roughly one refresh at 40 MHz.
   - id: an_partial
     type: bool
     restore_value: no
@@ -2471,8 +2476,7 @@ interval:
                   || fabsf(id(an_mouth) - id(an_dmouth)) > 0.01f
                   || zq != id(an_dzq);
           then:
-            # A FULL frame, deliberately. an_partial is never set now -- see
-            # the globals for why the partial repaint was unsound.
+            - lambda: 'id(an_partial) = true;'
             - if:
                 condition:
                   lambda: 'return id(bar_active);'
@@ -2481,6 +2485,7 @@ interval:
                 else:
                   - component.update: face_lcd
             - lambda: |-
+                id(an_partial) = false;
                 id(an_lastdraw) = millis();
                 // record what the panel is now showing
                 id(an_dgx)    = id(an_gx);    id(an_dgy)    = id(an_gy);
@@ -3529,8 +3534,15 @@ display:
           // It is at the extreme edge and in the field's own colour, so it
           // is invisible; it must not be black, because the "eyes on colour"
           // face has a field that is not black.
-          // (An animation frame used to repaint only this box. It cannot:
-          // see the note on an_partial in the globals.)
+          // An animation frame repaints the sky and the eyes and nothing
+          // else, inside a clip, so the driver's dirty box is exactly this
+          // rectangle and every pixel of it has been drawn. See an_partial.
+          // From y = 0 so band 0 is never empty; to y = 244 so the stars and
+          // countdown at 252 and the time at 300 keep what they have.
+          if (partial) {
+            it.start_clipping(CX - 124, 0, CX + 124, 244);
+            it.fill(field);
+          }
           const float droop = st == 3 ? 1.0f : 0.0f;
           auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
             const int h = (int) (EH * hs), w = EW;
@@ -3589,10 +3601,10 @@ display:
             }
           }
           if (sound) it.print(CX, CY + 40, id(font_med), ink, TextAlign::CENTER, "shh");
-          if (partial) return;
-          // The sky, above the eyes and outside the animation box: a moon at
-          // night and bedtime, a sun by day, a sun half-risen when it is
-          // almost morning. Full frames only.
+          // The sky, above the eyes: a moon at night and bedtime, a sun by
+          // day, a sun half-risen when it is almost morning. INSIDE the
+          // animation clip, so an animation frame redraws it -- the clip
+          // filled over it, and anything filled over has to be put back.
           if (sky) {
             const int sy = CY - 138;
             if (st == 0 || st == 4 || st == 3) {
@@ -3625,6 +3637,9 @@ display:
           }
           if (sound) it.print(CX, CY + 100, id(font_med), ink, TextAlign::CENTER, "shh");
         }
+        // An animation frame ends here. Everything below is outside the clip
+        // and keeps what it already has.
+        if (partial) { it.end_clipping(); return; }
 
         // Stars until morning: a row under the eyes, lit ones solid, spent
         // ones faint. The row is grow_star_count wide at up to 28 px pitch;
@@ -4225,7 +4240,14 @@ display:
           const int EX = 40, EY = 56, EW = 48, EH = 72, ER = 18, BAR = 10;
           // Every band alive, exactly as on the round panel -- see the long
           // comment there. This panel is 170 tall after rotation.
-          // (Same as the round panel: no partial repaint. See an_partial.)
+          // Clipped animation frame, as on the round panel. FULL WIDTH here:
+          // this panel's sky sits top-left at x = 30 and its "shh" top-right,
+          // both outside any box drawn round the eyes. To y = 116, so the
+          // countdown at 120 and the time at 148 are untouched.
+          if (partial) {
+            it.start_clipping(0, 0, W, 116);
+            it.fill(field);
+          }
           const float droop = st == 3 ? 1.0f : 0.0f;
           auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
             const int h = (int) (EH * hs), w = EW;
@@ -4284,8 +4306,7 @@ display:
                        dim(ink, 1.0f - ph * 0.9f), TextAlign::CENTER, "z");
             }
           }
-          if (partial) return;
-          if (sky) {                               // top-left, outside the box
+          if (sky) {                               // top-left, inside the clip
             const int sx = 30, sy = 24;
             if (st == 0 || st == 4 || st == 3) {
               it.filled_circle(sx, sy, 11, ink); it.filled_circle(sx + 5, sy - 3, 9, field);
@@ -4312,6 +4333,7 @@ display:
           }
         }
         if (sound) it.print(W - 12, 10, id(font_med), ink, TextAlign::TOP_RIGHT, "shh");
+        if (partial) { it.end_clipping(); return; }
         if (id(grow_stars).state && (st == 0 || st == 4)) {
           const int NS = std::max(3, std::min(12, (int) id(grow_star_count).state));
           const int pitch = std::min(20, 160 / std::max(1, NS - 1));
