@@ -30,6 +30,10 @@ STATES = ["sleep", "almost", "awake", "bedtime"]
 FRAC = 0.6          # of the night still to go: 5 of 8 stars lit
 STAR_COUNT = 8      # grow_star_count
 STAR_SHAPE = "stars"  # grow_star_shape: "dots" or "stars"
+# Mirrors the firmware's "Grow clock flat art (test)" switch: the moon and the
+# star row drawn with axis-aligned rectangles only, to test whether the flicker
+# follows the EDGE STRUCTURE rather than the position or the size.
+FLAT = False
 MIN_TO = 12         # grow_min_to, for the countdown
 CLOCK = "6:45"
 SLEEP_COLOUR = "blue"
@@ -127,6 +131,9 @@ def draw_eye(it, cx, cy, geom, lid, smile, hs, droop, outer_left, ink, field):
 
 
 def star(it, x, y, r, c, pointy):
+    if FLAT:
+        it.filled_rectangle(x - r, y - r, 2 * r + 1, 2 * r + 1, c)
+        return
     """A four-point sparkle from four triangles, or a dot."""
     if pointy:
         a, b = r, max(2, r // 3)
@@ -143,10 +150,17 @@ def sky(it, cx, sy, st, ink, field, r=16):
     morning. Sits above the eyes, outside the animation box."""
     k = r / 16.0
     if st in (0, 4, 3):
-        it.filled_circle(cx, sy, r, ink)
-        it.filled_circle(cx + int(7 * k), sy - int(4 * k), int(13 * k), field)
+        if FLAT:
+            # plain square, no bite: uniform width down every row (see firmware)
+            it.filled_rectangle(cx - r, sy - r, 2 * r, 2 * r, ink)
+        else:
+            it.filled_circle(cx, sy, r, ink)
+            it.filled_circle(cx + int(7 * k), sy - int(4 * k), int(13 * k), field)
     else:
-        it.filled_circle(cx, sy, int(11 * k), ink)
+        if FLAT:
+            it.filled_rectangle(cx - int(11 * k), sy - int(11 * k), 2 * int(11 * k), 2 * int(11 * k), ink)
+        else:
+            it.filled_circle(cx, sy, int(11 * k), ink)
         for i in range(8):
             a = i * math.pi / 4
             it.line(cx + round(15 * k * math.cos(a)), sy + round(15 * k * math.sin(a)),

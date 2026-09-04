@@ -4064,9 +4064,15 @@ display:
             const int sy = CY - 138;
             const bool flat = id(grow_flat_art).state;
             if (st == 0 || st == 4 || st == 3) {
-              if (flat) {                            // same disc, straight edges
+              if (flat) {
+                // A PLAIN SQUARE, no bite. The first attempt kept the crescent
+                // by subtracting an offset square, which renders as an L -- and
+                // an L is two widths stacked, so its run-length still changes
+                // row to row and the test would have proved nothing. The whole
+                // point is a shape whose width is CONSTANT down every row.
+                // It does not look like a moon. It is not meant to; it is an
+                // instrument, and it goes back off after the reading.
                 it.filled_rectangle(CX - 16, sy - 16, 32, 32, ink);
-                it.filled_rectangle(CX + 7 - 13, sy - 4 - 13, 26, 26, field);
               } else {
                 it.filled_circle(CX, sy, 16, ink);
                 it.filled_circle(CX + 7, sy - 4, 13, field);
@@ -4074,7 +4080,9 @@ display:
             } else {
               if (flat) it.filled_rectangle(CX - 11, sy - 11, 22, 22, ink);
               else       it.filled_circle(CX, sy, 11, ink);
-              for (int i = 0; i < 8; i++) {
+              // The rays are diagonal lines, which are staircases too -- they
+              // have to go in flat mode or they contaminate the reading.
+              for (int i = 0; !flat && i < 8; i++) {
                 const float a = i * 3.14159265f / 4.0f;
                 it.line(CX + (int) lroundf(15 * cosf(a)), sy + (int) lroundf(15 * sinf(a)),
                         CX + (int) lroundf(22 * cosf(a)), sy + (int) lroundf(22 * sinf(a)), ink);

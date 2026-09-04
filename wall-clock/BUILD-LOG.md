@@ -6262,3 +6262,27 @@ That work is worth doing **after** the test says it is the answer, not before.
 
 Then edge structure is out too, and what remains is the hardware itself:
 reseat the panel flex and every SPI jumper, shorter leads, `-s lcd_hz 10MHz`.
+
+### Looked at the flat art before shipping it, and it was wrong
+
+Rendered it through `preview/grow_faces.py` rather than trusting the code, and
+the first version was **broken as art and invalid as a test**.
+
+Keeping the crescent by subtracting an offset square rendered as an **"L"** —
+and an L is two widths stacked, so its run-length still changes row to row.
+It would have carried exactly the structure the test is trying to remove, and a
+null result would have proved nothing.
+
+Corrected: in flat mode the moon is a **plain square, no bite**, and the sun's
+rays are suppressed — they are diagonal lines, which are staircases too. The
+requirement is a shape whose width is **constant down every row**, and only a
+plain rectangle satisfies it.
+
+It does not look like a moon. It is not meant to: it is an instrument, and it
+goes back off after the reading. `preview/shape-round.png` and
+`preview/shape-flat.png` show both, and the preview now honours a `FLAT` flag
+mirroring the firmware switch.
+
+**A test whose control condition still contains the variable is not a test.**
+I nearly shipped one, and the only reason I did not is that I rendered it and
+looked.
