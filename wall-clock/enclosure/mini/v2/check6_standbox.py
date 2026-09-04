@@ -52,8 +52,14 @@ for B, tg in ((BV.BODY24, ''), (BV.BODY32, '-32'), (BV.BODY60, '-60')):
     print(f'\n{"="*70}\n{B.n}-LED stand-box, for a {2*B.r_body:.1f} mm clock with the flat back cover')
     sb = S.bounding_box()
     hw = B.r_body
-    bay_w = BOARD_W + 2*(BRD_RAIL_CLR + STANDBOX_RAIL_T) + 2*STANDBOX_BAY_CLR
-    bay_l = BOARD_L + BRD_END_CLR + STANDBOX_RAIL_T + STANDBOX_BAY_CLR
+    # Derived from the SAME parameters build_standbox uses. These used to be
+    # BOARD_W/BOARD_L -- the drawing's numbers -- so once the tray was cut for
+    # Sam's measured board the check was measuring the previous design and
+    # reporting its own staleness as six failures. The stand-box's board is
+    # STANDBOX_SLOT_W / STANDBOX_BOARD_L; the base's mount still uses BOARD_*.
+    rail_y = STANDBOX_SLOT_W/2
+    bay_w = STANDBOX_SLOT_W + 2*STANDBOX_RAIL_T + 2*STANDBOX_BAY_CLR
+    bay_l = STANDBOX_BOARD_L + BRD_END_CLR + STANDBOX_RAIL_T + STANDBOX_BAY_CLR
     y1 = sb[4]
     z0, z1 = STANDBOX_FLOOR, STANDBOX_PLINTH_H - STANDBOX_ROOF
     H = STANDBOX_PLINTH_H
@@ -93,21 +99,21 @@ for B, tg in ((BV.BODY24, ''), (BV.BODY32, '-32'), (BV.BODY60, '-60')):
        'tray clears the bay even when the bay prints narrow',
        f'{bay_w - (bb[3]-bb[0]):.2f} mm total, needs {2*FDM_SLOT_UNDER:.2f}')
     # the board's own envelope, on the pads, is clear of everything
-    slot = box_lwh(-BOARD_W/2 - 0.2, BOARD_W/2 + 0.2, 5.0, BOARD_L - 5.0,
+    slot = box_lwh(-STANDBOX_BOARD_W/2 - 0.2, STANDBOX_BOARD_W/2 + 0.2, 5.0, STANDBOX_BOARD_L - 5.0,
                    STANDBOX_TRAY_T + BRD_POST_H + 0.3, STANDBOX_TRAY_T + BRD_POST_H + BOARD_T - 0.3)
     ck((slot ^ T).volume() < 1.0, 'the board slot between the rails is clear of the pads',
        f'{(slot ^ T).volume():.1f} mm3 in the way')
-    rails = box_lwh(-BRD_RAIL_Y - STANDBOX_RAIL_T + 0.3, BRD_RAIL_Y + STANDBOX_RAIL_T - 0.3,
-                    10, BOARD_L - 10, STANDBOX_TRAY_T + 0.5, STANDBOX_TRAY_T + STANDBOX_RAIL_H - 0.5) - \
-            box_lwh(-BRD_RAIL_Y - 0.3, BRD_RAIL_Y + 0.3, 0, 200, -10, 100)
+    rails = box_lwh(-rail_y - STANDBOX_RAIL_T + 0.3, rail_y + STANDBOX_RAIL_T - 0.3,
+                    10, STANDBOX_BOARD_L - 10, STANDBOX_TRAY_T + 0.5, STANDBOX_TRAY_T + STANDBOX_RAIL_H - 0.5) - \
+            box_lwh(-rail_y - 0.3, rail_y + 0.3, 0, 200, -10, 100)
     ck((rails ^ T).volume() > 0.8 * rails.volume(), 'both rails are there', f'{(rails ^ T).volume()/rails.volume()*100:.0f}% present')
     # the hooks over the far corners, and nothing between them
-    tray_l = BOARD_L + BRD_END_CLR + STANDBOX_RAIL_T
+    tray_l = STANDBOX_BOARD_L + BRD_END_CLR + STANDBOX_RAIL_T
     hy0, hy1 = tray_l - STANDBOX_RAIL_T - STANDBOX_BAR_W + 0.3, tray_l - STANDBOX_RAIL_T - 0.3
     hz0, hz1 = STANDBOX_TRAY_T + BRD_LIP_Z0 + 0.3, STANDBOX_TRAY_T + BRD_RAIL_TOP - 0.3
-    hooks = box_lwh(-BRD_RAIL_Y + 0.3, -BRD_RAIL_Y + STANDBOX_HOOK_W - 0.3, hy0, hy1, hz0, hz1) + \
-            box_lwh(BRD_RAIL_Y - STANDBOX_HOOK_W + 0.3, BRD_RAIL_Y - 0.3, hy0, hy1, hz0, hz1)
-    gap = box_lwh(-BRD_RAIL_Y + STANDBOX_HOOK_W + 0.3, BRD_RAIL_Y - STANDBOX_HOOK_W - 0.3, hy0, hy1, hz0, hz1)
+    hooks = box_lwh(-rail_y + 0.3, -rail_y + STANDBOX_HOOK_W - 0.3, hy0, hy1, hz0, hz1) + \
+            box_lwh(rail_y - STANDBOX_HOOK_W + 0.3, rail_y - 0.3, hy0, hy1, hz0, hz1)
+    gap = box_lwh(-rail_y + STANDBOX_HOOK_W + 0.3, rail_y - STANDBOX_HOOK_W - 0.3, hy0, hy1, hz0, hz1)
     ck((hooks ^ T).volume() > 0.9 * hooks.volume() and (gap ^ T).volume() < 1.0,
        f'two {STANDBOX_HOOK_W:.0f} mm hooks over the far corners, open between them',
        f'{(hooks ^ T).volume()/hooks.volume()*100:.0f}% hook, {(gap ^ T).volume():.1f} mm3 between')

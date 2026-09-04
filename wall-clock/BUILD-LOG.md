@@ -5934,3 +5934,74 @@ stars remained, this build finishes it. If the moon still flickers *after* this
 one, then the rectangle rule is not the whole story and the freeze switch
 settles it: no bytes to the panel at all, and if it still flickers the renderer
 is out of the picture.
+
+---
+
+## 2026-09-04 (15:00) — Stand-box rebuilt for the board Sam actually has
+
+Printing tonight, so this is decided rather than gated on the fit gauge.
+
+### The defect, and it was fatal rather than tight
+
+The tray took its width from `BOARD_W = 28.19` — the number off the drawing —
+which put the rails **28.99 apart**. Sam's board measures **29.00**. That is
+not a tight fit, it is a negative one: the part could never have accepted his
+board, and no amount of print tuning would have rescued it. The same applied
+to the length: the tray was cut for 63.27 against a 64.00 board.
+
+`STANDBOX_SLOT_W`, `STANDBOX_BOARD_W/L/H` now govern the stand-box and come
+from Sam's measurements. The base's own board mount still uses `BOARD_*` —
+those parts already fit and there is no reason to disturb them.
+
+### The fit, chosen without the gauge
+
+**30.20**, the third of the four gauge channels, deliberately the loose one of
+the middle pair. The params model reckons it prints to about 0.80 mm of real
+clearance, 0.40 a side, which is an ordinary FDM slip fit; the corner hooks
+hold the board down anyway. A board that rattles slightly is a nuisance, a
+board that will not go in wastes the whole print. **If it is sloppy, set
+`STANDBOX_SLOT_W = 29.80` and re-run — one number, one re-slice.**
+
+Measured off the built STL rather than asserted: rails at x ±15.10 inner,
+±17.10 outer, so the channel is **30.20** and the rail wall **2.00**.
+
+### Room for the leads
+
+"the heigt is 14mm but wires stick out the top because it is a dev board", so
+the bay headroom is now stated as what it must hold rather than a bare number:
+tray floor 2.00 + pads 4.00 + board 14.00 + **5.00 of air for the leads** =
+26.00, asserted. Plinth height 29 → **32** to provide it.
+
+### Smaller where it was safe to be
+
+Plinth depth **78 → 72**. It could not go to 70 — the assert caught the bay
+running into the front wall once the tray grew for the 64 mm board, which is
+the check doing its job. Envelope now **120.7 × 72.0 × 61.4 mm**.
+
+### One real check failure, and six stale ones
+
+`check6` came back with 21 failures, 7 distinct across 3 bodies.
+
+* **Real:** the wider bay pushed the roof's flat bridge to **25.3 mm**, over
+  check3's 25. Fixed in the *part*: `STANDBOX_BAY_CHAMF_W` 5.20 → **6.00**,
+  taking the span to 23.40. The slope drops 54.5° → 50.6°, still well over the
+  45° minimum, and the chamfer only narrows the bay above the rails so the
+  tray still passes.
+* **Stale:** the other six were `check6` recomputing the tray from `BOARD_W`,
+  `BOARD_L` and `BRD_RAIL_Y` — so once the tray was cut for the real board the
+  check was measuring the *previous* design and reporting its own staleness as
+  failures. Pointed at `STANDBOX_SLOT_W` / `STANDBOX_BOARD_L`, the same
+  parameters the builder uses.
+
+This is the third time a check has failed because it re-derived geometry from
+its own copy of the design instead of from the shared parameter. **A checker
+that recomputes what it is checking is not independent, it is a duplicate that
+can drift.**
+
+```
+check1_topology  PASS   check4_v3        PASS
+check2_fit       PASS   check5_stand     PASS
+check3_print     PASS   check6_standbox  PASS
+```
+
+All parts manifold and clean.

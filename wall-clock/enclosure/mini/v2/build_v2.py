@@ -1536,13 +1536,25 @@ def build_standbox(B, depth):
     H = STANDBOX_PLINTH_H
 
     # --- the bay, sized off the tray ----------------------------------------
-    tray_w = BOARD_W + 2*(BRD_RAIL_CLR + STANDBOX_RAIL_T)          # 32.99
-    tray_l = BOARD_L + BRD_END_CLR + STANDBOX_RAIL_T                # 66.77
+    # SAM'S board, not the drawing's. The rails used to be BOARD_W/2 +
+    # BRD_RAIL_CLR apart, i.e. 28.99, against a board that measures 29.00 --
+    # a negative fit that no print tuning could rescue. STANDBOX_SLOT_W is the
+    # channel between the rails and it is the one number to turn if the fit is
+    # wrong; the base's own board mount is untouched and keeps BOARD_W/BOARD_L.
+    rail_y = STANDBOX_SLOT_W/2
+    tray_w = STANDBOX_SLOT_W + 2*STANDBOX_RAIL_T                    # 34.20
+    tray_l = STANDBOX_BOARD_L + BRD_END_CLR + STANDBOX_RAIL_T       # 67.50
     bay_w = tray_w + 2*STANDBOX_BAY_CLR
     bay_l = tray_l + STANDBOX_BAY_CLR
     bay_z0 = STANDBOX_FLOOR
     bay_z1 = H - STANDBOX_ROOF
-    assert bay_z1 - bay_z0 >= BRD_POST_H + BOARD_T + 14.0, 'bay too low for the leads'
+    # Headroom, stated as what it actually has to hold rather than a bare 14:
+    # the tray's own floor, the pads that lift the PCB clear of its header
+    # tails, Sam's 14 mm over the PCB with the headers on, and air above that
+    # for the leads, because he said they stick out of the top.
+    need = STANDBOX_TRAY_T + BRD_POST_H + STANDBOX_BOARD_H + STANDBOX_WIRE_H
+    assert bay_z1 - bay_z0 >= need, \
+        f'bay {bay_z1 - bay_z0:.2f} too low: needs {need:.2f} for board + leads'
     assert bay_w + 2*STANDBOX_WALL <= 2*hw, 'bay wider than the clock'
     # The bay opens at the back and runs forward at least the tray's length,
     # and further -- to 2 mm past the front of the cradle's notch -- when the
@@ -1625,8 +1637,8 @@ def build_standbox(B, depth):
     tray = box_lwh(-tray_w/2, tray_w/2, 0.0, tray_l, 0.0, T)
     # rails, touching only the board's edge
     for sx in (-1, 1):
-        tray += box_lwh(sx*BRD_RAIL_Y if sx > 0 else -(BRD_RAIL_Y + STANDBOX_RAIL_T),
-                        BRD_RAIL_Y + STANDBOX_RAIL_T if sx > 0 else -BRD_RAIL_Y,
+        tray += box_lwh(sx*rail_y if sx > 0 else -(rail_y + STANDBOX_RAIL_T),
+                        rail_y + STANDBOX_RAIL_T if sx > 0 else -rail_y,
                         0.0, tray_l, T - 0.01, T + STANDBOX_RAIL_H)
     # end stop at the antenna end
     tray += box_lwh(-tray_w/2, tray_w/2, tray_l - STANDBOX_RAIL_T, tray_l,
@@ -1635,13 +1647,13 @@ def build_standbox(B, depth):
     # inward, the board slides under them. Not one bar across: that is a 26 mm
     # flat ceiling between the rails, over check3's 25.
     for sx in (-1, 1):
-        x_in = BRD_RAIL_Y - STANDBOX_HOOK_W
-        tray += box_lwh(x_in if sx > 0 else -(BRD_RAIL_Y + STANDBOX_RAIL_T),
-                        BRD_RAIL_Y + STANDBOX_RAIL_T if sx > 0 else -x_in,
+        x_in = rail_y - STANDBOX_HOOK_W
+        tray += box_lwh(x_in if sx > 0 else -(rail_y + STANDBOX_RAIL_T),
+                        rail_y + STANDBOX_RAIL_T if sx > 0 else -x_in,
                         tray_l - STANDBOX_RAIL_T - STANDBOX_BAR_W, tray_l - STANDBOX_RAIL_T + 0.01,
                         T + BRD_LIP_Z0, T + BRD_RAIL_TOP)
     # four pads under the board, between the pad rows
-    for yy in (10.0, BOARD_L - 8.0):
+    for yy in (10.0, STANDBOX_BOARD_L - 8.0):
         for sx in (-1, 1):
             tray += cyl(BRD_POST_D/2, T - 0.01, T + BRD_POST_H, 32,
                         centre=(sx*BRD_POST_HY, yy))

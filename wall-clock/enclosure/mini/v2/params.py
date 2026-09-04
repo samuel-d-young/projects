@@ -1473,10 +1473,10 @@ STANDBOX_TILT     = 12.00    # degrees back from vertical; the cradle alone is 1
 BACKCOVER_POCKET  = 6.50     # clear depth behind the deck: room for the leads to
                              # turn the corner, nothing else lives in here
 BACKCOVER_PLATE   = 2.40     # the plate itself, like PLATE_T_BIG
-STANDBOX_PLINTH_H = 29.00    # top of the box. The cradle shell's lowest point
+STANDBOX_PLINTH_H = 32.00    # top of the box. The cradle shell's lowest point
                              # is STAND_LIFT - STAND_SHELL = 30 at the front, so
                              # this stays 1 mm under it and never lands ON it
-STANDBOX_PLINTH_D = 78.00    # front to back. The bay is 67.4 deep and needs a
+STANDBOX_PLINTH_D = 72.00    # front to back. The bay is 67.4 deep and needs a
                              # 3 mm front wall; the rest is footprint, which is
                              # stability -- see check6
 STANDBOX_FLOOR    = 2.00     # under the bay
@@ -1517,7 +1517,38 @@ STANDBOX_TIP_TARGET = 21.0   # tipping design angle, forward AND back; check6
 # STANDBOX_BAY_CHAMF_H, which is 54.5 degrees from the horizontal (steeper than
 # check3's 45) and leaves a 23.8 mm flat in the middle (inside its 25). The
 # corners it takes are above the rails, where the board's pin headers are not.
-STANDBOX_BAY_CHAMF_W = 5.20
+# ---- THE BOARD THE STAND-BOX IS ACTUALLY BUILT FOR ---------------------------
+# The tray used to take its width from BOARD_W = 28.19, the number off the
+# drawing, which put the rails 28.99 apart. Sam's board measures 29.00. That is
+# not a tight fit, it is a negative one -- the part could never have taken his
+# board, and no amount of print tuning would have saved it.
+#
+# These are Sam's measurements, and they govern the stand-box only. The base's
+# own board mount keeps BOARD_W/BOARD_L, because those parts already fit and
+# there is no reason to disturb them.
+#
+# 30.20 is the third of the four gauge channels. He is printing tonight without
+# the gauge, so this is a judgement call and it is deliberately the LOOSE one
+# of the middle pair: the params note above reckons a nominal 30.20 slot prints
+# to about 0.80 of real clearance, 0.40 a side. That is an ordinary FDM slip
+# fit, the corner hooks hold the board down anyway, and it tolerates more
+# printer variation than 29.80 would. A board that rattles slightly is a
+# nuisance; a board that will not go in wastes the whole print.
+# If it IS sloppy, set this to 29.80 and re-run -- one number, one re-slice.
+STANDBOX_SLOT_W   = 30.20
+STANDBOX_BOARD_W  = BOARD2_W   # 29.00, Sam's, not the drawing's 28.19
+STANDBOX_BOARD_L  = BOARD2_L   # 64.00, Sam's, not the drawing's 63.27
+STANDBOX_BOARD_H  = BOARD2_H   # 14.00 over the PCB, headers included
+# "the heigt is 14mm but wires stick out the top because it is a dev board" --
+# so the bay has to clear the board AND leave air above it for the leads.
+STANDBOX_WIRE_H   = 5.00
+
+# 6.00, was 5.20. The bay got 1.21 mm wider when the tray was cut for Sam's
+# real board, and that pushed the roof's flat bridge to 25.3 mm -- over
+# check3's 25. Widening the chamfer takes the span back to 23.40. The slope
+# drops from 54.5 to 50.6 degrees, still comfortably over the 45 minimum, and
+# the chamfer only narrows the bay ABOVE the rails so the tray still passes.
+STANDBOX_BAY_CHAMF_W = 6.00
 STANDBOX_BAY_CHAMF_H = 7.30
 
 # The diffuser can carry a FLANGE out to the base's rim. Sam: "larger on the
