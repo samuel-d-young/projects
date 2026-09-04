@@ -1614,6 +1614,33 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
+  # THE FIX, if the shape test below confirms the hypothesis. Default OFF, so
+  # nothing changes unless Sam picks it.
+  #
+  # Flat art is the INSTRUMENT: a plain square, maximally pure, deliberately
+  # ugly. This is what the art should actually become if edge structure turns
+  # out to be the cause -- a pixel-art crescent and crossed-bar sparkles that
+  # look intentional rather than like a fallback.
+  #
+  # I over-stated the constraint in my own notes: I wrote that a crescent from
+  # stacked bars "will not do, that reintroduces the row-to-row change". Too
+  # strict. A rasterised circle changes its run-length at EVERY row -- about
+  # forty of them for this moon. Seven bands change it six times. The
+  # hypothesis is about fine, repeated row-to-row structure, not about any
+  # change anywhere, so a chunky shape keeps nearly all the benefit.
+  #
+  # The crescent is STEPPED FROM THE REAL GEOMETRY rather than hand-drawn:
+  # outer disc, bite disc offset right and up, sampled at each band's centre.
+  # Hand-picked bars read as the letter C; stepping the true shape reads as a
+  # moon. Verified in preview/grow_faces.py -- see preview/shape-block.png.
+  - platform: template
+    id: grow_block_art
+    name: "Grow clock blocky art"
+    entity_category: config
+    icon: mdi:moon-waning-crescent
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
   # THE SHAPE TEST, and it is the first hypothesis that fits every data point.
   #
   # Sam's two lists, laid out by what the elements are DRAWN AS rather than
@@ -4064,7 +4091,26 @@ display:
             const int sy = CY - 138;
             const bool flat = id(grow_flat_art).state;
             if (st == 0 || st == 4 || st == 3) {
-              if (flat) {
+              if (!flat && id(grow_block_art).state) {
+                // Pixel-art crescent, stepped from the real geometry: outer
+                // disc R, bite disc Rb offset right and up, sampled at each
+                // band's centre. Seven bands, so the run-length changes six
+                // times instead of the circle's forty-odd.
+                const float R = 20.0f, Rb = 15.0f, bx = 9.0f, by = -4.5f;
+                const int N = 7;
+                for (int i = 0; i < N; i++) {
+                  const int y0 = (int) (-R + (2.0f * R * i) / N);
+                  const int y1 = (int) (-R + (2.0f * R * (i + 1)) / N);
+                  const float ym = (y0 + y1) * 0.5f;
+                  if (fabsf(ym) >= R) continue;
+                  const float half = sqrtf(R * R - ym * ym);
+                  float xl = -half, xr = half;
+                  const float d = Rb * Rb - (ym - by) * (ym - by);
+                  if (d > 0.0f) xr = std::min(xr, bx - sqrtf(d));
+                  if (xr - xl < 2.0f) continue;
+                  it.filled_rectangle(CX + (int) xl, sy + y0, (int) (xr - xl), y1 - y0, ink);
+                }
+              } else if (flat) {
                 // A PLAIN SQUARE, no bite. The first attempt kept the crescent
                 // by subtracting an offset square, which renders as an L -- and
                 // an L is two widths stacked, so its run-length still changes
@@ -4120,6 +4166,9 @@ display:
             const Color c = i < lit ? ink : dim(ink, 0.18f);
             if (id(grow_flat_art).state) {         // straight edges only
               it.filled_rectangle(x - 6, y - 6, 13, 13, c);
+            } else if (id(grow_block_art).state) {  // a sparkle from two bars
+              it.filled_rectangle(x - 2, y - 7, 5, 15, c);
+              it.filled_rectangle(x - 7, y - 2, 15, 5, c);
             } else if (pointy) {                   // a four-point sparkle
               it.filled_triangle(x, y - 9, x - 3, y, x + 3, y, c);
               it.filled_triangle(x, y + 9, x - 3, y, x + 3, y, c);

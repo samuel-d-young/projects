@@ -34,6 +34,17 @@ STAR_SHAPE = "stars"  # grow_star_shape: "dots" or "stars"
 # star row drawn with axis-aligned rectangles only, to test whether the flicker
 # follows the EDGE STRUCTURE rather than the position or the size.
 FLAT = False
+# BLOCK is the proposed *fix* if the flat-art test confirms the hypothesis,
+# as opposed to FLAT which is the *instrument*.
+#
+# I over-stated the constraint in my own notes: I said a crescent built from
+# stacked bars "will not do, that reintroduces the row-to-row change". That is
+# too strict. A circle changes its run-length at EVERY row -- about 32 of them
+# for the moon. A shape made of three stacked bars changes at TWO boundaries.
+# The hypothesis is about fine, repeated row-to-row structure, not about any
+# change anywhere, so a chunky pixel-art shape is a real improvement and does
+# not have to look like a fallback.
+BLOCK = False
 MIN_TO = 12         # grow_min_to, for the countdown
 CLOCK = "6:45"
 SLEEP_COLOUR = "blue"
@@ -131,6 +142,10 @@ def draw_eye(it, cx, cy, geom, lid, smile, hs, droop, outer_left, ink, field):
 
 
 def star(it, x, y, r, c, pointy):
+    if BLOCK:                       # a sparkle from two crossed bars
+        it.filled_rectangle(x - 2, y - r, 5, 2 * r + 1, c)
+        it.filled_rectangle(x - r, y - 2, 2 * r + 1, 5, c)
+        return
     if FLAT:
         it.filled_rectangle(x - r, y - r, 2 * r + 1, 2 * r + 1, c)
         return
@@ -150,7 +165,29 @@ def sky(it, cx, sy, st, ink, field, r=16):
     morning. Sits above the eyes, outside the animation box."""
     k = r / 16.0
     if st in (0, 4, 3):
-        if FLAT:
+        if BLOCK:
+            # Step the REAL crescent into a few horizontal bands rather than
+            # hand-picking bars: outer disc radius R, bite disc radius Rb offset
+            # right and up, exactly as the round version. N bands means the
+            # run-length changes N-1 times instead of a circle's ~2R, which is
+            # the whole point -- and stepping the true shape keeps it reading as
+            # a moon where hand-drawn bars read as the letter C.
+            R, Rb, bx, by, N = int(r * 1.25), int(r * 0.95), int(r * 0.55), -int(r * 0.28), 7
+            for i in range(N):
+                y0 = -R + (2 * R * i) // N
+                y1 = -R + (2 * R * (i + 1)) // N
+                ym = (y0 + y1) / 2.0                       # sample at band centre
+                if abs(ym) >= R:
+                    continue
+                xl = -math.sqrt(R * R - ym * ym)
+                xr = math.sqrt(R * R - ym * ym)
+                d = Rb * Rb - (ym - by) ** 2
+                if d > 0:                                   # the bite cuts this band
+                    xr = min(xr, bx - math.sqrt(d))
+                if xr - xl < 2:
+                    continue
+                it.filled_rectangle(cx + int(xl), sy + y0, int(xr - xl), y1 - y0, ink)
+        elif FLAT:
             # plain square, no bite: uniform width down every row (see firmware)
             it.filled_rectangle(cx - r, sy - r, 2 * r, 2 * r, ink)
         else:

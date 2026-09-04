@@ -641,6 +641,10 @@
         "name": "Animation interval"
       },
       {
+        "entity": "switch.mini_round_clock_grow_clock_blocky_art",
+        "name": "Blocky art"
+      },
+      {
         "entity": "switch.mini_round_clock_grow_clock_flat_art_test",
         "name": "Flat art (test)"
       },
@@ -1405,6 +1409,10 @@
         "name": "Animation interval"
       },
       {
+        "entity": "switch.mini_round_clock_2_grow_clock_blocky_art",
+        "name": "Blocky art"
+      },
+      {
         "entity": "switch.mini_round_clock_2_grow_clock_flat_art_test",
         "name": "Flat art (test)"
       },
@@ -2167,6 +2175,10 @@
       {
         "entity": "number.mini_round_clock_3_grow_clock_animation_interval",
         "name": "Animation interval"
+      },
+      {
+        "entity": "switch.mini_round_clock_3_grow_clock_blocky_art",
+        "name": "Blocky art"
       },
       {
         "entity": "switch.mini_round_clock_3_grow_clock_flat_art_test",

@@ -415,6 +415,9 @@ def clock_cards(slug, label):
             # the first working build had. ON restores the partial redraw.
             # Draws the moon and star row with straight edges only. If the
             # flicker follows the SHAPE, it is the panel's inversion/VCOM.
+            # The proposed fix if the flat-art test confirms: pixel-art
+            # crescent and crossed-bar sparkles. Default off.
+            row(e("switch", "grow_clock_blocky_art"), "Blocky art"),
             row(e("switch", "grow_clock_flat_art_test"), "Flat art (test)"),
             row(e("switch", "grow_clock_partial_redraw_test"), "Partial redraw (test)"),
             row(e("switch", "screen_freeze_test"), "Screen freeze (test)"),

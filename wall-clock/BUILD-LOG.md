@@ -6286,3 +6286,35 @@ mirroring the firmware switch.
 **A test whose control condition still contains the variable is not a test.**
 I nearly shipped one, and the only reason I did not is that I rendered it and
 looked.
+
+### And the fix, ready in advance: blocky art
+
+If the shape test confirms, Sam should not have to wait a day for art that
+looks deliberate. **"Grow clock blocky art"**, default OFF, is that art.
+
+I over-stated the constraint in my own overnight notes. I wrote that a crescent
+from stacked bars "will not do — that reintroduces the row-to-row change".
+Too strict. A rasterised circle changes its run-length at **every** row, about
+forty of them for this moon. **Seven bands change it six times.** The
+hypothesis is about fine, *repeated* row-to-row structure, not about any change
+anywhere, so a chunky shape keeps nearly all the benefit and none of the
+ugliness.
+
+Two iterations, both caught by rendering rather than reasoning:
+
+1. Hand-picked bars read as **the letter C**, not a moon.
+2. So the crescent is now **stepped from the real geometry** — outer disc,
+   bite disc offset right and up, sampled at each band's centre, exactly the
+   shape the round version draws. That reads as a moon.
+
+Stars become a sparkle from two crossed bars, which is fully axis-aligned and
+looks like a star rather than a compromise.
+
+Precedence: flat (test) → blocky → round. `preview/shape-round.png`,
+`shape-flat.png` and `shape-block.png` show all three, and `grow_faces.py`
+carries `FLAT` and `BLOCK` flags mirroring the two switches.
+
+```
+RAM:   [==        ]  19.2% (used 62812 bytes from 327680 bytes)
+Flash: [======    ]  61.1% (used 1120879 bytes from 1835008 bytes)
+```

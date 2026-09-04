@@ -206,6 +206,8 @@
         name: Animate the eyes
       - entity: number.mini_round_clock_grow_clock_animation_interval
         name: Animation interval
+      - entity: switch.mini_round_clock_grow_clock_blocky_art
+        name: Blocky art
       - entity: switch.mini_round_clock_grow_clock_flat_art_test
         name: Flat art (test)
       - entity: switch.mini_round_clock_grow_clock_partial_redraw_test
@@ -269,25 +271,6 @@
         name: Saturation
       - entity: number.mini_round_clock_timer_intensity
         name: Intensity
-    - type: entities
-      title: Mini Round Clock — Alert
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_alert_pattern
-        name: Pattern
-      - entity: number.mini_round_clock_alert_hue
-        name: Hue
-      - entity: number.mini_round_clock_alert_shows_for
-        name: Clock shows it for
-      - type: section
-        label: The alarm itself
-      - entity: input_button.wall_clock_timer_dismiss
-        name: Dismiss the alarm
-      - entity: input_number.wall_clock_alert_repeat_seconds
-        name: Re-announce every
-      - entity: input_number.wall_clock_alert_repeat_max
-        name: Repeats (0 = until cancelled)
     visibility: *id001
   - type: grid
     cards:
@@ -379,6 +362,25 @@
         label: Background
       - entity: number.mini_round_clock_weather_tint_strength
         name: Weather tint
+    - type: entities
+      title: Mini Round Clock — Alert
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_alert_pattern
+        name: Pattern
+      - entity: number.mini_round_clock_alert_hue
+        name: Hue
+      - entity: number.mini_round_clock_alert_shows_for
+        name: Clock shows it for
+      - type: section
+        label: The alarm itself
+      - entity: input_button.wall_clock_timer_dismiss
+        name: Dismiss the alarm
+      - entity: input_number.wall_clock_alert_repeat_seconds
+        name: Re-announce every
+      - entity: input_number.wall_clock_alert_repeat_max
+        name: Repeats (0 = until cancelled)
     visibility: *id001
   - type: grid
     cards:
@@ -540,6 +542,8 @@
         name: Animate the eyes
       - entity: number.mini_round_clock_2_grow_clock_animation_interval
         name: Animation interval
+      - entity: switch.mini_round_clock_2_grow_clock_blocky_art
+        name: Blocky art
       - entity: switch.mini_round_clock_2_grow_clock_flat_art_test
         name: Flat art (test)
       - entity: switch.mini_round_clock_2_grow_clock_partial_redraw_test
@@ -603,25 +607,6 @@
         name: Saturation
       - entity: number.mini_round_clock_2_timer_intensity
         name: Intensity
-    - type: entities
-      title: Mini Round Clock 2 — Alert
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_2_alert_pattern
-        name: Pattern
-      - entity: number.mini_round_clock_2_alert_hue
-        name: Hue
-      - entity: number.mini_round_clock_2_alert_shows_for
-        name: Clock shows it for
-      - type: section
-        label: The alarm itself
-      - entity: input_button.wall_clock_timer_dismiss
-        name: Dismiss the alarm
-      - entity: input_number.wall_clock_alert_repeat_seconds
-        name: Re-announce every
-      - entity: input_number.wall_clock_alert_repeat_max
-        name: Repeats (0 = until cancelled)
     visibility: *id002
   - type: grid
     cards:
@@ -713,6 +698,25 @@
         label: Background
       - entity: number.mini_round_clock_2_weather_tint_strength
         name: Weather tint
+    - type: entities
+      title: Mini Round Clock 2 — Alert
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_2_alert_pattern
+        name: Pattern
+      - entity: number.mini_round_clock_2_alert_hue
+        name: Hue
+      - entity: number.mini_round_clock_2_alert_shows_for
+        name: Clock shows it for
+      - type: section
+        label: The alarm itself
+      - entity: input_button.wall_clock_timer_dismiss
+        name: Dismiss the alarm
+      - entity: input_number.wall_clock_alert_repeat_seconds
+        name: Re-announce every
+      - entity: input_number.wall_clock_alert_repeat_max
+        name: Repeats (0 = until cancelled)
     visibility: *id002
   - type: grid
     cards:
@@ -874,6 +878,8 @@
         name: Animate the eyes
       - entity: number.mini_round_clock_3_grow_clock_animation_interval
         name: Animation interval
+      - entity: switch.mini_round_clock_3_grow_clock_blocky_art
+        name: Blocky art
       - entity: switch.mini_round_clock_3_grow_clock_flat_art_test
         name: Flat art (test)
       - entity: switch.mini_round_clock_3_grow_clock_partial_redraw_test
@@ -937,25 +943,6 @@
         name: Saturation
       - entity: number.mini_round_clock_3_timer_intensity
         name: Intensity
-    - type: entities
-      title: Mini Round Clock 3 — Alert
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_3_alert_pattern
-        name: Pattern
-      - entity: number.mini_round_clock_3_alert_hue
-        name: Hue
-      - entity: number.mini_round_clock_3_alert_shows_for
-        name: Clock shows it for
-      - type: section
-        label: The alarm itself
-      - entity: input_button.wall_clock_timer_dismiss
-        name: Dismiss the alarm
-      - entity: input_number.wall_clock_alert_repeat_seconds
-        name: Re-announce every
-      - entity: input_number.wall_clock_alert_repeat_max
-        name: Repeats (0 = until cancelled)
     visibility: *id003
   - type: grid
     cards:
@@ -1047,6 +1034,25 @@
         label: Background
       - entity: number.mini_round_clock_3_weather_tint_strength
         name: Weather tint
+    - type: entities
+      title: Mini Round Clock 3 — Alert
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_3_alert_pattern
+        name: Pattern
+      - entity: number.mini_round_clock_3_alert_hue
+        name: Hue
+      - entity: number.mini_round_clock_3_alert_shows_for
+        name: Clock shows it for
+      - type: section
+        label: The alarm itself
+      - entity: input_button.wall_clock_timer_dismiss
+        name: Dismiss the alarm
+      - entity: input_number.wall_clock_alert_repeat_seconds
+        name: Re-announce every
+      - entity: input_number.wall_clock_alert_repeat_max
+        name: Repeats (0 = until cancelled)
     visibility: *id003
   - type: grid
     cards:
