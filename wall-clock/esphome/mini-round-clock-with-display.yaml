@@ -343,6 +343,19 @@ sensor:
   # Grow clock: how many sound events since boot. Mostly so a parent can see in
   # the morning whether the clock was being talked to at 5 a.m.
   # Minutes until the scheduled wake, for an automation or a bedside card.
+  # HOW LONG A FRAME ACTUALLY TAKES, published rather than reasoned about.
+  # Every number I have used for this all night has been arithmetic off the
+  # byte count. This is the measured wall-clock time of one component.update,
+  # which is the drawing plus every band's flush.
+  - platform: template
+    id: grow_frame_ms
+    name: "Grow clock frame time"
+    entity_category: diagnostic
+    unit_of_measurement: "ms"
+    accuracy_decimals: 0
+    icon: mdi:timer-outline
+    update_interval: never
+
   - platform: template
     id: grow_minutes_to_wake
     name: "Grow clock minutes to wake"
@@ -1735,6 +1748,23 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
 
+  # DIAGNOSTIC, and the only honest way left to split the last symptom in two.
+  # On: animation frames keep running at exactly the same rate, but the pose
+  # they draw never advances -- every frame writes the SAME pixels.
+  #   still flickers  -> it is the act of writing to the panel (a burst on the
+  #                      supply, or the write itself being visible), and no
+  #                      amount of drawing differently will fix it.
+  #   goes steady     -> it is the CONTENT changing, which is the animation
+  #                      itself, and the answer is how the eyes move.
+  # Four flashes have been spent guessing between those two. This settles it.
+  - platform: template
+    id: grow_freeze
+    name: "Grow clock freeze the eyes (test)"
+    entity_category: diagnostic
+    icon: mdi:pause-octagon
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
   # Holidays: the weekend times apply every day until this is turned off.
   - platform: template
     id: grow_holiday
@@ -2036,6 +2066,10 @@ globals:
     restore_value: no
     initial_value: '0'
   - id: an_lastdraw            # millis() of the last animation repaint
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: an_frame_t0            # millis() when the current frame started
     type: uint32_t
     restore_value: no
     initial_value: '0'
@@ -2484,6 +2518,10 @@ interval:
               // value is something you look at.
               if (millis() - id(an_lastdraw) < (uint32_t) id(grow_anim_ms).state)
                 return false;
+              // Frozen: keep drawing at the same cadence, same picture. The
+              // dirty check below would otherwise stop the test dead, since
+              // by definition nothing has moved.
+              if (id(grow_freeze).state) return true;
               const int zq = (int) (id(an_zph) * 8.0f);
               return fabsf(id(an_gx)    - id(an_dgx))    > 0.02f
                   || fabsf(id(an_gy)    - id(an_dgy))    > 0.02f
@@ -2495,13 +2533,18 @@ interval:
                   || zq != id(an_dzq);
           then:
             # Advance the drawn pose FIRST: the lambda renders from these, so
-            # this is what makes the frame show something new.
+            # this is what makes the frame show something new. Unless the
+            # freeze switch is on, in which case the frame still runs and
+            # still writes to the panel -- it just writes the same picture.
             - lambda: |-
-                id(an_dgx)    = id(an_gx);    id(an_dgy)    = id(an_gy);
-                id(an_dlidl)  = id(an_lidl);  id(an_dlidr)  = id(an_lidr);
-                id(an_dsmile) = id(an_smile); id(an_dhs)    = id(an_hs);
-                id(an_dmouth) = id(an_mouth); id(an_dzph)   = id(an_zph);
-                id(an_dzq)    = (int) (id(an_zph) * 8.0f);
+                if (!id(grow_freeze).state) {
+                  id(an_dgx)    = id(an_gx);    id(an_dgy)    = id(an_gy);
+                  id(an_dlidl)  = id(an_lidl);  id(an_dlidr)  = id(an_lidr);
+                  id(an_dsmile) = id(an_smile); id(an_dhs)    = id(an_hs);
+                  id(an_dmouth) = id(an_mouth); id(an_dzph)   = id(an_zph);
+                  id(an_dzq)    = (int) (id(an_zph) * 8.0f);
+                }
+                id(an_frame_t0) = millis();
                 id(an_partial) = true;
             - if:
                 condition:
@@ -2512,7 +2555,12 @@ interval:
                   - component.update: face_lcd
             - lambda: |-
                 id(an_partial) = false;
-                id(an_lastdraw) = millis();
+                const uint32_t now_ms = millis();
+                id(an_lastdraw) = now_ms;
+                const float dt = (float) (now_ms - id(an_frame_t0));
+                if (isnan(id(grow_frame_ms).state)
+                    || fabsf(id(grow_frame_ms).state - dt) >= 1.0f)
+                  id(grow_frame_ms).publish_state(dt);
 
   - interval: 250ms
     then:
