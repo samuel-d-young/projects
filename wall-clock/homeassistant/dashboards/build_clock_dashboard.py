@@ -374,6 +374,9 @@ def clock_cards(slug, label):
             row(e("number", "grow_clock_star_count"), "How many stars"),
             row(e("select", "grow_clock_star_shape"), "Star shape"),
             row(e("switch", "grow_clock_animate"), "Animate the eyes"),
+            # The dial that settles the flicker on this panel: how often
+            # the face may be redrawn. Sat next to the switch it belongs to.
+            row(e("number", "grow_clock_animation_interval"), "Animation interval"),
             row(e("switch", "grow_clock_show_time"), "Show the time"),
             row(e("switch", "grow_clock_show_countdown"), "Show the minutes to go"),
             row(e("select", "grow_clock_wake_effect"), "Wake-up effect on the ring"),

@@ -1041,6 +1041,35 @@ number:
     optimistic: true
     restore_value: true
   # How long the wake-up effect (rainbow, sparkle) runs on the ring after wake.
+  # HOW OFTEN THE FACE MAY REDRAW, in milliseconds, and it is a dial rather
+  # than a constant because the right value is a thing you look at, not a
+  # thing I can derive.
+  #
+  # This panel has no working PSRAM, so its buffer holds a sixth of a frame
+  # and every redraw is written to the glass in six horizontal strips, top to
+  # bottom. If a new frame starts before the last one has finished walking
+  # down the panel, the screen is never showing one whole picture, and that
+  # is the flicker left on the animations after the stale-pixel bug was
+  # fixed. It is not a fault in the drawing; it is the panel being repainted
+  # faster than it can be repainted.
+  #
+  # So: raise this until the movement looks calm. Higher is slower and
+  # steadier, lower is smoother until it tears. The animator keeps stepping
+  # at its own 100 ms either way, so the pose it lands on is always current
+  # -- this only decides how often that pose is put on the glass.
+  - platform: template
+    id: grow_anim_ms
+    name: "Grow clock animation interval"
+    entity_category: config
+    icon: mdi:filmstrip
+    unit_of_measurement: "ms"
+    min_value: 100
+    max_value: 2000
+    step: 50
+    initial_value: 600
+    optimistic: true
+    restore_value: true
+
   - platform: template
     id: grow_wake_effect_min
     name: "Grow clock wake effect minutes"
@@ -2423,11 +2452,15 @@ interval:
               // the gaze moves the pupil by a few pixels per unit, and the
               // lids, the smile, the squash and the yawn are all 0..1 over
               // the eye's own height.
-              // A full frame is about 104 ms of SPI on this panel, so the
-              // repaint cannot run at the animator's own 100 ms tick. The
-              // animator keeps stepping at 100 ms -- the interpolation stays
-              // smooth -- and the panel is redrawn at most every 200.
-              if (millis() - id(an_lastdraw) < 200) return false;
+              // A full frame is 104 ms of SPI plus six passes of drawing, so
+              // the repaint cannot run at the animator's own 100 ms tick --
+              // and if a frame starts before the last one has finished
+              // walking down the panel, the glass never shows one whole
+              // picture. That is the flicker. grow_anim_ms is the floor
+              // between repaints and it is Sam's to turn, because the right
+              // value is something you look at.
+              if (millis() - id(an_lastdraw) < (uint32_t) id(grow_anim_ms).state)
+                return false;
               const int zq = (int) (id(an_zph) * 8.0f);
               return fabsf(id(an_gx)    - id(an_dgx))    > 0.02f
                   || fabsf(id(an_gy)    - id(an_dgy))    > 0.02f

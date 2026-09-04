@@ -269,6 +269,8 @@
         name: Star shape
       - entity: switch.mini_round_clock_grow_clock_animate
         name: Animate the eyes
+      - entity: number.mini_round_clock_grow_clock_animation_interval
+        name: Animation interval
       - entity: switch.mini_round_clock_grow_clock_show_time
         name: Show the time
       - entity: switch.mini_round_clock_grow_clock_show_countdown
@@ -573,6 +575,8 @@
         name: Star shape
       - entity: switch.mini_round_clock_2_grow_clock_animate
         name: Animate the eyes
+      - entity: number.mini_round_clock_2_grow_clock_animation_interval
+        name: Animation interval
       - entity: switch.mini_round_clock_2_grow_clock_show_time
         name: Show the time
       - entity: switch.mini_round_clock_2_grow_clock_show_countdown
@@ -877,6 +881,8 @@
         name: Star shape
       - entity: switch.mini_round_clock_3_grow_clock_animate
         name: Animate the eyes
+      - entity: number.mini_round_clock_3_grow_clock_animation_interval
+        name: Animation interval
       - entity: switch.mini_round_clock_3_grow_clock_show_time
         name: Show the time
       - entity: switch.mini_round_clock_3_grow_clock_show_countdown
