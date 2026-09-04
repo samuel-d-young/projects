@@ -1614,6 +1614,40 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
+  # THE SHAPE TEST, and it is the first hypothesis that fits every data point.
+  #
+  # Sam's two lists, laid out by what the elements are DRAWN AS rather than
+  # where they are or how big:
+  #
+  #   eyes        rounded rectangles, straight edges          steady
+  #   z's, time   text glyphs, straight strokes               steady
+  #   moon        filled_circle x2, staircase edges           FLICKERS
+  #   stars       filled_circle / filled_triangle, staircase  FLICKERS
+  #
+  # It is not size: the z's are small, bright and steady. It is not position:
+  # the stars and part of the time share band 4. What is left is the EDGE
+  # STRUCTURE. A rasterised circle's run-length changes row to row, and that
+  # fine row-to-row structure is what beats against an LCD's polarity-inversion
+  # scheme when VCOM is slightly off -- the classic cause of shimmer that hits
+  # patterned regions and leaves flat blocks alone.
+  #
+  # ON: the moon and the star row are drawn with axis-aligned rectangles only.
+  # Same positions, same colours, same code path, same frame -- ONLY the edge
+  # structure changes. If the flicker goes with the shape, the cause is the
+  # panel's inversion/VCOM and not one line of the renderer.
+  #
+  # Chosen over poking the init sequence's VCOM registers (0x7C/0xC3/0xC4/0xC9)
+  # because there is no public GC9B72 datasheet, those values are the vendor's
+  # own, and guessing at analogue drive levels on Sam's hardware is not a test,
+  # it is a risk.
+  - platform: template
+    id: grow_flat_art
+    name: "Grow clock flat art (test)"
+    entity_category: config
+    icon: mdi:square-outline
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
   # SAM: "The first time you flashed the animations worked. Try that again but
   # with the fix that stopped the flicker on the eyes and clock."
   #
@@ -4028,11 +4062,18 @@ display:
           // sun alone in a band nothing else painted.
           if (sky) {
             const int sy = CY - 138;
+            const bool flat = id(grow_flat_art).state;
             if (st == 0 || st == 4 || st == 3) {
-              it.filled_circle(CX, sy, 16, ink);
-              it.filled_circle(CX + 7, sy - 4, 13, field);
+              if (flat) {                            // same disc, straight edges
+                it.filled_rectangle(CX - 16, sy - 16, 32, 32, ink);
+                it.filled_rectangle(CX + 7 - 13, sy - 4 - 13, 26, 26, field);
+              } else {
+                it.filled_circle(CX, sy, 16, ink);
+                it.filled_circle(CX + 7, sy - 4, 13, field);
+              }
             } else {
-              it.filled_circle(CX, sy, 11, ink);
+              if (flat) it.filled_rectangle(CX - 11, sy - 11, 22, 22, ink);
+              else       it.filled_circle(CX, sy, 11, ink);
               for (int i = 0; i < 8; i++) {
                 const float a = i * 3.14159265f / 4.0f;
                 it.line(CX + (int) lroundf(15 * cosf(a)), sy + (int) lroundf(15 * sinf(a)),
@@ -4069,7 +4110,9 @@ display:
           for (int i = 0; i < NS; i++) {
             const int x = CX - (NS - 1) * pitch / 2 + i * pitch, y = CY + 72;
             const Color c = i < lit ? ink : dim(ink, 0.18f);
-            if (pointy) {                          // a four-point sparkle
+            if (id(grow_flat_art).state) {         // straight edges only
+              it.filled_rectangle(x - 6, y - 6, 13, 13, c);
+            } else if (pointy) {                   // a four-point sparkle
               it.filled_triangle(x, y - 9, x - 3, y, x + 3, y, c);
               it.filled_triangle(x, y + 9, x - 3, y, x + 3, y, c);
               it.filled_triangle(x - 9, y, x, y - 3, x, y + 3, c);

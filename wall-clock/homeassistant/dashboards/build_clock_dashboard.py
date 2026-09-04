@@ -413,6 +413,9 @@ def clock_cards(slug, label):
             # flickers with this on, nothing the firmware draws is the cause.
             # OFF (default) = every repaint is a full frame, the arrangement
             # the first working build had. ON restores the partial redraw.
+            # Draws the moon and star row with straight edges only. If the
+            # flicker follows the SHAPE, it is the panel's inversion/VCOM.
+            row(e("switch", "grow_clock_flat_art_test"), "Flat art (test)"),
             row(e("switch", "grow_clock_partial_redraw_test"), "Partial redraw (test)"),
             row(e("switch", "screen_freeze_test"), "Screen freeze (test)"),
             row(e("switch", "grow_clock_repaint_every_second"), "Repaint every second (test)"),
