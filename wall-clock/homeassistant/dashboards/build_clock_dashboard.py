@@ -514,26 +514,82 @@ if __name__ == "__main__":
         out = sys.argv[sys.argv.index("--view") + 1]
         # SECTIONS, not masonry. Sam's dashboard was rebuilt on Home
         # Assistant's sections layout, and a masonry view pasted over it
-        # reverts that -- the bench session spotted this and refused to paste,
-        # which was the right call. So the generator emits what his dashboard
-        # actually uses: type "sections", each card in a section of its own so
-        # the grid places them, and the per-card `visibility` carried up to
-        # the SECTION as well. A card hidden inside a visible section still
-        # leaves its slot in the grid; hiding the section removes the hole.
-        # `--masonry` still emits the old shape for a dashboard that wants it.
+        # reverts that -- the bench session spotted that and refused to paste,
+        # which was the right call. `--masonry` still emits the old shape.
         if "--masonry" in sys.argv:
             view = [{"title": "Settings", "path": "settings",
                      "icon": "mdi:tune-variant", "cards": cards}]
         else:
-            sections = []
-            for c in cards:
-                sec = {"type": "grid", "cards": [c]}
-                if "visibility" in c:
-                    sec["visibility"] = c["visibility"]
-                sections.append(sec)
+            # GROUPED, one section per clock rather than one per card.
+            # Sam: "condense the wall clock settings page so that there are no
+            # gaps." A sections view lays each section out as its own column,
+            # so a section per card gives a page of short ragged columns with
+            # whitespace between them. Grouping every card belonging to one
+            # clock into a single section lets the grid pack them, and it also
+            # lets the picker-and-status condition be carried ONCE on the
+            # section instead of repeated on each card inside it.
+            #
+            # Each clock gets two sections on opposite conditions -- its
+            # controls, and the "not connected" notice -- so exactly one of
+            # them ever renders and neither leaves a hole.
+            #
+            # "And move the text boxes to the bottom of the page": the
+            # explanatory markdown goes last. The absent-clock notice is
+            # markdown too but stays with its clock, because it is not an
+            # explainer -- it is what stands in for the controls that are
+            # hidden, and at the bottom of the page it would be describing
+            # something the reader is no longer looking at.
+            notes, secs, tail = [], [], []
+            def grid(cs, vis=None):
+                g = {"type": "grid", "cards": cs}
+                if vis:
+                    g["visibility"] = vis
+                return g
+            def strip(c):
+                c = dict(c)
+                c.pop("visibility", None)
+                return c
+            top = [c for c in cards
+                   if c.get("type") in ("horizontal-stack",)
+                   or (c.get("type") == "entities" and "visibility" not in c
+                       and not c.get("title"))]
+            shared = [c for c in cards
+                      if c.get("type") == "entities" and c.get("title") == "Timers (shared)"]
+            notes = [c for c in cards
+                     if c.get("type") == "markdown" and "visibility" not in c]
+            if top:
+                secs.append(grid(top))
+            for c in CLOCKS:
+                mine = [x for x in cards
+                        if any(cond.get("state") == c["label"]
+                               for cond in x.get("visibility", []))]
+                ctrl = [x for x in mine
+                        if not any(cond.get("state_not") for cond in x["visibility"])]
+                away = [x for x in mine
+                        if any(cond.get("state_not") for cond in x["visibility"])]
+                # The controls come up the page; this clock's own explanatory
+                # markdown goes down to the bottom with the rest of the prose,
+                # still gated on this clock so it only appears when you are
+                # looking at it. That is the "text boxes to the bottom" --
+                # they were interleaved with the sliders, which is what made
+                # the page long and gappy in the first place.
+                body = [x for x in ctrl if x.get("type") != "markdown"]
+                prose = [x for x in ctrl if x.get("type") == "markdown"]
+                if body:
+                    secs.append(grid([strip(x) for x in body], ctrl[0]["visibility"]))
+                if prose:
+                    tail.append((prose[0]["visibility"], [strip(x) for x in prose]))
+                if away:
+                    secs.append(grid([strip(x) for x in away], away[0]["visibility"]))
+            if shared:
+                secs.append(grid(shared))
+            for vis, cs in tail:
+                secs.append(grid(cs, vis))
+            if notes:
+                secs.append(grid(notes))
             view = [{"title": "Settings", "path": "settings",
                      "icon": "mdi:tune-variant", "type": "sections",
-                     "max_columns": 3, "sections": sections}]
+                     "max_columns": 3, "sections": secs}]
         head = ("# Paste into the dashboard's Raw configuration editor, replacing the existing\n"
                 "# Settings view in the `views:` list. This is a SECTIONS view, matching the\n"
                 "# layout the dashboard already uses; pass --masonry for the older shape.\n#\n"
