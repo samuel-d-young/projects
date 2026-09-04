@@ -6190,3 +6190,75 @@ The backlight is four lines away in the same file and I never read them.
 **A test that "rules out" a subsystem only rules out what it actually stops** —
 and an instrument you build yourself deserves the same scepticism as a theory
 you build yourself.
+
+---
+
+## 2026-09-04 (overnight) — The shape test, and why not VCOM
+
+### The discriminator was never size or position
+
+Sam's two lists, sorted by what each element is **drawn as** rather than where
+it sits or how big it is:
+
+| element | drawn as | flickers |
+| --- | --- | --- |
+| eyes | rounded rectangles — straight edges | no |
+| z's, time | text glyphs — straight strokes | no |
+| **moon** | `filled_circle` ×2 — staircase edges | **yes** |
+| **stars** | `filled_circle` / `filled_triangle` — staircase edges | **yes** |
+
+It is **not size**: the z's are small, bright and steady. It is **not
+position**: the star row and part of the digital time both live in band 4. What
+is left is **edge structure**.
+
+A rasterised circle's run-length changes row to row. That fine row-to-row
+structure is what beats against an LCD's polarity-inversion scheme when VCOM is
+slightly off — the textbook cause of shimmer that hits patterned regions and
+leaves flat blocks alone. It is the first hypothesis of the whole build that
+accounts for **every** data point, the steady z's included.
+
+It also explains why nothing in the renderer ever helped: the renderer is
+producing exactly the pixels asked of it. The panel is displaying them
+imperfectly.
+
+### The test
+
+**"Grow clock flat art (test)"** draws the moon and the star row with
+axis-aligned rectangles only. Same positions, same colours, same code path,
+same frame — **only the edge structure changes**. If the flicker follows the
+shape, the cause is the panel's inversion/VCOM and not one line of firmware.
+
+### Why not just tune VCOM
+
+Because it cannot be done responsibly. Researched both public GC9B72 sources:
+
+* **xboot** `fb-gc9b72.c` — the origin of our init table.
+* **MaliosDark/Arduino_GC9B72** `src/Arduino_GC9B72.h` — the independent port.
+
+The Arduino header defines names only for the standard DCS commands
+(`SWRESET`, `SLPOUT`, `INVOFF/INVON`, `COLMOD`, `MADCTL`, …). For the vendor
+registers it has **no names and no comments at all**:
+
+```
+WRITE_C8_D8, 0x7C, 0xB6, 0x29,
+WRITE_C8_D8, 0xC3, 0x1A,
+WRITE_C8_D8, 0xC4, 0x24,
+WRITE_C8_D8, 0xC9, 0x2F,
+```
+
+There is no public GC9B72 datasheet. So I do not know which of those is VCOM,
+what its range is, or what a wrong value does to the panel. Poking undocumented
+analogue drive registers on Sam's hardware is not a test, it is a risk — and
+the shape test settles the same question for free.
+
+### If the shape test confirms it
+
+The flat art *is* the fix, and it can be made to look deliberate rather than
+like a fallback — a crescent built from straight segments, and a sparkle made
+from two crossed rectangles, which is fully axis-aligned and reads as a star.
+That work is worth doing **after** the test says it is the answer, not before.
+
+### If it does not
+
+Then edge structure is out too, and what remains is the hardware itself:
+reseat the panel flex and every SPI jumper, shorter leads, `-s lcd_hz 10MHz`.
