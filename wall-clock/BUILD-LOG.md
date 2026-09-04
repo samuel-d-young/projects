@@ -5343,3 +5343,60 @@ Flash: [======    ]  60.9% (used 1116943 bytes from 1835008 bytes)
 spent one flash on a wrong fix of mine, and the ring-off test (switch the ring
 off, watch the screen) is still unrun and still the fastest way to find out
 whether any of this is the display at all.
+
+## 2026-09-04 — Animate off is clean, so the sweep is the whole story
+
+Sam ran the discriminating test at last: **"Turned animate off, doesn't
+flicker."** Two things follow, and between them they close the diagnosis.
+
+**A redraw of unchanged pixels is invisible.** With animate off the dispatcher
+still repaints the entire panel every second — the 1 s interval calls
+`component.update` unconditionally, which my animation throttle never
+controlled and which is why turning that dial to 2000 ms changed nothing.
+Sixty full repaints a minute, and the screen is steady. So the six-strip
+write is not visible in itself.
+
+**What is visible is the changed region, and how long it takes to arrive.**
+Any change to the face is written to the glass in six strips, top to bottom.
+At 20 MHz a 360 x 360 frame is 104 ms of SPI before the drawing is counted,
+so an eye that moves takes the better part of a fifth of a second to finish
+moving, in strips. Frequent small changes read as constant sweeping; the
+2000 ms throttle made each change bigger and more abrupt instead, which is
+worse, not better — at that rate a blink is never caught in the act, only
+jumped over.
+
+So the earlier "frames are overlapping" story was wrong twice over: the
+frames were not overlapping, and the 1 Hz repaint I did not know about was
+doing more redrawing than the animation ever did.
+
+### The only lever left, and it is a one-liner
+
+`data_rate` on the round panel was **20MHz**, with a comment on it reading
+"50MHz is what xboot uses; 20 is a safe first pass". It has been the safe
+first pass since August. The **bar panel on the same bus has run at 40MHz
+since the day it was added**, and the vendor driver drives this controller at
+50. Raising the round panel to 40 halves every flush and therefore halves the
+sweep.
+
+That is a mechanism rather than a hope, and the revert is the same line back
+to 20MHz if the panel garbles or the boot banner repeats.
+
+```
+RAM:   [==        ]  18.9% (used 62012 bytes from 327680 bytes)
+Flash: [======    ]  60.9% (used 1117091 bytes from 1835008 bytes)
+```
+
+0 errors.
+
+### What is actually fixed, and what is a limit
+
+Fixed and confirmed on the panel: the backlight flicker (PWM 1 kHz to 5 kHz),
+the digital time being erased every animation frame (the stale-pixel bug), and
+the eye animation never drawing at all (the band-abort). **Not a bug:** a face
+that changes takes a visible moment to change on a panel with no working PSRAM
+and a sixth of a frame in memory. 40 MHz halves it. Nothing in software
+removes it.
+
+The honest fallback, and it works today: **Grow clock animate** off gives a
+still face and everything else — the sky, the stars, the countdown, the
+colours, the time — with no flicker at all.

@@ -3147,7 +3147,19 @@ display:
     dimensions:
       width: 360
       height: 360
-    data_rate: 20MHz          # 50MHz is what xboot uses; 20 is a safe first pass
+    # 40, not 20. What is left of the flicker is the TIME A FRAME TAKES: any
+    # change to the face is written to the glass in six strips top to bottom,
+    # and at 20 MHz a 360 x 360 frame is 104 ms of SPI before the drawing is
+    # counted. Sam's test settles that this is what it is -- with "Grow clock
+    # animate" off the panel is redrawn every second and is perfectly steady,
+    # so a redraw of unchanged pixels is invisible and only the CHANGED region
+    # shows the sweep. The only lever left is making the sweep shorter.
+    #
+    # 40 is not a guess: the bar panel below has run at 40MHz on this same bus
+    # since it was added, and xboot drives this controller at 50. If the panel
+    # garbles or the boot banner repeats, put this back to 20MHz -- that is
+    # the whole revert, and the 20 was only ever "a safe first pass".
+    data_rate: 40MHz
     pixel_mode: 16bit         # MUST match COLMOD 0x05 in the table above
     invert_colors: false      # flip if the image looks like a photo negative
 
