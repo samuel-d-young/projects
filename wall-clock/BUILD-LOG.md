@@ -5267,4 +5267,12 @@ animation draws outside the rectangle it names.
 published them. A fix that immediately produces a new symptom is usually a
 fix that has stopped hiding something.
 
-Verified: `esphome config` valid; full compile recorded below.
+Verified: `esphome config` valid, and a full compile:
+
+```
+RAM:   [==        ]  18.9% (used 61924 bytes from 327680 bytes)
+Flash: [======    ]  60.9% (used 1116983 bytes from 1835008 bytes)
+```
+
+0 errors. RAM unchanged and 276 bytes of flash for the span loop, replacing
+one `filled_circle` call with a bounded one. Not seen on the panel yet.
