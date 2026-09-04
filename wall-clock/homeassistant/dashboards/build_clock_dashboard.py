@@ -409,6 +409,9 @@ def clock_cards(slug, label):
             row(e("number", "grow_clock_animation_interval"), "Animation interval"),
             # A/B for the repaint fix: off (default) repaints the panel when
             # the picture changes; on restores the old 1 Hz full repaint.
+            # The decisive one: stops ALL writes to the panel. If it still
+            # flickers with this on, nothing the firmware draws is the cause.
+            row(e("switch", "screen_freeze_test"), "Screen freeze (test)"),
             row(e("switch", "grow_clock_repaint_every_second"), "Repaint every second (test)"),
             row(e("switch", "grow_clock_freeze_the_eyes_test"), "Freeze the eyes (test)"),
             row(e("sensor", "grow_clock_frame_time"), "Frame time"),

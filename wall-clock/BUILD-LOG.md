@@ -5749,3 +5749,78 @@ The rule this earns: **when a knob has a documented safe range, find the
 documentation before turning it, not after the symptom fails to go away.** And
 when the argument for a change is "something else runs at this speed", that is
 not evidence about the link in front of you.
+
+---
+
+## 2026-09-04 (13:40) — 20 MHz did not fix it. Stop theorising, freeze the panel.
+
+Sam flashed c491474 and the flicker is unchanged. So the SPI clock is not it
+either — or at least not on its own. Two things follow, and the second matters
+more than the first.
+
+**First, the record.** The library figure was real and worth acting on: 40 MHz
+was double the documented ceiling for this panel and should never have been
+set. Reverting it was correct. It was not the flicker. Both of those are true
+at once and the build log should not quietly drop the second half.
+
+**Second, I checked the one piece of flush arithmetic I had never read.**
+`round_buffer(size)` is `ceil(size/ROUNDING)*ROUNDING`, and this config sets
+`draw_rounding: 1`, so it is the identity. There is no alignment expansion
+turning a small dirty box into a large one. That kills the last structural
+theory I had.
+
+### The state of the evidence
+
+| observation | kills |
+| --- | --- |
+| eyes steady, sun + time flicker | anything uniform (supply, backlight) |
+| ring off, still flickers | ring current |
+| 40 MHz flickers, 20 MHz flickers | SPI clock alone |
+| sun no longer drawn on animation frames, still flickers | the animation frame drawing it |
+| `round_buffer` is the identity | dirty-box expansion |
+| partial path verified line by line in the driver | the partial flush |
+
+Nine theories. Three real bugs fixed, one real mistake of mine reverted, and
+the flicker is exactly where it started. At that point another theory is not
+worth having.
+
+### Screen freeze
+
+New switch, **"Screen freeze (test)"**. With it on the dispatcher stops calling
+`component.update` on the panel entirely — no full frames, no animation frames,
+not one byte down the SPI bus. The last picture drawn stays on the glass.
+
+* **Still flickers with it on** → nothing the firmware draws is responsible,
+  because nothing is being drawn. It is the panel, the wiring or the backlight,
+  and I stop editing the renderer for good.
+* **Goes still** → it is in what we write, and the frame-time sensor and the
+  repaint switch narrow it from there.
+
+It overrides everything, including the 10 s floor and the non-grow path that is
+otherwise never gated. Leave it off for normal use: with it on the clock never
+updates again.
+
+This should have existed nine theories ago. Every instrument I have added today
+— the freeze, the frame timer, the build stamp — has been worth more than the
+fix it was attached to, and each one was added late, after another round of
+guessing had already been spent.
+
+```
+RAM:   [==        ]  19.1% (used 62596 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1120059 bytes from 1835008 bytes)
+```
+
+### Two tests that need no flash at all
+
+Both use switches already on the clock:
+
+1. **"Grow clock use the ordinary clock by day"** — if that is ON and it is
+   daytime, the screen is showing the ORDINARY clock face, there are no eyes on
+   it at all, and the panel gets an **unconditional full 360x360 repaint every
+   second**. At 20 MHz that is ~104 ms of SPI per second, sweeping the glass.
+   The content-key gate from `c635533` only covers grow mode, so this path was
+   never gated — and dropping to 20 MHz **doubled** its cost. Turn it off and
+   look again.
+2. **"Grow clock animate"** off, on the eyes-and-sky face. A completely static
+   picture. If that flickers, the renderer is already exonerated before the
+   freeze switch arrives.

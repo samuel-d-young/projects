@@ -1608,6 +1608,28 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
+  # THE DECISIVE TEST, and it should have existed nine theories ago.
+  # ON: the dispatcher stops calling component.update on the panel ENTIRELY.
+  # No full frames, no animation frames, not one byte down the SPI bus. The
+  # last picture drawn stays on the glass.
+  #
+  # If the screen STILL flickers with this on, then nothing the firmware draws
+  # is responsible -- not the repaint rate, not the clip, not the animation --
+  # because nothing is being drawn. It is then the panel, the wiring or the
+  # backlight, and I stop editing the renderer for good.
+  #
+  # If it goes still, the flicker is in what we write, and the frame-time
+  # sensor plus the repaint switch narrow it from there.
+  #
+  # Leave it OFF for normal use: with it on the clock never updates again.
+  - platform: template
+    id: screen_freeze
+    name: "Screen freeze (test)"
+    entity_category: config
+    icon: mdi:pause-octagon
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
   # Diagnostic, and an A/B. OFF (the default) is the fixed behaviour: the panel
   # is repainted when the picture changes. ON restores the old unconditional
   # 1 Hz full repaint, so the two can be compared on the glass in a few seconds
@@ -2501,6 +2523,10 @@ interval:
             want = key != id(grow_paint_key)
                 || (uint32_t)(millis() - id(grow_paint_at)) >= 10000u;
           }
+          // The freeze switch wins over everything, including the 10 s floor
+          // and the non-grow path that is otherwise never gated. Nothing goes
+          // to the panel while it is on.
+          if (id(screen_freeze).state) want = false;
           if (want) { id(grow_paint_key) = key; id(grow_paint_at) = millis(); }
           id(grow_paint_want) = want;
       - if:
@@ -2678,6 +2704,7 @@ interval:
       - if:
           condition:
             lambda: |-
+              if (id(screen_freeze).state) return false;      // see screen_freeze
               if (!id(grow_mode).state || id(grow_daytime) || !id(grow_animate).state) return false;
               if (!id(display_on).state || !id(screen_on).state) return false;
               if (id(clock_face).current_option().str() == "colour test") return false;
