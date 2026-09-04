@@ -207,6 +207,9 @@ def clock_cards(slug, label):
             row(e("number", "twelve_o_clock_offset"), "Twelve o'clock offset"),
             row(e("select", "mode"), "Mode"),
             row(e("switch", "ring_leds"), "Ring LEDs on"),
+            # The ring's current budget in mA. On a PC USB port keep it near
+            # 350; on a proper 5 V 2 A supply it can go to 1500 and never bite.
+            row(e("number", "ring_current_limit"), "Current limit"),
             section("Hands"),
             row(e("select", "second_hand_style"), "Second hand"),
             row(e("switch", "ring_second_hand"), "Show second hand"),

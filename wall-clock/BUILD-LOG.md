@@ -5400,3 +5400,78 @@ removes it.
 The honest fallback, and it works today: **Grow clock animate** off gives a
 still face and everything else — the sky, the stars, the countdown, the
 colours, the time — with no flicker at all.
+
+---
+
+## 2026-09-04 — The supply, at last: a 32-LED ring on a PC USB port
+
+Six firmware theories about the flicker, five of them wrong, and the thing
+none of them touched was the wall socket. Asked what was powering the board,
+Sam answered: **"It's plugged into a USB port on my PC."**
+
+That is not a detail. Here is the arithmetic that should have been done on day
+one, and was not:
+
+| draw | current |
+| --- | --- |
+| WS2812B, per lit channel at full | 20 mA |
+| ...so one pixel at full white | 60 mA |
+| **32 pixels, full white** | **1920 mA** |
+| 32 pixels, white, at the shipped 25% brightness | ~480 mA |
+| ESP32-S3, WiFi associated, average | ~100 mA |
+| ESP32-S3, WiFi transmit burst (~1 ms) | 350–500 mA |
+| Panel backlight at full | ~60–120 mA |
+
+Against that: a **USB 2.0 port is specified at 500 mA**, a USB 3.0 port at
+900 mA. A dev board also drops ~0.3 V across its input protection diode, and a
+thin 1 m USB cable drops more again under load. So the rail at the ring can be
+well under 4.5 V while the port is still nominally "working" — ports sag long
+before their polyfuse trips.
+
+A sagging rail does not look like a power fault. It looks like **the ring and
+the screen dimming together, in step with whatever is drawing most at that
+moment** — which, on this clock, is an animation frame: a 40 MHz SPI burst and
+a fresh set of pixels at the same instant.
+
+This is a *hypothesis*, not a finding, and it is written down as one. What
+makes it worth acting on is that it is the only candidate never excluded, it
+explains the one thing no renderer theory ever did (why the **LED ring**
+flickers too), and it is falsifiable in ten seconds with no hardware.
+
+### The two tests, cheapest first
+
+1. **Turn off "Ring LEDs" in Home Assistant** and watch the animation. That
+   drops the ring from a few hundred mA to its quiescent ~32 mA and changes
+   nothing else. Screen steadies → the rail. Screen still flickers → not the
+   ring's current, and the freeze switch from the previous build says whether
+   it is the content or the act of writing.
+2. **Move the board off the PC to a 5 V 2 A supply** (a phone charger, same
+   cable) and re-check with animate on.
+
+### The limiter, which the clock should have had regardless
+
+Independently of how the tests land, a ring that can ask for 1.9 A with no
+notion of a budget is a defect. Added a **"Ring current limit"** number, in mA,
+default 400, 0 to disable. Every frame, immediately before the lambda returns,
+`cap()` sums the channels it is about to write, converts at 20 mA per channel,
+and if the total is over budget scales the whole ring by one multiply. Same
+idea as WLED's automatic brightness limiter.
+
+It reads the strip back rather than the compositing buffer, because grow mode
+writes `it[]` directly and never touches `buf` — the buffer is not the whole
+truth. Three call sites: the wake-effect return, the grow-plain return, and the
+end of the face path. Quiescent draw is left out of the sum on purpose: it
+cannot be scaled away, so counting it would only clamp harder for nothing.
+
+Suggested budgets: **350 mA on a PC USB 2.0 port, 600 on USB 3.0, 1500+ on a
+proper supply.** Note that at 25% brightness an ordinary clock face is nowhere
+near any of these — the limiter only bites when the ring goes bright and wide,
+which is exactly the grow clock's wake sparkle.
+
+```
+RAM:   [==        ]  19.0% (used 62276 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1118671 bytes from 1835008 bytes)
+```
+
+0 errors. Compiled, not just `esphome config`-ed — the change is in a lambda,
+and `config` never compiles lambdas.

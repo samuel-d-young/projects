@@ -173,6 +173,10 @@
         "name": "Ring LEDs on"
       },
       {
+        "entity": "number.mini_round_clock_ring_current_limit",
+        "name": "Current limit"
+      },
+      {
         "type": "section",
         "label": "Hands"
       },
@@ -905,6 +909,10 @@
         "name": "Ring LEDs on"
       },
       {
+        "entity": "number.mini_round_clock_2_ring_current_limit",
+        "name": "Current limit"
+      },
+      {
         "type": "section",
         "label": "Hands"
       },
@@ -1635,6 +1643,10 @@
       {
         "entity": "switch.mini_round_clock_3_ring_leds",
         "name": "Ring LEDs on"
+      },
+      {
+        "entity": "number.mini_round_clock_3_ring_current_limit",
+        "name": "Current limit"
       },
       {
         "type": "section",

@@ -624,6 +624,42 @@ number:
     optimistic: true
     restore_value: true
 
+  # ---- Ring current budget --------------------------------------------------
+  # A WS2812 draws about 20 mA per lit channel, so 60 mA at full white. Thirty
+  # two of them is 1.9 A, and the clock has been running off a USB port on a PC
+  # -- 500 mA on a USB 2.0 port, 900 mA on a USB 3.0 one, shared with the S3's
+  # WiFi bursts and the panel backlight. Over that budget the 5 V rail sags
+  # instead of the port cutting out, and a sagging rail shows up as the ring
+  # AND the screen dimming together on whatever is drawing most at that moment.
+  #
+  # So the ring gets an explicit budget rather than an implicit one. Every frame
+  # sums the channels it is about to write, converts to mA, and if the total is
+  # over this number scales the whole ring down by one multiply. It is the same
+  # idea as WLED's automatic brightness limiter, and it is a limit this clock
+  # should have had from the first ring: nothing else in the firmware knows or
+  # cares how much current a frame costs.
+  #
+  # This is the RING only -- the board and the panel are on top of it. Budget
+  # roughly: 350 mA here for a PC USB 2.0 port, 600 for USB 3.0, and 1500+ once
+  # it is on a proper 5 V 2 A supply. Set it to 0 to disable the limiter.
+  #
+  # Note that at the shipped brightness (25%) an ordinary clock face is nowhere
+  # near this, so raising or lowering it changes nothing you can see until the
+  # ring goes bright and wide -- the grow clock's wake sparkle, or a white ring.
+  - platform: template
+    id: ring_ma
+    name: "Ring current limit"
+    entity_category: config
+    icon: mdi:current-dc
+    unit_of_measurement: "mA"
+    mode: box
+    min_value: 0
+    max_value: 2000
+    step: 50
+    initial_value: 400
+    optimistic: true
+    restore_value: true
+
   # Hue only. Saturation and value are pinned full because an alert is a single
   # state — there is no second alert colour to distinguish it from, so the only
   # useful axis is which hue catches YOUR eye. Follows mono to greyscale.
@@ -2747,6 +2783,38 @@ light:
               buf[i].b = (uint8_t) std::min(255, (int) buf[i].b + b);
             };
 
+            // ---- Current budget, applied to whatever was just written ------
+            // Called immediately before every return from this lambda, and at
+            // the end. It reads the strip back rather than the compositing
+            // buffer on purpose: grow mode writes it[] directly and never
+            // touches buf, so the buffer is not the whole truth. One estimate,
+            // one multiply, no layer can bypass it.
+            //
+            // 20 mA per channel at full is the WS2812B datasheet figure, so a
+            // white pixel is 60 mA. get_red() returns the value as WRITTEN --
+            // before the light's own correction -- which equals the byte on the
+            // wire only because this config pins gamma_correct to 1.0 and the
+            // master brightness to 100%. If either of those ever changes, this
+            // estimate stops being current and starts being a fiction.
+            //
+            // Quiescent draw (about 1 mA per LED, always there) is deliberately
+            // NOT in the sum: it cannot be scaled away, so including it would
+            // only make the limiter clamp harder for no gain.
+            auto cap = [&it, PHYS]() {
+              const float lim = id(ring_ma).state;
+              if (!(lim > 0.0f)) return;                    // 0 or NaN = off
+              float ma = 0.0f;
+              for (int i = 0; i < PHYS; i++)
+                ma += (it[i].get_red() + it[i].get_green() + it[i].get_blue())
+                      * (20.0f / 255.0f);
+              if (ma <= lim) return;
+              const float sc = lim / ma;
+              for (int i = 0; i < PHYS; i++)
+                it[i] = Color((uint8_t) lroundf(it[i].get_red()   * sc),
+                              (uint8_t) lroundf(it[i].get_green() * sc),
+                              (uint8_t) lroundf(it[i].get_blue()  * sc));
+            };
+
             const std::string mode  = id(display_mode).current_option().str();
             const auto now = id(ha_time).now();
             // The ring has its own switch under the master now, so "turn off
@@ -2843,6 +2911,7 @@ light:
                                                (uint8_t) lroundf(gg * bri),
                                                (uint8_t) lroundf(bb * bri));
                 }
+                cap();
                 return;
               }
 
@@ -2860,6 +2929,7 @@ light:
                               (uint8_t) lroundf(g * k * bri),
                               (uint8_t) lroundf(b * k * bri));
               }
+              cap();
               return;
             }
 
@@ -3138,6 +3208,7 @@ light:
             // Anything past the configured ring size stays dark, so a short
             // ring on a long-compiled strip does not show stale pixels.
             for (int i = N; i < PHYS; i++) it[i] = Color::BLACK;
+            cap();
 
 # =============================================================================
 # DISPLAY — verified GC9B72 init sequence (working on hardware 2026-08-24)
