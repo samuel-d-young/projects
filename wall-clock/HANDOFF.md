@@ -1,5 +1,90 @@
 # Handoff to a local Claude session
 
+---
+
+# STATE AS OF 2026-09-04, END OF DAY
+
+Read this part first. Everything below it is older and still true, but this is
+where the project actually is. Branch `claude/home-assistant-wall-clock-om42v2`
+in both repos; firmware tip **`4354f87`**.
+
+## The one unresolved thing: the screen flicker
+
+The moon and the star row shimmer on clock 3's panel. The eyes, the z's and the
+digital time do not. **Ten theories, nine of them wrong**, all recorded in
+BUILD-LOG.md with what each one ruled out. What is left:
+
+**The live hypothesis is EDGE STRUCTURE, not the renderer.** Sort the symptoms
+by what each element is *drawn as* — eyes are rounded rectangles (steady),
+z's and time are text glyphs (steady), moon and stars are `filled_circle`
+(both flicker). Not size: the z's are small, bright, steady. Not position: the
+star row and part of the time share the same 60-row band. A rasterised circle
+changes its run-length at every row, and that fine structure beats against the
+panel's polarity-inversion scheme when VCOM is slightly off.
+
+`773e1e2` is what makes this the only survivor: with the partial-redraw path
+off, *every* repaint is a full frame and every band is painted in full — and
+the moon and stars still flickered while the other three did not. A
+deterministic renderer cannot do that.
+
+**The test, which has not been run yet:** flash, flip **"Grow clock flat art
+(test)"** on. It draws the moon as a plain square and the dots as squares —
+uniform width down every row.
+
+* Goes steady → the panel, not the firmware. Turn flat OFF and **"Grow clock
+  blocky art"** ON; that is the fix and it is already on the clock.
+* Still shimmers → edge structure is out too. Go to hardware: reseat the panel
+  flex and every SPI jumper (SCK, MOSI, CS, DC, RST), try shorter leads, then
+  re-flash with `-s lcd_hz 10MHz`. **Do not write more renderer changes.**
+
+## Switches added during the hunt, and what each is for
+
+| entity | default | what it does |
+|---|---|---|
+| `Grow clock flat art (test)` | off | the INSTRUMENT. Square moon and dots. Ugly on purpose; turn it back off after reading it |
+| `Grow clock blocky art` | off | the FIX if the test confirms. Pixel-art crescent + crossed-bar sparkles |
+| `Grow clock partial redraw (test)` | off | on = the old partial repaint. Off = every repaint is a full frame, as the first working build effectively had |
+| `Screen freeze (test)` | off | stops **all** panel writes and backlight changes. Flicker with this on = hardware |
+| `Grow clock repaint every second` | off | on = the old unconditional 1 Hz repaint |
+| `Ring current limit` | 400 mA | WS2812 budget; 32 LEDs can ask for 1.9 A |
+| `Firmware built` (sensor) | — | compiler `__DATE__ __TIME__`. **Check this postdates your flash before trusting any observation** |
+| `Grow clock frame time` (sensor) | — | ms per frame. Asked for ten times, never yet read |
+
+## Real bugs fixed along the way (these stay fixed)
+
+* The digital time was being repainted 60×/minute unchanged — now on a content
+  key, once a minute.
+* Backlight had no `default_transition_length`, so it inherited ESPHome's **1 s
+  default** and ramped on every change. Now `0s`.
+* Round panel SPI was raised to 40 MHz mid-hunt; the GC9B72 library documents
+  ~20 MHz **on short leads** and says go lower on jumpers. Back to 20 via the
+  `lcd_hz` substitution.
+* Smile arc was overdrawing the clock's time every animation frame.
+
+## Enclosure: done, ready to print
+
+`57bce1b`. **`mini-round-clock-standbox-32.3mf` + `-standbox-tray-32.3mf`.**
+See `enclosure/mini/v2/PRINT-TOMORROW.md`.
+
+The tray used to be cut from the drawing's 28.19 mm board, putting the rails
+**28.99 apart against a 29.00 board** — a negative fit that could never have
+worked. Now `STANDBOX_SLOT_W = 30.20`, measured off the built STL. **If the
+board is sloppy set 29.80, if tight 30.60**, then re-run `build_v2.py`. All six
+checks pass.
+
+## Blocked, needing Samuel's hands
+
+* **The flash route is dead.** Seven pokes to the bench session, all delivered,
+  none executed. Flash directly instead — the command is in "How to resume on
+  Windows" below.
+* Clocks 1 and 2 are off the network (task #27).
+* HA packages still not installed: ports 22/445 closed on the guest. Needs the
+  Samba share or Terminal & SSH add-on. Note the hypervisor `.66` **does** have
+  SSH if you need file access to the VM's host.
+
+---
+
+
 ## Why this file exists
 
 The session that built this project ran in **Anthropic's cloud**. It verified,
@@ -87,7 +172,7 @@ A Claude session running **on Samuel's own machine** is on the LAN and can.
 > the override loaded. Don't flash the ESP32 yet — the display pins still need
 > correcting against my actual panel.
 
-## State when this was handed over
+## State when this was FIRST handed over (historical — see the top of this file for current state)
 
 **Done and verified as far as it could be without hardware:**
 
