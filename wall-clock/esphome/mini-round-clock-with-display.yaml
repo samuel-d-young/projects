@@ -2458,7 +2458,15 @@ interval:
           // Only touched when the wanted level CHANGES, so this does not fight
           // the Backlight light entity every second. Leaving grow mode puts the
           // backlight back to full, once, and then leaves it alone.
-          if (id(grow_mode).state && !id(grow_daytime)) {
+          // MY FREEZE TEST HAD A HOLE IN IT. screen_freeze stops
+          // component.update on the panel, so no PIXELS go down the SPI bus --
+          // but it never stopped this block, which drives the BACKLIGHT. So
+          // "still flickers while frozen" did not prove the hardware after
+          // all: the backlight was still being written the whole time.
+          // Frozen now means frozen: no pixels and no backlight changes.
+          if (id(screen_freeze).state) {
+            // leave the backlight exactly where it is
+          } else if (id(grow_mode).state && !id(grow_daytime)) {
             const bool nightish = (st == 0 || st == 3 || st == 4);
             const float bn = id(grow_night_bright).state / 100.0f;
             const float bd = id(grow_day_bright).state / 100.0f;
@@ -2912,6 +2920,20 @@ light:
     id: backlight
     name: "Backlight"
     restore_mode: ALWAYS_ON
+    # 0s, and this was a real defect. ESPHome's default_transition_length is
+    # ONE SECOND, and this light never set it -- the ring sets 0s and says why,
+    # the backlight was simply missed. So every brightness change here has been
+    # a one-second RAMP of the panel's backlight rather than a step. Anything
+    # that nudges the level repeatedly (the sunrise fade moves it every second
+    # by design) has therefore been continuously modulating the backlight, and
+    # backlight modulation on an LCD is most visible on small bright features
+    # against a flat dark field -- a 32 px moon, a row of 6 px dots -- and
+    # least visible inside a large solid block like an eye.
+    #
+    # That is not a claim that it IS the flicker. It is a defect that was
+    # sitting in the one subsystem I never looked at, with a symptom profile
+    # that matches, and it costs nothing to remove.
+    default_transition_length: 0s
     # Sam: "the screen is too low". The light's default gamma is 2.8, so the
     # grow clock's 10% night level was a 0.16% duty -- the panel was off in all
     # but name. With gamma 1.0 a percentage is a duty, 10% is a real glow, and

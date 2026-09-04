@@ -6139,3 +6139,54 @@ Hardware, in order of likelihood on a dev board with jumper leads:
 
 **No further renderer changes.** Nine theories and one clean exoneration is
 enough; a tenth would be guessing against the evidence rather than from it.
+
+---
+
+## 2026-09-04 (15:30) — The freeze test had a hole in it, and the backlight had a defect
+
+"Still flickers." Before sending Sam to the wiring on the strength of that, I
+went and checked the one subsystem I had never looked at. Two findings, and the
+first is a correction to my own instrument.
+
+### The freeze test did not prove what I said it proved
+
+`screen_freeze` stops `component.update` on the panel, so no **pixels** go down
+the SPI bus. It never stopped the dispatcher's backlight block. So "still
+flickers while frozen" did **not** establish that the hardware is at fault —
+the backlight was being driven the whole time.
+
+I built that switch to be decisive and then read a result off it that it could
+not support. Fixed: frozen now means no pixels **and** no backlight changes.
+
+### And the backlight has been ramping over a whole second, all along
+
+The `monochromatic` light never set `default_transition_length`, so it has been
+inheriting ESPHome's default of **1 second**. The ring sets `0s` and explains
+why; the backlight was simply missed. Every brightness change on that panel has
+been a one-second ramp rather than a step — and anything that nudges the level
+repeatedly (the sunrise fade moves it every second, by design) has been
+continuously modulating the backlight.
+
+**Backlight modulation on an LCD is most visible on small bright features
+against a flat dark field** — a 32 px moon, a row of 6 px dots — and least
+visible inside a large solid block like an eye. That is the symptom profile,
+arrived at from a different direction entirely.
+
+This is not a claim that it *is* the flicker. It is a real defect, in the one
+place I never looked, with a matching profile, and it costs nothing to remove.
+`default_transition_length: 0s`.
+
+```
+RAM:   [==        ]  19.1% (used 62668 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1120167 bytes from 1835008 bytes)
+```
+
+0 errors, compiled.
+
+### The lesson, which is the same one twice
+
+I spent the day inside the renderer because that is where I had been working.
+The backlight is four lines away in the same file and I never read them.
+**A test that "rules out" a subsystem only rules out what it actually stops** —
+and an instrument you build yourself deserves the same scepticism as a theory
+you build yourself.
