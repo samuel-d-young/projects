@@ -3851,41 +3851,33 @@ display:
           // countdown at 252 and the time at 300 keep what they have.
           if (partial) {
             it.start_clipping(CX - 124, 0, CX + 124, 244);
-            // Band 0 must not come back empty, or mipi_spi returns from the
-            // WHOLE frame and the animation never reaches the glass. That is
-            // not a hypothetical: it is exactly what the FIRST version of the
-            // animator did -- its repaint box started at y = 60, band 0 was
-            // always empty, and every animation frame was silently discarded.
-            // Sam remembers that build as the one that worked, and he is right:
-            // it worked because the panel was being repainted once a second by
-            // one clean path and nothing else was touching the glass.
+            // BAND 0 GETS A REAL RECTANGLE, and the sky is redrawn inside it.
+            // This reverses fd8efee, and Sam's report is why. He listed what
+            // does NOT flicker: the eyes, the z's and the time. Line those up
+            // against the panel's six bands and the pattern is exact:
             //
-            // One pixel keeps band 0 alive. It is a SINGLE pixel, so that
-            // band's dirty box is that pixel and nothing else -- unlike the
-            // marker COLUMN I tried before, which forced x_low to 0 on every
-            // band and dragged the flush across the clock's time. (56, 0) is
-            // 219 px from the centre of a 360 circle, so it is off the visible
-            // glass entirely.
-            it.draw_pixel_at(CX - 124, 0, field);
-            // ...and the repaint box now starts BELOW the sky, which is the
-            // actual fix. The sun does not move. It was being erased to the
-            // field colour and painted back about twice a second, every second,
-            // for no reason -- and repainting something that has not changed is
-            // precisely what reads as a flicker. The eyes get away with it
-            // because they are supposed to move; a static sun blinking does not
-            // read as animation, it reads as a fault. Which is what Sam saw.
+            //   eyes  bands 1-3   repainted every frame inside a filled rect
+            //   z's   bands 1-2   repainted every frame inside a filled rect
+            //   time  band  5     never repainted, and band 5 is drawn on not
+            //                     at all, so the driver aborts it cleanly
+            //   sky   band  0     never repainted, and band 0 had ONE lone
+            //                     pixel written to keep the frame alive
             //
-            // y = 68 is not a guess. The sun's lowest ink is a ray tip at
-            // y = 64 and the half-sun's eraser rectangle reaches y = 67; the
-            // highest the eye can ever reach is y = 72 (gaze -9, squash 1.15,
-            // minus the one-pixel lid overhang). 68 is the only clean lane
-            // between them, with 4 px of margin over the eye.
+            // The sky is the only element in band 0, and band 0 was the only
+            // band doing a degenerate 1x1 window write on every animation
+            // frame. Everything that survives is repainted inside a rectangle
+            // that is exactly its own bounding box; the one thing left to
+            // persist on its own is the one thing that flickers.
             //
-            // filled_rectangle, not fill(). Display::fill() is
-            // filled_rectangle(0, 0, w, h), so under a clip it walks all 129600
-            // pixels of the panel and throws away seven eighths of the work --
-            // per band, six times a frame. This walks 43648 and keeps them.
-            it.filled_rectangle(CX - 124, 68, 248, 176, field);
+            // So fd8efee had it backwards. "Do not repaint what has not
+            // changed" sounded right and is wrong here: on a panel with an
+            // uncleared shared band buffer, the safe state is a full, honest
+            // rectangle per band. Persistence is what is fragile, not repaint.
+            //
+            // y = 0 to 243, so band 0 is entirely covered by drawn pixels and
+            // needs no marker, bands 1-3 carry the eyes, band 4 takes the last
+            // four rows, and band 5 is untouched so the time below is safe.
+            it.filled_rectangle(CX - 124, 0, 248, 244, field);
           }
           const float droop = st == 3 ? 1.0f : 0.0f;
           auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
@@ -3946,12 +3938,13 @@ display:
           }
           if (sound) it.print(CX, CY + 40, id(font_med), ink, TextAlign::CENTER, "shh");
           // The sky, above the eyes: a moon at night and bedtime, a sun by
-          // day, a sun half-risen when it is almost morning. OUTSIDE the
-          // animation box now, so an animation frame neither erases it nor
-          // repaints it and it simply stays on the glass between full frames.
-          // It changes only when the state does, and the full frame's content
-          // key has `st` in it, so the change still lands immediately.
-          if (sky && !partial) {
+          // day, a sun half-risen when it is almost morning. Back INSIDE the
+          // animation box and repainted every frame, exactly like the z's and
+          // the eyes -- the two things Sam confirms do not flicker. The clip
+          // filled over it, so it has to be put back; that is the whole rule,
+          // and the version that tried to be cleverer than it is what left the
+          // sun alone in a band nothing else painted.
+          if (sky) {
             const int sy = CY - 138;
             if (st == 0 || st == 4 || st == 3) {
               it.filled_circle(CX, sy, 16, ink);

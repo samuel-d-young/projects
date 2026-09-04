@@ -5824,3 +5824,56 @@ Both use switches already on the clock:
 2. **"Grow clock animate"** off, on the eyes-and-sky face. A completely static
    picture. If that flickers, the renderer is already exonerated before the
    freeze switch arrives.
+
+---
+
+## 2026-09-04 (14:30) — "The zzz's don't flicker, neither do the eyes or time"
+
+The best diagnostic sentence of the whole build, because it is a list of what
+is *working*. Line that list up against the panel's six bands:
+
+| element | band | repainted each animation frame? | flickers |
+| --- | --- | --- | --- |
+| eyes | 1–3 | yes, inside a filled rectangle | no |
+| z's | 1–2 | yes, inside a filled rectangle | no |
+| time | 5 | no — and band 5 is drawn on not at all, so the driver aborts it cleanly | no |
+| **sky** | **0** | **no — band 0 got ONE lone marker pixel** | **yes** |
+
+The sun/moon is the only element in band 0, and band 0 was the only band doing
+a degenerate 1×1 window write on every animation frame. Everything that
+survives is repainted inside a rectangle that is exactly its own bounding box.
+The one element left to persist on its own is the one element that flickers.
+
+### fd8efee had it backwards, and this reverses it
+
+That commit's reasoning was "repainting something that has not changed is what
+reads as a flicker", so it pulled the sky out of the animation box and left it
+to persist between full frames. It sounded right. It is wrong on this panel:
+with an uncleared shared band buffer, **the safe state is a full, honest
+rectangle per band — persistence is the fragile thing, not repaint.**
+
+* `filled_rectangle(CX - 124, 0, 248, 244, field)` — the whole clip again, so
+  band 0 is entirely covered by drawn pixels.
+* The lone marker pixel is **gone**. It is not needed once band 0 is genuinely
+  painted, and it was the only thing making band 0 unlike every other band.
+* `if (sky)` — the sky is repainted every frame, exactly like the z's and the
+  eyes, the two things confirmed steady.
+
+Bands 1–3 carry the eyes, band 4 takes the last four rows, band 5 stays
+untouched so the time below is safe. That is the arrangement the working
+elements already had; the sky now shares it.
+
+```
+RAM:   [==        ]  19.1% (used 62596 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1120023 bytes from 1835008 bytes)
+```
+
+0 errors, compiled.
+
+### The lesson worth keeping
+
+I spent the day asking "what is wrong with the thing that is broken?" The
+answer came from asking the opposite: **what do the working parts have in
+common, and is the broken one arranged the same way?** It was not. Three
+elements shared a treatment and behaved; one had its own treatment — which I
+had given it, that morning, as a fix — and misbehaved.
