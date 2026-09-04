@@ -5877,3 +5877,60 @@ answer came from asking the opposite: **what do the working parts have in
 common, and is the broken one arranged the same way?** It was not. Three
 elements shared a treatment and behaved; one had its own treatment — which I
 had given it, that morning, as a fix — and misbehaved.
+
+---
+
+## 2026-09-04 (14:40) — "The moon and bottom dots still flicker"
+
+Second list, and it completes the pattern. Against `7dfc108`'s geometry:
+
+| element | y range | inside the repainted box (0–243)? | flickers |
+| --- | --- | --- | --- |
+| eyes | 90–202 | yes | no |
+| z's | 82–106 | yes | no |
+| moon | 26–58 | yes, as of `7dfc108` | reported |
+| **stars** | **243–261** | **no — a few px below the edge** | **yes** |
+| time | 276–324 | no, and band 5 is never drawn on at all | no |
+
+The star row sits at `CY + 72 = 252`. Pointy stars reach y 243–261 and the
+countdown text about 240–264 — a handful of pixels **below** where the box
+stopped. So after the sky was brought back in, the stars were the last element
+still left to persist on its own, and they behave exactly as the sky did.
+
+The rule holds in both directions now, which is what makes it a rule rather
+than a story:
+
+> **Inside the repainted rectangle → steady. Left to persist → flickers.
+> Untouched entirely, so the driver aborts the band → also steady.**
+
+The time is the proof of the third case. It is *outside* the box and it does
+not flicker, because band 5 receives no drawn pixels at all and `mipi_spi`
+abandons it cleanly. The danger is never "not repainting"; it is **partially**
+touching a band whose buffer nobody cleared.
+
+### The change
+
+* Box and clip go from y 243 to **y 267**, taking the star row and the
+  countdown in with 4 px to spare.
+* The stars and countdown blocks move **above** the `if (partial) return`, so
+  they are drawn on every animation frame like the eyes and z's.
+* The time stays below at 276 and keeps its 8 px of clearance. It must — band 5
+  being wholly untouched is exactly why the time is steady, and that is not
+  something to disturb while it is working.
+
+```
+RAM:   [==        ]  19.1% (used 62596 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1120051 bytes from 1120051 bytes)
+```
+
+0 errors, compiled.
+
+### Caveat worth stating
+
+Sam may not have `7dfc108` on the clock — the bench swallowed a third poke and
+the "Firmware built" sensor exists precisely so this can be checked before a
+report is trusted. If the moon was already fixed by `7dfc108` and only the
+stars remained, this build finishes it. If the moon still flickers *after* this
+one, then the rectangle rule is not the whole story and the freeze switch
+settles it: no bytes to the panel at all, and if it still flickers the renderer
+is out of the picture.

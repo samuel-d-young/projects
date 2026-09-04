@@ -3850,7 +3850,7 @@ display:
           // From y = 0 so band 0 is never empty; to y = 244 so the stars and
           // countdown at 252 and the time at 300 keep what they have.
           if (partial) {
-            it.start_clipping(CX - 124, 0, CX + 124, 244);
+            it.start_clipping(CX - 124, 0, CX + 124, 268);
             // BAND 0 GETS A REAL RECTANGLE, and the sky is redrawn inside it.
             // This reverses fd8efee, and Sam's report is why. He listed what
             // does NOT flicker: the eyes, the z's and the time. Line those up
@@ -3874,10 +3874,23 @@ display:
             // uncleared shared band buffer, the safe state is a full, honest
             // rectangle per band. Persistence is what is fragile, not repaint.
             //
-            // y = 0 to 243, so band 0 is entirely covered by drawn pixels and
-            // needs no marker, bands 1-3 carry the eyes, band 4 takes the last
-            // four rows, and band 5 is untouched so the time below is safe.
-            it.filled_rectangle(CX - 124, 0, 248, 244, field);
+            // y = 0 to 267. Sam's second list settled the extent: the moon AND
+            // THE BOTTOM DOTS flicker, the eyes, z's and time do not. The star
+            // row sits at CY + 72 = 252 -- pointy stars reach y 243 to 261, the
+            // countdown text about 240 to 264 -- which is a handful of pixels
+            // BELOW where the box used to stop at 243. So the stars were the
+            // one remaining element left to persist on its own, and they
+            // behaved exactly like the sky did before it was brought back in.
+            //
+            // 268 takes them in with 4 px to spare. The time is centred at
+            // CY + 120 = 300 with 48 px digits, so it starts at 276 and stays
+            // clear by 8 px -- and it must, because the time is STEADY and
+            // leaving band 5 entirely untouched is what makes it so.
+            //
+            // Band 0 is covered by real pixels so no marker is needed, bands
+            // 1-3 carry the eyes, band 4 now carries the stars, band 5 is
+            // never drawn on at all and the driver aborts it cleanly.
+            it.filled_rectangle(CX - 124, 0, 248, 268, field);
           }
           const float droop = st == 3 ? 1.0f : 0.0f;
           auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
@@ -3976,10 +3989,6 @@ display:
           }
           if (sound) it.print(CX, CY + 100, id(font_med), ink, TextAlign::CENTER, "shh");
         }
-        // An animation frame ends here. Everything below is outside the clip
-        // and keeps what it already has.
-        if (partial) { it.end_clipping(); return; }
-
         // Stars until morning: a row under the eyes, lit ones solid, spent
         // ones faint. The row is grow_star_count wide at up to 28 px pitch;
         // y = CY + 72 has 165 px of half-width on the round panel.
@@ -4008,6 +4017,12 @@ display:
           const int cy_ = (fs == "sun and moon") ? CY - 150 : CY + 72;
           it.print(CX, cy_, id(font_med), ink, TextAlign::CENTER, cb);
         }
+
+        // An animation frame ends here. The TIME below is outside the box and
+        // keeps what it already has -- and it is steady, which is the evidence
+        // that leaving band 5 completely untouched is safe. Everything ABOVE
+        // this line is now inside the repainted rectangle.
+        if (partial) { it.end_clipping(); return; }
 
         // The time, digital, along the bottom. 48 px digits centred at
         // CY + 120: "12:34" is about 119 px wide and the chord there is 249.
