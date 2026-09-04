@@ -6074,3 +6074,68 @@ seconds.
 The user's own memory of when it worked turned out to be better evidence than
 nine of my theories. **Ask what was different when it worked, before asking
 what is wrong now.**
+
+---
+
+## 2026-09-04 (15:15) — 773e1e2 exonerates the renderer
+
+Sam flashed it. **The moon and stars still flicker; the eyes, z's and time do
+not.**
+
+That is the most informative result of the day, because of what `773e1e2`
+removed. With the partial path off, there is no clipping, no rectangle, no
+`an_partial`. Every repaint is a full frame: `fill()` takes its fast path,
+memsets the whole band buffer and marks the whole band dirty, so **every band
+is painted in full, every time**. There is no such thing as a partially-touched
+band, and nothing for a stale pixel to leak into.
+
+So the moon, the stars, the eyes, the z's and the time are now drawn:
+
+* by the same code path,
+* in the same frame,
+* at the same rate,
+* from the same buffer state,
+* with identical inputs frame to frame (the moon depends only on `st`; the star
+  count on `lit`, which moves a few times a night).
+
+**A deterministic renderer cannot make two of those flicker and three of them
+not.** Whatever is happening is downstream of the pixels we hand to the driver.
+
+### What this retires
+
+Everything in the partial-buffer family, which is nine theories' worth: the
+band abort, the dirty-rectangle bounding box, the marker pixel, the clip
+extent, band 0, band 4, the repaint rate, the content key, the sky's exemption.
+All of it was real engineering and some of it fixed real bugs — the time and
+the eyes are steady now and were not before — but none of it is the flicker
+that remains.
+
+### The one test left, and it is already on the clock
+
+**"Screen freeze (test)"**, from `f088709`. It stops `component.update` on the
+panel entirely: no full frames, no animation frames, not one byte down the SPI
+bus. The last picture stays on the glass.
+
+* **Still flickers frozen** → nothing the firmware draws is responsible, because
+  nothing is being drawn. It is the panel, the flex, the jumper wiring or the
+  backlight.
+* **Goes still frozen** → it is in the act of writing rather than in what is
+  written, and the next question is whether the flicker follows the *content*
+  or the *location* on the glass.
+
+No flash needed. One toggle.
+
+### If it survives the freeze
+
+Hardware, in order of likelihood on a dev board with jumper leads:
+
+1. Reseat the panel's flex connector, and reseat every jumper on the SPI lines
+   (SCK, MOSI, CS, DC, RST). Intermittent contact on SCK or MOSI corrupts
+   scattered pixels, which is what "speckle" is.
+2. Shorten the leads, or swap for a known-good set. The GC9B72 library warns
+   about exactly this: "if you use long/breadboard jumpers and see speckle,
+   lower the clock".
+3. `-s lcd_hz 10MHz`. Already a substitution, one flag.
+
+**No further renderer changes.** Nine theories and one clean exoneration is
+enough; a tenth would be guessing against the evidence rather than from it.
