@@ -1560,6 +1560,18 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
+  # Diagnostic, and an A/B. OFF (the default) is the fixed behaviour: the panel
+  # is repainted when the picture changes. ON restores the old unconditional
+  # 1 Hz full repaint, so the two can be compared on the glass in a few seconds
+  # without a reflash.
+  - platform: template
+    id: grow_paint_1s
+    name: "Grow clock repaint every second"
+    entity_category: config
+    icon: mdi:refresh-auto
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
   - platform: template
     id: ring_on
     name: "Ring LEDs"
@@ -2109,6 +2121,18 @@ globals:
     type: uint32_t
     restore_value: no
     initial_value: '0'
+  - id: grow_paint_key         # hash of everything a FULL frame draws that an
+    type: uint32_t              # animation frame does not; a change means repaint
+    restore_value: no
+    initial_value: '0'
+  - id: grow_paint_at          # millis() of the last full repaint
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: grow_paint_want        # dispatcher -> the update action, this tick
+    type: bool
+    restore_value: no
+    initial_value: 'true'
   - id: grow_bl_last           # backlight level last set by grow mode; -1 = none
     type: float
     restore_value: no
@@ -2361,13 +2385,87 @@ interval:
           else if (want == "round 360x360") bar = false;
           else                              bar = id(panel_strap).state;
           id(bar_active) = bar;
+      # ---- REPAINT ON CHANGE, NOT ON THE TICK -------------------------------
+      # This dispatcher used to end with an unconditional full repaint, every
+      # second, forever. That is more expensive than it looks. An animation
+      # frame sets a clipping window, and mipi_spi's fill() falls back to the
+      # base implementation when clipping is set, so only the eye box is marked
+      # dirty. A FULL frame has no clip, so fill() takes its fast path: it wipes
+      # the band buffer and marks the ENTIRE band dirty. Every one of those
+      # repaints therefore pushed all 360 x 360 x 16 bits down the bus --
+      # 259200 bytes, about 52 ms at 40 MHz -- at a panel that refreshes in
+      # roughly 16, sixty times a minute, on a screen where between one second
+      # and the next almost nothing has changed.
+      #
+      # The key below covers everything a full frame draws that an animation
+      # frame does NOT: the field outside the eye box, the star row, the
+      # countdown, and the digital time. The eyes, the z's, the sky and "shh"
+      # all sit inside the animation clip and the partial frames keep them
+      # current, so they are deliberately absent -- putting them in would repaint
+      # the whole panel on every blink, which is the behaviour being removed.
+      #
+      # Gated in grow mode only. The ordinary clock face has a second hand and
+      # has earned its second. And a 10 s floor underneath, so if the key is
+      # ever missing an input the panel goes stale for ten seconds rather than
+      # forever -- a bounded bug instead of an unbounded one.
+      - lambda: |-
+          bool want = true;
+          uint32_t key = 0;
+          auto mix  = [&key](uint32_t v) { key = (key ^ v) * 16777619u; };
+          auto mixs = [&mix](const std::string &v) {
+            for (char c : v) mix((uint32_t)(uint8_t) c);
+          };
+          if (id(grow_mode).state && !id(grow_daytime) && !id(grow_paint_1s).state) {
+            const auto now = id(ha_time).now();
+            const int st = id(grow_st);
+            mix((uint32_t) st);
+            mix(id(display_on).state ? 1u : 0u);
+            mix(id(screen_on).state ? 2u : 0u);
+            mixs(id(grow_face).current_option().str());
+            mixs(id(grow_sleep_colour).current_option().str());
+            mixs(id(grow_wake_colour).current_option().str());
+            mixs(id(grow_almost_colour).current_option().str());
+            mixs(id(grow_bedtime_colour).current_option().str());
+            // "shh" lives inside the clip, but it is one bit and it changes
+            // about twice a night, so it costs nothing to be safe about it.
+            const bool sound = id(grow_sound).state && (st == 0 || st == 4)
+                && id(grow_sound_since) != 0
+                && (uint32_t)(millis() - id(grow_sound_since))
+                   < (uint32_t) lroundf(id(grow_sound_secs).state * 1000.0f);
+            mix(sound ? 4u : 0u);
+            // The star row: what is drawn is the COUNT lit, not the fraction,
+            // so hash the count. grow_frac slides continuously and would
+            // otherwise force a repaint every single second for a row of dots
+            // that changes about once every few minutes.
+            if (id(grow_stars).state && (st == 0 || st == 4)) {
+              const int NS = std::max(3, std::min(12, (int) id(grow_star_count).state));
+              int lit = (int) ceilf(id(grow_frac) * NS); if (lit > NS) lit = NS;
+              mix(0xA1u); mix((uint32_t) NS); mix((uint32_t) lit);
+              mixs(id(grow_star_shape).current_option().str());
+            }
+            if (id(grow_show_countdown).state && (st == 1 || st == 3) && id(grow_min_to) >= 0) {
+              mix(0xB2u); mix((uint32_t) id(grow_min_to));
+            }
+            if (id(grow_show_time).state && now.is_valid()) {
+              mix(0xC3u); mix((uint32_t) now.hour); mix((uint32_t) now.minute);
+              mix(id(fmt_24h).state ? 8u : 0u);
+            }
+            want = key != id(grow_paint_key)
+                || (uint32_t)(millis() - id(grow_paint_at)) >= 10000u;
+          }
+          if (want) { id(grow_paint_key) = key; id(grow_paint_at) = millis(); }
+          id(grow_paint_want) = want;
       - if:
           condition:
-            lambda: 'return id(bar_active);'
+            lambda: 'return id(grow_paint_want);'
           then:
-            - component.update: bar_lcd
-          else:
-            - component.update: face_lcd
+            - if:
+                condition:
+                  lambda: 'return id(bar_active);'
+                then:
+                  - component.update: bar_lcd
+                else:
+                  - component.update: face_lcd
 
   # ---- Grow eye animator, 10 fps -----------------------------------------------
   # A clip library and a scheduler. Each state has a table of clips with

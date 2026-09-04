@@ -407,6 +407,11 @@ def clock_cards(slug, label):
             # The dial that settles the flicker on this panel: how often
             # the face may be redrawn. Sat next to the switch it belongs to.
             row(e("number", "grow_clock_animation_interval"), "Animation interval"),
+            # A/B for the repaint fix: off (default) repaints the panel when
+            # the picture changes; on restores the old 1 Hz full repaint.
+            row(e("switch", "grow_clock_repaint_every_second"), "Repaint every second (test)"),
+            row(e("switch", "grow_clock_freeze_the_eyes_test"), "Freeze the eyes (test)"),
+            row(e("sensor", "grow_clock_frame_time"), "Frame time"),
             row(e("switch", "grow_clock_show_time"), "Show the time"),
             row(e("switch", "grow_clock_show_countdown"), "Show the minutes to go"),
             row(e("select", "grow_clock_wake_effect"), "Wake-up effect on the ring"),

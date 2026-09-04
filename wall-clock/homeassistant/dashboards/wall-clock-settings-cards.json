@@ -641,6 +641,18 @@
         "name": "Animation interval"
       },
       {
+        "entity": "switch.mini_round_clock_grow_clock_repaint_every_second",
+        "name": "Repaint every second (test)"
+      },
+      {
+        "entity": "switch.mini_round_clock_grow_clock_freeze_the_eyes_test",
+        "name": "Freeze the eyes (test)"
+      },
+      {
+        "entity": "sensor.mini_round_clock_grow_clock_frame_time",
+        "name": "Frame time"
+      },
+      {
         "entity": "switch.mini_round_clock_grow_clock_show_time",
         "name": "Show the time"
       },
@@ -1377,6 +1389,18 @@
         "name": "Animation interval"
       },
       {
+        "entity": "switch.mini_round_clock_2_grow_clock_repaint_every_second",
+        "name": "Repaint every second (test)"
+      },
+      {
+        "entity": "switch.mini_round_clock_2_grow_clock_freeze_the_eyes_test",
+        "name": "Freeze the eyes (test)"
+      },
+      {
+        "entity": "sensor.mini_round_clock_2_grow_clock_frame_time",
+        "name": "Frame time"
+      },
+      {
         "entity": "switch.mini_round_clock_2_grow_clock_show_time",
         "name": "Show the time"
       },
@@ -2111,6 +2135,18 @@
       {
         "entity": "number.mini_round_clock_3_grow_clock_animation_interval",
         "name": "Animation interval"
+      },
+      {
+        "entity": "switch.mini_round_clock_3_grow_clock_repaint_every_second",
+        "name": "Repaint every second (test)"
+      },
+      {
+        "entity": "switch.mini_round_clock_3_grow_clock_freeze_the_eyes_test",
+        "name": "Freeze the eyes (test)"
+      },
+      {
+        "entity": "sensor.mini_round_clock_3_grow_clock_frame_time",
+        "name": "Frame time"
       },
       {
         "entity": "switch.mini_round_clock_3_grow_clock_show_time",

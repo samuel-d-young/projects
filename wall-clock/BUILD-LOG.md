@@ -5475,3 +5475,84 @@ Flash: [======    ]  61.0% (used 1118671 bytes from 1835008 bytes)
 
 0 errors. Compiled, not just `esphome config`-ed — the change is in a lambda,
 and `config` never compiles lambdas.
+
+---
+
+## 2026-09-04 (later) — "The eyes aren't flickering, but the sun and clock are"
+
+That sentence falsifies the supply theory in one line. A sagging 5 V rail dims
+the whole panel through a single backlight PWM channel; it cannot pick out the
+sun and leave the eyes alone. **Spatially selective flicker is content.** The
+limiter from earlier today stays — a ring that can ask for 1.9 A with no budget
+is still a defect — but it is not the flicker, and the build log should not
+pretend otherwise.
+
+### Reading the driver instead of guessing again
+
+Checked, in 2026.6.5 source, every step of the partial path:
+
+* `start_clipping(left, top, right, bottom)` → `Rect(56, 0, 248, 244)`, so the
+  clip is x 56–303, y 0–243. CX/CY are 180, the sun sits at (180, 42) with rays
+  to r=22, the eyes at y 90–202. **Both are inside the clip.**
+* `mipi_spi::fill()` **is** overridden — but it checks `get_clipping().is_set()`
+  and falls back to `display::Display::fill()` when a clip is active. So a
+  clipped fill really does touch only the clip.
+* `draw_pixel_at` rejects out-of-band pixels *before* widening the watermark, so
+  each band's dirty rectangle is honest.
+* The band abort (`x_low_ > x_high_ → return`) fires only on band 5, which is
+  last, so nothing is lost.
+
+The partial path is sound. Which means the renderer cannot be treating the sun
+and the eyes differently, and I could not explain the symptom from it. Six
+theories in, that is the point to stop theorising.
+
+### What the reading did turn up, and it is not small
+
+The 1 s dispatcher ended with an **unconditional** `component.update`. Every
+second. Always. And a full frame has no clip, so `fill()` takes its fast path:
+wipe the band buffer, mark the **entire band** dirty. So every one of those
+pushed the whole panel down the bus — **259,200 bytes, ~52 ms at 40 MHz, at a
+panel that refreshes in about 16** — sixty times a minute, on a screen where
+between one second and the next almost nothing changes.
+
+It is also **the only path that draws the time**, since the time sits below the
+animation clip. Sam reports the time flickering. That is at minimum a strong
+coincidence, and at best the whole answer.
+
+### Repaint on change, not on the tick
+
+The dispatcher now hashes everything a full frame draws that an animation frame
+does not — field colour, the star row (the *count* lit, not `grow_frac`, which
+slides every second), the countdown, the digital time — and repaints only when
+that key moves. The eyes, z's, sky and "shh" are deliberately **not** in the
+key: they are inside the clip and the partial frames own them, so hashing them
+would repaint the whole panel on every blink, which is the behaviour being
+removed.
+
+Gated in grow mode only — the ordinary face has a second hand and has earned
+its second. A **10 s floor** underneath: if the key is ever missing an input the
+panel goes stale for ten seconds rather than forever. A bounded bug instead of
+an unbounded one.
+
+In grow mode this takes the panel from **60 full repaints a minute to about 1**.
+
+### The A/B, so this is a test and not another assertion
+
+New switch **"Grow clock repaint every second"**, default off (= the fix), on
+= the old behaviour. Flip it and compare on the glass in a few seconds, no
+reflash. Together with "Freeze the eyes" and the "Frame time" sensor already
+flashed, that is a 2×2 that isolates full frames from partial frames:
+
+| animate | repaint every second | what it means if it flickers |
+| --- | --- | --- |
+| off | on | full frames alone |
+| on | off | partial frames alone |
+| on | on | current behaviour |
+| off | off | neither — something outside the renderer |
+
+```
+RAM:   [==        ]  19.1% (used 62460 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1119603 bytes from 1835008 bytes)
+```
+
+0 errors, compiled.
