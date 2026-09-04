@@ -66,132 +66,7 @@
   - type: grid
     cards:
     - type: entities
-      title: Mini Round Clock — Ring
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: number.mini_round_clock_ring_led_count
-        name: LED count
-      - entity: number.mini_round_clock_twelve_o_clock_offset
-        name: Twelve o'clock offset
-      - entity: select.mini_round_clock_mode
-        name: Mode
-      - entity: switch.mini_round_clock_ring_leds
-        name: Ring LEDs on
-      - type: section
-        label: Hands
-      - entity: select.mini_round_clock_second_hand_style
-        name: Second hand
-      - entity: switch.mini_round_clock_ring_second_hand
-        name: Show second hand
-      - type: section
-        label: Markers
-      - entity: select.mini_round_clock_ring_hour_markers
-        name: Markers
-      - entity: number.mini_round_clock_hour_marker_brightness
-        name: Marker brightness
-      - type: section
-        label: Timer + status
-      - entity: select.mini_round_clock_timer_countdown_style
-        name: Countdown style
-      - entity: select.mini_round_clock_timer_arc_direction
-        name: Arc direction
-      - entity: switch.mini_round_clock_show_extra_timer_pips
-        name: Extra timer pips
-      - entity: switch.mini_round_clock_show_status_hints
-        name: Status hints
-      - entity: number.mini_round_clock_status_pixel_brightness
-        name: Status brightness
-      - entity: switch.mini_round_clock_status_bin_night
-        name:  Bin night (12 o'clock)
-      - entity: switch.mini_round_clock_status_garage_open
-        name:  Garage open (3 o'clock)
-      - entity: switch.mini_round_clock_status_driveway
-        name:  Driveway (9 o'clock)
-      - entity: switch.mini_round_clock_status_who_is_home
-        name:  Who is home (6 o'clock)
-    - type: entities
-      title: Mini Round Clock — Colour
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_colour_theme
-        name: Theme
-      - type: section
-        label: Hour hand
-      - entity: number.mini_round_clock_hour_hue
-        name: Hue
-      - entity: number.mini_round_clock_hour_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_hour_intensity
-        name: Intensity
-      - type: section
-        label: Minute hand
-      - entity: number.mini_round_clock_minute_hue
-        name: Hue
-      - entity: number.mini_round_clock_minute_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_minute_intensity
-        name: Intensity
-      - type: section
-        label: Second hand
-      - entity: number.mini_round_clock_second_hue
-        name: Hue
-      - entity: number.mini_round_clock_second_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_second_intensity
-        name: Intensity
-      - type: section
-        label: Timer arc
-      - entity: number.mini_round_clock_timer_hue
-        name: Hue
-      - entity: number.mini_round_clock_timer_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_timer_intensity
-        name: Intensity
-    - type: entities
-      title: Mini Round Clock — Screen
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: switch.mini_round_clock_display
-        name: Everything on (master)
-      - entity: switch.mini_round_clock_screen_on
-        name: Screen on
-      - entity: select.mini_round_clock_screen
-        name: Which panel
-      - entity: select.mini_round_clock_face
-        name: Face
-      - entity: select.mini_round_clock_screen_hour_markers
-        name: Hour markers
-      - entity: switch.mini_round_clock_screen_second_hand
-        name: Second hand
-      - entity: switch.mini_round_clock_24_hour_time
-        name: 24 hour time
-      - entity: select.mini_round_clock_digital_time_size
-        name: Digital time size
-      - type: section
-        label: On an analogue face
-      - entity: select.mini_round_clock_digital_time_on_analog
-        name: Digital time
-      - type: section
-        label: While a timer runs
-      - entity: select.mini_round_clock_screen_during_a_timer
-        name: Screen shows
-      - type: section
-        label: Subtitle lines
-      - entity: switch.mini_round_clock_show_date
-        name: Date
-      - entity: switch.mini_round_clock_show_day_of_week
-        name: Day of week
-      - entity: switch.mini_round_clock_show_weather
-        name: Weather
-      - type: section
-        label: Background
-      - entity: number.mini_round_clock_weather_tint_strength
-        name: Weather tint
-    - type: entities
-      title: Mini Round Clock — Grow clock
+      title: 'Mini Round Clock — Grow clock: times'
       show_header_toggle: false
       state_color: true
       entities:
@@ -249,8 +124,92 @@
         name: '...this long after wake'
       - entity: sensor.mini_round_clock_grow_clock_minutes_to_wake
         name: Minutes to wake
+    - type: entities
+      title: 'Mini Round Clock — Grow clock: brightness and sound'
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: switch.mini_round_clock_grow_clock_dim_at_night
+        name: Dim at night
+      - entity: number.mini_round_clock_grow_clock_ring_night_brightness
+        name: Ring at night
+      - entity: number.mini_round_clock_grow_clock_ring_day_brightness
+        name: Ring by day
+      - entity: number.mini_round_clock_grow_clock_screen_night_brightness
+        name: Screen at night
+      - entity: number.mini_round_clock_grow_clock_screen_day_brightness
+        name: Screen by day
+      - entity: number.mini_round_clock_grow_clock_sunrise_fade_minutes
+        name: Sunrise fade
       - type: section
-        label: Look
+        label: Sound
+      - entity: switch.mini_round_clock_grow_clock_respond_to_sound
+        name: Respond to sound
+      - entity: number.mini_round_clock_grow_clock_sound_response_seconds
+        name: Respond for
+      - entity: sensor.mini_round_clock_grow_clock_sound_events
+        name: Sound events since boot
+      - entity: input_boolean.wall_clock_grow_sound
+        name: 'Test: pretend a sound'
+    visibility: &id001
+    - condition: state
+      entity: input_select.wall_clock_target
+      state: Mini Round Clock
+    - condition: state
+      entity: binary_sensor.mini_round_clock_status
+      state: 'on'
+  - type: grid
+    cards:
+    - type: entities
+      title: Mini Round Clock — Ring
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: number.mini_round_clock_ring_led_count
+        name: LED count
+      - entity: number.mini_round_clock_twelve_o_clock_offset
+        name: Twelve o'clock offset
+      - entity: select.mini_round_clock_mode
+        name: Mode
+      - entity: switch.mini_round_clock_ring_leds
+        name: Ring LEDs on
+      - type: section
+        label: Hands
+      - entity: select.mini_round_clock_second_hand_style
+        name: Second hand
+      - entity: switch.mini_round_clock_ring_second_hand
+        name: Show second hand
+      - type: section
+        label: Markers
+      - entity: select.mini_round_clock_ring_hour_markers
+        name: Markers
+      - entity: number.mini_round_clock_hour_marker_brightness
+        name: Marker brightness
+      - type: section
+        label: Timer + status
+      - entity: select.mini_round_clock_timer_countdown_style
+        name: Countdown style
+      - entity: select.mini_round_clock_timer_arc_direction
+        name: Arc direction
+      - entity: switch.mini_round_clock_show_extra_timer_pips
+        name: Extra timer pips
+      - entity: switch.mini_round_clock_show_status_hints
+        name: Status hints
+      - entity: number.mini_round_clock_status_pixel_brightness
+        name: Status brightness
+      - entity: switch.mini_round_clock_status_bin_night
+        name:  Bin night (12 o'clock)
+      - entity: switch.mini_round_clock_status_garage_open
+        name:  Garage open (3 o'clock)
+      - entity: switch.mini_round_clock_status_driveway
+        name:  Driveway (9 o'clock)
+      - entity: switch.mini_round_clock_status_who_is_home
+        name:  Who is home (6 o'clock)
+    - type: entities
+      title: 'Mini Round Clock — Grow clock: look'
+      show_header_toggle: false
+      state_color: true
+      entities:
       - entity: select.mini_round_clock_grow_clock_sleep_colour
         name: Sleep colour
       - entity: select.mini_round_clock_grow_clock_almost_colour
@@ -281,49 +240,6 @@
         name: Wake-up effect for
       - entity: select.mini_round_clock_grow_clock_expression
         name: Force an expression (demo)
-      - type: section
-        label: Night
-      - entity: switch.mini_round_clock_grow_clock_dim_at_night
-        name: Dim at night
-      - entity: number.mini_round_clock_grow_clock_ring_night_brightness
-        name: Ring at night
-      - entity: number.mini_round_clock_grow_clock_ring_day_brightness
-        name: Ring by day
-      - entity: number.mini_round_clock_grow_clock_screen_night_brightness
-        name: Screen at night
-      - entity: number.mini_round_clock_grow_clock_screen_day_brightness
-        name: Screen by day
-      - entity: number.mini_round_clock_grow_clock_sunrise_fade_minutes
-        name: Sunrise fade
-      - type: section
-        label: Sound
-      - entity: switch.mini_round_clock_grow_clock_respond_to_sound
-        name: Respond to sound
-      - entity: number.mini_round_clock_grow_clock_sound_response_seconds
-        name: Respond for
-      - entity: sensor.mini_round_clock_grow_clock_sound_events
-        name: Sound events since boot
-      - entity: input_boolean.wall_clock_grow_sound
-        name: 'Test: pretend a sound'
-    - type: entities
-      title: Mini Round Clock — Alert
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_alert_pattern
-        name: Pattern
-      - entity: number.mini_round_clock_alert_hue
-        name: Hue
-      - entity: number.mini_round_clock_alert_shows_for
-        name: Clock shows it for
-      - type: section
-        label: The alarm itself
-      - entity: input_button.wall_clock_timer_dismiss
-        name: Dismiss the alarm
-      - entity: input_number.wall_clock_alert_repeat_seconds
-        name: Re-announce every
-      - entity: input_number.wall_clock_alert_repeat_max
-        name: Repeats (0 = until cancelled)
     - type: entities
       title: Mini Round Clock — Brightness
       show_header_toggle: false
@@ -345,13 +261,109 @@
         name: Night ends
       - entity: switch.mini_round_clock_blank_screen_at_night
         name: Blank screen at night
-    visibility: &id001
-    - condition: state
-      entity: input_select.wall_clock_target
-      state: Mini Round Clock
-    - condition: state
-      entity: binary_sensor.mini_round_clock_status
-      state: 'on'
+    visibility: *id001
+  - type: grid
+    cards:
+    - type: entities
+      title: Mini Round Clock — Screen
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: switch.mini_round_clock_display
+        name: Everything on (master)
+      - entity: switch.mini_round_clock_screen_on
+        name: Screen on
+      - entity: select.mini_round_clock_screen
+        name: Which panel
+      - entity: select.mini_round_clock_face
+        name: Face
+      - entity: select.mini_round_clock_screen_hour_markers
+        name: Hour markers
+      - entity: switch.mini_round_clock_screen_second_hand
+        name: Second hand
+      - entity: switch.mini_round_clock_24_hour_time
+        name: 24 hour time
+      - entity: select.mini_round_clock_digital_time_size
+        name: Digital time size
+      - type: section
+        label: On an analogue face
+      - entity: select.mini_round_clock_digital_time_on_analog
+        name: Digital time
+      - type: section
+        label: While a timer runs
+      - entity: select.mini_round_clock_screen_during_a_timer
+        name: Screen shows
+      - type: section
+        label: Subtitle lines
+      - entity: switch.mini_round_clock_show_date
+        name: Date
+      - entity: switch.mini_round_clock_show_day_of_week
+        name: Day of week
+      - entity: switch.mini_round_clock_show_weather
+        name: Weather
+      - type: section
+        label: Background
+      - entity: number.mini_round_clock_weather_tint_strength
+        name: Weather tint
+    - type: entities
+      title: Mini Round Clock — Colour
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_colour_theme
+        name: Theme
+      - type: section
+        label: Hour hand
+      - entity: number.mini_round_clock_hour_hue
+        name: Hue
+      - entity: number.mini_round_clock_hour_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_hour_intensity
+        name: Intensity
+      - type: section
+        label: Minute hand
+      - entity: number.mini_round_clock_minute_hue
+        name: Hue
+      - entity: number.mini_round_clock_minute_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_minute_intensity
+        name: Intensity
+      - type: section
+        label: Second hand
+      - entity: number.mini_round_clock_second_hue
+        name: Hue
+      - entity: number.mini_round_clock_second_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_second_intensity
+        name: Intensity
+      - type: section
+        label: Timer arc
+      - entity: number.mini_round_clock_timer_hue
+        name: Hue
+      - entity: number.mini_round_clock_timer_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_timer_intensity
+        name: Intensity
+    - type: entities
+      title: Mini Round Clock — Alert
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_alert_pattern
+        name: Pattern
+      - entity: number.mini_round_clock_alert_hue
+        name: Hue
+      - entity: number.mini_round_clock_alert_shows_for
+        name: Clock shows it for
+      - type: section
+        label: The alarm itself
+      - entity: input_button.wall_clock_timer_dismiss
+        name: Dismiss the alarm
+      - entity: input_number.wall_clock_alert_repeat_seconds
+        name: Re-announce every
+      - entity: input_number.wall_clock_alert_repeat_max
+        name: Repeats (0 = until cancelled)
+    visibility: *id001
   - type: grid
     cards:
     - type: markdown
@@ -372,132 +384,7 @@
   - type: grid
     cards:
     - type: entities
-      title: Mini Round Clock 2 — Ring
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: number.mini_round_clock_2_ring_led_count
-        name: LED count
-      - entity: number.mini_round_clock_2_twelve_o_clock_offset
-        name: Twelve o'clock offset
-      - entity: select.mini_round_clock_2_mode
-        name: Mode
-      - entity: switch.mini_round_clock_2_ring_leds
-        name: Ring LEDs on
-      - type: section
-        label: Hands
-      - entity: select.mini_round_clock_2_second_hand_style
-        name: Second hand
-      - entity: switch.mini_round_clock_2_ring_second_hand
-        name: Show second hand
-      - type: section
-        label: Markers
-      - entity: select.mini_round_clock_2_ring_hour_markers
-        name: Markers
-      - entity: number.mini_round_clock_2_hour_marker_brightness
-        name: Marker brightness
-      - type: section
-        label: Timer + status
-      - entity: select.mini_round_clock_2_timer_countdown_style
-        name: Countdown style
-      - entity: select.mini_round_clock_2_timer_arc_direction
-        name: Arc direction
-      - entity: switch.mini_round_clock_2_show_extra_timer_pips
-        name: Extra timer pips
-      - entity: switch.mini_round_clock_2_show_status_hints
-        name: Status hints
-      - entity: number.mini_round_clock_2_status_pixel_brightness
-        name: Status brightness
-      - entity: switch.mini_round_clock_2_status_bin_night
-        name:  Bin night (12 o'clock)
-      - entity: switch.mini_round_clock_2_status_garage_open
-        name:  Garage open (3 o'clock)
-      - entity: switch.mini_round_clock_2_status_driveway
-        name:  Driveway (9 o'clock)
-      - entity: switch.mini_round_clock_2_status_who_is_home
-        name:  Who is home (6 o'clock)
-    - type: entities
-      title: Mini Round Clock 2 — Colour
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_2_colour_theme
-        name: Theme
-      - type: section
-        label: Hour hand
-      - entity: number.mini_round_clock_2_hour_hue
-        name: Hue
-      - entity: number.mini_round_clock_2_hour_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_2_hour_intensity
-        name: Intensity
-      - type: section
-        label: Minute hand
-      - entity: number.mini_round_clock_2_minute_hue
-        name: Hue
-      - entity: number.mini_round_clock_2_minute_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_2_minute_intensity
-        name: Intensity
-      - type: section
-        label: Second hand
-      - entity: number.mini_round_clock_2_second_hue
-        name: Hue
-      - entity: number.mini_round_clock_2_second_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_2_second_intensity
-        name: Intensity
-      - type: section
-        label: Timer arc
-      - entity: number.mini_round_clock_2_timer_hue
-        name: Hue
-      - entity: number.mini_round_clock_2_timer_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_2_timer_intensity
-        name: Intensity
-    - type: entities
-      title: Mini Round Clock 2 — Screen
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: switch.mini_round_clock_2_display
-        name: Everything on (master)
-      - entity: switch.mini_round_clock_2_screen_on
-        name: Screen on
-      - entity: select.mini_round_clock_2_screen
-        name: Which panel
-      - entity: select.mini_round_clock_2_face
-        name: Face
-      - entity: select.mini_round_clock_2_screen_hour_markers
-        name: Hour markers
-      - entity: switch.mini_round_clock_2_screen_second_hand
-        name: Second hand
-      - entity: switch.mini_round_clock_2_24_hour_time
-        name: 24 hour time
-      - entity: select.mini_round_clock_2_digital_time_size
-        name: Digital time size
-      - type: section
-        label: On an analogue face
-      - entity: select.mini_round_clock_2_digital_time_on_analog
-        name: Digital time
-      - type: section
-        label: While a timer runs
-      - entity: select.mini_round_clock_2_screen_during_a_timer
-        name: Screen shows
-      - type: section
-        label: Subtitle lines
-      - entity: switch.mini_round_clock_2_show_date
-        name: Date
-      - entity: switch.mini_round_clock_2_show_day_of_week
-        name: Day of week
-      - entity: switch.mini_round_clock_2_show_weather
-        name: Weather
-      - type: section
-        label: Background
-      - entity: number.mini_round_clock_2_weather_tint_strength
-        name: Weather tint
-    - type: entities
-      title: Mini Round Clock 2 — Grow clock
+      title: 'Mini Round Clock 2 — Grow clock: times'
       show_header_toggle: false
       state_color: true
       entities:
@@ -555,8 +442,92 @@
         name: '...this long after wake'
       - entity: sensor.mini_round_clock_2_grow_clock_minutes_to_wake
         name: Minutes to wake
+    - type: entities
+      title: 'Mini Round Clock 2 — Grow clock: brightness and sound'
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: switch.mini_round_clock_2_grow_clock_dim_at_night
+        name: Dim at night
+      - entity: number.mini_round_clock_2_grow_clock_ring_night_brightness
+        name: Ring at night
+      - entity: number.mini_round_clock_2_grow_clock_ring_day_brightness
+        name: Ring by day
+      - entity: number.mini_round_clock_2_grow_clock_screen_night_brightness
+        name: Screen at night
+      - entity: number.mini_round_clock_2_grow_clock_screen_day_brightness
+        name: Screen by day
+      - entity: number.mini_round_clock_2_grow_clock_sunrise_fade_minutes
+        name: Sunrise fade
       - type: section
-        label: Look
+        label: Sound
+      - entity: switch.mini_round_clock_2_grow_clock_respond_to_sound
+        name: Respond to sound
+      - entity: number.mini_round_clock_2_grow_clock_sound_response_seconds
+        name: Respond for
+      - entity: sensor.mini_round_clock_2_grow_clock_sound_events
+        name: Sound events since boot
+      - entity: input_boolean.wall_clock_grow_sound
+        name: 'Test: pretend a sound'
+    visibility: &id002
+    - condition: state
+      entity: input_select.wall_clock_target
+      state: Mini Round Clock 2
+    - condition: state
+      entity: binary_sensor.mini_round_clock_2_status
+      state: 'on'
+  - type: grid
+    cards:
+    - type: entities
+      title: Mini Round Clock 2 — Ring
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: number.mini_round_clock_2_ring_led_count
+        name: LED count
+      - entity: number.mini_round_clock_2_twelve_o_clock_offset
+        name: Twelve o'clock offset
+      - entity: select.mini_round_clock_2_mode
+        name: Mode
+      - entity: switch.mini_round_clock_2_ring_leds
+        name: Ring LEDs on
+      - type: section
+        label: Hands
+      - entity: select.mini_round_clock_2_second_hand_style
+        name: Second hand
+      - entity: switch.mini_round_clock_2_ring_second_hand
+        name: Show second hand
+      - type: section
+        label: Markers
+      - entity: select.mini_round_clock_2_ring_hour_markers
+        name: Markers
+      - entity: number.mini_round_clock_2_hour_marker_brightness
+        name: Marker brightness
+      - type: section
+        label: Timer + status
+      - entity: select.mini_round_clock_2_timer_countdown_style
+        name: Countdown style
+      - entity: select.mini_round_clock_2_timer_arc_direction
+        name: Arc direction
+      - entity: switch.mini_round_clock_2_show_extra_timer_pips
+        name: Extra timer pips
+      - entity: switch.mini_round_clock_2_show_status_hints
+        name: Status hints
+      - entity: number.mini_round_clock_2_status_pixel_brightness
+        name: Status brightness
+      - entity: switch.mini_round_clock_2_status_bin_night
+        name:  Bin night (12 o'clock)
+      - entity: switch.mini_round_clock_2_status_garage_open
+        name:  Garage open (3 o'clock)
+      - entity: switch.mini_round_clock_2_status_driveway
+        name:  Driveway (9 o'clock)
+      - entity: switch.mini_round_clock_2_status_who_is_home
+        name:  Who is home (6 o'clock)
+    - type: entities
+      title: 'Mini Round Clock 2 — Grow clock: look'
+      show_header_toggle: false
+      state_color: true
+      entities:
       - entity: select.mini_round_clock_2_grow_clock_sleep_colour
         name: Sleep colour
       - entity: select.mini_round_clock_2_grow_clock_almost_colour
@@ -587,49 +558,6 @@
         name: Wake-up effect for
       - entity: select.mini_round_clock_2_grow_clock_expression
         name: Force an expression (demo)
-      - type: section
-        label: Night
-      - entity: switch.mini_round_clock_2_grow_clock_dim_at_night
-        name: Dim at night
-      - entity: number.mini_round_clock_2_grow_clock_ring_night_brightness
-        name: Ring at night
-      - entity: number.mini_round_clock_2_grow_clock_ring_day_brightness
-        name: Ring by day
-      - entity: number.mini_round_clock_2_grow_clock_screen_night_brightness
-        name: Screen at night
-      - entity: number.mini_round_clock_2_grow_clock_screen_day_brightness
-        name: Screen by day
-      - entity: number.mini_round_clock_2_grow_clock_sunrise_fade_minutes
-        name: Sunrise fade
-      - type: section
-        label: Sound
-      - entity: switch.mini_round_clock_2_grow_clock_respond_to_sound
-        name: Respond to sound
-      - entity: number.mini_round_clock_2_grow_clock_sound_response_seconds
-        name: Respond for
-      - entity: sensor.mini_round_clock_2_grow_clock_sound_events
-        name: Sound events since boot
-      - entity: input_boolean.wall_clock_grow_sound
-        name: 'Test: pretend a sound'
-    - type: entities
-      title: Mini Round Clock 2 — Alert
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_2_alert_pattern
-        name: Pattern
-      - entity: number.mini_round_clock_2_alert_hue
-        name: Hue
-      - entity: number.mini_round_clock_2_alert_shows_for
-        name: Clock shows it for
-      - type: section
-        label: The alarm itself
-      - entity: input_button.wall_clock_timer_dismiss
-        name: Dismiss the alarm
-      - entity: input_number.wall_clock_alert_repeat_seconds
-        name: Re-announce every
-      - entity: input_number.wall_clock_alert_repeat_max
-        name: Repeats (0 = until cancelled)
     - type: entities
       title: Mini Round Clock 2 — Brightness
       show_header_toggle: false
@@ -651,13 +579,109 @@
         name: Night ends
       - entity: switch.mini_round_clock_2_blank_screen_at_night
         name: Blank screen at night
-    visibility: &id002
-    - condition: state
-      entity: input_select.wall_clock_target
-      state: Mini Round Clock 2
-    - condition: state
-      entity: binary_sensor.mini_round_clock_2_status
-      state: 'on'
+    visibility: *id002
+  - type: grid
+    cards:
+    - type: entities
+      title: Mini Round Clock 2 — Screen
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: switch.mini_round_clock_2_display
+        name: Everything on (master)
+      - entity: switch.mini_round_clock_2_screen_on
+        name: Screen on
+      - entity: select.mini_round_clock_2_screen
+        name: Which panel
+      - entity: select.mini_round_clock_2_face
+        name: Face
+      - entity: select.mini_round_clock_2_screen_hour_markers
+        name: Hour markers
+      - entity: switch.mini_round_clock_2_screen_second_hand
+        name: Second hand
+      - entity: switch.mini_round_clock_2_24_hour_time
+        name: 24 hour time
+      - entity: select.mini_round_clock_2_digital_time_size
+        name: Digital time size
+      - type: section
+        label: On an analogue face
+      - entity: select.mini_round_clock_2_digital_time_on_analog
+        name: Digital time
+      - type: section
+        label: While a timer runs
+      - entity: select.mini_round_clock_2_screen_during_a_timer
+        name: Screen shows
+      - type: section
+        label: Subtitle lines
+      - entity: switch.mini_round_clock_2_show_date
+        name: Date
+      - entity: switch.mini_round_clock_2_show_day_of_week
+        name: Day of week
+      - entity: switch.mini_round_clock_2_show_weather
+        name: Weather
+      - type: section
+        label: Background
+      - entity: number.mini_round_clock_2_weather_tint_strength
+        name: Weather tint
+    - type: entities
+      title: Mini Round Clock 2 — Colour
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_2_colour_theme
+        name: Theme
+      - type: section
+        label: Hour hand
+      - entity: number.mini_round_clock_2_hour_hue
+        name: Hue
+      - entity: number.mini_round_clock_2_hour_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_2_hour_intensity
+        name: Intensity
+      - type: section
+        label: Minute hand
+      - entity: number.mini_round_clock_2_minute_hue
+        name: Hue
+      - entity: number.mini_round_clock_2_minute_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_2_minute_intensity
+        name: Intensity
+      - type: section
+        label: Second hand
+      - entity: number.mini_round_clock_2_second_hue
+        name: Hue
+      - entity: number.mini_round_clock_2_second_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_2_second_intensity
+        name: Intensity
+      - type: section
+        label: Timer arc
+      - entity: number.mini_round_clock_2_timer_hue
+        name: Hue
+      - entity: number.mini_round_clock_2_timer_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_2_timer_intensity
+        name: Intensity
+    - type: entities
+      title: Mini Round Clock 2 — Alert
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_2_alert_pattern
+        name: Pattern
+      - entity: number.mini_round_clock_2_alert_hue
+        name: Hue
+      - entity: number.mini_round_clock_2_alert_shows_for
+        name: Clock shows it for
+      - type: section
+        label: The alarm itself
+      - entity: input_button.wall_clock_timer_dismiss
+        name: Dismiss the alarm
+      - entity: input_number.wall_clock_alert_repeat_seconds
+        name: Re-announce every
+      - entity: input_number.wall_clock_alert_repeat_max
+        name: Repeats (0 = until cancelled)
+    visibility: *id002
   - type: grid
     cards:
     - type: markdown
@@ -678,132 +702,7 @@
   - type: grid
     cards:
     - type: entities
-      title: Mini Round Clock 3 — Ring
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: number.mini_round_clock_3_ring_led_count
-        name: LED count
-      - entity: number.mini_round_clock_3_twelve_o_clock_offset
-        name: Twelve o'clock offset
-      - entity: select.mini_round_clock_3_mode
-        name: Mode
-      - entity: switch.mini_round_clock_3_ring_leds
-        name: Ring LEDs on
-      - type: section
-        label: Hands
-      - entity: select.mini_round_clock_3_second_hand_style
-        name: Second hand
-      - entity: switch.mini_round_clock_3_ring_second_hand
-        name: Show second hand
-      - type: section
-        label: Markers
-      - entity: select.mini_round_clock_3_ring_hour_markers
-        name: Markers
-      - entity: number.mini_round_clock_3_hour_marker_brightness
-        name: Marker brightness
-      - type: section
-        label: Timer + status
-      - entity: select.mini_round_clock_3_timer_countdown_style
-        name: Countdown style
-      - entity: select.mini_round_clock_3_timer_arc_direction
-        name: Arc direction
-      - entity: switch.mini_round_clock_3_show_extra_timer_pips
-        name: Extra timer pips
-      - entity: switch.mini_round_clock_3_show_status_hints
-        name: Status hints
-      - entity: number.mini_round_clock_3_status_pixel_brightness
-        name: Status brightness
-      - entity: switch.mini_round_clock_3_status_bin_night
-        name:  Bin night (12 o'clock)
-      - entity: switch.mini_round_clock_3_status_garage_open
-        name:  Garage open (3 o'clock)
-      - entity: switch.mini_round_clock_3_status_driveway
-        name:  Driveway (9 o'clock)
-      - entity: switch.mini_round_clock_3_status_who_is_home
-        name:  Who is home (6 o'clock)
-    - type: entities
-      title: Mini Round Clock 3 — Colour
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_3_colour_theme
-        name: Theme
-      - type: section
-        label: Hour hand
-      - entity: number.mini_round_clock_3_hour_hue
-        name: Hue
-      - entity: number.mini_round_clock_3_hour_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_3_hour_intensity
-        name: Intensity
-      - type: section
-        label: Minute hand
-      - entity: number.mini_round_clock_3_minute_hue
-        name: Hue
-      - entity: number.mini_round_clock_3_minute_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_3_minute_intensity
-        name: Intensity
-      - type: section
-        label: Second hand
-      - entity: number.mini_round_clock_3_second_hue
-        name: Hue
-      - entity: number.mini_round_clock_3_second_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_3_second_intensity
-        name: Intensity
-      - type: section
-        label: Timer arc
-      - entity: number.mini_round_clock_3_timer_hue
-        name: Hue
-      - entity: number.mini_round_clock_3_timer_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_3_timer_intensity
-        name: Intensity
-    - type: entities
-      title: Mini Round Clock 3 — Screen
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: switch.mini_round_clock_3_display
-        name: Everything on (master)
-      - entity: switch.mini_round_clock_3_screen_on
-        name: Screen on
-      - entity: select.mini_round_clock_3_screen
-        name: Which panel
-      - entity: select.mini_round_clock_3_face
-        name: Face
-      - entity: select.mini_round_clock_3_screen_hour_markers
-        name: Hour markers
-      - entity: switch.mini_round_clock_3_screen_second_hand
-        name: Second hand
-      - entity: switch.mini_round_clock_3_24_hour_time
-        name: 24 hour time
-      - entity: select.mini_round_clock_3_digital_time_size
-        name: Digital time size
-      - type: section
-        label: On an analogue face
-      - entity: select.mini_round_clock_3_digital_time_on_analog
-        name: Digital time
-      - type: section
-        label: While a timer runs
-      - entity: select.mini_round_clock_3_screen_during_a_timer
-        name: Screen shows
-      - type: section
-        label: Subtitle lines
-      - entity: switch.mini_round_clock_3_show_date
-        name: Date
-      - entity: switch.mini_round_clock_3_show_day_of_week
-        name: Day of week
-      - entity: switch.mini_round_clock_3_show_weather
-        name: Weather
-      - type: section
-        label: Background
-      - entity: number.mini_round_clock_3_weather_tint_strength
-        name: Weather tint
-    - type: entities
-      title: Mini Round Clock 3 — Grow clock
+      title: 'Mini Round Clock 3 — Grow clock: times'
       show_header_toggle: false
       state_color: true
       entities:
@@ -861,8 +760,92 @@
         name: '...this long after wake'
       - entity: sensor.mini_round_clock_3_grow_clock_minutes_to_wake
         name: Minutes to wake
+    - type: entities
+      title: 'Mini Round Clock 3 — Grow clock: brightness and sound'
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: switch.mini_round_clock_3_grow_clock_dim_at_night
+        name: Dim at night
+      - entity: number.mini_round_clock_3_grow_clock_ring_night_brightness
+        name: Ring at night
+      - entity: number.mini_round_clock_3_grow_clock_ring_day_brightness
+        name: Ring by day
+      - entity: number.mini_round_clock_3_grow_clock_screen_night_brightness
+        name: Screen at night
+      - entity: number.mini_round_clock_3_grow_clock_screen_day_brightness
+        name: Screen by day
+      - entity: number.mini_round_clock_3_grow_clock_sunrise_fade_minutes
+        name: Sunrise fade
       - type: section
-        label: Look
+        label: Sound
+      - entity: switch.mini_round_clock_3_grow_clock_respond_to_sound
+        name: Respond to sound
+      - entity: number.mini_round_clock_3_grow_clock_sound_response_seconds
+        name: Respond for
+      - entity: sensor.mini_round_clock_3_grow_clock_sound_events
+        name: Sound events since boot
+      - entity: input_boolean.wall_clock_grow_sound
+        name: 'Test: pretend a sound'
+    visibility: &id003
+    - condition: state
+      entity: input_select.wall_clock_target
+      state: Mini Round Clock 3
+    - condition: state
+      entity: binary_sensor.mini_round_clock_3_status
+      state: 'on'
+  - type: grid
+    cards:
+    - type: entities
+      title: Mini Round Clock 3 — Ring
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: number.mini_round_clock_3_ring_led_count
+        name: LED count
+      - entity: number.mini_round_clock_3_twelve_o_clock_offset
+        name: Twelve o'clock offset
+      - entity: select.mini_round_clock_3_mode
+        name: Mode
+      - entity: switch.mini_round_clock_3_ring_leds
+        name: Ring LEDs on
+      - type: section
+        label: Hands
+      - entity: select.mini_round_clock_3_second_hand_style
+        name: Second hand
+      - entity: switch.mini_round_clock_3_ring_second_hand
+        name: Show second hand
+      - type: section
+        label: Markers
+      - entity: select.mini_round_clock_3_ring_hour_markers
+        name: Markers
+      - entity: number.mini_round_clock_3_hour_marker_brightness
+        name: Marker brightness
+      - type: section
+        label: Timer + status
+      - entity: select.mini_round_clock_3_timer_countdown_style
+        name: Countdown style
+      - entity: select.mini_round_clock_3_timer_arc_direction
+        name: Arc direction
+      - entity: switch.mini_round_clock_3_show_extra_timer_pips
+        name: Extra timer pips
+      - entity: switch.mini_round_clock_3_show_status_hints
+        name: Status hints
+      - entity: number.mini_round_clock_3_status_pixel_brightness
+        name: Status brightness
+      - entity: switch.mini_round_clock_3_status_bin_night
+        name:  Bin night (12 o'clock)
+      - entity: switch.mini_round_clock_3_status_garage_open
+        name:  Garage open (3 o'clock)
+      - entity: switch.mini_round_clock_3_status_driveway
+        name:  Driveway (9 o'clock)
+      - entity: switch.mini_round_clock_3_status_who_is_home
+        name:  Who is home (6 o'clock)
+    - type: entities
+      title: 'Mini Round Clock 3 — Grow clock: look'
+      show_header_toggle: false
+      state_color: true
+      entities:
       - entity: select.mini_round_clock_3_grow_clock_sleep_colour
         name: Sleep colour
       - entity: select.mini_round_clock_3_grow_clock_almost_colour
@@ -893,49 +876,6 @@
         name: Wake-up effect for
       - entity: select.mini_round_clock_3_grow_clock_expression
         name: Force an expression (demo)
-      - type: section
-        label: Night
-      - entity: switch.mini_round_clock_3_grow_clock_dim_at_night
-        name: Dim at night
-      - entity: number.mini_round_clock_3_grow_clock_ring_night_brightness
-        name: Ring at night
-      - entity: number.mini_round_clock_3_grow_clock_ring_day_brightness
-        name: Ring by day
-      - entity: number.mini_round_clock_3_grow_clock_screen_night_brightness
-        name: Screen at night
-      - entity: number.mini_round_clock_3_grow_clock_screen_day_brightness
-        name: Screen by day
-      - entity: number.mini_round_clock_3_grow_clock_sunrise_fade_minutes
-        name: Sunrise fade
-      - type: section
-        label: Sound
-      - entity: switch.mini_round_clock_3_grow_clock_respond_to_sound
-        name: Respond to sound
-      - entity: number.mini_round_clock_3_grow_clock_sound_response_seconds
-        name: Respond for
-      - entity: sensor.mini_round_clock_3_grow_clock_sound_events
-        name: Sound events since boot
-      - entity: input_boolean.wall_clock_grow_sound
-        name: 'Test: pretend a sound'
-    - type: entities
-      title: Mini Round Clock 3 — Alert
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_3_alert_pattern
-        name: Pattern
-      - entity: number.mini_round_clock_3_alert_hue
-        name: Hue
-      - entity: number.mini_round_clock_3_alert_shows_for
-        name: Clock shows it for
-      - type: section
-        label: The alarm itself
-      - entity: input_button.wall_clock_timer_dismiss
-        name: Dismiss the alarm
-      - entity: input_number.wall_clock_alert_repeat_seconds
-        name: Re-announce every
-      - entity: input_number.wall_clock_alert_repeat_max
-        name: Repeats (0 = until cancelled)
     - type: entities
       title: Mini Round Clock 3 — Brightness
       show_header_toggle: false
@@ -957,13 +897,109 @@
         name: Night ends
       - entity: switch.mini_round_clock_3_blank_screen_at_night
         name: Blank screen at night
-    visibility: &id003
-    - condition: state
-      entity: input_select.wall_clock_target
-      state: Mini Round Clock 3
-    - condition: state
-      entity: binary_sensor.mini_round_clock_3_status
-      state: 'on'
+    visibility: *id003
+  - type: grid
+    cards:
+    - type: entities
+      title: Mini Round Clock 3 — Screen
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: switch.mini_round_clock_3_display
+        name: Everything on (master)
+      - entity: switch.mini_round_clock_3_screen_on
+        name: Screen on
+      - entity: select.mini_round_clock_3_screen
+        name: Which panel
+      - entity: select.mini_round_clock_3_face
+        name: Face
+      - entity: select.mini_round_clock_3_screen_hour_markers
+        name: Hour markers
+      - entity: switch.mini_round_clock_3_screen_second_hand
+        name: Second hand
+      - entity: switch.mini_round_clock_3_24_hour_time
+        name: 24 hour time
+      - entity: select.mini_round_clock_3_digital_time_size
+        name: Digital time size
+      - type: section
+        label: On an analogue face
+      - entity: select.mini_round_clock_3_digital_time_on_analog
+        name: Digital time
+      - type: section
+        label: While a timer runs
+      - entity: select.mini_round_clock_3_screen_during_a_timer
+        name: Screen shows
+      - type: section
+        label: Subtitle lines
+      - entity: switch.mini_round_clock_3_show_date
+        name: Date
+      - entity: switch.mini_round_clock_3_show_day_of_week
+        name: Day of week
+      - entity: switch.mini_round_clock_3_show_weather
+        name: Weather
+      - type: section
+        label: Background
+      - entity: number.mini_round_clock_3_weather_tint_strength
+        name: Weather tint
+    - type: entities
+      title: Mini Round Clock 3 — Colour
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_3_colour_theme
+        name: Theme
+      - type: section
+        label: Hour hand
+      - entity: number.mini_round_clock_3_hour_hue
+        name: Hue
+      - entity: number.mini_round_clock_3_hour_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_3_hour_intensity
+        name: Intensity
+      - type: section
+        label: Minute hand
+      - entity: number.mini_round_clock_3_minute_hue
+        name: Hue
+      - entity: number.mini_round_clock_3_minute_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_3_minute_intensity
+        name: Intensity
+      - type: section
+        label: Second hand
+      - entity: number.mini_round_clock_3_second_hue
+        name: Hue
+      - entity: number.mini_round_clock_3_second_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_3_second_intensity
+        name: Intensity
+      - type: section
+        label: Timer arc
+      - entity: number.mini_round_clock_3_timer_hue
+        name: Hue
+      - entity: number.mini_round_clock_3_timer_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_3_timer_intensity
+        name: Intensity
+    - type: entities
+      title: Mini Round Clock 3 — Alert
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_3_alert_pattern
+        name: Pattern
+      - entity: number.mini_round_clock_3_alert_hue
+        name: Hue
+      - entity: number.mini_round_clock_3_alert_shows_for
+        name: Clock shows it for
+      - type: section
+        label: The alarm itself
+      - entity: input_button.wall_clock_timer_dismiss
+        name: Dismiss the alarm
+      - entity: input_number.wall_clock_alert_repeat_seconds
+        name: Re-announce every
+      - entity: input_number.wall_clock_alert_repeat_max
+        name: Repeats (0 = until cancelled)
+    visibility: *id003
   - type: grid
     cards:
     - type: markdown
@@ -1074,6 +1110,20 @@
 
 
         **A single blue dot just left of 6 o''clock is Sam''s presence pixel.** The twelve hour markers are faintly blue too, but they are dim and there are twelve of them, so one blue dot is the presence one.'
+    visibility: *id001
+  - type: grid
+    cards:
+    - type: markdown
+      content: '**How the grow clock reads.** Sleep colour with stars that go out one by one through the night; amber and a half-awake face for *almost time*; the wake colour and a smile when it is fine to get up; a yawn in the warning before bed. The eyes are Deskimon-style and move on their own — looks, blinks, smiles, yawns when it is late; *Animate the eyes* off leaves them still. While it is on, this clock shows nothing else — no hands, timers or status.
+
+
+        **Sound.** The clock has no microphone. *Test: pretend a sound* is the same helper anything in Home Assistant can pulse — a Voice PE hearing its wake word, a baby monitor, a noise sensor. See `packages/wall_clock_grow.yaml` for a ready-made example. During sleep it brightens in the **sleep** colour and says *shh*; it never shows the wake colour for a noise, because that would reward calling out.
+
+
+        **Overrides** last until the schedule next changes on its own, so *Wake now* at 6:40 lets go by itself at bedtime.'
+    visibility: *id001
+  - type: grid
+    cards:
     - type: markdown
       content: '### Mini Round Clock — Colour
 
@@ -1084,14 +1134,6 @@
 
 
         Status **pips** follow the timer arc at 62% and have no separate control. **mono** pins every saturation to zero and is the accessible palette.'
-    - type: markdown
-      content: '**How the grow clock reads.** Sleep colour with stars that go out one by one through the night; amber and a half-awake face for *almost time*; the wake colour and a smile when it is fine to get up; a yawn in the warning before bed. The eyes are Deskimon-style and move on their own — looks, blinks, smiles, yawns when it is late; *Animate the eyes* off leaves them still. While it is on, this clock shows nothing else — no hands, timers or status.
-
-
-        **Sound.** The clock has no microphone. *Test: pretend a sound* is the same helper anything in Home Assistant can pulse — a Voice PE hearing its wake word, a baby monitor, a noise sensor. See `packages/wall_clock_grow.yaml` for a ready-made example. During sleep it brightens in the **sleep** colour and says *shh*; it never shows the wake colour for a noise, because that would reward calling out.
-
-
-        **Overrides** last until the schedule next changes on its own, so *Wake now* at 6:40 lets go by itself at bedtime.'
     - type: markdown
       content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
 
@@ -1131,6 +1173,20 @@
 
 
         **A single blue dot just left of 6 o''clock is Sam''s presence pixel.** The twelve hour markers are faintly blue too, but they are dim and there are twelve of them, so one blue dot is the presence one.'
+    visibility: *id002
+  - type: grid
+    cards:
+    - type: markdown
+      content: '**How the grow clock reads.** Sleep colour with stars that go out one by one through the night; amber and a half-awake face for *almost time*; the wake colour and a smile when it is fine to get up; a yawn in the warning before bed. The eyes are Deskimon-style and move on their own — looks, blinks, smiles, yawns when it is late; *Animate the eyes* off leaves them still. While it is on, this clock shows nothing else — no hands, timers or status.
+
+
+        **Sound.** The clock has no microphone. *Test: pretend a sound* is the same helper anything in Home Assistant can pulse — a Voice PE hearing its wake word, a baby monitor, a noise sensor. See `packages/wall_clock_grow.yaml` for a ready-made example. During sleep it brightens in the **sleep** colour and says *shh*; it never shows the wake colour for a noise, because that would reward calling out.
+
+
+        **Overrides** last until the schedule next changes on its own, so *Wake now* at 6:40 lets go by itself at bedtime.'
+    visibility: *id002
+  - type: grid
+    cards:
     - type: markdown
       content: '### Mini Round Clock 2 — Colour
 
@@ -1141,14 +1197,6 @@
 
 
         Status **pips** follow the timer arc at 62% and have no separate control. **mono** pins every saturation to zero and is the accessible palette.'
-    - type: markdown
-      content: '**How the grow clock reads.** Sleep colour with stars that go out one by one through the night; amber and a half-awake face for *almost time*; the wake colour and a smile when it is fine to get up; a yawn in the warning before bed. The eyes are Deskimon-style and move on their own — looks, blinks, smiles, yawns when it is late; *Animate the eyes* off leaves them still. While it is on, this clock shows nothing else — no hands, timers or status.
-
-
-        **Sound.** The clock has no microphone. *Test: pretend a sound* is the same helper anything in Home Assistant can pulse — a Voice PE hearing its wake word, a baby monitor, a noise sensor. See `packages/wall_clock_grow.yaml` for a ready-made example. During sleep it brightens in the **sleep** colour and says *shh*; it never shows the wake colour for a noise, because that would reward calling out.
-
-
-        **Overrides** last until the schedule next changes on its own, so *Wake now* at 6:40 lets go by itself at bedtime.'
     - type: markdown
       content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
 
@@ -1188,6 +1236,20 @@
 
 
         **A single blue dot just left of 6 o''clock is Sam''s presence pixel.** The twelve hour markers are faintly blue too, but they are dim and there are twelve of them, so one blue dot is the presence one.'
+    visibility: *id003
+  - type: grid
+    cards:
+    - type: markdown
+      content: '**How the grow clock reads.** Sleep colour with stars that go out one by one through the night; amber and a half-awake face for *almost time*; the wake colour and a smile when it is fine to get up; a yawn in the warning before bed. The eyes are Deskimon-style and move on their own — looks, blinks, smiles, yawns when it is late; *Animate the eyes* off leaves them still. While it is on, this clock shows nothing else — no hands, timers or status.
+
+
+        **Sound.** The clock has no microphone. *Test: pretend a sound* is the same helper anything in Home Assistant can pulse — a Voice PE hearing its wake word, a baby monitor, a noise sensor. See `packages/wall_clock_grow.yaml` for a ready-made example. During sleep it brightens in the **sleep** colour and says *shh*; it never shows the wake colour for a noise, because that would reward calling out.
+
+
+        **Overrides** last until the schedule next changes on its own, so *Wake now* at 6:40 lets go by itself at bedtime.'
+    visibility: *id003
+  - type: grid
+    cards:
     - type: markdown
       content: '### Mini Round Clock 3 — Colour
 
@@ -1198,14 +1260,6 @@
 
 
         Status **pips** follow the timer arc at 62% and have no separate control. **mono** pins every saturation to zero and is the accessible palette.'
-    - type: markdown
-      content: '**How the grow clock reads.** Sleep colour with stars that go out one by one through the night; amber and a half-awake face for *almost time*; the wake colour and a smile when it is fine to get up; a yawn in the warning before bed. The eyes are Deskimon-style and move on their own — looks, blinks, smiles, yawns when it is late; *Animate the eyes* off leaves them still. While it is on, this clock shows nothing else — no hands, timers or status.
-
-
-        **Sound.** The clock has no microphone. *Test: pretend a sound* is the same helper anything in Home Assistant can pulse — a Voice PE hearing its wake word, a baby monitor, a noise sensor. See `packages/wall_clock_grow.yaml` for a ready-made example. During sleep it brightens in the **sleep** colour and says *shh*; it never shows the wake colour for a noise, because that would reward calling out.
-
-
-        **Overrides** last until the schedule next changes on its own, so *Wake now* at 6:40 lets go by itself at bedtime.'
     - type: markdown
       content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
 

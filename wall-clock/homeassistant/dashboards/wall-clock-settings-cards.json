@@ -452,7 +452,7 @@
   },
   {
     "type": "entities",
-    "title": "Mini Round Clock \u2014 Grow clock",
+    "title": "Mini Round Clock \u2014 Grow clock: times",
     "show_header_toggle": false,
     "state_color": true,
     "visibility": [
@@ -575,11 +575,27 @@
       {
         "entity": "sensor.mini_round_clock_grow_clock_minutes_to_wake",
         "name": "Minutes to wake"
+      }
+    ]
+  },
+  {
+    "type": "entities",
+    "title": "Mini Round Clock \u2014 Grow clock: look",
+    "show_header_toggle": false,
+    "state_color": true,
+    "visibility": [
+      {
+        "condition": "state",
+        "entity": "input_select.wall_clock_target",
+        "state": "Mini Round Clock"
       },
       {
-        "type": "section",
-        "label": "Look"
-      },
+        "condition": "state",
+        "entity": "binary_sensor.mini_round_clock_status",
+        "state": "on"
+      }
+    ],
+    "entities": [
       {
         "entity": "select.mini_round_clock_grow_clock_sleep_colour",
         "name": "Sleep colour"
@@ -639,11 +655,27 @@
       {
         "entity": "select.mini_round_clock_grow_clock_expression",
         "name": "Force an expression (demo)"
+      }
+    ]
+  },
+  {
+    "type": "entities",
+    "title": "Mini Round Clock \u2014 Grow clock: brightness and sound",
+    "show_header_toggle": false,
+    "state_color": true,
+    "visibility": [
+      {
+        "condition": "state",
+        "entity": "input_select.wall_clock_target",
+        "state": "Mini Round Clock"
       },
       {
-        "type": "section",
-        "label": "Night"
-      },
+        "condition": "state",
+        "entity": "binary_sensor.mini_round_clock_status",
+        "state": "on"
+      }
+    ],
+    "entities": [
       {
         "entity": "switch.mini_round_clock_grow_clock_dim_at_night",
         "name": "Dim at night"
@@ -1152,7 +1184,7 @@
   },
   {
     "type": "entities",
-    "title": "Mini Round Clock 2 \u2014 Grow clock",
+    "title": "Mini Round Clock 2 \u2014 Grow clock: times",
     "show_header_toggle": false,
     "state_color": true,
     "visibility": [
@@ -1275,11 +1307,27 @@
       {
         "entity": "sensor.mini_round_clock_2_grow_clock_minutes_to_wake",
         "name": "Minutes to wake"
+      }
+    ]
+  },
+  {
+    "type": "entities",
+    "title": "Mini Round Clock 2 \u2014 Grow clock: look",
+    "show_header_toggle": false,
+    "state_color": true,
+    "visibility": [
+      {
+        "condition": "state",
+        "entity": "input_select.wall_clock_target",
+        "state": "Mini Round Clock 2"
       },
       {
-        "type": "section",
-        "label": "Look"
-      },
+        "condition": "state",
+        "entity": "binary_sensor.mini_round_clock_2_status",
+        "state": "on"
+      }
+    ],
+    "entities": [
       {
         "entity": "select.mini_round_clock_2_grow_clock_sleep_colour",
         "name": "Sleep colour"
@@ -1339,11 +1387,27 @@
       {
         "entity": "select.mini_round_clock_2_grow_clock_expression",
         "name": "Force an expression (demo)"
+      }
+    ]
+  },
+  {
+    "type": "entities",
+    "title": "Mini Round Clock 2 \u2014 Grow clock: brightness and sound",
+    "show_header_toggle": false,
+    "state_color": true,
+    "visibility": [
+      {
+        "condition": "state",
+        "entity": "input_select.wall_clock_target",
+        "state": "Mini Round Clock 2"
       },
       {
-        "type": "section",
-        "label": "Night"
-      },
+        "condition": "state",
+        "entity": "binary_sensor.mini_round_clock_2_status",
+        "state": "on"
+      }
+    ],
+    "entities": [
       {
         "entity": "switch.mini_round_clock_2_grow_clock_dim_at_night",
         "name": "Dim at night"
@@ -1852,7 +1916,7 @@
   },
   {
     "type": "entities",
-    "title": "Mini Round Clock 3 \u2014 Grow clock",
+    "title": "Mini Round Clock 3 \u2014 Grow clock: times",
     "show_header_toggle": false,
     "state_color": true,
     "visibility": [
@@ -1975,11 +2039,27 @@
       {
         "entity": "sensor.mini_round_clock_3_grow_clock_minutes_to_wake",
         "name": "Minutes to wake"
+      }
+    ]
+  },
+  {
+    "type": "entities",
+    "title": "Mini Round Clock 3 \u2014 Grow clock: look",
+    "show_header_toggle": false,
+    "state_color": true,
+    "visibility": [
+      {
+        "condition": "state",
+        "entity": "input_select.wall_clock_target",
+        "state": "Mini Round Clock 3"
       },
       {
-        "type": "section",
-        "label": "Look"
-      },
+        "condition": "state",
+        "entity": "binary_sensor.mini_round_clock_3_status",
+        "state": "on"
+      }
+    ],
+    "entities": [
       {
         "entity": "select.mini_round_clock_3_grow_clock_sleep_colour",
         "name": "Sleep colour"
@@ -2039,11 +2119,27 @@
       {
         "entity": "select.mini_round_clock_3_grow_clock_expression",
         "name": "Force an expression (demo)"
+      }
+    ]
+  },
+  {
+    "type": "entities",
+    "title": "Mini Round Clock 3 \u2014 Grow clock: brightness and sound",
+    "show_header_toggle": false,
+    "state_color": true,
+    "visibility": [
+      {
+        "condition": "state",
+        "entity": "input_select.wall_clock_target",
+        "state": "Mini Round Clock 3"
       },
       {
-        "type": "section",
-        "label": "Night"
-      },
+        "condition": "state",
+        "entity": "binary_sensor.mini_round_clock_3_status",
+        "state": "on"
+      }
+    ],
+    "entities": [
       {
         "entity": "switch.mini_round_clock_3_grow_clock_dim_at_night",
         "name": "Dim at night"

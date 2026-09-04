@@ -78,6 +78,21 @@ CLOCKS = [
 
 PICKER = "input_select.wall_clock_target"
 
+# How many columns the Settings view is laid out in, and how tall a card is
+# reckoned to be when balancing them. The height is an estimate on purpose:
+# what matters is the ORDER cards go into columns, and a row count gets that
+# right without pretending to know the rendered pixel height of a slider on
+# whatever phone is being used.
+MAX_COLS = 3
+
+
+def card_rows(c):
+    if c.get("type") == "entities":
+        return 1 + len(c.get("entities", []))
+    if c.get("type") == "markdown":
+        return max(3, len(c.get("content", "")) // 90)
+    return 2
+
 
 def vis(label, slug=None):
     """Show a card only while the picker is on this clock AND the clock is there.
@@ -333,8 +348,15 @@ def clock_cards(slug, label):
     # One switch turns the whole clock into a child's sleep-training clock;
     # everything else here only matters while it is on. Times are hour +
     # minute pairs because a slider is easier on a phone than a time string.
+    # SPLIT INTO THREE, and the reason is layout rather than taste. As one
+    # card this was 56 rows -- longer than everything else on the page put
+    # together -- and in a sections view one enormous card forces a single
+    # tall column with the rest of the width left empty. That empty width is
+    # the gap Sam is looking at. Three cards of comparable height let the
+    # grid put them side by side. The split is along the seams the card
+    # already had: when it happens, what it looks like, how bright it is.
     grow = {
-        "type": "entities", "title": "%s — Grow clock" % label,
+        "type": "entities", "title": "%s — Grow clock: times" % label,
         "show_header_toggle": False, "state_color": True, "visibility": v,
         "entities": [
             row(e("switch", "grow_clock"), "Grow clock on"),
@@ -364,7 +386,12 @@ def clock_cards(slug, label):
             row(e("switch", "grow_clock_clock_by_day"), "Ordinary clock by day"),
             row(e("number", "grow_clock_wake_hold_minutes"), "...this long after wake"),
             row(e("sensor", "grow_clock_minutes_to_wake"), "Minutes to wake"),
-            section("Look"),
+        ],
+    }
+    grow_look = {
+        "type": "entities", "title": "%s — Grow clock: look" % label,
+        "show_header_toggle": False, "state_color": True, "visibility": v,
+        "entities": [
             row(e("select", "grow_clock_sleep_colour"), "Sleep colour"),
             row(e("select", "grow_clock_almost_colour"), "\"Almost time\" colour"),
             row(e("select", "grow_clock_wake_colour"), "Wake colour"),
@@ -382,7 +409,12 @@ def clock_cards(slug, label):
             row(e("select", "grow_clock_wake_effect"), "Wake-up effect on the ring"),
             row(e("number", "grow_clock_wake_effect_minutes"), "Wake-up effect for"),
             row(e("select", "grow_clock_expression"), "Force an expression (demo)"),
-            section("Night"),
+        ],
+    }
+    grow_bright = {
+        "type": "entities", "title": "%s — Grow clock: brightness and sound" % label,
+        "show_header_toggle": False, "state_color": True, "visibility": v,
+        "entities": [
             row(e("switch", "grow_clock_dim_at_night"), "Dim at night"),
             row(e("number", "grow_clock_ring_night_brightness"), "Ring at night"),
             row(e("number", "grow_clock_ring_day_brightness"), "Ring by day"),
@@ -418,8 +450,8 @@ def clock_cards(slug, label):
         ),
     }
 
-    return [ring, ring_note, colour_note, colour, screen, grow, grow_note,
-            alert, alert_note, bright]
+    return [ring, ring_note, colour_note, colour, screen, grow, grow_look,
+            grow_bright, grow_note, alert, alert_note, bright]
 
 
 def build():
@@ -578,8 +610,24 @@ if __name__ == "__main__":
                 # the page long and gappy in the first place.
                 body = [x for x in ctrl if x.get("type") != "markdown"]
                 prose = [x for x in ctrl if x.get("type") == "markdown"]
+                # BALANCED ACROSS THE GRID, not stacked into one column.
+                # A sections view puts each section in a column of its own, so
+                # all of a clock's cards in ONE section is a single tall
+                # column with the rest of the page's width empty beside it --
+                # which is the gap. Spread over MAX_COLS sections of roughly
+                # equal height they sit side by side and the width is used.
+                # Longest card first into the shortest column: crude, but the
+                # cards here are 8 to 21 rows and it lands within a row or two.
                 if body:
-                    secs.append(grid([strip(x) for x in body], ctrl[0]["visibility"]))
+                    cols = [[] for _ in range(MAX_COLS)]
+                    hs = [0] * MAX_COLS
+                    for x in sorted(body, key=card_rows, reverse=True):
+                        i = hs.index(min(hs))
+                        cols[i].append(strip(x))
+                        hs[i] += card_rows(x)
+                    for col in cols:
+                        if col:
+                            secs.append(grid(col, ctrl[0]["visibility"]))
                 if prose:
                     tail.append((prose[0]["visibility"], [strip(x) for x in prose]))
                 if away:
@@ -587,7 +635,15 @@ if __name__ == "__main__":
             if shared:
                 secs.append(grid(shared))
             for vis, cs in tail:
-                secs.append(grid(cs, vis))
+                cols = [[] for _ in range(MAX_COLS)]
+                hs = [0] * MAX_COLS
+                for x in sorted(cs, key=card_rows, reverse=True):
+                    i = hs.index(min(hs))
+                    cols[i].append(x)
+                    hs[i] += card_rows(x)
+                for col in cols:
+                    if col:
+                        secs.append(grid(col, vis))
             if notes:
                 secs.append(grid(notes))
             view = [{"title": "Settings", "path": "settings",
