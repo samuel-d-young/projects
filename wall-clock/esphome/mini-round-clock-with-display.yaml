@@ -1053,20 +1053,25 @@ number:
   # fixed. It is not a fault in the drawing; it is the panel being repainted
   # faster than it can be repainted.
   #
-  # So: raise this until the movement looks calm. Higher is slower and
-  # steadier, lower is smoother until it tears. The animator keeps stepping
-  # at its own 100 ms either way, so the pose it lands on is always current
-  # -- this only decides how often that pose is put on the glass.
+  # NOW THAT THE REPAINT IS CLIPPED this reads the other way round. A frame
+  # is about 24 ms rather than 104, so the panel can be fed at 10 fps and the
+  # eyes MOVE instead of jumping. 600 ms was hiding the animation, not
+  # calming it: at that rate a blink is never caught in the act, and a big
+  # jump between two distant poses is exactly what reads as a flicker.
+  #
+  # 100 is 10 fps and is the default. 50 is 20 and is the floor, which is
+  # also the animator's own tick -- below that there is nothing new to draw.
+  # Raise it if the panel cannot keep up; lower it for smoother eyes.
   - platform: template
     id: grow_anim_ms
     name: "Grow clock animation interval"
     entity_category: config
     icon: mdi:filmstrip
     unit_of_measurement: "ms"
-    min_value: 100
+    min_value: 50
     max_value: 2000
-    step: 50
-    initial_value: 600
+    step: 10
+    initial_value: 100
     optimistic: true
     restore_value: true
 
@@ -2300,7 +2305,14 @@ interval:
   # that file renders it to GIFs so a change can be watched before a flash.
   # Awake draws about 225 clips in 20 minutes, none of them identical -- the
   # variety is in the parameters, the sequence period is 2^32 draws.
-  - interval: 100ms
+  #
+  # 50 ms, not 100. Every envelope in here is driven off millis() rather than
+  # off a tick count, so halving the interval samples the SAME animation more
+  # finely -- no clip gets faster or slower. It exists to give the panel
+  # something new to show at up to 20 fps, now that a clipped frame is about
+  # 24 ms instead of a full frame's 104. The gaze smoothing below is the one
+  # thing that is per-tick and it is re-derived to match.
+  - interval: 50ms
     then:
       - lambda: |-
           if (!id(grow_mode).state || id(grow_daytime)) { id(an_clip) = 0; return; }
@@ -2432,8 +2444,11 @@ interval:
           }
           if (direct) { id(an_gx) = dx; id(an_gy) = dy; }
           else {
-            id(an_gx) += (tx - id(an_gx)) * 0.4f;
-            id(an_gy) += (ty - id(an_gy)) * 0.4f;
+            // 0.225 at 50 ms is 0.4 at 100: (1 - 0.225)^2 = 0.60 = 1 - 0.4.
+            // A per-tick smoother is a frame-rate dependency, and halving the
+            // tick without this would have made every glance twice as quick.
+            id(an_gx) += (tx - id(an_gx)) * 0.225f;
+            id(an_gy) += (ty - id(an_gy)) * 0.225f;
           }
           id(an_lidl) = lidl; id(an_lidr) = lidr; id(an_smile) = smile;
           id(an_hs) = hs; id(an_mouth) = mouth;
