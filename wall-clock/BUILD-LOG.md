@@ -5217,3 +5217,54 @@ on the panel. Worth expecting the pattern rather than being surprised by it:
 **when a fix reveals a new symptom immediately, the first suspect is not the
 fix but whatever the old behaviour was masking.** The instinct to revert would
 have restored a screen that was calm because it was broken.
+
+## 2026-09-04 — The drawing ran outside the region it declared
+
+Sam, after the dirty check: *"It still flickers on the animations."*
+
+Which was the right report, because the dirty check only stops repaints when
+nothing has moved. During an actual clip it still repaints, and the flicker
+was in the repaint itself.
+
+**The smile is a circle that bites the eye from below.** Radius 0.9 of the
+eye's width, centre *below* the eye, so most of the circle falls outside it:
+
+| pose | circle spans | eye box | on the panel at those rows |
+|---|---|---|---|
+| awake resting, smile 0.35 | y 172 – **316** | 66 – 243 | countdown at 252, **time at 300** |
+| full grin, smile 1.0 | y 115 – 259 | 66 – 243 | countdown at 252 |
+
+The animation frame declares the eye box, `CX-124, 66, 248, 178`, and then
+drew 73 px past the bottom of it in field colour. So every animation frame
+erased part of the countdown and the digital time, and the once-a-second full
+frame put them back. The time was being blanked and repainted at the
+animation rate. The bar panel had it too, over its own time readout.
+
+The bite is drawn as horizontal spans clipped to the eye now, so it cannot
+reach past what it is biting. `std::max(cy - h/2, yc - Rb)` to
+`std::min(cy + h/2, yc + Rb)`, one `filled_rectangle` per row.
+
+### Three faults, one shape
+
+This is the third in a row and they are all the same mistake wearing
+different clothes:
+
+1. The driver discarded any frame with an empty band — **a promise about what
+   would be drawn, silently broken by the caller.**
+2. The animation repainted when nothing had changed — **a claim that
+   something needed drawing, which was not true.**
+3. The smile drew 73 px outside the box the frame declared — **a region
+   declared to the driver and then not respected by the drawing.**
+
+Every one is the boundary between "what I said I would draw" and "what I
+drew", and nothing in the code was checking that boundary. The eye box is a
+promise to the driver, and until tonight it was only ever a comment. If
+anything still flickers, that is where to look next: for anything else the
+animation draws outside the rectangle it names.
+
+**And the ordering mattered.** Faults 2 and 3 were both invisible while fault
+1 was discarding the frames. Fixing the driver did not cause them; it
+published them. A fix that immediately produces a new symptom is usually a
+fix that has stopped hiding something.
+
+Verified: `esphome config` valid; full compile recorded below.

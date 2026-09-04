@@ -3475,8 +3475,26 @@ display:
               }
             }
             if (smile > 0.02f) {                     // a bite from below: a happy arch
+              // CLIPPED TO THE EYE, and it has to be. The bite is a circle of
+              // radius 0.9w whose centre sits BELOW the eye, so most of it is
+              // outside it: at the resting awake smile of 0.35 it reaches
+              // about 70 px past the eye's bottom. On the round panel that is
+              // over the countdown and the digital time; on the bar it is
+              // over the time. A full frame redraws both, so there was never
+              // anything wrong to look at -- until the animation frames
+              // started reaching the panel, and then the time was being
+              // erased and repainted at the animation rate. That is what Sam
+              // saw as the graphics flickering. Drawn as spans rather than as
+              // a circle so it cannot reach past the eye it is biting.
               const int Rb = (int) (w * 0.9f);
-              it.filled_circle(cx, cy + h / 2 + Rb - (int) (smile * h * 0.78f), Rb, field);
+              const int yc = cy + h / 2 + Rb - (int) (smile * h * 0.78f);
+              const int y0 = std::max(cy - h / 2, yc - Rb);
+              const int y1 = std::min(cy + h / 2, yc + Rb);
+              for (int yy = y0; yy <= y1; yy++) {
+                const int dy = yy - yc;
+                const int dx = (int) sqrtf((float) (Rb * Rb - dy * dy));
+                if (dx > 0) it.filled_rectangle(cx - dx, yy, 2 * dx + 1, 1, field);
+              }
             }
           };
           const int gx = (int) lroundf(id(an_gx)), gy = (int) lroundf(id(an_gy));
@@ -4154,9 +4172,27 @@ display:
                 else            it.filled_triangle(x0, top + L, x0 + w + 2, top + L, x0 + w + 2, top + L + d, field);
               }
             }
-            if (smile > 0.02f) {
+            if (smile > 0.02f) {                     // the same bite, same clip
+              // CLIPPED TO THE EYE, and it has to be. The bite is a circle of
+              // radius 0.9w whose centre sits BELOW the eye, so most of it is
+              // outside it: at the resting awake smile of 0.35 it reaches
+              // about 70 px past the eye's bottom. On the round panel that is
+              // over the countdown and the digital time; on the bar it is
+              // over the time. A full frame redraws both, so there was never
+              // anything wrong to look at -- until the animation frames
+              // started reaching the panel, and then the time was being
+              // erased and repainted at the animation rate. That is what Sam
+              // saw as the graphics flickering. Drawn as spans rather than as
+              // a circle so it cannot reach past the eye it is biting.
               const int Rb = (int) (w * 0.9f);
-              it.filled_circle(cx, cy + h / 2 + Rb - (int) (smile * h * 0.78f), Rb, field);
+              const int yc = cy + h / 2 + Rb - (int) (smile * h * 0.78f);
+              const int y0 = std::max(cy - h / 2, yc - Rb);
+              const int y1 = std::min(cy + h / 2, yc + Rb);
+              for (int yy = y0; yy <= y1; yy++) {
+                const int dy = yy - yc;
+                const int dx = (int) sqrtf((float) (Rb * Rb - dy * dy));
+                if (dx > 0) it.filled_rectangle(cx - dx, yy, 2 * dx + 1, 1, field);
+              }
             }
           };
           // gaze at 0.6 of the round panel's, like everything else here
