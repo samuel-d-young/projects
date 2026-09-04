@@ -71,6 +71,24 @@ substitutions:
   device_name: mini-round-clock
   friendly_name: Mini Round Clock
 
+  # Round panel SPI clock. BACK TO 20MHz, which is what it was for every build
+  # Sam remembers as working. I raised it to 40 in 6c5e232 as a speculative
+  # flicker fix and never verified the panel is stable there -- and the symptom
+  # he reports is exactly what a marginal SPI clock looks like: FINE DETAIL
+  # corrupts visibly (the sun's 1 px rays, the thin strokes of the time digits)
+  # while big solid blocks do not (a wrong pixel inside an 80x112 eye is one
+  # wrong pixel in a field of identical ones -- invisible).
+  #
+  # The argument I used for 40 was that the bar panel runs at 40 and xboot
+  # drives this controller at 50. Both are true and neither is evidence about
+  # THIS link: signal integrity is a property of the wiring, not the chip, and
+  # this is a dev board on jumper wires. The GC9B72 init here was
+  # reverse-engineered rather than taken from a datasheet, so there is no spec
+  # basis for 40 at all.
+  #
+  # Override on the command line to A/B it without editing:  -s lcd_hz 40MHz
+  lcd_hz: 20MHz
+
   # The render reads the real LED count from the strip at runtime, so this
   # only has to be right for the light component itself.
   # Default ring size, and the initial value of the runtime "Ring LED count"
@@ -371,6 +389,20 @@ sensor:
     update_interval: never
 
 text_sensor:
+  # WHICH BUILD IS ACTUALLY ON THIS CLOCK. Four flicker reports in a row came
+  # back "still flickering" and at least one of them was against firmware that
+  # predated the fix being discussed, with nothing on either end able to tell.
+  # That is not a display bug, it is a missing instrument. __DATE__ and
+  # __TIME__ are filled in by the compiler, so this cannot drift from the
+  # binary the way a hand-maintained version string can.
+  - platform: template
+    id: fw_built
+    name: "Firmware built"
+    entity_category: diagnostic
+    icon: mdi:chip
+    update_interval: 60s
+    lambda: 'return {std::string(__DATE__ " " __TIME__)};'
+
   - platform: homeassistant
     id: weather_condition
     entity_id: ${weather_entity}      # the entity STATE is the condition slug
@@ -3397,11 +3429,12 @@ display:
     # so a redraw of unchanged pixels is invisible and only the CHANGED region
     # shows the sweep. The only lever left is making the sweep shorter.
     #
-    # 40 is not a guess: the bar panel below has run at 40MHz on this same bus
-    # since it was added, and xboot drives this controller at 50. If the panel
-    # garbles or the boot banner repeats, put this back to 20MHz -- that is
-    # the whole revert, and the 20 was only ever "a safe first pass".
-    data_rate: 40MHz
+    # See the lcd_hz substitution at the top of this file for why this is back
+    # at 20MHz and how to A/B it. Short version: 40 was a guess I made during
+    # the flicker hunt, on a link I have no datasheet for, and a marginal SPI
+    # clock corrupts thin strokes while leaving solid blocks looking perfect --
+    # which is the symptom.
+    data_rate: ${lcd_hz}
     pixel_mode: 16bit         # MUST match COLMOD 0x05 in the table above
     invert_colors: false      # flip if the image looks like a photo negative
 

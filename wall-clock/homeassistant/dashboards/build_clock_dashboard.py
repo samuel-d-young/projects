@@ -412,6 +412,10 @@ def clock_cards(slug, label):
             row(e("switch", "grow_clock_repaint_every_second"), "Repaint every second (test)"),
             row(e("switch", "grow_clock_freeze_the_eyes_test"), "Freeze the eyes (test)"),
             row(e("sensor", "grow_clock_frame_time"), "Frame time"),
+            # Which build is actually on the clock. Read this BEFORE reporting
+            # a symptom — several flicker reports were made against firmware
+            # that predated the fix being discussed.
+            row(e("sensor", "firmware_built"), "Firmware built"),
             row(e("switch", "grow_clock_show_time"), "Show the time"),
             row(e("switch", "grow_clock_show_countdown"), "Show the minutes to go"),
             row(e("select", "grow_clock_wake_effect"), "Wake-up effect on the ring"),

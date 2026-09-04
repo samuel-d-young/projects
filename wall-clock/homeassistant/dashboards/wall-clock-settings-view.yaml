@@ -269,6 +269,49 @@
   - type: grid
     cards:
     - type: entities
+      title: 'Mini Round Clock — Grow clock: look'
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_grow_clock_sleep_colour
+        name: Sleep colour
+      - entity: select.mini_round_clock_grow_clock_almost_colour
+        name: '"Almost time" colour'
+      - entity: select.mini_round_clock_grow_clock_wake_colour
+        name: Wake colour
+      - entity: select.mini_round_clock_grow_clock_bedtime_colour
+        name: Bedtime colour
+      - entity: select.mini_round_clock_grow_clock_face
+        name: Face
+      - entity: switch.mini_round_clock_grow_clock_stars
+        name: Stars until morning
+      - entity: number.mini_round_clock_grow_clock_star_count
+        name: How many stars
+      - entity: select.mini_round_clock_grow_clock_star_shape
+        name: Star shape
+      - entity: switch.mini_round_clock_grow_clock_animate
+        name: Animate the eyes
+      - entity: number.mini_round_clock_grow_clock_animation_interval
+        name: Animation interval
+      - entity: switch.mini_round_clock_grow_clock_repaint_every_second
+        name: Repaint every second (test)
+      - entity: switch.mini_round_clock_grow_clock_freeze_the_eyes_test
+        name: Freeze the eyes (test)
+      - entity: sensor.mini_round_clock_grow_clock_frame_time
+        name: Frame time
+      - entity: sensor.mini_round_clock_firmware_built
+        name: Firmware built
+      - entity: switch.mini_round_clock_grow_clock_show_time
+        name: Show the time
+      - entity: switch.mini_round_clock_grow_clock_show_countdown
+        name: Show the minutes to go
+      - entity: select.mini_round_clock_grow_clock_wake_effect
+        name: Wake-up effect on the ring
+      - entity: number.mini_round_clock_grow_clock_wake_effect_minutes
+        name: Wake-up effect for
+      - entity: select.mini_round_clock_grow_clock_expression
+        name: Force an expression (demo)
+    - type: entities
       title: Mini Round Clock — Screen
       show_header_toggle: false
       state_color: true
@@ -309,47 +352,6 @@
         label: Background
       - entity: number.mini_round_clock_weather_tint_strength
         name: Weather tint
-    - type: entities
-      title: 'Mini Round Clock — Grow clock: look'
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_grow_clock_sleep_colour
-        name: Sleep colour
-      - entity: select.mini_round_clock_grow_clock_almost_colour
-        name: '"Almost time" colour'
-      - entity: select.mini_round_clock_grow_clock_wake_colour
-        name: Wake colour
-      - entity: select.mini_round_clock_grow_clock_bedtime_colour
-        name: Bedtime colour
-      - entity: select.mini_round_clock_grow_clock_face
-        name: Face
-      - entity: switch.mini_round_clock_grow_clock_stars
-        name: Stars until morning
-      - entity: number.mini_round_clock_grow_clock_star_count
-        name: How many stars
-      - entity: select.mini_round_clock_grow_clock_star_shape
-        name: Star shape
-      - entity: switch.mini_round_clock_grow_clock_animate
-        name: Animate the eyes
-      - entity: number.mini_round_clock_grow_clock_animation_interval
-        name: Animation interval
-      - entity: switch.mini_round_clock_grow_clock_repaint_every_second
-        name: Repaint every second (test)
-      - entity: switch.mini_round_clock_grow_clock_freeze_the_eyes_test
-        name: Freeze the eyes (test)
-      - entity: sensor.mini_round_clock_grow_clock_frame_time
-        name: Frame time
-      - entity: switch.mini_round_clock_grow_clock_show_time
-        name: Show the time
-      - entity: switch.mini_round_clock_grow_clock_show_countdown
-        name: Show the minutes to go
-      - entity: select.mini_round_clock_grow_clock_wake_effect
-        name: Wake-up effect on the ring
-      - entity: number.mini_round_clock_grow_clock_wake_effect_minutes
-        name: Wake-up effect for
-      - entity: select.mini_round_clock_grow_clock_expression
-        name: Force an expression (demo)
     - type: entities
       title: Mini Round Clock — Brightness
       show_header_toggle: false
@@ -595,6 +597,49 @@
   - type: grid
     cards:
     - type: entities
+      title: 'Mini Round Clock 2 — Grow clock: look'
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_2_grow_clock_sleep_colour
+        name: Sleep colour
+      - entity: select.mini_round_clock_2_grow_clock_almost_colour
+        name: '"Almost time" colour'
+      - entity: select.mini_round_clock_2_grow_clock_wake_colour
+        name: Wake colour
+      - entity: select.mini_round_clock_2_grow_clock_bedtime_colour
+        name: Bedtime colour
+      - entity: select.mini_round_clock_2_grow_clock_face
+        name: Face
+      - entity: switch.mini_round_clock_2_grow_clock_stars
+        name: Stars until morning
+      - entity: number.mini_round_clock_2_grow_clock_star_count
+        name: How many stars
+      - entity: select.mini_round_clock_2_grow_clock_star_shape
+        name: Star shape
+      - entity: switch.mini_round_clock_2_grow_clock_animate
+        name: Animate the eyes
+      - entity: number.mini_round_clock_2_grow_clock_animation_interval
+        name: Animation interval
+      - entity: switch.mini_round_clock_2_grow_clock_repaint_every_second
+        name: Repaint every second (test)
+      - entity: switch.mini_round_clock_2_grow_clock_freeze_the_eyes_test
+        name: Freeze the eyes (test)
+      - entity: sensor.mini_round_clock_2_grow_clock_frame_time
+        name: Frame time
+      - entity: sensor.mini_round_clock_2_firmware_built
+        name: Firmware built
+      - entity: switch.mini_round_clock_2_grow_clock_show_time
+        name: Show the time
+      - entity: switch.mini_round_clock_2_grow_clock_show_countdown
+        name: Show the minutes to go
+      - entity: select.mini_round_clock_2_grow_clock_wake_effect
+        name: Wake-up effect on the ring
+      - entity: number.mini_round_clock_2_grow_clock_wake_effect_minutes
+        name: Wake-up effect for
+      - entity: select.mini_round_clock_2_grow_clock_expression
+        name: Force an expression (demo)
+    - type: entities
       title: Mini Round Clock 2 — Screen
       show_header_toggle: false
       state_color: true
@@ -635,47 +680,6 @@
         label: Background
       - entity: number.mini_round_clock_2_weather_tint_strength
         name: Weather tint
-    - type: entities
-      title: 'Mini Round Clock 2 — Grow clock: look'
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_2_grow_clock_sleep_colour
-        name: Sleep colour
-      - entity: select.mini_round_clock_2_grow_clock_almost_colour
-        name: '"Almost time" colour'
-      - entity: select.mini_round_clock_2_grow_clock_wake_colour
-        name: Wake colour
-      - entity: select.mini_round_clock_2_grow_clock_bedtime_colour
-        name: Bedtime colour
-      - entity: select.mini_round_clock_2_grow_clock_face
-        name: Face
-      - entity: switch.mini_round_clock_2_grow_clock_stars
-        name: Stars until morning
-      - entity: number.mini_round_clock_2_grow_clock_star_count
-        name: How many stars
-      - entity: select.mini_round_clock_2_grow_clock_star_shape
-        name: Star shape
-      - entity: switch.mini_round_clock_2_grow_clock_animate
-        name: Animate the eyes
-      - entity: number.mini_round_clock_2_grow_clock_animation_interval
-        name: Animation interval
-      - entity: switch.mini_round_clock_2_grow_clock_repaint_every_second
-        name: Repaint every second (test)
-      - entity: switch.mini_round_clock_2_grow_clock_freeze_the_eyes_test
-        name: Freeze the eyes (test)
-      - entity: sensor.mini_round_clock_2_grow_clock_frame_time
-        name: Frame time
-      - entity: switch.mini_round_clock_2_grow_clock_show_time
-        name: Show the time
-      - entity: switch.mini_round_clock_2_grow_clock_show_countdown
-        name: Show the minutes to go
-      - entity: select.mini_round_clock_2_grow_clock_wake_effect
-        name: Wake-up effect on the ring
-      - entity: number.mini_round_clock_2_grow_clock_wake_effect_minutes
-        name: Wake-up effect for
-      - entity: select.mini_round_clock_2_grow_clock_expression
-        name: Force an expression (demo)
     - type: entities
       title: Mini Round Clock 2 — Brightness
       show_header_toggle: false
@@ -921,6 +925,49 @@
   - type: grid
     cards:
     - type: entities
+      title: 'Mini Round Clock 3 — Grow clock: look'
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_3_grow_clock_sleep_colour
+        name: Sleep colour
+      - entity: select.mini_round_clock_3_grow_clock_almost_colour
+        name: '"Almost time" colour'
+      - entity: select.mini_round_clock_3_grow_clock_wake_colour
+        name: Wake colour
+      - entity: select.mini_round_clock_3_grow_clock_bedtime_colour
+        name: Bedtime colour
+      - entity: select.mini_round_clock_3_grow_clock_face
+        name: Face
+      - entity: switch.mini_round_clock_3_grow_clock_stars
+        name: Stars until morning
+      - entity: number.mini_round_clock_3_grow_clock_star_count
+        name: How many stars
+      - entity: select.mini_round_clock_3_grow_clock_star_shape
+        name: Star shape
+      - entity: switch.mini_round_clock_3_grow_clock_animate
+        name: Animate the eyes
+      - entity: number.mini_round_clock_3_grow_clock_animation_interval
+        name: Animation interval
+      - entity: switch.mini_round_clock_3_grow_clock_repaint_every_second
+        name: Repaint every second (test)
+      - entity: switch.mini_round_clock_3_grow_clock_freeze_the_eyes_test
+        name: Freeze the eyes (test)
+      - entity: sensor.mini_round_clock_3_grow_clock_frame_time
+        name: Frame time
+      - entity: sensor.mini_round_clock_3_firmware_built
+        name: Firmware built
+      - entity: switch.mini_round_clock_3_grow_clock_show_time
+        name: Show the time
+      - entity: switch.mini_round_clock_3_grow_clock_show_countdown
+        name: Show the minutes to go
+      - entity: select.mini_round_clock_3_grow_clock_wake_effect
+        name: Wake-up effect on the ring
+      - entity: number.mini_round_clock_3_grow_clock_wake_effect_minutes
+        name: Wake-up effect for
+      - entity: select.mini_round_clock_3_grow_clock_expression
+        name: Force an expression (demo)
+    - type: entities
       title: Mini Round Clock 3 — Screen
       show_header_toggle: false
       state_color: true
@@ -961,47 +1008,6 @@
         label: Background
       - entity: number.mini_round_clock_3_weather_tint_strength
         name: Weather tint
-    - type: entities
-      title: 'Mini Round Clock 3 — Grow clock: look'
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_3_grow_clock_sleep_colour
-        name: Sleep colour
-      - entity: select.mini_round_clock_3_grow_clock_almost_colour
-        name: '"Almost time" colour'
-      - entity: select.mini_round_clock_3_grow_clock_wake_colour
-        name: Wake colour
-      - entity: select.mini_round_clock_3_grow_clock_bedtime_colour
-        name: Bedtime colour
-      - entity: select.mini_round_clock_3_grow_clock_face
-        name: Face
-      - entity: switch.mini_round_clock_3_grow_clock_stars
-        name: Stars until morning
-      - entity: number.mini_round_clock_3_grow_clock_star_count
-        name: How many stars
-      - entity: select.mini_round_clock_3_grow_clock_star_shape
-        name: Star shape
-      - entity: switch.mini_round_clock_3_grow_clock_animate
-        name: Animate the eyes
-      - entity: number.mini_round_clock_3_grow_clock_animation_interval
-        name: Animation interval
-      - entity: switch.mini_round_clock_3_grow_clock_repaint_every_second
-        name: Repaint every second (test)
-      - entity: switch.mini_round_clock_3_grow_clock_freeze_the_eyes_test
-        name: Freeze the eyes (test)
-      - entity: sensor.mini_round_clock_3_grow_clock_frame_time
-        name: Frame time
-      - entity: switch.mini_round_clock_3_grow_clock_show_time
-        name: Show the time
-      - entity: switch.mini_round_clock_3_grow_clock_show_countdown
-        name: Show the minutes to go
-      - entity: select.mini_round_clock_3_grow_clock_wake_effect
-        name: Wake-up effect on the ring
-      - entity: number.mini_round_clock_3_grow_clock_wake_effect_minutes
-        name: Wake-up effect for
-      - entity: select.mini_round_clock_3_grow_clock_expression
-        name: Force an expression (demo)
     - type: entities
       title: Mini Round Clock 3 — Brightness
       show_header_toggle: false

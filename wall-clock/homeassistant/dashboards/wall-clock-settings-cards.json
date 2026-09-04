@@ -653,6 +653,10 @@
         "name": "Frame time"
       },
       {
+        "entity": "sensor.mini_round_clock_firmware_built",
+        "name": "Firmware built"
+      },
+      {
         "entity": "switch.mini_round_clock_grow_clock_show_time",
         "name": "Show the time"
       },
@@ -1401,6 +1405,10 @@
         "name": "Frame time"
       },
       {
+        "entity": "sensor.mini_round_clock_2_firmware_built",
+        "name": "Firmware built"
+      },
+      {
         "entity": "switch.mini_round_clock_2_grow_clock_show_time",
         "name": "Show the time"
       },
@@ -2147,6 +2155,10 @@
       {
         "entity": "sensor.mini_round_clock_3_grow_clock_frame_time",
         "name": "Frame time"
+      },
+      {
+        "entity": "sensor.mini_round_clock_3_firmware_built",
+        "name": "Firmware built"
       },
       {
         "entity": "switch.mini_round_clock_3_grow_clock_show_time",

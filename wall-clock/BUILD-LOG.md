@@ -5646,3 +5646,72 @@ Flash: [======    ]  61.0% (used 1119643 bytes from 1835008 bytes)
 | eyes | ~100 x / min | ~100 x / min (they move) |
 
 Nothing on that screen is now redrawn unless it has changed.
+
+---
+
+## 2026-09-04 (06:05) — The instrument I should have built first, and a revert
+
+Sam: "The sun and the clock are still flickering." Before writing another line
+I checked what was actually on the clock. The bench session had not moved since
+05:53:57 — `c635533` probably had not finished flashing and `fd8efee` certainly
+had not. **He was reporting on firmware that predated the fix being discussed,
+and neither of us had any way to know.**
+
+That has now happened at least twice, and it is not a display bug. It is a
+missing instrument, and it is mine to have missed.
+
+### Firmware built
+
+A `text_sensor` publishing `__DATE__ " " __TIME__` — filled in by the compiler,
+so it cannot drift from the binary the way a hand-maintained version string
+can. It appears in Home Assistant as **"Firmware built"** and is on the
+settings page. **Read it before reporting a symptom.**
+
+### The round panel goes back to 20 MHz
+
+And on the flicker itself, the strongest remaining lead is a revert, not an
+addition. `6c5e232` raised the round panel from **20MHz to 40MHz** as a
+speculative flicker fix. Every build Sam remembers as working ran at 20.
+
+The symptom profile fits a marginal SPI clock better than anything else I have
+considered:
+
+* **Fine detail corrupts visibly.** The sun's rays are 1 px lines; the time's
+  digits are thin strokes. A dropped or mistimed bit shows immediately.
+* **Solid blocks do not.** A wrong pixel inside an 80×112 eye is one wrong
+  pixel in a field of identical ones. Invisible.
+* Which is precisely "the eyes aren't flickering, but the sun and clock are" —
+  the one detail no rendering theory ever explained, and the reason I kept
+  looking for a *structural* difference between the sun and the eyes when the
+  real difference is that **one is drawn in thin strokes and the other isn't.**
+
+My argument for 40 was that the bar panel runs at 40 and xboot drives this
+controller at 50. Both true; neither is evidence about **this link**. Signal
+integrity is a property of the wiring, not the chip, and this is a dev board on
+jumper wires with a GC9B72 init sequence that was reverse-engineered rather
+than taken from a datasheet. There was never a spec basis for 40.
+
+Now a substitution, so it is one flag to A/B without editing:
+
+```
+esphome run ... -s lcd_hz 40MHz     # back to the fast one
+```
+
+Default is `20MHz`. The bar panel keeps its own 40 — different controller,
+different flex, and it has never been reported as flickering.
+
+```
+RAM:   [==        ]  19.1% (used 62524 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1119923 bytes from 1835008 bytes)
+```
+
+0 errors, compiled.
+
+### The order to test in
+
+1. Check **"Firmware built"** matches the build being discussed. If it does not,
+   stop — the report is about something else.
+2. Sun and time steady at 20 MHz with animation on? Then it was the SPI clock
+   and everything since `6c5e232` was chasing a hardware margin with software.
+3. Still flickering? Then `-s lcd_hz 40MHz` to confirm it makes no difference
+   either way, and the clock is exonerated.
