@@ -1701,11 +1701,17 @@ switch:
   # ON restores the partial path, for A/B on the glass without a reflash.
   - platform: template
     id: grow_partial
-    name: "Grow clock partial redraw (test)"
+    name: "Grow clock partial redraw"
     entity_category: config
     icon: mdi:image-refresh
     optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
+    # ON. An animation frame repaints the eye box and nothing else, so nothing
+    # static is ever rewritten while the panel is scanning itself out. That is
+    # the flicker fix -- see "THE ANIMATION BOX" in the round panel's lambda.
+    # Turn it OFF to get the old behaviour back (every animation frame repaints
+    # all 360 x 360) and the moon and the star row will start blinking again;
+    # that is the A/B, and it is the evidence for the diagnosis.
+    restore_mode: RESTORE_DEFAULT_ON
 
   # THE DECISIVE TEST, and it should have existed nine theories ago.
   # ON: the dispatcher stops calling component.update on the panel ENTIRELY.
@@ -2861,9 +2867,10 @@ interval:
                   id(an_dzq)    = (int) (id(an_zph) * 8.0f);
                 }
                 id(an_frame_t0) = millis();
-                // FULL frame by default -- see grow_partial. The whole
-                // partial-repaint machinery is still here and still correct;
-                // it is simply not what this panel wants.
+                // PARTIAL by default now. A full animation frame walks all
+                // 360 rows past a scan that is walking them too, and every
+                // crossing shows on anything that is being redrawn unchanged.
+                // See grow_partial and "THE ANIMATION BOX".
                 id(an_partial) = id(grow_partial).state;
             - if:
                 condition:
@@ -3608,6 +3615,24 @@ display:
     # clock corrupts thin strokes while leaving solid blocks looking perfect --
     # which is the symptom.
     data_rate: ${lcd_hz}
+    # PINNED, AND THE ANIMATION BOX DEPENDS ON IT. Left alone, ESPHome picks
+    # the fraction itself: with no psram it aims at a ~20 kB buffer and lands
+    # on 1/8, so the bands come out 45 rows. 17% asks for "no bigger than a
+    # sixth"; the resolver takes the first divisor of 360 that is small enough,
+    # which is 6, so the buffer is 360*360*2/6 = 43200 bytes and THE BANDS ARE
+    # EXACTLY 60 ROWS.
+    #
+    # That number is load-bearing. The eye box in the lambda runs y 60..239 and
+    # BOTH edges have to land on a band boundary, or the driver sends a band
+    # whose bounding box contains pixels that pass never wrote. 45-row bands
+    # cannot do it: the only alignment that clears the sun's rays at the top
+    # would be y 90, and that cuts through the z's. CHANGE ONE, CHANGE BOTH.
+    #
+    # It costs 10.8 kB of internal SRAM over the default, and there is no psram
+    # on this board (see the note at the top of the file). If the log ever says
+    # "Buffer allocation failed", this is the line: the fallback is to drop the
+    # animation box back to a full repaint (grow_partial off) and remove this.
+    buffer_size: 17%
     pixel_mode: 16bit         # MUST match COLMOD 0x05 in the table above
     invert_colors: false      # flip if the image looks like a photo negative
 
@@ -3953,74 +3978,85 @@ display:
           // full frame and the 100 ms animation frame draw the same eyes.
           // Geometry is mirrored in preview/grow_faces.py; change both.
           const int EX = 60, EY = CY - 34, EW = 80, EH = 112, ER = 28, BAR = 16;
-          // An animation frame repaints only this box, and the driver
-          // flushes only this box. Everything the eyes can reach -- gaze,
-          // the yawn, the z's, "shh" -- stays inside it; the stars and the
-          // time sit below it and are drawn by full frames alone.
-          // KEEP EVERY BAND ALIVE. mipi_spi does not run this lambda once
-          // per frame: with a partial buffer it runs it once per BAND, six
-          // times down the panel, flushing each band's dirty rectangle as it
-          // goes -- and if a band comes back with nothing drawn in it, the
-          // driver does not skip that band, it RETURNS and abandons the rest
-          // of the frame (esphome 2026.8.1, mipi_spi.h, the loop over
-          // start_line_). An animation frame draws only the eye box, which
-          // lies in the middle bands, so the first band came back empty and
-          // every partial frame was thrown away before a single pixel
-          // reached the panel. The eyes were not slow; they were never
-          // drawn, and the face only ever changed on the once-a-second full
-          // frame -- which is the "slight screen flashing".
-          // One column of FIELD-coloured pixels at x = 0, the full height of
-          // the panel, puts a mark in every band for the cost of 360 pixels.
-          // It is at the extreme edge and in the field's own colour, so it
-          // is invisible; it must not be black, because the "eyes on colour"
-          // face has a field that is not black.
-          // An animation frame repaints the sky and the eyes and nothing
-          // else, inside a clip, so the driver's dirty box is exactly this
-          // rectangle and every pixel of it has been drawn. See an_partial.
-          // From y = 0 so band 0 is never empty; to y = 244 so the stars and
-          // countdown at 252 and the time at 300 keep what they have.
+          // ---- THE ANIMATION BOX, AND THE FLICKER --------------------------
+          // The panel scans itself out of GRAM continuously, about 60 times a
+          // second. We write GRAM over SPI, asynchronously, and a whole
+          // 360 x 360 frame is 259200 bytes -- 104 ms at 20 MHz, six scans
+          // long. So the write walks down the glass while the scan walks down
+          // the glass, they cross each other several times on the way, and
+          // every crossing is visible. Over a region that is CHANGING that
+          // reads as motion. Over a region being rewritten with the pixels it
+          // already had it reads as a blink.
+          //
+          // That is the whole thing, and it is exactly how Sam's list sorted:
+          //
+          //   eyes    change every frame          looked like animation
+          //   z's     change every frame          looked like animation
+          //   time    was not being redrawn       steady
+          //   moon    redrawn, never changes      FLICKERED
+          //   stars   redrawn, never changes      FLICKERED
+          //
+          // It also explains the one measurement that never fitted any of the
+          // ten theories: with the animator OFF the panel is perfectly steady,
+          // because then a full frame only goes out when something actually
+          // changed, and one crossing a minute is not a flicker.
+          //
+          // The init sequence turns TE on (0x35 above) but mipi_spi has no TE
+          // input, so the write cannot be synced to the scan. The only lever
+          // left is to WRITE LESS. An animation frame now repaints the eye box
+          // and nothing else. The sky above it and the star row, the "shh" and
+          // the time below it are left exactly as they are and are redrawn
+          // only by a full frame -- which is already gated on the content
+          // actually changing. Nothing static is ever rewritten again.
+          //
+          // KEEP EVERY BAND ALIVE. mipi_spi does not run this lambda once per
+          // frame: with a partial buffer it runs it once per BAND, top to
+          // bottom, flushing each band's dirty rectangle as it goes -- and if
+          // a band comes back with nothing drawn in it, the driver does not
+          // skip that band, it RETURNS and abandons the whole rest of the
+          // frame (mipi_spi.h, the loop over start_line_). The eye box lives
+          // in the middle bands, so left alone the first band comes back empty
+          // and every animation frame is thrown away before a pixel reaches
+          // the glass.
+          //
+          // So: a 4 px column of FIELD-coloured pixels down the far left,
+          // drawn ONLY in the rows the box does not cover. On a round 360
+          // panel the glass at those rows does not reach x = 4 -- the chord at
+          // y = 59 runs x 47..313 and only narrows from there, and the same
+          // below y = 240 -- so the marker is off the picture entirely, and it
+          // is field-coloured anyway.
+          //
+          // AND THE MARKER MUST NEVER SHARE A BAND WITH THE BOX. The driver
+          // flushes the BOUNDING BOX of what was drawn, not the pixels that
+          // were drawn; anything inside that box which this pass did not write
+          // still holds the previous band's contents and goes out as garbage.
+          // A band with marker rows and box rows in it would have a bounding
+          // box of x 0..303 with only x 0..3 written. So the box is aligned to
+          // the band grid: buffer_size is pinned at 17% on the display above,
+          // which makes the bands exactly 60 rows, and 60 and 240 are both
+          // multiples of 60. CHANGE ONE, CHANGE THE OTHER.
+          //
+          //   rows   0.. 59   band  0    marker only   (the sky lives here)
+          //   rows  60..239   bands 1-3  the box
+          //   rows 240..359   bands 4-5  marker only   (stars, shh, the time)
+          //
+          // What has to fit inside 60..239: the eyes (90..202), the three z's
+          // (a 32 px glyph centred 82..106, so 66..122), the yawn (centred
+          // 222, r <= 16, so 206..238) and the countdown, which is why the
+          // countdown moved up to CY + 40 and why it suppresses the yawn.
+          // What has to stay outside: the sky (moved up to CY - 144 so its
+          // longest ray stops at 58), the star row (243..261), "shh" (261..299)
+          // and the time (272..328).
+          const int AN_L = CX - 124, AN_R = CX + 124;   // x 56..303
+          const int AN_T = 60,       AN_B = 240;        // y 60..239
+          const int AN_MK = 4;                          // marker column width
           if (partial) {
-            it.start_clipping(CX - 124, 0, CX + 124, 268);
-            // BAND 0 GETS A REAL RECTANGLE, and the sky is redrawn inside it.
-            // This reverses fd8efee, and Sam's report is why. He listed what
-            // does NOT flicker: the eyes, the z's and the time. Line those up
-            // against the panel's six bands and the pattern is exact:
-            //
-            //   eyes  bands 1-3   repainted every frame inside a filled rect
-            //   z's   bands 1-2   repainted every frame inside a filled rect
-            //   time  band  5     never repainted, and band 5 is drawn on not
-            //                     at all, so the driver aborts it cleanly
-            //   sky   band  0     never repainted, and band 0 had ONE lone
-            //                     pixel written to keep the frame alive
-            //
-            // The sky is the only element in band 0, and band 0 was the only
-            // band doing a degenerate 1x1 window write on every animation
-            // frame. Everything that survives is repainted inside a rectangle
-            // that is exactly its own bounding box; the one thing left to
-            // persist on its own is the one thing that flickers.
-            //
-            // So fd8efee had it backwards. "Do not repaint what has not
-            // changed" sounded right and is wrong here: on a panel with an
-            // uncleared shared band buffer, the safe state is a full, honest
-            // rectangle per band. Persistence is what is fragile, not repaint.
-            //
-            // y = 0 to 267. Sam's second list settled the extent: the moon AND
-            // THE BOTTOM DOTS flicker, the eyes, z's and time do not. The star
-            // row sits at CY + 72 = 252 -- pointy stars reach y 243 to 261, the
-            // countdown text about 240 to 264 -- which is a handful of pixels
-            // BELOW where the box used to stop at 243. So the stars were the
-            // one remaining element left to persist on its own, and they
-            // behaved exactly like the sky did before it was brought back in.
-            //
-            // 268 takes them in with 4 px to spare. The time is centred at
-            // CY + 120 = 300 with 48 px digits, so it starts at 276 and stays
-            // clear by 8 px -- and it must, because the time is STEADY and
-            // leaving band 5 entirely untouched is what makes it so.
-            //
-            // Band 0 is covered by real pixels so no marker is needed, bands
-            // 1-3 carry the eyes, band 4 now carries the stars, band 5 is
-            // never drawn on at all and the driver aborts it cleanly.
-            it.filled_rectangle(CX - 124, 0, 248, 268, field);
+            it.start_clipping(0, 0, AN_MK, 360);
+            it.filled_rectangle(0, 0, AN_MK, AN_T, field);
+            it.filled_rectangle(0, AN_B, AN_MK, 360 - AN_B, field);
+            it.end_clipping();
+            it.start_clipping(AN_L, AN_T, AN_R, AN_B);
+            it.filled_rectangle(AN_L, AN_T, AN_R - AN_L, AN_B - AN_T, field);
           }
           const float droop = st == 3 ? 1.0f : 0.0f;
           auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
@@ -4067,7 +4103,11 @@ display:
           const int gx = (int) lroundf(id(an_dgx)), gy = (int) lroundf(id(an_dgy));
           eye(CX - EX + gx, EY + gy, id(an_dlidl), id(an_dsmile), id(an_dhs), true);
           eye(CX + EX + gx, EY + gy, id(an_dlidr), id(an_dsmile), id(an_dhs), false);
-          if (id(an_dmouth) > 0.05f) {                // the yawn
+          // The countdown lands where the yawn does, and only one of them can
+          // have it. The number wins: it is information, the yawn is decoration.
+          const bool cdown = id(grow_show_countdown).state
+                             && (st == 1 || st == 3) && id(grow_min_to) >= 0;
+          if (id(an_dmouth) > 0.05f && !cdown) {      // the yawn
             const int r = 4 + (int) (12 * id(an_dmouth));
             it.filled_circle(CX + gx, EY + EH / 2 + 20 + gy, r, ink);
             if (r > 6) it.filled_circle(CX + gx, EY + EH / 2 + 20 + gy, r - 5, field);
@@ -4081,14 +4121,16 @@ display:
           }
           if (sound) it.print(CX, CY + 40, id(font_med), ink, TextAlign::CENTER, "shh");
           // The sky, above the eyes: a moon at night and bedtime, a sun by
-          // day, a sun half-risen when it is almost morning. Back INSIDE the
-          // animation box and repainted every frame, exactly like the z's and
-          // the eyes -- the two things Sam confirms do not flicker. The clip
-          // filled over it, so it has to be put back; that is the whole rule,
-          // and the version that tried to be cleverer than it is what left the
-          // sun alone in a band nothing else painted.
-          if (sky) {
-            const int sy = CY - 138;
+          // day, a sun half-risen when it is almost morning.
+          // OUTSIDE THE BOX ON PURPOSE, and 144 not 138 for the same reason:
+          // the longest sun ray is 22 px and 36 + 22 = 58, which clears the
+          // box's top edge at 60 with two rows to spare. An animation frame
+          // does not draw the sky at all -- it is not clipped away, it is not
+          // reached -- so the moon is never rewritten and cannot blink. A full
+          // frame redraws it, and full frames only happen when something has
+          // actually changed.
+          if (sky && !partial) {
+            const int sy = CY - 144;
             const bool flat = id(grow_flat_art).state;
             if (st == 0 || st == 4 || st == 3) {
               if (!flat && id(grow_block_art).state) {
@@ -4153,6 +4195,27 @@ display:
           }
           if (sound) it.print(CX, CY + 100, id(font_med), ink, TextAlign::CENTER, "shh");
         }
+        // The countdown: minutes to wake while it is almost morning, minutes
+        // to bed in the bedtime warning. Where the stars would be.
+        if (id(grow_show_countdown).state && (st == 1 || st == 3) && id(grow_min_to) >= 0) {
+          char cb[12]; snprintf(cb, sizeof(cb), "%d min", id(grow_min_to));
+          // CY + 40, not CY + 72. It used to sit on the star row, which is
+          // below the animation box now -- the box would have chopped the top
+          // off the glyphs on every animation frame and a full frame would have
+          // put them back once a minute. Directly under the eyes it is inside
+          // the box, redrawn with them, and where the yawn would have been.
+          // On the sun-and-moon face the picture owns the middle, so it goes
+          // up top where the chord is still 100 px wide.
+          const int cy_ = (fs == "sun and moon") ? CY - 150 : CY + 40;
+          it.print(CX, cy_, id(font_med), ink, TextAlign::CENTER, cb);
+        }
+
+        // An animation frame ends here. EVERYTHING BELOW IS STATIC between
+        // full frames -- the star row, the time -- and static is precisely
+        // what must not be rewritten while the panel is scanning. It keeps
+        // what it already has.
+        if (partial) { it.end_clipping(); return; }
+
         // Stars until morning: a row under the eyes, lit ones solid, spent
         // ones faint. The row is grow_star_count wide at up to 28 px pitch;
         // y = CY + 72 has 165 px of half-width on the round panel.
@@ -4177,21 +4240,6 @@ display:
             } else it.filled_circle(x, y, 6, c);
           }
         }
-        // The countdown: minutes to wake while it is almost morning, minutes
-        // to bed in the bedtime warning. Where the stars would be.
-        if (id(grow_show_countdown).state && (st == 1 || st == 3) && id(grow_min_to) >= 0) {
-          char cb[12]; snprintf(cb, sizeof(cb), "%d min", id(grow_min_to));
-          // under the eyes; on the sun-and-moon face the picture owns that
-          // space, so it goes up top where the chord is still 100 px wide
-          const int cy_ = (fs == "sun and moon") ? CY - 150 : CY + 72;
-          it.print(CX, cy_, id(font_med), ink, TextAlign::CENTER, cb);
-        }
-
-        // An animation frame ends here. The TIME below is outside the box and
-        // keeps what it already has -- and it is steady, which is the evidence
-        // that leaving band 5 completely untouched is safe. Everything ABOVE
-        // this line is now inside the repainted rectangle.
-        if (partial) { it.end_clipping(); return; }
 
         // The time, digital, along the bottom. 48 px digits centred at
         // CY + 120: "12:34" is about 119 px wide and the chord there is 249.

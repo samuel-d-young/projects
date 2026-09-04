@@ -234,7 +234,7 @@ def draw_round(st: int, face: str, sound=False) -> Canvas:
         if sound:
             it.print(CX, CY + 40, font_med, ink, TextAlign.CENTER, "shh")
         if face == "eyes and sky":
-            sky(it, CX, CY - 138, st, ink, field)
+            sky(it, CX, CY - 144, st, ink, field)
     elif face == "sun and moon":
         if st in (0, 4, 3):
             it.filled_circle(CX, CY - 10, 70, ink)
@@ -260,7 +260,7 @@ def draw_round(st: int, face: str, sound=False) -> Canvas:
             star(it, CX - (NS - 1) * pitch // 2 + i * pitch, CY + 72, 9,
                  ink if i < lit else dim(ink, 0.18), STAR_SHAPE == "stars")
     elif st in (1, 3):
-        it.print(CX, CY - 150 if face == "sun and moon" else CY + 72, font_med, ink,
+        it.print(CX, CY - 150 if face == "sun and moon" else CY + 40, font_med, ink,
                  TextAlign.CENTER, f"{MIN_TO} min")
 
     # The time, digital, along the bottom.
