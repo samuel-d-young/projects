@@ -5276,3 +5276,70 @@ Flash: [======    ]  60.9% (used 1116983 bytes from 1835008 bytes)
 
 0 errors. RAM unchanged and 276 bytes of flash for the span loop, replacing
 one `filled_circle` call with a bounded one. Not seen on the panel yet.
+
+## 2026-09-04 — Third diagnosis, and the first one that came from the driver rather than the screen
+
+Sam, after the smile clip was flashed: *"The animation still flickers and so
+does the time."*
+
+Two wrong diagnoses preceded this one, and both were argued from what the
+panel looked like. The backlight PWM could not have been it, because the ring
+flickers too. The smile overdraw was real — it genuinely drew outside its box
+— but it was not the cause. This one came from reading
+`draw_absolute_pixel_internal` and `fill` in `mipi_spi.h`, and the tell that
+it is right is that it explains the detail the other two could not: **why the
+TIME flickered rather than the eyes.**
+
+### The mechanism
+
+The driver tracks a dirty rectangle widened one pixel at a time, and flushes
+**that whole rectangle** out of the buffer. The buffer is one band tall,
+reused for all six bands of a frame, and with `auto_clear_enabled: false` it
+is never cleared. So every pixel inside the flushed rectangle that was not
+written on this pass is sent to the panel as whatever the buffer held — which
+is a *different horizontal slice of the screen* from the previous pass. Not a
+stale copy of the same region. The wrong region.
+
+**A dirty rectangle is a bounding box, not a set.** Draw two small things far
+apart and you have promised the driver everything between them.
+
+And the thing that carried this onto Sam's clock face was my own fix from two
+hours earlier. The one-pixel marker column at x = 0, added to stop the driver
+abandoning frames on an empty band, forced `x_low_` to 0 on every band. On the
+band that straddles the bottom of the eye box, the flush then ran from x 0 to
+the box's right edge and from y 240 down to 299 — across the top of the
+digital time at y 300 with its 48-pixel font. Every animation frame wrote
+garbage over the top of the time; the once-a-second full frame put it back.
+
+### Why drawing more carefully cannot fix it
+
+Every candidate ran into the same wall. Keeping the empty bands alive requires
+drawing *something* in them, and anything drawn outside the region of interest
+widens the box past what was drawn. Making the drawn set equal its own
+bounding box means drawing a full-width strip — and then there is nothing
+partial left to save. When every repair widens the same contradiction, the
+optimisation is unsound rather than buggy.
+
+### So animation frames are full frames
+
+`it.fill()` writes every pixel of the band and sets the box to the whole band,
+so nothing stale can survive. What pays for it:
+
+- **the dirty check** — nothing is drawn at all unless the pose has moved, and
+  the animator holds still between clips;
+- **a 200 ms floor** between repaints, while the animator keeps stepping at
+  100 ms so the interpolation stays smooth.
+
+The guards that read `an_partial` are left in place and the global carries the
+whole reasoning, so the next person to have this idea finds the note attached
+to the thing they would touch.
+
+```
+RAM:   [==        ]  18.9% (used 61924 bytes from 327680 bytes)
+Flash: [======    ]  60.9% (used 1116943 bytes from 1835008 bytes)
+```
+
+0 errors. **Not flashed at time of writing, deliberately** — Sam has already
+spent one flash on a wrong fix of mine, and the ring-off test (switch the ring
+off, watch the screen) is still unrun and still the fastest way to find out
+whether any of this is the display at all.
