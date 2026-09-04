@@ -6005,3 +6005,72 @@ check3_print     PASS   check6_standbox  PASS
 ```
 
 All parts manifold and clean.
+
+---
+
+## 2026-09-04 (15:00) — Sam's plan: the first version's arrangement, with the fix that stopped the time
+
+> "The first time you flashed the animations worked. Try that again but with
+> the fix that stopped the flicker on the eyes and clock."
+
+Better than anything I proposed today, and worth being exact about why.
+
+### What the first version actually did
+
+`7776635` drew its animation frame as
+`filled_rectangle(CX - 124, 60, 248, 184)` — starting at **y = 60**. Band 0 is
+y 0–59, so band 0 always came back empty, and `mipi_spi` **returns from the
+whole frame** on the first empty band. **Not one animation frame ever reached
+the glass.** The panel was repainted by exactly one path, the full frame, and
+every band was painted in full every time.
+
+That is the safest arrangement there is over a buffer nobody clears: there is
+no such thing as a partially-touched band, so there is nothing for stale pixels
+to leak into. It "worked" by accident, but the accident was a good design.
+
+### And the other half of his sentence
+
+The time stopped flickering at `c635533` — the content key, which repaints when
+the picture changes rather than when the clock ticks. That is what stops
+"every repaint is a full frame" from meaning "a 104 ms sweep every second".
+
+**The two together are exactly what he asked for**, and they are not the same
+as `6702d52`, which also made animation frames full frames and did not settle
+it. At that point the unconditional 1 Hz repaint was still running as well, so
+two full-frame paths at different rates were walking down the glass over each
+other. With the key in place there is only one.
+
+### The change
+
+* **`grow_partial`** — "Grow clock partial redraw (test)", default **OFF**. The
+  animation frame now sets `an_partial` from this switch instead of hard-coding
+  it true. Off, every repaint is a full frame. On, the partial path returns, so
+  the two can be compared on the glass without a reflash. The partial machinery
+  is still there and still correct; it is simply not what this panel wants.
+* **An animation frame resets `grow_paint_at`.** It has just repainted the
+  whole panel, so the 1 s dispatcher must not turn round and do it again a few
+  milliseconds later. This is precisely what `6702d52` got wrong.
+* **`grow_anim_ms` minimum 100 → 250.** A full frame is 259,200 bytes, about
+  104 ms at the panel's 20 MHz, plus six passes of the drawing lambda. Below
+  ~250 ms the frames overlap and the glass never shows one whole picture —
+  which is the flicker this whole exercise is about. The first working version
+  repainted once a **second**; 600 ms is still more than twice as smooth.
+
+```
+RAM:   [==        ]  19.1% (used 62668 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1120155 bytes from 1835008 bytes)
+```
+
+0 errors, compiled.
+
+### What this predicts
+
+Everything on the screen — moon, stars, eyes, z's, time — is now drawn by one
+path, at one rate, with every band fully painted. If the flicker is anything to
+do with partial band writes, it goes away entirely. If it does not, then no
+arrangement of the renderer will fix it and the freeze switch says so in ten
+seconds.
+
+The user's own memory of when it worked turned out to be better evidence than
+nine of my theories. **Ask what was different when it worked, before asking
+what is wrong now.**

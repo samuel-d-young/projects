@@ -411,6 +411,9 @@ def clock_cards(slug, label):
             # the picture changes; on restores the old 1 Hz full repaint.
             # The decisive one: stops ALL writes to the panel. If it still
             # flickers with this on, nothing the firmware draws is the cause.
+            # OFF (default) = every repaint is a full frame, the arrangement
+            # the first working build had. ON restores the partial redraw.
+            row(e("switch", "grow_clock_partial_redraw_test"), "Partial redraw (test)"),
             row(e("switch", "screen_freeze_test"), "Screen freeze (test)"),
             row(e("switch", "grow_clock_repaint_every_second"), "Repaint every second (test)"),
             row(e("switch", "grow_clock_freeze_the_eyes_test"), "Freeze the eyes (test)"),

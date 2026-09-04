@@ -641,6 +641,10 @@
         "name": "Animation interval"
       },
       {
+        "entity": "switch.mini_round_clock_grow_clock_partial_redraw_test",
+        "name": "Partial redraw (test)"
+      },
+      {
         "entity": "switch.mini_round_clock_screen_freeze_test",
         "name": "Screen freeze (test)"
       },
@@ -1397,6 +1401,10 @@
         "name": "Animation interval"
       },
       {
+        "entity": "switch.mini_round_clock_2_grow_clock_partial_redraw_test",
+        "name": "Partial redraw (test)"
+      },
+      {
         "entity": "switch.mini_round_clock_2_screen_freeze_test",
         "name": "Screen freeze (test)"
       },
@@ -2151,6 +2159,10 @@
       {
         "entity": "number.mini_round_clock_3_grow_clock_animation_interval",
         "name": "Animation interval"
+      },
+      {
+        "entity": "switch.mini_round_clock_3_grow_clock_partial_redraw_test",
+        "name": "Partial redraw (test)"
       },
       {
         "entity": "switch.mini_round_clock_3_screen_freeze_test",

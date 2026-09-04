@@ -1166,7 +1166,13 @@ number:
     entity_category: config
     icon: mdi:filmstrip
     unit_of_measurement: "ms"
-    min_value: 100
+    # 250, not 100. A FULL frame is 360 x 360 x 16 bit -- 259200 bytes, about
+    # 104 ms at the panel's 20 MHz -- plus six passes of the drawing lambda.
+    # Below about 250 ms the frames overlap and the glass never shows one whole
+    # picture, which is the flicker this whole exercise is about. The first
+    # version that worked repainted once a SECOND; 600 is still more than twice
+    # as smooth as that.
+    min_value: 250
     max_value: 2000
     step: 10
     initial_value: 600
@@ -1607,6 +1613,38 @@ switch:
     name: "Display"
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
+
+  # SAM: "The first time you flashed the animations worked. Try that again but
+  # with the fix that stopped the flicker on the eyes and clock."
+  #
+  # He is right, and it is worth being exact about WHY the first one worked.
+  # In 7776635 the partial repaint was filled_rectangle(CX-124, 60, 248, 184) --
+  # starting at y = 60. Band 0 is y 0-59, so band 0 always came back empty, and
+  # mipi_spi RETURNS from the whole frame on the first empty band. Not one
+  # animation frame ever reached the glass. The panel was repainted by exactly
+  # one path, the full frame, and every band was painted in full every time.
+  # That is the safest arrangement there is over a shared buffer nobody clears:
+  # there is no such thing as a partially-touched band.
+  #
+  # So this switch is OFF by default and the partial path is off with it. Every
+  # repaint is now a FULL frame, and what stops that being the once-a-second
+  # sweep it used to be is the other half of his sentence -- the content key
+  # from c635533, which repaints when the picture changes rather than when the
+  # clock ticks. Those two together are what he asked for.
+  #
+  # 6702d52 also made animation frames full frames and it did not settle it --
+  # but at that point the unconditional 1 Hz repaint was still running too, so
+  # there were two full-frame paths at different rates walking down the glass
+  # over each other. With the key in place there is only one.
+  #
+  # ON restores the partial path, for A/B on the glass without a reflash.
+  - platform: template
+    id: grow_partial
+    name: "Grow clock partial redraw (test)"
+    entity_category: config
+    icon: mdi:image-refresh
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
 
   # THE DECISIVE TEST, and it should have existed nine theories ago.
   # ON: the dispatcher stops calling component.update on the panel ENTIRELY.
@@ -2754,7 +2792,10 @@ interval:
                   id(an_dzq)    = (int) (id(an_zph) * 8.0f);
                 }
                 id(an_frame_t0) = millis();
-                id(an_partial) = true;
+                // FULL frame by default -- see grow_partial. The whole
+                // partial-repaint machinery is still here and still correct;
+                // it is simply not what this panel wants.
+                id(an_partial) = id(grow_partial).state;
             - if:
                 condition:
                   lambda: 'return id(bar_active);'
@@ -2766,6 +2807,12 @@ interval:
                 id(an_partial) = false;
                 const uint32_t now_ms = millis();
                 id(an_lastdraw) = now_ms;
+                // A full animation frame has just repainted the whole panel,
+                // so the 1 s dispatcher must not turn round and do it again a
+                // few milliseconds later. Resetting the floor here is what
+                // keeps the two paths from walking down the glass over each
+                // other, which is the thing 6702d52 got wrong.
+                if (!id(grow_partial).state) id(grow_paint_at) = now_ms;
                 const float dt = (float) (now_ms - id(an_frame_t0));
                 if (isnan(id(grow_frame_ms).state)
                     || fabsf(id(grow_frame_ms).state - dt) >= 1.0f)
