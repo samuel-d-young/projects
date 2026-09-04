@@ -5715,3 +5715,37 @@ Flash: [======    ]  61.0% (used 1119923 bytes from 1835008 bytes)
    and everything since `6c5e232` was chasing a hardware margin with software.
 3. Still flickering? Then `-s lcd_hz 40MHz` to confirm it makes no difference
    either way, and the clock is exonerated.
+
+### Verified: 40 MHz was double the tested ceiling
+
+Rather than leave "no spec basis for 40" as a hunch, went and looked. The
+**Arduino_GC9B72** library — written for this exact panel, a 2.1-inch 360×360
+round SPI TFT — says, verbatim:
+
+> "The controller handles fast SPI (tested up to ~20 MHz on short leads); if you
+> use long/breadboard jumpers and see **speckle**, lower the clock via
+> `gfx->begin(<hz>)`."
+>
+> — https://github.com/MaliosDark/Arduino_GC9B72
+
+Three things fall out of that:
+
+1. **~20 MHz is the ceiling on SHORT leads.** I ran it at 40 — double — on a dev
+   board with jumper wires.
+2. **For jumper wiring the advice is to go BELOW 20, not above.** So if 20 still
+   misbehaves on Sam's wiring, the next step is *down*: 10 MHz.
+3. **The named failure mode is "speckle."** Scattered wrong pixels. That erases
+   1 px sun rays and eats the thin strokes of digits, and is invisible inside an
+   80×112 solid eye. It is the symptom, described by someone else, before I ever
+   saw it.
+
+This reframes the whole day. `6c5e232` is not a fix that failed to help — it is
+a change that made the panel worse, shipped in the middle of a hunt for why the
+panel was misbehaving, on an argument ("the bar runs at 40, xboot uses 50") that
+was about other hardware entirely. Every subsequent renderer theory was
+explaining a symptom I had introduced two commits earlier.
+
+The rule this earns: **when a knob has a documented safe range, find the
+documentation before turning it, not after the symptom fails to go away.** And
+when the argument for a change is "something else runs at this speed", that is
+not evidence about the link in front of you.

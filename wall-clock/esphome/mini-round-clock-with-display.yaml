@@ -86,7 +86,23 @@ substitutions:
   # reverse-engineered rather than taken from a datasheet, so there is no spec
   # basis for 40 at all.
   #
-  # Override on the command line to A/B it without editing:  -s lcd_hz 40MHz
+  # VERIFIED 2026-09-04, and it is worse than "unproven": 40 was DOUBLE the
+  # tested ceiling. The Arduino_GC9B72 library, written for this exact panel
+  # (2.1-inch 360x360 round SPI TFT), says verbatim:
+  #
+  #   "The controller handles fast SPI (tested up to ~20 MHz on short leads);
+  #    if you use long/breadboard jumpers and see speckle, lower the clock via
+  #    gfx->begin(<hz>)."
+  #
+  #   -- https://github.com/MaliosDark/Arduino_GC9B72
+  #
+  # So ~20 MHz is the ceiling on SHORT leads, and the advice for jumper wiring
+  # is to go BELOW it, not above. The named failure mode is "speckle", which is
+  # exactly what wrecks 1 px rays and thin digit strokes while leaving an
+  # 80x112 solid eye looking perfect.
+  #
+  # If 20MHz still speckles on Sam's wiring, the next step is DOWN: 10MHz.
+  # Override on the command line to A/B without editing:  -s lcd_hz 40MHz
   lcd_hz: 20MHz
 
   # The render reads the real LED count from the strip at runtime, so this
