@@ -5556,3 +5556,93 @@ Flash: [======    ]  61.0% (used 1119603 bytes from 1835008 bytes)
 ```
 
 0 errors, compiled.
+
+---
+
+## 2026-09-04 (later still) — "I feel like the first version worked"
+
+Sam's best clue of the whole saga, and it is a bisect rather than a theory. So
+I went and read the first version instead of inventing a ninth explanation.
+
+`7776635`, the first animator, drew its animation frame as:
+
+```cpp
+if (partial) it.filled_rectangle(CX - 124, 60, 248, 184, field);
+```
+
+**Starting at y = 60.** Band 0 is y 0–59. So band 0 always came back empty, and
+`mipi_spi::update()` **returns from the whole frame** on the first empty band.
+Not one animation frame ever reached the glass.
+
+That is why the first version worked. The panel was repainted **once a second,
+by one path, cleanly**, and the eyes moved at 1 fps. It also had no sky: the
+face styles were `"eyes"` and `"eyes on colour"` — `"eyes and sky"` did not
+exist yet. There was no sun to flicker.
+
+Everything since has been me adding a second writer to a panel that was only
+ever quiet because the second writer was broken.
+
+### The asymmetry, at last
+
+I could not explain from the code why the sun flickered and the eyes did not,
+because **mechanically it doesn't** — both sat inside the animation clip and
+both were erased and repainted identically. The difference is not in the
+driver, it is perceptual:
+
+> **Repainting something that has not changed is what reads as a flicker.**
+
+The eyes get away with it because they are supposed to move — an erase and a
+repaint reads as animation. The sun does not move. Erasing it to the field
+colour and painting it back about twice a second, forever, reads as a fault.
+Same for the digital time, which the 1 s full frame was rewriting unchanged
+sixty times a minute.
+
+Every previous fix asked "is the repaint correct?" — and after the clip work,
+it was. The right question was "why is it repainting at all?"
+
+### The fix
+
+The animation box now starts **below the sky**, and the sky is drawn by full
+frames only:
+
+* `it.filled_rectangle(CX - 124, 68, 248, 176, field)` — was the whole clip
+  from y = 0.
+* `if (sky && !partial)` — an animation frame neither erases nor repaints the
+  sun, so it just stays on the glass. It changes only when the state does, and
+  `st` is in the full frame's content key, so the change still lands at once.
+
+**y = 68 is derived, not chosen.** The sun's lowest ink is a ray tip at y = 64
+and the half-sun's eraser rectangle reaches y = 67. The highest the eye can
+ever reach is y = 72 — gaze −9, squash 1.15, less the one-pixel lid overhang.
+68 is the only clean lane between them, with 4 px of margin over the eye.
+
+**Band 0 still has to be kept alive**, or we are back to the first version
+silently discarding every frame. One pixel does it:
+`it.draw_pixel_at(CX - 124, 0, field)`. A single pixel, so that band's dirty
+box is that pixel and nothing else — unlike the marker *column* I tried in
+`6702d52`, which forced `x_low` to 0 on every band and dragged the flush across
+the clock's time. (56, 0) is 219 px from the centre of a 360 circle, so it is
+off the visible glass entirely.
+
+**And `filled_rectangle`, not `fill()`.** `Display::fill()` is
+`filled_rectangle(0, 0, w, h)`, so under a clip it walks all 129,600 pixels of
+the panel and discards seven eighths of the work — per band, six times a frame.
+The rectangle walks 43,648 and keeps them. Same change on the bar panel.
+
+```
+RAM:   [==        ]  19.1% (used 62460 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1119643 bytes from 1835008 bytes)
+```
+
+0 errors, compiled.
+
+### What is now repainted, and how often
+
+| | before today | now |
+| --- | --- | --- |
+| digital time | 60 x / min | on the minute |
+| sun / moon | ~100 x / min | on a state change |
+| star row, countdown | 60 x / min | on change |
+| eyes | ~100 x / min | ~100 x / min (they move) |
+
+Nothing on that screen is now redrawn unless it has changed.

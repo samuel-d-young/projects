@@ -3775,7 +3775,41 @@ display:
           // countdown at 252 and the time at 300 keep what they have.
           if (partial) {
             it.start_clipping(CX - 124, 0, CX + 124, 244);
-            it.fill(field);
+            // Band 0 must not come back empty, or mipi_spi returns from the
+            // WHOLE frame and the animation never reaches the glass. That is
+            // not a hypothetical: it is exactly what the FIRST version of the
+            // animator did -- its repaint box started at y = 60, band 0 was
+            // always empty, and every animation frame was silently discarded.
+            // Sam remembers that build as the one that worked, and he is right:
+            // it worked because the panel was being repainted once a second by
+            // one clean path and nothing else was touching the glass.
+            //
+            // One pixel keeps band 0 alive. It is a SINGLE pixel, so that
+            // band's dirty box is that pixel and nothing else -- unlike the
+            // marker COLUMN I tried before, which forced x_low to 0 on every
+            // band and dragged the flush across the clock's time. (56, 0) is
+            // 219 px from the centre of a 360 circle, so it is off the visible
+            // glass entirely.
+            it.draw_pixel_at(CX - 124, 0, field);
+            // ...and the repaint box now starts BELOW the sky, which is the
+            // actual fix. The sun does not move. It was being erased to the
+            // field colour and painted back about twice a second, every second,
+            // for no reason -- and repainting something that has not changed is
+            // precisely what reads as a flicker. The eyes get away with it
+            // because they are supposed to move; a static sun blinking does not
+            // read as animation, it reads as a fault. Which is what Sam saw.
+            //
+            // y = 68 is not a guess. The sun's lowest ink is a ray tip at
+            // y = 64 and the half-sun's eraser rectangle reaches y = 67; the
+            // highest the eye can ever reach is y = 72 (gaze -9, squash 1.15,
+            // minus the one-pixel lid overhang). 68 is the only clean lane
+            // between them, with 4 px of margin over the eye.
+            //
+            // filled_rectangle, not fill(). Display::fill() is
+            // filled_rectangle(0, 0, w, h), so under a clip it walks all 129600
+            // pixels of the panel and throws away seven eighths of the work --
+            // per band, six times a frame. This walks 43648 and keeps them.
+            it.filled_rectangle(CX - 124, 68, 248, 176, field);
           }
           const float droop = st == 3 ? 1.0f : 0.0f;
           auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
@@ -3836,10 +3870,12 @@ display:
           }
           if (sound) it.print(CX, CY + 40, id(font_med), ink, TextAlign::CENTER, "shh");
           // The sky, above the eyes: a moon at night and bedtime, a sun by
-          // day, a sun half-risen when it is almost morning. INSIDE the
-          // animation clip, so an animation frame redraws it -- the clip
-          // filled over it, and anything filled over has to be put back.
-          if (sky) {
+          // day, a sun half-risen when it is almost morning. OUTSIDE the
+          // animation box now, so an animation frame neither erases it nor
+          // repaints it and it simply stays on the glass between full frames.
+          // It changes only when the state does, and the full frame's content
+          // key has `st` in it, so the change still lands immediately.
+          if (sky && !partial) {
             const int sy = CY - 138;
             if (st == 0 || st == 4 || st == 3) {
               it.filled_circle(CX, sy, 16, ink);
@@ -4480,7 +4516,9 @@ display:
           // countdown at 120 and the time at 148 are untouched.
           if (partial) {
             it.start_clipping(0, 0, W, 116);
-            it.fill(field);
+            // filled_rectangle, not fill(): see the round panel above. Same
+            // pixels, same dirty box, without walking the whole panel per band.
+            it.filled_rectangle(0, 0, W, 116, field);
           }
           const float droop = st == 3 ? 1.0f : 0.0f;
           auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
