@@ -2031,6 +2031,10 @@ globals:
     type: int
     restore_value: no
     initial_value: '-1'
+  - id: an_dzph                # ...and the phase itself, as drawn
+    type: float
+    restore_value: no
+    initial_value: '0'
   - id: an_lastdraw            # millis() of the last animation repaint
     type: uint32_t
     restore_value: no
@@ -2490,7 +2494,15 @@ interval:
                   || fabsf(id(an_mouth) - id(an_dmouth)) > 0.01f
                   || zq != id(an_dzq);
           then:
-            - lambda: 'id(an_partial) = true;'
+            # Advance the drawn pose FIRST: the lambda renders from these, so
+            # this is what makes the frame show something new.
+            - lambda: |-
+                id(an_dgx)    = id(an_gx);    id(an_dgy)    = id(an_gy);
+                id(an_dlidl)  = id(an_lidl);  id(an_dlidr)  = id(an_lidr);
+                id(an_dsmile) = id(an_smile); id(an_dhs)    = id(an_hs);
+                id(an_dmouth) = id(an_mouth); id(an_dzph)   = id(an_zph);
+                id(an_dzq)    = (int) (id(an_zph) * 8.0f);
+                id(an_partial) = true;
             - if:
                 condition:
                   lambda: 'return id(bar_active);'
@@ -2501,12 +2513,6 @@ interval:
             - lambda: |-
                 id(an_partial) = false;
                 id(an_lastdraw) = millis();
-                // record what the panel is now showing
-                id(an_dgx)    = id(an_gx);    id(an_dgy)    = id(an_gy);
-                id(an_dlidl)  = id(an_lidl);  id(an_dlidr)  = id(an_lidr);
-                id(an_dsmile) = id(an_smile); id(an_dhs)    = id(an_hs);
-                id(an_dmouth) = id(an_mouth);
-                id(an_dzq)    = (int) (id(an_zph) * 8.0f);
 
   - interval: 250ms
     then:
@@ -3361,18 +3367,15 @@ display:
     lambda: |-
       if (!id(an_partial)) {
         it.fill(Color::BLACK);                     // what auto-clear used to do
-        // A full frame has just repainted the eye box too, so whatever the
-        // animator last drew is on the panel again. Not invalidating here
-        // would be the subtler bug: the pose is unchanged, so the dirty
-        // check would skip the next partial frame, which is correct -- and
-        // it stays correct only because the full frame drew the SAME pose.
-        // Recorded rather than reasoned about, so that a change to what a
-        // full frame draws cannot silently break the skip.
-        id(an_dgx)    = id(an_gx);    id(an_dgy)    = id(an_gy);
-        id(an_dlidl)  = id(an_lidl);  id(an_dlidr)  = id(an_lidr);
-        id(an_dsmile) = id(an_smile); id(an_dhs)    = id(an_hs);
-        id(an_dmouth) = id(an_mouth);
-        id(an_dzq)    = (int) (id(an_zph) * 8.0f);
+        // A full frame draws the eyes from the SAME drawn-pose globals the
+        // animation frame does, so it repaints them exactly as they already
+        // are and changes nothing. It deliberately does NOT advance that
+        // pose. This is the whole fix: the 1 s dispatcher redraw used to
+        // draw the LIVE pose, so however slowly the animation frames were
+        // throttled, the eyes still jumped a whole second's worth of
+        // movement once a second -- which is what Sam has been seeing, and
+        // why no value of the interval ever helped. Now the only thing that
+        // moves the eyes is an animation frame, at the rate the dial sets.
       }
       const int CX = 180, CY = 180;
       const auto now = id(ha_time).now();
@@ -3599,17 +3602,17 @@ display:
               }
             }
           };
-          const int gx = (int) lroundf(id(an_gx)), gy = (int) lroundf(id(an_gy));
-          eye(CX - EX + gx, EY + gy, id(an_lidl), id(an_smile), id(an_hs), true);
-          eye(CX + EX + gx, EY + gy, id(an_lidr), id(an_smile), id(an_hs), false);
-          if (id(an_mouth) > 0.05f) {                // the yawn
-            const int r = 4 + (int) (12 * id(an_mouth));
+          const int gx = (int) lroundf(id(an_dgx)), gy = (int) lroundf(id(an_dgy));
+          eye(CX - EX + gx, EY + gy, id(an_dlidl), id(an_dsmile), id(an_dhs), true);
+          eye(CX + EX + gx, EY + gy, id(an_dlidr), id(an_dsmile), id(an_dhs), false);
+          if (id(an_dmouth) > 0.05f) {                // the yawn
+            const int r = 4 + (int) (12 * id(an_dmouth));
             it.filled_circle(CX + gx, EY + EH / 2 + 20 + gy, r, ink);
             if (r > 6) it.filled_circle(CX + gx, EY + EH / 2 + 20 + gy, r - 5, field);
           }
           if (st == 0 || st == 4) {                  // three z's, rising and fading
             for (int i = 0; i < 3; i++) {
-              const float ph = fmodf(id(an_zph) + i / 3.0f, 1.0f);
+              const float ph = fmodf(id(an_dzph) + i / 3.0f, 1.0f);
               it.print(CX + 70 + (int) (14 * ph), CY - 74 - (int) (24 * ph), id(font_med),
                        dim(ink, 1.0f - ph * 0.9f), TextAlign::CENTER, "z");
             }
@@ -4305,17 +4308,17 @@ display:
             }
           };
           // gaze at 0.6 of the round panel's, like everything else here
-          const int gx = (int) lroundf(id(an_gx) * 0.6f), gy = (int) lroundf(id(an_gy) * 0.6f);
-          eye(FX - EX + gx, EY + gy, id(an_lidl), id(an_smile), id(an_hs), true);
-          eye(FX + EX + gx, EY + gy, id(an_lidr), id(an_smile), id(an_hs), false);
-          if (id(an_mouth) > 0.05f) {
-            const int r = 3 + (int) (7 * id(an_mouth));
+          const int gx = (int) lroundf(id(an_dgx) * 0.6f), gy = (int) lroundf(id(an_dgy) * 0.6f);
+          eye(FX - EX + gx, EY + gy, id(an_dlidl), id(an_dsmile), id(an_dhs), true);
+          eye(FX + EX + gx, EY + gy, id(an_dlidr), id(an_dsmile), id(an_dhs), false);
+          if (id(an_dmouth) > 0.05f) {
+            const int r = 3 + (int) (7 * id(an_dmouth));
             it.filled_circle(FX + gx, EY + EH / 2 + 12 + gy, r, ink);
             if (r > 5) it.filled_circle(FX + gx, EY + EH / 2 + 12 + gy, r - 4, field);
           }
           if (st == 0 || st == 4) {
             for (int i = 0; i < 3; i++) {
-              const float ph = fmodf(id(an_zph) + i / 3.0f, 1.0f);
+              const float ph = fmodf(id(an_dzph) + i / 3.0f, 1.0f);
               it.print(FX + 62 + (int) (10 * ph), 24 - (int) (16 * ph), id(font_med),
                        dim(ink, 1.0f - ph * 0.9f), TextAlign::CENTER, "z");
             }
