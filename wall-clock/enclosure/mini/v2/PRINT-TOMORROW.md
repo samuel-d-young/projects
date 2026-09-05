@@ -38,7 +38,7 @@ and the old stand-box are cut for 30.00 now.
 
 | # | file | size mm (x·y·z) | vol | notes |
 |---|---|---|---|---|
-| 1 | `mini-round-clock-backstand-32` | 98.0 · 86.3 · 48.0 | 53 cm³ | **the new base.** One part, no lid |
+| 1 | `mini-round-clock-backstand-32` | 98.0 · 86.3 · 48.0 | 51 cm³ | **the new base.** One part, no lid |
 | 1b | `mini-round-clock-backstand-clamp` | 81.5 · 20.0 · 6.9 | 7 cm³ | holds the board down. Two M2 self-tappers |
 | 2 | `mini-round-clock-base-32` | 119.8 · 119.8 · 24.4 | 138 cm³ | the clock body |
 | 3 | `mini-round-clock-backcover-32` | 119.8 · 119.8 · 8.9 | 34 cm³ | flat back, for the stand version |
@@ -96,6 +96,25 @@ than guess. The one that takes the board without force is the answer.
    each end. Two M2 x 6 self-tappers into the bosses either side of the board.
    Tighten until it stops: the pads sit 0.10 mm below the boss seats, so it
    lands on the board rather than bottoming out on its own bosses.
+1c. **Or zip ties instead of the bar.** Six slots in the foot, in three pairs.
+   Thread a tie down one slot of a pair and back up the other: the two are
+   joined by a **1.2 mm relief milled into the underside**, so the loop lies
+   *inside* the foot and the stand still sits flat on the desk. That relief is
+   the whole point — a pair of plain holes through a foot puts the tie's loop
+   under the part and the stand rocks on it.
+
+   | pair | where | holds |
+   |---|---|---|
+   | board tie ×2 | \|x\| = 26, crossing the board's width | the ESP32. The loop wraps the board **and** the floor between the slots, so pulling it tight seats the board on the bay floor |
+   | lead tie ×2 | \|x\| = 16, either side of the cable gate | the ring and power leads, front-to-back, where they come out of the clock |
+   | end tie ×2 | \|x\| = 35.5, on the bare floor past the board's end | the USB lead, which leaves the board sideways |
+
+   The board ties and the bar are **alternatives, not companions** — the bar's
+   plate lies right across where those two ties have to go. Pick one.
+
+   2.5 mm ties (the common small ones, about 2.5 × 1.0 mm in section) go
+   through a 2.00 mm slot. Anything up to 3 mm wide will still thread; a
+   heavy 4.8 mm tie will not.
 2. **USB-C** looks straight out through the window in the buttress beside it —
    an 18 mm opening with a 52° gable, one in each side so it does not matter
    which way round the board goes in.
@@ -111,11 +130,12 @@ than guess. The one that takes the board without force is the answer.
 
 | | |
 |---|---|
-| envelope | 86.0 × 86.3 × 48.0 mm |
-| volume | 47.2 cm³, about 59 g of PLA |
+| envelope | 98.0 × 86.3 × 48.0 mm |
+| volume | 51.1 cm³, about 63 g of PLA |
 | lean | 14° back from vertical |
 | clock bed | 4.00 mm into the foot |
 | board slot | 30.60 mm, 0.30 a side on a 30.00 board |
+| zip-tie slots | 2.00 mm, six of them, loop recessed 1.20 into the underside |
 | tips forward at | 36.6° |
 | tips backward at | 42.2° |
 | tips sideways at | 39.4° |
@@ -130,11 +150,11 @@ There is a back-stand for every body, and each one passes the same checks.
 
 | file | body | size mm | vol | tips fwd / back / side |
 |---|---|---|---|---|
-| `mini-round-clock-backstand` | **24 LED, Ø108** | 86.0 · 83.4 · 43.2 | 44 cm³ | 39.5° / 44.7° / 43.1° |
-| `mini-round-clock-backstand-32` | 32 LED, Ø119.9 | 86.0 · 86.3 · 48.0 | 47 cm³ | 36.6° / 42.2° / 39.4° |
-| `mini-round-clock-backstand-60` | 60 LED, Ø240 | 172.2 · 134.4 · 96.1 | 244 cm³ | ≥20° all three |
+| `mini-round-clock-backstand` | **24 LED, Ø108** | 98.0 · 83.4 · 43.2 | 48 cm³ | 39.5° / 44.7° / 43.1° |
+| `mini-round-clock-backstand-32` | 32 LED, Ø119.9 | 98.0 · 86.3 · 48.0 | 51 cm³ | 36.6° / 42.2° / 39.4° |
+| `mini-round-clock-backstand-60` | 60 LED, Ø240 | 191.2 · 134.4 · 96.1 | 256 cm³ | ≥20° all three |
 
-The 24's stand is the same 86 mm wide as the 32's even though its clock is
+The 24's stand is the same 98 mm wide as the 32's even though its clock is
 12 mm smaller, and that is deliberate: the footprint scales with the body but
 the **board does not**, so the buttresses cannot come inboard of a 64 mm board
 however small the clock gets. Below the 32 the width is held, not scaled.

@@ -1685,6 +1685,46 @@ def _wall_yz(prof, x0, x1):
     return prism([(-z, y) for (y, z) in prof], x0, x1).rotate([0.0, 90.0, 0.0])
 
 
+def _tie_pad(cx, cy, length, gap, z0, z1, axis='x',
+             w=None, relief=None, relief_w=None):
+    """The solid to SUBTRACT for one cable-tie point: two parallel slots and the
+    shallow relief in the underside that joins them.
+
+    A tie threaded down one slot, along the relief and back up the other wraps
+    the strip of plate between them. The relief is what makes it usable on a
+    stand that sits on a desk: without it the loop runs across the bottom face
+    and the whole thing rocks on a 1 mm ridge of nylon.
+
+    axis is the slots' LONG direction. The tie's loop lies perpendicular to it,
+    so point the slots the same way as whatever is being tied down: the leads
+    run front to back through the gate, so those slots run in y; the USB lead
+    leaves the board's end running in x, so that one's run in x.
+
+    z0 is the plate's underside -- the relief is cut from there, not from the
+    part's own bottom, so this works on a bay floor as well as on the foot.
+    """
+    w  = BACKSTAND_TIE_W      if w      is None else w
+    rd = BACKSTAND_TIE_RELIEF if relief is None else relief
+    rw = (length + 1.0)       if relief_w is None else relief_w
+    g = None
+    for sgn in (-1.0, 1.0):
+        o = sgn*gap/2.0
+        if axis == 'x':
+            b = box_lwh(cx - length/2.0, cx + length/2.0,
+                        cy + o - w/2.0, cy + o + w/2.0, z0 - 1.0, z1)
+        else:
+            b = box_lwh(cx + o - w/2.0, cx + o + w/2.0,
+                        cy - length/2.0, cy + length/2.0, z0 - 1.0, z1)
+        g = b if g is None else g + b
+    if axis == 'x':
+        g += box_lwh(cx - rw/2.0, cx + rw/2.0,
+                     cy - gap/2.0 - w/2.0, cy + gap/2.0 + w/2.0, z0 - 1.0, z0 + rd)
+    else:
+        g += box_lwh(cx - gap/2.0 - w/2.0, cx + gap/2.0 + w/2.0,
+                     cy - rw/2.0, cy + rw/2.0, z0 - 1.0, z0 + rd)
+    return g
+
+
 def build_backstand_clamp():
     """The bar that screws the board down, running down its length.
 
@@ -1979,6 +2019,61 @@ def build_backstand(B):
         # than an M2 self-tapper needs.
         s -= cyl(BACKSTAND_SCREW_PILOT/2.0, 1.0, seat + 1.0, 24,
                  centre=(sx*BACKSTAND_CLAMP_SX, BY0 + SW/2.0))
+    # ---- ZIP-TIE POINTS ----------------------------------------------------
+    # Sam, 2026-09-05: "Add some holes for zip ties to go through to hold cables
+    # and the ESP32." Three pairs, and every one of them has its loop recessed
+    # into the underside so the stand still sits flat -- see _tie_pad.
+    #
+    # These go on AFTER the bosses and last of all, for the same reason the
+    # bosses go on after the bay cut: a cut that has to reach the underside
+    # cannot be added before something else removes the material it lands in.
+    #
+    # (a) THE BOARD. One tie at each end, crossing the board's width. The loop
+    # wraps the board and the foot between the two slots, so tightening pulls
+    # the board down onto the bay floor. Both rails are notched RIGHT THROUGH
+    # at this x first: a 2.00 slot through a 2.50 rail leaves a 0.50 mm sliver
+    # standing beside the tie, and slivers are what the float32 export round
+    # trip turns into non-manifold edges.
+    #
+    # This is an ALTERNATIVE to the screw-down bar, not a companion. The bar's
+    # plate lies right across where this tie has to go. Use one or the other.
+    tbx, tbl = BACKSTAND_TIE_BOARD_X, BACKSTAND_TIE_BOARD_L
+    tf, tb = BACKSTAND_TIE_BOARD_F, BACKSTAND_TIE_BOARD_B
+    for sx in (-1.0, 1.0):
+        cx0 = sx*tbx
+        # the two rail notches, from half a millimetre INSIDE the foot so they
+        # share no plane with its top face
+        s -= box_lwh(cx0 - tbl/2.0, cx0 + tbl/2.0, BY0 - RT - 0.5, BY0 + 0.2,
+                     FT - 0.5, FT + 20.0)
+        s -= box_lwh(cx0 - tbl/2.0, cx0 + tbl/2.0, BY1 - 0.2, BY1 + RT + 0.5,
+                     FT - 0.5, FT + 20.0)
+        s -= _tie_pad(cx0, (tf + tb)/2.0, tbl, tb - tf, 0.0, FT + 0.5, axis='x',
+                      relief_w=tbl + 1.0)
+    # (b) THE LEADS, in the strip of open foot behind the clock and outboard of
+    # the cable gate. They run front to back through the gate, so the slots do
+    # too and the loop crosses them. The front slot reaches y 3.20 and the
+    # clock's back face crosses the foot's top at y 1.01 -- 2.19 mm of margin,
+    # asserted below because it is the one number here that moves with the tilt.
+    tly = BACKSTAND_TIE_LEAD_Y - BACKSTAND_TIE_LEAD_L/2.0
+    assert tly - back(FT) >= 1.5, (
+        f'lead tie: only {tly - back(FT):.2f} mm between the slot and the trench')
+    for sx in (-1.0, 1.0):
+        s -= _tie_pad(sx*BACKSTAND_TIE_LEAD_X, BACKSTAND_TIE_LEAD_Y,
+                      BACKSTAND_TIE_LEAD_L, BACKSTAND_TIE_LEAD_G,
+                      0.0, FT + RH + 1.0, axis='y', relief_w=BACKSTAND_TIE_LEAD_L + 1.0)
+    # (c) THE USB LEAD, on the bare floor between the board's end and the
+    # buttress. It leaves the board running outward in x, so these slots run in
+    # x. Behind the hold-down boss, which ends at y 28.55, and in front of the
+    # back rail.
+    tex = BACKSTAND_TIE_END_X
+    assert tex + BACKSTAND_TIE_END_L/2.0 <= XI - 1.0, (
+        f'end tie: {XI - (tex + BACKSTAND_TIE_END_L/2.0):.2f} mm to the buttress')
+    assert BACKSTAND_TIE_END_Y - BACKSTAND_TIE_END_G/2.0 - BACKSTAND_TIE_W/2.0 - 0.5 \
+        >= BY0 + SW/2.0 + BACKSTAND_BOSS_R, 'end tie: the boss is in the way'
+    for sx in (-1.0, 1.0):
+        s -= _tie_pad(sx*tex, BACKSTAND_TIE_END_Y,
+                      BACKSTAND_TIE_END_L, BACKSTAND_TIE_END_G,
+                      0.0, FT + 1.0, axis='x', relief_w=BACKSTAND_TIE_END_L + 1.0)
     # and anything that ended up under the desk
     s -= box_lwh(-500, 500, -500, 500, -500.0, 0.0)
     return s

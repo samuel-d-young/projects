@@ -1671,3 +1671,64 @@ BACKSTAND_CLAMP_NIP  =  0.10  # the pad sits this far BELOW the boss seat, so
 BACKSTAND_BOSS_R     =  3.25  # the bosses the screws bite into
 BACKSTAND_SCREW_PILOT = 1.60  # M2 self-tapper, same as the stand-box's
 
+# --- zip-tie points ---------------------------------------------------------
+# Sam, 2026-09-05: "Add some holes for zip ties to go through to hold cables
+# and the ESP32."
+#
+# THE HARD PART IS THAT THE STAND SITS ON A DESK. A pair of slots straight
+# through the foot is the obvious answer and the wrong one: the tie's loop then
+# runs across the underside and the stand rocks on it. So every pad here is two
+# slots PLUS a shallow relief milled into the underside joining them, deep
+# enough that the tie lies below the foot's bottom face. The foot keeps
+# FOOT_T - TIE_RELIEF of material over the relief, and the relief is a 6-7 mm
+# bridge on the first layers, which is nothing.
+#
+# The tie loop always lies PERPENDICULAR to the slots' long axis, so the slots'
+# direction is chosen by which way the thing being held runs.
+BACKSTAND_TIE_W      =  2.00  # slot width. A 2.5 x 1.0 mm tie goes through a
+                              # 2.00 printed slot, which comes out 1.6-2.0
+BACKSTAND_TIE_RELIEF =  1.20  # the underside relief: deeper than the tie is
+                              # thick (1.00), so the loop is recessed and the
+                              # foot still sits flat
+# The board tie: one at each end, crossing the board's width, so the loop wraps
+# the board AND the foot between the two slots. This is an ALTERNATIVE to the
+# screw-down bar, not a companion -- the bar's plate lies across the same
+# ground. Use one or the other.
+BACKSTAND_TIE_BOARD_X =  26.00  # |x|. 26, not 22: at 22 the rail notch left a
+                                # 0.40 mm island of front rail between it and
+                                # the lead tie's outer slot. Everything that
+                                # interrupts the front rail has to be spaced so
+                                # what is left between them is a segment, not a
+                                # sliver -- at 26 the shortest is 2.20 mm
+BACKSTAND_TIE_BOARD_L =   5.00  # slot length, along the board
+BACKSTAND_TIE_BOARD_F =   8.40  # the front slot's centre, y. Inside the front
+BACKSTAND_TIE_BOARD_B =  41.80  # rail; and the back one inside the back rail.
+                                # Both rails are notched right through at this
+                                # x so the tie comes up beside the board rather
+                                # than over the top of a rail -- a 2.00 slot
+                                # through a 2.50 rail would leave a 0.5 mm
+                                # sliver, which is what check3 exists to catch
+# The lead tie: beside the cable gate, in the strip of open foot behind the
+# clock. The ring and power leads run front-to-back here, so the slots run
+# front-to-back too and the loop crosses them.
+BACKSTAND_TIE_LEAD_X  =  16.00  # |x|, outboard of the gate's 9
+BACKSTAND_TIE_LEAD_Y  =   6.55  # centre. The slots reach y 2.90, and the clock's
+                                # back face is at y 1.01 where it crosses the
+                                # foot's top: 1.89 mm of margin
+BACKSTAND_TIE_LEAD_L  =   7.30  # long enough to swallow the front rail whole at
+                                # these two x. Stopping short of it left a
+                                # 0.30 mm wall between slot and rail; stopping
+                                # level with its back face put a boolean on a
+                                # coincident plane, which this part has already
+                                # been rebuilt twice for
+BACKSTAND_TIE_LEAD_G  =   4.20  # slot centres apart, so the rib is 2.20
+# The end tie: on the bare floor between the board's end and the buttress, for
+# the USB lead, which leaves the board running outward in x -- so these slots
+# run in x and the loop crosses them.
+BACKSTAND_TIE_END_X   =  35.50  # |x|. Clear of the boss at 36 in y, not in x
+BACKSTAND_TIE_END_Y   =  34.00  # behind the boss, which ends at y 28.55, and in
+                                # front of the back rail at 40.60
+BACKSTAND_TIE_END_L   =   5.50  # 1.25 mm of floor left before the buttress
+BACKSTAND_TIE_END_G   =   4.20
+
+

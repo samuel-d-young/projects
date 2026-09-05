@@ -282,5 +282,110 @@ ck(BACKSTAND_CLAMP_NIP > 0,
    'the pad sits below the boss seat, so it clamps the board not the bosses',
    f'{BACKSTAND_CLAMP_NIP:.2f} mm of flex')
 
+# ---- 9. the zip-tie points --------------------------------------------------
+# Sam, 2026-09-05: "Add some holes for zip ties to go through to hold cables and
+# the ESP32." Three pairs. Every one of them is measured here the same way a tie
+# would actually be threaded: down one slot, along the underside, up the other.
+#
+# THE TEST THAT MATTERS IS THE RECESS. A pair of slots through a foot that sits
+# on a desk is trivial to draw and useless to use -- the loop stands 1 mm proud
+# underneath and the stand rocks on it. So for each pad this checks that the
+# path between the two slots is open at z = 0 AND that its ceiling is at least
+# as high as a tie is thick, which is what puts the loop below the bottom face.
+TIE_T = 1.00                                   # a 2.5 mm tie's thickness
+def tie_pad(name, cx, cy, gap, axis, top, expect_rib):
+    """cx, cy is the pad's centre; gap the slot centres apart; axis their long
+    direction. top is the height the slots have to be open to."""
+    d = np.array([0.0, 1.0]) if axis == 'x' else np.array([1.0, 0.0])
+    a = np.array([cx, cy]) - d*gap/2.0
+    b = np.array([cx, cy]) + d*gap/2.0
+    # 1. each slot is open all the way up
+    zs = np.arange(0.10, top, 0.10)
+    for pt, which in ((a, 'front/inner'), (b, 'back/outer')):
+        col = m.contains(np.column_stack([np.full_like(zs, pt[0]),
+                                          np.full_like(zs, pt[1]), zs]))
+        ck(not col.any(), f'{name}: the {which} slot is open top to bottom',
+           f'{col.sum()} of {col.size} probes blocked')
+    # 2. the run between them is open at the underside, and its ceiling clears
+    #    a tie's thickness -- so the loop sits inside the foot, not under it
+    ts = np.linspace(0.0, 1.0, 61)
+    path = a[None, :] + (b - a)[None, :]*ts[:, None]
+    for z, want_open in ((0.05, True), (TIE_T - 0.05, True)):
+        ins = m.contains(np.column_stack([path[:, 0], path[:, 1],
+                                          np.full(len(ts), z)]))
+        ck(not ins.any(), f'{name}: the underside relief runs clear at z = {z:.2f}',
+           f'{ins.sum()} of {ins.size} probes blocked')
+    # 3. and there is still a plate above it for the tie to pull against.
+    #    BETWEEN THE SLOTS' INNER FACES, not between their centres: half of each
+    #    slot lies inside a centre-to-centre run, and on a pad whose slots are
+    #    only 4.20 apart that is a third of the path -- which read as a 69% hole
+    #    in a plate that is in fact solid.
+    zt = BACKSTAND_FOOT_T - 0.50
+    inner = BACKSTAND_TIE_W/2.0 + 0.30
+    a2 = a + d*inner
+    b2 = b - d*inner
+    mids = a2[None, :] + (b2 - a2)[None, :]*ts[:, None]
+    ins = m.contains(np.column_stack([mids[:, 0], mids[:, 1],
+                                      np.full(len(ts), zt)]))
+    ck(ins.mean() > 0.80, f'{name}: solid plate over the relief for the tie to grip',
+       f'{ins.mean()*100:.0f}% of the run')
+    # 4. the rib between the slots. MID-PLATE, not just under the top face: the
+    #    board tie notches both rails from 0.50 inside the foot, so a probe at
+    #    FOOT_T - 0.30 lands in the notch and reads the rib 1.20 mm short.
+    steps = np.arange(-gap, gap, 0.02)
+    line = np.array([cx, cy])[None, :] + d[None, :]*steps[:, None]
+    zr = (BACKSTAND_TIE_RELIEF + BACKSTAND_FOOT_T)/2.0
+    ins = m.contains(np.column_stack([line[:, 0], line[:, 1],
+                                      np.full(len(steps), zr)]))
+    run, best = 0, 0
+    for v in ins:
+        run = run + 1 if v else 0
+        best = max(best, run)
+    rib = best*0.02
+    ck(rib >= expect_rib - 0.15, f'{name}: the rib is thick enough to pull on',
+       f'{rib:.2f} mm')
+
+# the foot's underside is otherwise flat -- the reliefs are the only thing in it
+FT_ = BACKSTAND_FOOT_T
+tie_pad('board tie', BACKSTAND_TIE_BOARD_X,
+        (BACKSTAND_TIE_BOARD_F + BACKSTAND_TIE_BOARD_B)/2.0,
+        BACKSTAND_TIE_BOARD_B - BACKSTAND_TIE_BOARD_F, 'x', FT_ + 0.20,
+        BACKSTAND_TIE_BOARD_B - BACKSTAND_TIE_BOARD_F - BACKSTAND_TIE_W)
+tie_pad('lead tie', BACKSTAND_TIE_LEAD_X, BACKSTAND_TIE_LEAD_Y,
+        BACKSTAND_TIE_LEAD_G, 'y', FT_ + 0.20,
+        BACKSTAND_TIE_LEAD_G - BACKSTAND_TIE_W)
+tie_pad('end tie', BACKSTAND_TIE_END_X, BACKSTAND_TIE_END_Y,
+        BACKSTAND_TIE_END_G, 'x', FT_ + 0.20,
+        BACKSTAND_TIE_END_G - BACKSTAND_TIE_W)
+
+# The board tie has to go AROUND the board, not through where it sits: both its
+# slots must be outside the bay, or the board lands on the tie.
+ck(BACKSTAND_TIE_BOARD_F < BACKSTAND_BAY_Y0 - BACKSTAND_TIE_W/2.0,
+   'board tie: the front slot is clear of the board',
+   f'{BACKSTAND_BAY_Y0 - BACKSTAND_TIE_W/2.0 - BACKSTAND_TIE_BOARD_F:.2f} mm')
+ck(BACKSTAND_TIE_BOARD_B > BACKSTAND_BAY_Y0 + BACKSTAND_SLOT_W + BACKSTAND_TIE_W/2.0,
+   'board tie: the back slot is clear of the board',
+   f'{BACKSTAND_TIE_BOARD_B - (BACKSTAND_BAY_Y0 + BACKSTAND_SLOT_W) - BACKSTAND_TIE_W/2.0:.2f} mm')
+ck(BACKSTAND_TIE_BOARD_X + BACKSTAND_TIE_BOARD_L/2.0 < BOARD2_L/2.0,
+   'board tie: and it crosses the board, not past its end',
+   f'{BOARD2_L/2.0 - (BACKSTAND_TIE_BOARD_X + BACKSTAND_TIE_BOARD_L/2.0):.2f} mm inboard')
+
+# Nothing that interrupts the front rail may leave a sliver of it standing.
+# The rail is cut by the cable gate, both lead ties and both board ties; what is
+# left between them has to be a segment you could print, not a 0.4 mm island --
+# which is exactly what |x| = 22 gave before the board tie moved out to 26.
+rz = BACKSTAND_FOOT_T + BACKSTAND_POST_H + BOARD_T + BACKSTAND_RAIL_OVER/2.0
+rx = np.arange(0.0, BACKSTAND_WALL_XO, 0.02)
+ry = BACKSTAND_BAY_Y0 - BACKSTAND_RAIL_T/2.0
+rin = m.contains(np.column_stack([rx, np.full_like(rx, ry), np.full_like(rx, rz)]))
+segs, cur = [], None
+for x, v in zip(rx, rin):
+    if v and cur is None: cur = x
+    elif not v and cur is not None: segs.append((cur, x)); cur = None
+if cur is not None: segs.append((cur, rx[-1]))
+short = [(a, b) for a, b in segs if b - a < 1.50]
+ck(not short, 'no sliver of front rail between the gate, the lead ties and the board ties',
+   f'segments {[f"{a:.1f}..{b:.1f}" for a, b in segs]}')
+
 print(('  ALL PASS' if not FAIL else f'  {len(FAIL)} FAILURE(S): ' + '; '.join(FAIL)))
 sys.exit(1 if FAIL else 0)

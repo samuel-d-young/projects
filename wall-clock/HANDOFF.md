@@ -114,10 +114,11 @@ minute is lost before it reaches flash. Plausible, unverified, and it would fit
 ## The base: a back-stand, not a plinth
 
 `070a7f3`. The stand-box is superseded by **`mini-round-clock-backstand-32`**:
-one part, 48.9 cm3, 86 x 86 x 48 mm, no lid, no tray, no screws. The clock sits
+one part, 51.1 cm3, 98 x 86 x 48 mm, no lid, no tray, no screws. The clock sits
 on the desk and beds 4 mm into a trench in the foot; two A-frame buttresses
 take the 14-degree lean; the board bay between them is an open channel with a
-30.60 mm slot, four posts and one retaining lip. `PRINT-TOMORROW.md` in
+30.60 mm slot and one retaining lip. The board lies flat -- the four posts came
+out on 2026-09-05 at Sam's request. `PRINT-TOMORROW.md` in
 `enclosure/mini/v2/` is the print sheet.
 
 **Sam's board is 30.00 mm**, not the 29.00 the old tray was cut for. Both parts
@@ -125,17 +126,35 @@ and the fit gauge are corrected.
 
 There is one for **every body**, and the 24's is the UNTAGGED file --
 `mini-round-clock-backstand.stl`, same convention as `mini-round-clock-base`.
-The 24's stand is the same 86 mm wide as the 32's because the footprint scales
+The 24's stand is the same 98 mm wide as the 32's because the footprint scales
 with the clock but the board does not.
 
 | file | body | size mm | vol |
 |---|---|---|---|
-| `mini-round-clock-backstand` | 24 LED, O108 | 86.0 x 83.4 x 43.2 | 46 cm3 |
-| `mini-round-clock-backstand-32` | 32 LED, O119.9 | 86.0 x 86.3 x 48.0 | 49 cm3 |
-| `mini-round-clock-backstand-60` | 60 LED, O240 | 172.2 x 134.4 x 96.1 | 246 cm3 |
+| `mini-round-clock-backstand` | 24 LED, O108 | 98.0 x 83.4 x 43.2 | 47.6 cm3 |
+| `mini-round-clock-backstand-32` | 32 LED, O119.9 | 98.0 x 86.3 x 48.0 | 51.1 cm3 |
+| `mini-round-clock-backstand-60` | 60 LED, O240 | 191.2 x 134.4 x 96.1 | 255.5 cm3 |
 
 `check7_backstand.py` is new; `runchecks.sh` runs it once per body. It measures
 off the exported mesh, never off the parameters.
+
+### Holding the board down: a bar, or zip ties
+
+Two ways, and they are ALTERNATIVES, not companions -- the bar's plate lies
+right across where the board zip ties have to go.
+
+* `mini-round-clock-backstand-clamp` -- a bridge that stands over the USB shell
+  and the module and comes down on the bare PCB at each end. Two M2 x 6
+  self-tappers. It prints FEET UP, with THIS SIDE DOWN debossed on the face
+  that prints first.
+* six 2.00 mm zip-tie slots in the foot, in three pairs: board (|x| = 26),
+  leads either side of the cable gate (|x| = 16), USB (|x| = 35.5).
+
+**Every tie pair is joined by a 1.20 mm relief milled into the foot's
+underside**, and that is the part worth remembering. Two plain holes through a
+foot that sits on a desk put the tie's loop under the part and the stand rocks
+on it. The relief is deeper than a 2.5 mm tie is thick, so the loop is recessed
+and the foot still lies flat. `render_ties.py` draws the plan view.
 
 ## Do not put this back in any flashing recipe
 
