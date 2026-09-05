@@ -1805,7 +1805,11 @@ def build_backstand(B):
     SW  = BACKSTAND_SLOT_W
     BY0 = BACKSTAND_BAY_Y0
     BY1 = BY0 + SW
-    RT, RH = BACKSTAND_RAIL_T, BACKSTAND_RAIL_H
+    RT = BACKSTAND_RAIL_T
+    # DERIVED, not the old flat 6.00. The front rail's job is to locate the
+    # PCB's edge and clear its top face by a fraction; with the board 4 mm lower
+    # than it used to be, a 6 mm rail is a wall beside a 1.6 mm board.
+    RH = BACKSTAND_POST_H + BOARD_T + BACKSTAND_RAIL_OVER
     BL = BACKSTAND_BOARD_L
     # The rails run all the way out to the buttresses and TIE THEM TOGETHER.
     # Two 2.50 mm ribs across the foot cost nothing and stop the pair splaying
@@ -1825,11 +1829,16 @@ def build_backstand(B):
     rh_back = (lz0 + BACKSTAND_LIP_GAP + BACKSTAND_LIP_T) - FT
     s += box_lwh(-rx_f, rx_f, BY0 - RT, BY0, FT - 1.0, FT + RH)        # low,
     s += box_lwh(-rx_b, rx_b, BY1, BY1 + RT, FT - 1.0, FT + rh_back)   # carries
-    # posts under the PCB, so the header pins have somewhere to be
-    for sx in (-1.0, 1.0):
-        for sy in (BY0 + 4.0, BY1 - 4.0):
-            s += cyl(3.0, FT - 1.0, FT + BACKSTAND_POST_H, 24,
-                     centre=(sx*(BL/2.0 - 6.0), sy))
+    # NO POSTS UNDER THE PCB. There were four 6 mm pads lifting it
+    # BACKSTAND_POST_H off the floor so header tails had somewhere to be; Sam,
+    # 2026-09-05: "remove the 4 small cylinders on the ESP32 mount area." So the
+    # board lies flat on the bay floor and POST_H is 0.
+    #
+    # It is still a parameter and everything below is still derived from it --
+    # the rail height, the lip, the cut over the board. Put a number back in it
+    # and the whole bay lifts by that much, correctly. What it will NOT do on
+    # its own is give the tails somewhere to go: for that the posts have to come
+    # back, or the rails need an inward ledge at POST_H.
     # The back rail's lip: slide the board's back edge under it, then drop the
     # front edge in over the low front rail. Nothing screws down and nothing
     # closes over the board. The lip's underside is a flat ceiling 1.50 mm wide
@@ -1846,9 +1855,15 @@ def build_backstand(B):
     # inner face or it takes the top off both of them -- which is exactly what
     # it did the first time rx was widened, and check3 is what found it.
     cx = XI + 0.50
-    s -= box_lwh(-cx, cx, BY0, BY1 - lo, FT + BACKSTAND_POST_H, FT + 200.0)
-    s -= box_lwh(-cx, cx, BY1 - lo, BY1,
-                 FT + BACKSTAND_POST_H, lz0 + BACKSTAND_LIP_GAP)
+    # FT + 0.50, not FT + POST_H. With the posts gone POST_H is 0 and this cut
+    # would land exactly on the foot's top face -- the coincident-plane case
+    # that cost this part two rebuilds already. Half a millimetre up is still
+    # under the board and cannot be coincident with anything.
+    #
+    # The second cut, which used to clear the space under the lip, is gone:
+    # between the foot's top and the lip there is nothing to remove, and a
+    # boolean that removes nothing is only a chance to go wrong.
+    s -= box_lwh(-cx, cx, BY0, BY1 - lo, FT + 0.50, FT + 200.0)
     # the window through each buttress, a pentagon with a 45 degree gable
     wy0, wy1 = BACKSTAND_WIN_Y0, BACKSTAND_WIN_Y1
     wh, wa = FT + BACKSTAND_WIN_H, FT + BACKSTAND_WIN_APEX

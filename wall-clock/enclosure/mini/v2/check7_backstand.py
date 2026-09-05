@@ -156,7 +156,9 @@ ck(bool(joined), 'the trench and the cable gate are one unbroken run',
    f'runs {[f"{a:.1f}..{b:.1f}" for a, b in open_runs if b - a > 1.0]}, '
    f'need {trench_y:.1f} to {gate_y:.1f}')
 # and the gate has to open UPWARDS into the bay, over the front rail
-zs = np.arange(zc, BACKSTAND_FOOT_T + BACKSTAND_RAIL_H + 0.5, 0.10)
+# the front rail's height is derived in the builder now, so derive it here too
+RAIL_H = BACKSTAND_POST_H + BOARD_T + BACKSTAND_RAIL_OVER
+zs = np.arange(zc, BACKSTAND_FOOT_T + RAIL_H + 0.5, 0.10)
 up = m.contains(np.column_stack([np.zeros_like(zs), np.full_like(zs, gate_y), zs]))
 ck(not up.any(), 'and the gate opens upward into the bay, clear of the front rail',
    f'{up.sum()} of {up.size} probes blocked')

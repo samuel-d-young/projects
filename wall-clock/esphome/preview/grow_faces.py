@@ -47,6 +47,8 @@ FLAT = False
 BLOCK = False
 MIN_TO = 12         # grow_min_to, for the countdown
 CLOCK = "6:45"
+TWELVE_HOUR = True          # mirrors fmt_24h off
+MERIDIEM = "am"
 SLEEP_COLOUR = "blue"
 WAKE_COLOUR = "yellow"
 
@@ -220,7 +222,7 @@ def draw_round(st: int, face: str, sound=False) -> Canvas:
     glow = face in ("eyes", "eyes and sky")
     field, ink = palette(st, glow)
     it.fill(field)
-    font_med, font_t48 = Font(32), Font(48)
+    font_med, font_t48, font_small = Font(32), Font(48), Font(22)
 
     if face in ("eyes", "eyes and sky", "eyes on colour"):
         # Two eyes, about half the panel wide, a little above centre so the
@@ -263,8 +265,23 @@ def draw_round(st: int, face: str, sound=False) -> Canvas:
         it.print(CX, CY - 150 if face == "sun and moon" else CY + 40, font_med, ink,
                  TextAlign.CENTER, f"{MIN_TO} min")
 
-    # The time, digital, along the bottom.
-    it.print(CX, CY + 120, font_t48, ink, TextAlign.CENTER, CLOCK)
+    # The time, digital, along the bottom. Mirrors the firmware exactly: in
+    # 12-hour the PAIR is centred, not the digits, and the baselines are
+    # aligned rather than the boxes.
+    if TWELVE_HOUR:
+        def metrics(f, t):
+            a, d = f.font.getmetrics()
+            return int(round(f.font.getlength(t))), a + d, a
+        tw, th, tb = metrics(font_t48, CLOCK)
+        aw, ah, ab = metrics(font_small, MERIDIEM)
+        GAP = 7
+        top = CY + 120 - th // 2
+        left = CX - (tw + GAP + aw) // 2
+        it.print(left, top, font_t48, ink, TextAlign.TOP_LEFT, CLOCK)
+        it.print(left + tw + GAP, top + tb - ab, font_small, ink,
+                 TextAlign.TOP_LEFT, MERIDIEM)
+    else:
+        it.print(CX, CY + 120, font_t48, ink, TextAlign.CENTER, CLOCK)
     return it
 
 
@@ -311,7 +328,20 @@ def draw_bar(st: int, face: str, sound=False) -> Canvas:
             it.print(12, 10, font_small, ink, TextAlign.TOP_LEFT, f"{MIN_TO} min")
         else:
             it.print(FX, 120, font_small, ink, TextAlign.CENTER, f"{MIN_TO} min")
-    it.print(FX, 148, font_med, ink, TextAlign.CENTER, CLOCK)
+    if TWELVE_HOUR:                       # same rule as the round panel
+        def metrics(f, t):
+            a, d = f.font.getmetrics()
+            return int(round(f.font.getlength(t))), a + d, a
+        tw, th, tb = metrics(font_med, CLOCK)
+        aw, ah, ab = metrics(font_small, MERIDIEM)
+        GAP = 5
+        top = 148 - th // 2
+        left = FX - (tw + GAP + aw) // 2
+        it.print(left, top, font_med, ink, TextAlign.TOP_LEFT, CLOCK)
+        it.print(left + tw + GAP, top + tb - ab, font_small, ink,
+                 TextAlign.TOP_LEFT, MERIDIEM)
+    else:
+        it.print(FX, 148, font_med, ink, TextAlign.CENTER, CLOCK)
     return it
 
 

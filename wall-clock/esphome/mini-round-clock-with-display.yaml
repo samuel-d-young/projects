@@ -1150,16 +1150,26 @@ number:
   # fixed. It is not a fault in the drawing; it is the panel being repainted
   # faster than it can be repainted.
   #
-  # THE DIAL IS THE POINT: turn it live and watch, no reflash. 600 is where
-  # it goes back to, because that is the value on the panel when Sam said the
-  # clipped repaint "worked on the first try". 100 was tried as a default and
-  # was too much -- see the animator interval below; the ordinary clock face
-  # began flickering, which it never had before.
+  # THE DIAL IS THE POINT: turn it live and watch, no reflash. Lower is
+  # smoother eyes and more load; higher is calmer and jumpier.
   #
-  # Lower is smoother eyes and more load; higher is calmer and jumpier. The
-  # floor is 100, the animator's own tick, below which there is nothing new
-  # to draw. Somewhere between 200 and 600 is likely right and it is a thing
-  # to look at, not to derive.
+  # THE RULE, and it is measurable rather than a matter of taste: keep this at
+  # roughly TWICE the "Grow clock frame time" sensor. Below that the loop
+  # cannot finish one repaint before the next is due, and everything sharing
+  # the loop -- the ordinary clock face, the ring -- starts to stutter with it.
+  # That is what happened at a 100 ms default, and the lesson is that the
+  # budget is the LOOP, not the SPI bus.
+  #
+  # The history is worth keeping because the numbers moved twice. A full-panel
+  # animation frame measured 269 ms and the first clipped one 385, which is why
+  # the floor was briefly 400. Drawing the animation box band by band (06765c3)
+  # cut the background from 272160 pixel calls a frame to 45360 and skips the
+  # eye block in three bands of six, so the floor comes back down to 200 and
+  # the default to 300. If the frame-time sensor says otherwise on your panel,
+  # believe the sensor.
+  #
+  # Blinks get a faster floor than this on their own -- see the animator's
+  # gate below. They are the fast part and they were the part being dropped.
   - platform: template
     id: grow_anim_ms
     name: "Grow clock animation interval"
@@ -1172,10 +1182,10 @@ number:
     # picture, which is the flicker this whole exercise is about. The first
     # version that worked repainted once a SECOND; 600 is still more than twice
     # as smooth as that.
-    min_value: 400
+    min_value: 200
     max_value: 2000
     step: 10
-    initial_value: 700
+    initial_value: 300
     optimistic: true
     restore_value: true
 
@@ -2852,7 +2862,23 @@ interval:
               // picture. That is the flicker. grow_anim_ms is the floor
               // between repaints and it is Sam's to turn, because the right
               // value is something you look at.
-              if (millis() - id(an_lastdraw) < (uint32_t) id(grow_anim_ms).state)
+              // A BLINK IS THE FAST PART, and it was the part being dropped.
+              // The lid crosses its whole range in a couple of hundred
+              // milliseconds; at the dial's own interval that is one frame, and
+              // one frame of a blink is a snap, not a blink. So while a lid, the
+              // squash or the mouth is actually moving, the floor halves --
+              // never below 150 ms, which is where the loop stops keeping up.
+              // The idle gap keeps the dial's value, so nothing is spent on a
+              // face that is holding still.
+              const float mv = std::max(
+                  std::max(fabsf(id(an_lidl) - id(an_dlidl)),
+                           fabsf(id(an_lidr) - id(an_dlidr))),
+                  std::max(fabsf(id(an_hs)   - id(an_dhs)),
+                           fabsf(id(an_mouth) - id(an_dmouth))));
+              const uint32_t dial = (uint32_t) id(grow_anim_ms).state;
+              const uint32_t floor_ms = mv > 0.06f
+                  ? std::max<uint32_t>(150u, dial / 2u) : dial;
+              if (millis() - id(an_lastdraw) < floor_ms)
                 return false;
               // Frozen: keep drawing at the same cadence, same picture. The
               // dirty check below would otherwise stop the test dead, since
@@ -4288,7 +4314,31 @@ display:
           char tb[8]; int hh = now.hour;
           if (!h24) { hh %= 12; if (hh == 0) hh = 12; }
           snprintf(tb, sizeof(tb), "%d:%02d", hh, now.minute);
-          it.print(CX, CY + 120, id(font_t48), ink, TextAlign::CENTER, tb);
+          if (h24) {
+            it.print(CX, CY + 120, id(font_t48), ink, TextAlign::CENTER, tb);
+          } else {
+            // "7:05 am". font_small so it reads as a suffix rather than a
+            // fourth digit, and THE PAIR is centred, not the digits -- centre
+            // the digits alone and the whole time shifts sideways when the
+            // hour goes from 9 to 10.
+            //
+            // Baselines are aligned, not boxes. Bottom-aligning two line boxes
+            // of different sizes leaves the small one floating, because most of
+            // the difference is descender that neither string uses.
+            const char *ap = now.hour < 12 ? "am" : "pm";
+            int gx_, gy_, tw, th, aw, ah;
+            it.get_text_bounds(0, 0, tb, id(font_t48), TextAlign::TOP_LEFT,
+                               &gx_, &gy_, &tw, &th);
+            it.get_text_bounds(0, 0, ap, id(font_small), TextAlign::TOP_LEFT,
+                               &gx_, &gy_, &aw, &ah);
+            const int GAP = 7;
+            const int top  = CY + 120 - th/2;
+            const int left = CX - (tw + GAP + aw)/2;
+            const int base = top + id(font_t48)->get_baseline();
+            it.print(left, top, id(font_t48), ink, TextAlign::TOP_LEFT, tb);
+            it.print(left + tw + GAP, base - id(font_small)->get_baseline(),
+                     id(font_small), ink, TextAlign::TOP_LEFT, ap);
+          }
         }
         return;
       }
@@ -4974,7 +5024,23 @@ display:
           char tb[8]; int hh = now.hour;
           if (!id(fmt_24h).state) { hh %= 12; if (hh == 0) hh = 12; }
           snprintf(tb, sizeof(tb), "%d:%02d", hh, now.minute);
-          it.print(FX, 148, id(font_med), ink, TextAlign::CENTER, tb);
+          if (id(fmt_24h).state) {
+            it.print(FX, 148, id(font_med), ink, TextAlign::CENTER, tb);
+          } else {                              // same rule as the round panel
+            const char *ap = now.hour < 12 ? "am" : "pm";
+            int gx_, gy_, tw, th, aw, ah;
+            it.get_text_bounds(0, 0, tb, id(font_med), TextAlign::TOP_LEFT,
+                               &gx_, &gy_, &tw, &th);
+            it.get_text_bounds(0, 0, ap, id(font_small), TextAlign::TOP_LEFT,
+                               &gx_, &gy_, &aw, &ah);
+            const int GAP = 5;
+            const int top  = 148 - th/2;
+            const int left = FX - (tw + GAP + aw)/2;
+            const int base = top + id(font_med)->get_baseline();
+            it.print(left, top, id(font_med), ink, TextAlign::TOP_LEFT, tb);
+            it.print(left + tw + GAP, base - id(font_small)->get_baseline(),
+                     id(font_small), ink, TextAlign::TOP_LEFT, ap);
+          }
         }
         return;
       }

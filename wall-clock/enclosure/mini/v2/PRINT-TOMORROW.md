@@ -14,7 +14,7 @@ the clock at an angle. So the plinth is gone. The old stand-box was a closed
 box with a lid, two M2 screws and a slide-in tray — **197 cm³ plus an 11 cm³
 tray, about 244 g of filament, to hold a 12 g board.**
 
-The **back-stand** does the same job in one part, `48.9 cm³ / ~61 g`. The clock
+The **back-stand** does the same job in one part, `47.2 cm³ / ~59 g`. The clock
 comes down onto the desk and beds 4 mm into a trench in the foot; two
 buttresses behind it take the lean. Everything between them is air — that is
 the cable route and the board bay, an open channel with no lid, no tray and no
@@ -31,7 +31,7 @@ and the old stand-box are cut for 30.00 now.
 
 | # | file | size mm (x·y·z) | vol | notes |
 |---|---|---|---|---|
-| 1 | `mini-round-clock-backstand-32` | 86.0 · 86.3 · 48.0 | 49 cm³ | **the new base.** One part, no lid, no screws |
+| 1 | `mini-round-clock-backstand-32` | 86.0 · 86.3 · 48.0 | 47 cm³ | **the new base.** One part, no lid, no screws |
 | 2 | `mini-round-clock-base-32` | 119.8 · 119.8 · 24.4 | 138 cm³ | the clock body |
 | 3 | `mini-round-clock-backcover-32` | 119.8 · 119.8 · 8.9 | 34 cm³ | flat back, for the stand version |
 | 4 | `mini-round-clock-diffuser-32-plain` | 112.4 · 112.4 · 6.8 | 24 cm³ | no numerals — see the material note |
@@ -74,8 +74,13 @@ than guess. The one that takes the board without force is the answer.
 ## Assembly
 
 1. **Board in:** slide its back long edge under the lip on the rear rail, then
-   drop the front edge in over the low front rail. Four posts lift the PCB
-   4 mm so the header tails clear the floor. Nothing screws down.
+   drop the front edge in over the low front rail. It lies **flat on the bay
+   floor** — the four pads that used to lift it 4 mm are gone. Nothing screws
+   down.
+
+   If your board has header tails poking out underneath, say so: they need
+   either the pads back (`BACKSTAND_POST_H = 4.00`, one number, everything
+   else follows) or a ledge along the rails.
 2. **USB-C** looks straight out through the window in the buttress beside it —
    an 18 mm opening with a 52° gable, one in each side so it does not matter
    which way round the board goes in.
@@ -92,13 +97,13 @@ than guess. The one that takes the board without force is the answer.
 | | |
 |---|---|
 | envelope | 86.0 × 86.3 × 48.0 mm |
-| volume | 48.9 cm³, about 61 g of PLA |
+| volume | 47.2 cm³, about 59 g of PLA |
 | lean | 14° back from vertical |
 | clock bed | 4.00 mm into the foot |
 | board slot | 30.60 mm, 0.30 a side on a 30.00 board |
-| tips forward at | 36.8° |
+| tips forward at | 36.6° |
 | tips backward at | 42.2° |
-| tips sideways at | 39.5° |
+| tips sideways at | 39.4° |
 | clock-to-stand contact | 0.50 mm clearance everywhere, 0 mm³ of overlap |
 
 ## The other two bodies
@@ -110,9 +115,9 @@ There is a back-stand for every body, and each one passes the same checks.
 
 | file | body | size mm | vol | tips fwd / back / side |
 |---|---|---|---|---|
-| `mini-round-clock-backstand` | **24 LED, Ø108** | 86.0 · 83.4 · 43.2 | 46 cm³ | 39.5° / 44.7° / 43.1° |
-| `mini-round-clock-backstand-32` | 32 LED, Ø119.9 | 86.0 · 86.3 · 48.0 | 49 cm³ | 36.8° / 42.2° / 39.5° |
-| `mini-round-clock-backstand-60` | 60 LED, Ø240 | 172.2 · 134.4 · 96.1 | 246 cm³ | ≥20° all three |
+| `mini-round-clock-backstand` | **24 LED, Ø108** | 86.0 · 83.4 · 43.2 | 44 cm³ | 39.5° / 44.7° / 43.1° |
+| `mini-round-clock-backstand-32` | 32 LED, Ø119.9 | 86.0 · 86.3 · 48.0 | 47 cm³ | 36.6° / 42.2° / 39.4° |
+| `mini-round-clock-backstand-60` | 60 LED, Ø240 | 172.2 · 134.4 · 96.1 | 244 cm³ | ≥20° all three |
 
 The 24's stand is the same 86 mm wide as the 32's even though its clock is
 12 mm smaller, and that is deliberate: the footprint scales with the body but

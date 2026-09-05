@@ -1619,9 +1619,18 @@ BACKSTAND_SLOT_W  = 30.60    # for a 30.00 board. A printed slot loses up to
 BACKSTAND_BOARD_L = BOARD2_L
 BACKSTAND_BOARD_H = BOARD2_H
 BACKSTAND_BAY_Y0  = 10.00    # front face of the slot
-BACKSTAND_POST_H  =  4.00    # PCB underside above the foot's top: header pins
+BACKSTAND_POST_H  =  0.00    # PCB underside above the foot's top face. Was 4.00
+                             # on four small pads; Sam asked for them out, so the
+                             # board lies flat. Everything downstream -- the rail
+                             # height, the lip, the cut over the board -- is
+                             # still derived from this, so putting a number back
+                             # lifts the whole bay correctly. It will not on its
+                             # own make room for header tails: that needs the
+                             # posts back, or a ledge along the rails.
 BACKSTAND_RAIL_T  =  2.50
-BACKSTAND_RAIL_H  =  6.00    # above the foot's top -- 0.40 over the board's top
+BACKSTAND_RAIL_OVER =  0.40  # how far the front rail clears the board's top
+                             # face. The rail height is derived from this and
+                             # POST_H now, not set flat -- see build_backstand.
 BACKSTAND_LIP_OVER=  1.50    # the rear rail's lip, over the board's top face
 BACKSTAND_LIP_T   =  1.60
 BACKSTAND_LIP_GAP =  0.20    # over the board's top face, so it is held not gripped
