@@ -287,6 +287,41 @@ ota:
   - platform: esphome
     password: !secret wall_clock_ota_password
 
+# -----------------------------------------------------------------------------
+# SAFE MODE — the thing that makes a wall-mounted clock safe to flash over WiFi
+# -----------------------------------------------------------------------------
+# Sam, 2026-09-05, asked whether updates can go over WiFi. They can, and have
+# been able to all along. What was missing was the recovery path: without this
+# block, a build that boot-loops can only be fixed over USB, which for a clock
+# screwed to a wall in a child's room means getting it down.
+#
+# HOW IT ACTUALLY WORKS, read off the component rather than remembered:
+# a counter in flash preferences goes up on every boot. If the device stays up
+# longer than boot_is_good_after the counter is cleared. If it reaches
+# num_attempts first, the next boot brings up WiFi and OTA ONLY -- no display,
+# no LED ring, no lambdas -- and waits reboot_timeout for a new image before
+# trying the main firmware again.
+#
+# So the only thing that can put a clock into safe mode is a boot loop, and the
+# only thing that gets it out is a working firmware. It costs nothing on a
+# healthy device.
+safe_mode:
+  id: clock_safe_mode
+  # 5, not the default 10. Five consecutive failed boots is already
+  # unambiguous, and this display panics about seven seconds in, so ten
+  # attempts is over a minute of a dark clock before recovery starts. Nothing
+  # is gained by waiting longer: a device that boots and runs for a minute
+  # clears the counter completely.
+  num_attempts: 5
+  boot_is_good_after: 1min
+  # 10min, not the default 5. This is how long it waits in safe mode with the
+  # radio up before rebooting to try the main firmware again -- in other words,
+  # the window you have to notice the clock is dark, get to a machine and start
+  # an OTA. Ten minutes is a realistic version of that; five is not. If the
+  # window is missed it simply re-enters safe mode after five more attempts,
+  # so a longer wait costs nothing either.
+  reboot_timeout: 10min
+
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
@@ -2148,6 +2183,19 @@ switch:
 # takes back over at bedtime; "sleep now" at 18:30 gives the sleep colour and
 # lets go at the next wake. Nothing has to be remembered to be undone.
 button:
+  # Put this clock into safe mode ON PURPOSE, from Home Assistant. Two uses:
+  # before an OTA you are not sure about, so the risky image lands on a device
+  # that is already in the recovery state; and to rescue a clock whose main
+  # firmware is running but wedged -- the API still answers, so the button
+  # still works, and it comes back up with only WiFi and OTA alive.
+  #
+  # It is NOT a restart button. It reboots into safe mode and stays there for
+  # safe_mode's reboot_timeout waiting for an image.
+  - platform: safe_mode
+    id: enter_safe_mode
+    safe_mode: clock_safe_mode
+    name: "Restart into safe mode"
+
   - platform: template
     id: grow_wake_now
     name: "Grow clock wake now"

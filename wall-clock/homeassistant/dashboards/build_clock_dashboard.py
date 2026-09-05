@@ -437,6 +437,10 @@ def clock_cards(slug, label):
             # a symptom — several flicker reports were made against firmware
             # that predated the fix being discussed.
             row(e("sensor", "firmware_built"), "Firmware built"),
+            # Reboots into WiFi + OTA only and waits ten minutes for an image.
+            # Use it before an OTA you are unsure of, or to rescue a clock
+            # whose firmware is running but wedged. Not a restart button.
+            row(e("button", "restart_into_safe_mode"), "Restart into safe mode"),
             row(e("switch", "grow_clock_show_time"), "Show the time"),
             row(e("switch", "grow_clock_show_countdown"), "Show the minutes to go"),
             row(e("select", "grow_clock_wake_effect"), "Wake-up effect on the ring"),

@@ -185,6 +185,57 @@ check tests for a port rather than demanding an open back.
 **Only the five base meshes changed.** If Sam has a base printed before this,
 reprint the base -- diffuser, cover, housing, stand are all untouched.
 
+## Flashing over WiFi
+
+Every clock has accepted OTA since the first build -- `ota: platform: esphome`,
+password from `wall_clock_ota_password`. What was missing until 2026-09-05 was
+the recovery path, and that is now in: a `safe_mode:` block and a
+`button.<clock>_restart_into_safe_mode` entity in Home Assistant.
+
+| clock | address | mDNS |
+|---|---|---|
+| Zac's Clock | `192.168.1.69` | `mini-round-clock-3.local` |
+| Jake's Clock | `192.168.1.68` | `mini-round-clock-4.local` |
+
+Three routes, all of them from inside Sam's LAN:
+
+* Home Assistant -> ESPHome Device Builder -> the device -> Install ->
+  Wirelessly.
+* `esphome -s devicename mini-round-clock-3 -s friendlyname "Zac's Clock" run
+  wall-clock/esphome/mini-round-clock-with-display.yaml --device 192.168.1.69`
+  (`-s` before the command, `--device` after the file)
+* a Claude session running on the PC or the HA box.
+
+**A cloud session cannot do it.** This container sits on 192.0.2.2 and has no
+route to 192.168.1.0/24 -- tested against .69, .68 and HA on .75, all
+unreachable. That is a network boundary, not a setting.
+
+**The OTA password has to match.** OTA authenticates against the
+`wall_clock_ota_password` in the `secrets.yaml` that compiled the RUNNING
+firmware. If the add-on's `/config/esphome/secrets.yaml` and the PC's disagree,
+OTA is rejected and it is USB again.
+
+**Size is not a problem and here is the number**: 1,123,747 bytes against an
+1,835,008-byte app slot, 61.2%. OTA needs two slots and the partition table has
+them.
+
+### What safe mode actually does
+
+Read off the component, not remembered. A counter in flash preferences goes up
+on every boot; staying up longer than `boot_is_good_after` clears it. Reaching
+`num_attempts` first brings the next boot up with WiFi and OTA ONLY -- no
+display, no ring, no lambdas -- for `reboot_timeout`, then it tries the main
+firmware again.
+
+Set to `num_attempts: 5` (not 10: this display panics about seven seconds in, so
+ten attempts is over a minute of dark clock before recovery starts) and
+`reboot_timeout: 10min` (not 5: that is the window to notice, get to a machine
+and start an OTA). Missing the window costs nothing -- it re-enters after five
+more attempts.
+
+The only thing that puts a clock into safe mode is a boot loop or the button.
+It costs a healthy device nothing.
+
 ## Do not put this back in any flashing recipe
 
 `git checkout FETCH_HEAD -- wall-clock/esphome/mini-round-clock-with-display.yaml`

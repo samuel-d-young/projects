@@ -669,6 +669,10 @@
         "name": "Firmware built"
       },
       {
+        "entity": "button.mini_round_clock_3_restart_into_safe_mode",
+        "name": "Restart into safe mode"
+      },
+      {
         "entity": "switch.mini_round_clock_3_grow_clock_show_time",
         "name": "Show the time"
       },
@@ -1449,6 +1453,10 @@
         "name": "Firmware built"
       },
       {
+        "entity": "button.mini_round_clock_4_restart_into_safe_mode",
+        "name": "Restart into safe mode"
+      },
+      {
         "entity": "switch.mini_round_clock_4_grow_clock_show_time",
         "name": "Show the time"
       },
@@ -2227,6 +2235,10 @@
       {
         "entity": "sensor.mini_round_clock_firmware_built",
         "name": "Firmware built"
+      },
+      {
+        "entity": "button.mini_round_clock_restart_into_safe_mode",
+        "name": "Restart into safe mode"
       },
       {
         "entity": "switch.mini_round_clock_grow_clock_show_time",
