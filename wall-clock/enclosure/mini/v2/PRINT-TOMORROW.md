@@ -38,7 +38,8 @@ and the old stand-box are cut for 30.00 now.
 
 | # | file | size mm (x·y·z) | vol | notes |
 |---|---|---|---|---|
-| 1 | `mini-round-clock-backstand-32` | 86.0 · 86.3 · 48.0 | 47 cm³ | **the new base.** One part, no lid, no screws |
+| 1 | `mini-round-clock-backstand-32` | 98.0 · 86.3 · 48.0 | 53 cm³ | **the new base.** One part, no lid |
+| 1b | `mini-round-clock-backstand-clamp` | 81.5 · 20.0 · 6.9 | 7 cm³ | holds the board down. Two M2 self-tappers |
 | 2 | `mini-round-clock-base-32` | 119.8 · 119.8 · 24.4 | 138 cm³ | the clock body |
 | 3 | `mini-round-clock-backcover-32` | 119.8 · 119.8 · 8.9 | 34 cm³ | flat back, for the stand version |
 | 4 | `mini-round-clock-diffuser-32-plain` | 112.4 · 112.4 · 6.8 | 24 cm³ | no numerals — see the material note |
@@ -88,6 +89,13 @@ than guess. The one that takes the board without force is the answer.
    If your board has header tails poking out underneath, say so: they need
    either the pads back (`BACKSTAND_POST_H = 4.00`, one number, everything
    else follows) or a ledge along the rails.
+
+1b. **Bar on:** `mini-round-clock-backstand-clamp`, THIS SIDE DOWN debossed on
+   the face that prints first — the feet go downward in use. It bridges over
+   the USB shell and the module and comes down only on the bare 4 mm of PCB at
+   each end. Two M2 x 6 self-tappers into the bosses either side of the board.
+   Tighten until it stops: the pads sit 0.10 mm below the boss seats, so it
+   lands on the board rather than bottoming out on its own bosses.
 2. **USB-C** looks straight out through the window in the buttress beside it —
    an 18 mm opening with a 52° gable, one in each side so it does not matter
    which way round the board goes in.

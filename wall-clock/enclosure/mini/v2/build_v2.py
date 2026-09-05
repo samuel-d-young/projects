@@ -1972,7 +1972,12 @@ def build_backstand(B):
     for sx in (-1.0, 1.0):
         s += cyl(BACKSTAND_BOSS_R, FT - 1.0, seat, 32,
                  centre=(sx*BACKSTAND_CLAMP_SX, BY0 + SW/2.0))
-        s -= cyl(BACKSTAND_SCREW_PILOT/2.0, seat - 9.0, seat + 1.0, 24,
+        # BLIND, stopping 1 mm above the foot's underside. Drilled through it
+        # exits the bottom of the plate: a screw a size too long then stands
+        # proud and scratches whatever the stand is sitting on, and the first
+        # layer gets two holes in it for nothing. 5.5 mm of engagement is more
+        # than an M2 self-tapper needs.
+        s -= cyl(BACKSTAND_SCREW_PILOT/2.0, 1.0, seat + 1.0, 24,
                  centre=(sx*BACKSTAND_CLAMP_SX, BY0 + SW/2.0))
     # and anything that ended up under the desk
     s -= box_lwh(-500, 500, -500, 500, -500.0, 0.0)
