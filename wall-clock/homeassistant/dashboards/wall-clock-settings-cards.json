@@ -625,8 +625,32 @@
         "name": "Twinkling night sky"
       },
       {
+        "entity": "switch.mini_round_clock_3_grow_clock_night_sky_at_bedtime",
+        "name": "...from bedtime, not just sleep"
+      },
+      {
         "entity": "number.mini_round_clock_3_grow_clock_night_sky_stars",
         "name": "How many in the sky"
+      },
+      {
+        "entity": "number.mini_round_clock_3_grow_clock_night_sky_brightness",
+        "name": "How bright"
+      },
+      {
+        "entity": "number.mini_round_clock_3_grow_clock_night_sky_star_size",
+        "name": "Biggest star"
+      },
+      {
+        "entity": "number.mini_round_clock_3_grow_clock_night_sky_twinkle_speed",
+        "name": "Twinkle speed"
+      },
+      {
+        "entity": "button.mini_round_clock_3_grow_clock_new_night_sky",
+        "name": "Shuffle the sky now"
+      },
+      {
+        "entity": "switch.mini_round_clock_3_grow_clock_new_night_sky_each_night",
+        "name": "A new sky every night"
       },
       {
         "entity": "switch.mini_round_clock_3_grow_clock_animate",
@@ -1409,8 +1433,32 @@
         "name": "Twinkling night sky"
       },
       {
+        "entity": "switch.mini_round_clock_4_grow_clock_night_sky_at_bedtime",
+        "name": "...from bedtime, not just sleep"
+      },
+      {
         "entity": "number.mini_round_clock_4_grow_clock_night_sky_stars",
         "name": "How many in the sky"
+      },
+      {
+        "entity": "number.mini_round_clock_4_grow_clock_night_sky_brightness",
+        "name": "How bright"
+      },
+      {
+        "entity": "number.mini_round_clock_4_grow_clock_night_sky_star_size",
+        "name": "Biggest star"
+      },
+      {
+        "entity": "number.mini_round_clock_4_grow_clock_night_sky_twinkle_speed",
+        "name": "Twinkle speed"
+      },
+      {
+        "entity": "button.mini_round_clock_4_grow_clock_new_night_sky",
+        "name": "Shuffle the sky now"
+      },
+      {
+        "entity": "switch.mini_round_clock_4_grow_clock_new_night_sky_each_night",
+        "name": "A new sky every night"
       },
       {
         "entity": "switch.mini_round_clock_4_grow_clock_animate",
@@ -2193,8 +2241,32 @@
         "name": "Twinkling night sky"
       },
       {
+        "entity": "switch.mini_round_clock_grow_clock_night_sky_at_bedtime",
+        "name": "...from bedtime, not just sleep"
+      },
+      {
         "entity": "number.mini_round_clock_grow_clock_night_sky_stars",
         "name": "How many in the sky"
+      },
+      {
+        "entity": "number.mini_round_clock_grow_clock_night_sky_brightness",
+        "name": "How bright"
+      },
+      {
+        "entity": "number.mini_round_clock_grow_clock_night_sky_star_size",
+        "name": "Biggest star"
+      },
+      {
+        "entity": "number.mini_round_clock_grow_clock_night_sky_twinkle_speed",
+        "name": "Twinkle speed"
+      },
+      {
+        "entity": "button.mini_round_clock_grow_clock_new_night_sky",
+        "name": "Shuffle the sky now"
+      },
+      {
+        "entity": "switch.mini_round_clock_grow_clock_new_night_sky_each_night",
+        "name": "A new sky every night"
       },
       {
         "entity": "switch.mini_round_clock_grow_clock_animate",

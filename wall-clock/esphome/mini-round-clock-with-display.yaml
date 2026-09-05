@@ -1215,18 +1215,77 @@ number:
   #
   # They are drawn FIRST, before the eyes, so no exclusion zone is needed --
   # the eyes and the z's simply paint over any star behind them.
+  #
+  # 0..60, was 0..24. CHANGING A NUMBER'S RANGE DISCARDS ITS STORED VALUE and
+  # takes initial_value instead -- verified by controlled comparison in one
+  # flash. initial_value here is 12, which is what it was set to, so nothing
+  # visibly moves; if you had changed it, it comes back as 12 after this build.
   - platform: template
     id: grow_night_star_count
     name: "Grow clock night sky stars"
     entity_category: config
     icon: mdi:star-shooting
     min_value: 0
-    max_value: 24
+    max_value: 60
     step: 1
     initial_value: 12
     optimistic: true
     restore_value: true
     mode: box
+
+  # How bright the sky is against the face colour. A star's twinkle already
+  # swings between 0.35 and 1.00 of the face colour; this scales that whole
+  # range, so 30% gives a sky you can only just see in a dark room -- which is
+  # the point of it at 3am.
+  - platform: template
+    id: grow_night_star_bright
+    name: "Grow clock night sky brightness"
+    entity_category: config
+    icon: mdi:brightness-6
+    unit_of_measurement: "%"
+    min_value: 10
+    max_value: 100
+    step: 5
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+    mode: slider
+
+  # The biggest a star may be, in pixels of arm length. Each star picks 1..this
+  # out of the seed, so raising it makes the sky more varied, not just bigger.
+  # 4 is the ceiling because a star is drawn as a plus and a 5th pixel of arm
+  # starts reading as a cross rather than a point of light.
+  - platform: template
+    id: grow_night_star_size
+    name: "Grow clock night sky star size"
+    entity_category: config
+    icon: mdi:arrow-expand-all
+    min_value: 1
+    max_value: 4
+    step: 1
+    initial_value: 2
+    optimistic: true
+    restore_value: true
+    mode: box
+
+  # How fast they twinkle, as a percentage of the base 6.9 s cycle. Every star
+  # has its own phase out of the seed, so they never pulse together whatever
+  # this is set to. Below about 40% it reads as "still"; above 200% it reads as
+  # "blinking", which is precisely the thing this whole build spent two days
+  # getting rid of, so that is the ceiling.
+  - platform: template
+    id: grow_night_twinkle
+    name: "Grow clock night sky twinkle speed"
+    entity_category: config
+    icon: mdi:speedometer
+    unit_of_measurement: "%"
+    min_value: 20
+    max_value: 200
+    step: 10
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+    mode: slider
 
   # How many stars the screen counts down through the night.
   - platform: template
@@ -1847,6 +1906,30 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
+  # Sam, 2026-09-05: "Add them during the night sleeping." The sky ran during
+  # sleep and naps only, which meant it appeared at the moment the face closed
+  # its eyes rather than while the room was winding down. ON puts it up for the
+  # bedtime warning as well, so the sky arrives with bedtime and stays until
+  # morning.
+  - platform: template
+    id: grow_night_sky_bed
+    name: "Grow clock night sky at bedtime"
+    entity_category: config
+    icon: mdi:bed-clock
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # A different sky every night. Reseeds on the TRANSITION into sleep, not on
+  # every second of it -- a field that re-randomised each frame would not be a
+  # sky, it would be static.
+  - platform: template
+    id: grow_night_sky_nightly
+    name: "Grow clock new night sky each night"
+    entity_category: config
+    icon: mdi:shimmer
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
   - platform: template
     id: grow_partial
     name: "Grow clock partial redraw"
@@ -2196,6 +2279,16 @@ button:
     safe_mode: clock_safe_mode
     name: "Restart into safe mode"
 
+  # Randomise the stars now. One integer changes and the whole field moves --
+  # positions, sizes and twinkle phases all come out of it. It is stored, so
+  # the new sky survives a reboot.
+  - platform: template
+    id: grow_night_sky_shuffle
+    name: "Grow clock new night sky"
+    icon: mdi:star-shooting-outline
+    on_press:
+      - lambda: 'id(night_seed) = random_uint32() | 1u;'
+
   - platform: template
     id: grow_wake_now
     name: "Grow clock wake now"
@@ -2259,6 +2352,25 @@ button:
           id(grow_nap_end) = 0;
 
 globals:
+  # ---- The night sky's seed ------------------------------------------------
+  # The whole field -- where every star is, how big it is and where in its
+  # twinkle it starts -- comes out of one 32-bit number run through an LCG. So
+  # "randomise the stars" is one integer, it survives a reboot, and the field is
+  # IDENTICAL in all six bands of a frame because every band re-runs the same
+  # sequence from the same seed. That last part is not a nicety: the bands are
+  # drawn in six separate passes, and a field that differed between them would
+  # tear the sky into six strips that disagree.
+  - id: night_seed
+    type: uint32_t
+    restore_value: yes
+    initial_value: '0x9E3779B9'
+  # what the state was last second, so "a new sky each night" can fire on the
+  # TRANSITION into sleep rather than every second of it
+  - id: night_last_st
+    type: int
+    restore_value: no
+    initial_value: '-1'
+
   # ---- Grow clock state, resolved ONCE a second by the dispatcher ----------
   # so the ring, the panel, the backlight and the HA sensor all read the same
   # answer. 0 sleep, 1 almost, 2 awake, 3 bedtime, 4 nap.
@@ -2690,6 +2802,14 @@ interval:
           if (fx != "auto") id(grow_daytime) = false;   // a demo shows the face
 
           id(grow_sched) = sched;
+          // A NEW SKY EACH NIGHT, on the transition INTO sleep. Guarded on the
+          // previous state, so it fires once a night rather than once a second;
+          // and night_last_st starts at -1, so a clock that boots up already
+          // asleep keeps the sky it had rather than throwing it away.
+          if (id(grow_night_sky_nightly).state && st == 0
+              && id(night_last_st) != 0 && id(night_last_st) != -1)
+            id(night_seed) = random_uint32() | 1u;
+          id(night_last_st) = st;
           id(grow_st)    = st;
           id(grow_frac)  = frac;
           static const char *names[] = {"sleep", "almost", "awake", "bedtime", "nap"};
@@ -4309,20 +4429,46 @@ display:
           //
           // The field is fixed: one seed, so the stars do not walk about
           // between frames. Only the brightness moves.
-          if (eyeband && id(grow_night_sky).state && (st == 0 || st == 4)) {
-            const int NN = std::max(0, std::min(24,
+          // WHEN. Sleep and naps, and -- since Sam asked for it -- the bedtime
+          // wind-down too, so the sky arrives with bedtime instead of appearing
+          // at the moment the eyes close.
+          const bool skynow = st == 0 || st == 4
+                           || (st == 3 && id(grow_night_sky_bed).state);
+          if (eyeband && id(grow_night_sky).state && skynow) {
+            const int NN = std::max(0, std::min(60,
                                                 (int) id(grow_night_star_count).state));
+            // sky_br, NOT BR. `BR` is a special-register name in the Xtensa
+            // headers the ESP-IDF pulls in, and a local called BR fails to
+            // compile with "expected unqualified-id before numeric constant"
+            // pointing at specreg.h, which tells you nothing about your own
+            // code. Short upper-case names are not safe in this translation
+            // unit.
+            const int  sky_rmax = std::max(1, std::min(4, (int) id(grow_night_star_size).state));
+            const float sky_br  = std::max(0.10f, std::min(1.00f,
+                                           id(grow_night_star_bright).state / 100.0f));
+            const float sky_spd = std::max(0.20f, std::min(2.00f,
+                                           id(grow_night_twinkle).state / 100.0f));
             const uint32_t ms = millis();
-            uint32_t rr = 0x9E3779B9u;
+            // THE SEED IS A GLOBAL, and every band re-runs the same sequence
+            // from it. That is what keeps the sky identical across the six
+            // passes a frame is drawn in -- a per-band field would tear it into
+            // six strips that disagree with each other.
+            uint32_t rr = id(night_seed) | 1u;
             auto nxt = [&rr]() { rr = rr*1664525u + 1013904223u; return (rr >> 16) & 0x7FFFu; };
             for (int i = 0; i < NN; i++) {
               const int nx = AN_L + 8 + (int)(nxt() % (uint32_t)(AN_R - AN_L - 16));
               const int ny = AN_T + 8 + (int)(nxt() % (uint32_t)(AN_B - AN_T - 16));
               const int phase = (int)(nxt() % 628u);
-              const int r = (nxt() % 3u == 0u) ? 2 : 1;
-              // "twinkle slightly": 0.35 to 1.0. Never off, never at full.
-              const float tw = 0.675f + 0.325f*sinf(ms/1100.0f + phase/100.0f);
-              const Color c = dim(ink, tw);
+              const int r = 1 + (int)(nxt() % (uint32_t) sky_rmax);
+              // EVERY DRAW IS DECIDED AFTER THE RANDOM NUMBERS ARE TAKEN, never
+              // before. Skipping a star early would leave the generator in a
+              // different place for the next one, and the field would come out
+              // different in each band -- the one bug this arrangement can have.
+              if (partial && (ny + r < b0 || ny - r >= b1)) continue;
+              // "twinkle slightly": 0.35 to 1.0 of the face colour, scaled by
+              // the brightness dial. Never off, never at full.
+              const float tw = 0.675f + 0.325f*sinf(ms*sky_spd/1100.0f + phase/100.0f);
+              const Color c = dim(ink, tw*sky_br);
               it.filled_rectangle(nx - r, ny, 2*r + 1, 1, c);
               it.filled_rectangle(nx, ny - r, 1, 2*r + 1, c);
             }

@@ -408,10 +408,18 @@ def clock_cards(slug, label):
             row(e("switch", "grow_clock_stars"), "Stars until morning"),
             row(e("number", "grow_clock_star_count"), "How many stars"),
             row(e("select", "grow_clock_star_shape"), "Star shape"),
-            # Scattered, gently twinkling stars behind the face at sleep time.
+            # Scattered, gently twinkling stars behind the face at night.
             # Separate from the star row above, which counts down the night.
             row(e("switch", "grow_clock_night_sky"), "Twinkling night sky"),
+            row(e("switch", "grow_clock_night_sky_at_bedtime"), "...from bedtime, not just sleep"),
             row(e("number", "grow_clock_night_sky_stars"), "How many in the sky"),
+            row(e("number", "grow_clock_night_sky_brightness"), "How bright"),
+            row(e("number", "grow_clock_night_sky_star_size"), "Biggest star"),
+            row(e("number", "grow_clock_night_sky_twinkle_speed"), "Twinkle speed"),
+            # The whole field — positions, sizes, twinkle phases — comes out of
+            # one stored number, so this moves all of it at once.
+            row(e("button", "grow_clock_new_night_sky"), "Shuffle the sky now"),
+            row(e("switch", "grow_clock_new_night_sky_each_night"), "A new sky every night"),
             row(e("switch", "grow_clock_animate"), "Animate the eyes"),
             # The dial that settles the flicker on this panel: how often
             # the face may be redrawn. Sat next to the switch it belongs to.
