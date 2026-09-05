@@ -84,6 +84,7 @@ PARTS = [
     ('mini-round-clock-backstand.stl',           'flat on its foot',      MIN_WALL),
     ('mini-round-clock-backstand-32.stl',        'flat on its foot',      MIN_WALL),
     ('mini-round-clock-backstand-60.stl',        'flat on its foot',      MIN_WALL),
+    ('mini-round-clock-backstand-clamp.stl',     'plate down, feet up',   MIN_WALL),
     ('mini-round-clock-backcover.stl',           'plate down',            MIN_WALL),
     ('mini-round-clock-backcover-32.stl',        'plate down',            MIN_WALL),
     ('mini-round-clock-backcover-60.stl',        'plate down',            MIN_WALL),

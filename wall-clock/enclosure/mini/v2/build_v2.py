@@ -1685,6 +1685,66 @@ def _wall_yz(prof, x0, x1):
     return prism([(-z, y) for (y, z) in prof], x0, x1).rotate([0.0, 90.0, 0.0])
 
 
+def build_backstand_clamp():
+    """The bar that screws the board down, running down its length.
+
+    Sam, 2026-09-05: "Add a way for the board to be held down on the bases. I
+    think length ways, Maybe a small seperate print that gets screwed in down
+    the length of the board."
+
+    A BRIDGE, not a flat bar, and that is the whole design. The board is a dev
+    board with 3.20 mm of USB shell and WROOM module standing off its face, so a
+    bar lying across it would rest on the components and clamp nothing. This one
+    stands over them on two feet and comes down only on the bare PCB at each
+    end. Both screws land BEYOND the board, so no part of it crosses a header
+    row at any height and headers can be fitted either way up or left off.
+
+    Two planes on the feet, 0.10 mm apart:
+      seat  over the bosses, at the board's top face minus the nip
+      pad   over the PCB, level with the board's top face
+    so tightening the screws lands the bar on the board, not on its own bosses.
+
+    PRINTS FLAT WITH THE FEET UP. The first layer is the plate's own face, the
+    feet extrude upward and the screw holes are vertical: no overhang, no
+    bridge, nothing to support. It is flipped when it goes on.
+    """
+    FT   = BACKSTAND_FOOT_T
+    lz0  = FT + BACKSTAND_POST_H + BOARD_T          # the board's top face
+    seat = lz0 - BACKSTAND_CLAMP_NIP
+    top  = lz0 + BOARD_TALL + BACKSTAND_CLAMP_LIFT  # the plate's underside
+    W    = BACKSTAND_CLAMP_W / 2.0
+    X    = BACKSTAND_CLAMP_SX + BACKSTAND_BOSS_R + 1.50
+    y0   = BACKSTAND_BAY_Y0 + BACKSTAND_SLOT_W/2.0  # centred across the slot
+
+    g = box_lwh(-X, X, -W, W, top, top + BACKSTAND_CLAMP_T)
+    for sx in (-1.0, 1.0):
+        x1 = sx*X
+        x0 = sx*(BACKSTAND_BOARD_L/2.0 - BACKSTAND_CLAMP_PAD)   # inner end, on the PCB
+        xm = sx*(BACKSTAND_BOARD_L/2.0)                          # the board's end
+        lo, hi = sorted((x0, xm))
+        g += box_lwh(lo, hi, -W, W, lz0, top)                    # pad, on the board
+        lo, hi = sorted((xm, x1))
+        g += box_lwh(lo, hi, -W, W, seat, top)                   # seat, on the boss
+        g -= cyl(SCREW_CLEAR/2.0, seat - 1.0, top + BACKSTAND_CLAMP_T + 1.0, 32,
+                 centre=(sx*BACKSTAND_CLAMP_SX, 0.0))
+    # Which way up, debossed into the plate's top -- the face that prints first.
+    g -= text_prism('THIS SIDE DOWN', 3.20, (0.0, 0.0),
+                    top + BACKSTAND_CLAMP_T - 0.50, top + BACKSTAND_CLAMP_T + 0.10,
+                    family=NUM_FONT, weight=NUM_WEIGHT, fontfile=NUM_FONT_FILE)
+    # FLIPPED FOR PRINTING, and check3 is why. Built the right way up it exports
+    # feet-down, which puts the plate up in the air as a 64 mm flat roof
+    # spanning between them -- a bridge, and a first layer of only the two small
+    # feet. Rotated 180 about x the plate's own face is the first layer, the
+    # feet extrude upward, and the screw holes stay vertical: no overhang, no
+    # bridge, nothing to support. It is turned over when it goes on, which is
+    # what the debossed THIS SIDE DOWN is for.
+    #
+    # check7 undoes exactly this to compare it with the board -- if you change
+    # the transform, change it there too.
+    g = g.rotate([180.0, 0.0, 0.0])
+    return g.translate([0.0, y0, top + BACKSTAND_CLAMP_T])
+
+
 def build_backstand(B):
     """The stand that is not a box. Sam, 2026-09-04: "give make a better base
     that isn't as bulky... The base needs to be open to fit the cables, and the
@@ -1898,6 +1958,22 @@ def build_backstand(B):
     s -= box_lwh(-BACKSTAND_CABLE_HW, BACKSTAND_CABLE_HW,
                  back(FT) - 2.0, BY0 + 2.0,
                  FT - BACKSTAND_CABLE_D, FT + RH + 1.0)
+    # THE HOLD-DOWN BOSSES, AFTER THE CUTS AND NOT BEFORE. One at each end of
+    # the board, clear of it in x, sitting on the bay floor. Their tops are
+    # BACKSTAND_CLAMP_NIP below the board's top face, which is what makes the
+    # bar clamp the BOARD rather than bottoming out on them.
+    #
+    # They go on last because the cut that clears the air over the board runs
+    # from y BY0 to BY1 across the whole bay, and the bosses stand inside it:
+    # added earlier, everything above z = FT + 0.50 was taken straight off them
+    # and the screws had 1 mm of plastic to bite into. check7 found it by
+    # probing for material under each screw, which is the only reason I looked.
+    seat = lz0 - BACKSTAND_CLAMP_NIP
+    for sx in (-1.0, 1.0):
+        s += cyl(BACKSTAND_BOSS_R, FT - 1.0, seat, 32,
+                 centre=(sx*BACKSTAND_CLAMP_SX, BY0 + SW/2.0))
+        s -= cyl(BACKSTAND_SCREW_PILOT/2.0, seat - 9.0, seat + 1.0, 24,
+                 centre=(sx*BACKSTAND_CLAMP_SX, BY0 + SW/2.0))
     # and anything that ended up under the desk
     s -= box_lwh(-500, 500, -500, 500, -500.0, 0.0)
     return s
@@ -1944,6 +2020,7 @@ def parts_for(B, sam, full=True):
         (standbox,                       f'mini-round-clock-standbox{tg}',  True),
         (tray,                           f'mini-round-clock-standbox-tray{tg}', True),
         (build_backstand(B),             f'mini-round-clock-backstand{tg}', True),
+        (build_backstand_clamp(),        f'mini-round-clock-backstand-clamp', True),
         (build_numerals(B),              f'mini-round-clock-numerals{tg}',  False),
     ]
     # the flange only where there is a trough to fill: the 60's diffuser

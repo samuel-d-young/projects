@@ -1596,8 +1596,17 @@ BACKSTAND_BACK    = 48.00    # the foot's back edge. Sets tipping backwards and
                              # has to clear the board bay, which ends at 42.6
 BACKSTAND_HW      = 43.00    # half width of the foot
 BACKSTAND_FILLET  =  4.00    # on the foot's back corners
-BACKSTAND_WALL_XI = 34.00    # the buttresses: inner face, |x|. Outboard of the
-BACKSTAND_WALL_XO = 40.50    # board, which is 64 long and centred
+# 40.00, was 34.00. Sam, 2026-09-05: "Add a way for the board to be held down on
+# the bases... a small seperate print that gets screwed in down the length of the
+# board." At 34 there was 2 mm between the board's end and the buttress -- nowhere
+# to put an M2 boss, which needs 6.5. Moving the buttresses out to 40 buys 8 mm a
+# side and costs 12 mm of stand width (86 -> 98), which still sits inside the
+# clock: 98 against Zac's 108 and Jake's 120, so nothing shows from the front.
+BACKSTAND_WALL_XI = 40.00    # the buttresses: inner face, |x|. Outboard of the
+BACKSTAND_WALL_XO = 46.50    # board, which is 64 long and centred. THIS IS AN
+                             # ABSOLUTE FACE, NOT A THICKNESS: moving XI out to
+                             # 40 and leaving this at 40.50 gave 0.5 mm walls.
+                             # Keep XO - XI at 6.50.
 BACKSTAND_SPINE_H = 48.00    # how far up the clock's back they reach
 BACKSTAND_SPINE_T =  8.00    # material behind the clock's back face up there
 # The window through each buttress: the board's connector end looks straight at
@@ -1636,3 +1645,29 @@ BACKSTAND_LIP_T   =  1.60
 BACKSTAND_LIP_GAP =  0.20    # over the board's top face, so it is held not gripped
 BACKSTAND_CABLE_HW=  9.00    # the channel from the trench back to the bay
 BACKSTAND_CABLE_D =  3.00    # how deep it is cut into the foot
+
+# --- the hold-down bar ------------------------------------------------------
+# A bridge, not a flat bar. The board is a dev board: 3.20 mm of USB shell and
+# WROOM module stand off its face, so anything lying across it would rest on the
+# components. This stands OVER them on two feet and comes down only on the bare
+# PCB at each end, with both screws beyond the board entirely.
+#
+# It prints flat with the feet pointing UP -- first layer is the plate's own
+# face, the feet extrude upward, the screw holes are vertical. Flipped in use.
+# No overhang, no bridge, no support.
+BACKSTAND_CLAMP_W    = 20.00  # across the board. Inboard of both header rows on
+                              # a 30 mm board, so it never touches a pad
+BACKSTAND_CLAMP_T    =  3.00  # the plate
+BACKSTAND_CLAMP_FOOT = 12.00  # how far each foot runs along the board
+BACKSTAND_CLAMP_PAD  =  4.00  # of that, how much lands on the PCB
+BACKSTAND_CLAMP_SX   = 36.00  # screw centres, |x|: past the board's end at 32,
+                              # inside the buttress at 40
+BACKSTAND_CLAMP_LIFT =  0.60  # air between the plate and the tallest component
+BACKSTAND_CLAMP_NIP  =  0.10  # the pad sits this far BELOW the boss seat, so
+                              # tightening lands the bar on the BOARD rather than
+                              # bottoming it on its own bosses. 0.10 of flex in a
+                              # 3 mm bar is a few newtons -- it cannot crack FR4
+                              # and it takes any board from 1.50 to 1.70 thick
+BACKSTAND_BOSS_R     =  3.25  # the bosses the screws bite into
+BACKSTAND_SCREW_PILOT = 1.60  # M2 self-tapper, same as the stand-box's
+

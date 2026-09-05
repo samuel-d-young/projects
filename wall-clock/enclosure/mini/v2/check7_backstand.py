@@ -210,5 +210,77 @@ d = 2*B.r_body
 ck(max(hi - lo) < d, 'smaller in every direction than the clock it holds',
    f'{hi[0]-lo[0]:.0f} x {hi[1]-lo[1]:.0f} x {hi[2]-lo[2]:.0f} inside a {d:.0f} mm disc')
 
+# ---- 8. the hold-down bar ---------------------------------------------------
+# A part that clamps a board is worth checking against the board, not just
+# against itself. Everything here is measured off the two exported meshes.
+cl = trimesh.load(csg.part('mini-round-clock-backstand-clamp.stl'))
+# THE CLAMP IS EXPORTED UPSIDE DOWN AND ON THE BED, because that is how it
+# prints -- plate face on the plate, feet extruding upward. Put it back the way
+# it works before comparing it with anything, or every clearance reads as an
+# interference. This is the exact inverse of the transform at the end of
+# build_backstand_clamp; change one and change the other.
+_lz0  = BACKSTAND_FOOT_T + BACKSTAND_POST_H + BOARD_T
+_top  = _lz0 + BOARD_TALL + BACKSTAND_CLAMP_LIFT
+_y0   = BACKSTAND_BAY_Y0 + BACKSTAND_SLOT_W/2.0
+_flip = np.eye(4); _flip[1, 1] = -1.0; _flip[2, 2] = -1.0     # 180 about x
+cl.apply_translation([0.0, -_y0, -(_top + BACKSTAND_CLAMP_T)])
+cl.apply_transform(_flip)
+cl.apply_translation([0.0, _y0, 0.0])
+ck(cl.is_watertight and cl.body_count == 1, 'the clamp is one watertight solid',
+   f'{cl.body_count} body(s)')
+
+# The board, as a solid, where it actually sits: PCB plus the tallest thing on it.
+bz0 = BACKSTAND_FOOT_T + BACKSTAND_POST_H
+brd = csg.box_lwh(-BOARD2_L/2, BOARD2_L/2,
+                  BACKSTAND_BAY_Y0, BACKSTAND_BAY_Y0 + BOARD2_W,
+                  bz0, bz0 + BOARD_T)
+# THE MIDDLE of the board, not all of it. The pads are SUPPOSED to come down on
+# the outer BACKSTAND_CLAMP_PAD mm at each end -- that is the whole design -- so
+# counting them as an intrusion measured 512 mm3 of correct geometry. What has
+# to be clear is everything inboard of the pads, which is where the WROOM module
+# and the USB shell live.
+mid = BOARD2_L/2 - BACKSTAND_CLAMP_PAD
+comp = csg.box_lwh(-mid, mid,
+                   BACKSTAND_BAY_Y0, BACKSTAND_BAY_Y0 + BOARD2_W,
+                   bz0 + BOARD_T, bz0 + BOARD_T + BOARD_TALL)
+clm = csg.to_manifold(cl)
+ck(csg.to_trimesh(clm ^ comp).volume < 1.0,
+   'the clamp clears the middle of the board, where the components are',
+   f'{csg.to_trimesh(clm ^ comp).volume:.2f} mm3 inside |x| < {mid:.0f}, '
+   f'over a {BOARD_TALL:.2f} mm component zone')
+ck(csg.to_trimesh(clm ^ brd).volume < 1.0, 'and does not bite into the PCB itself',
+   f'{csg.to_trimesh(clm ^ brd).volume:.3f} mm3')
+
+# It has to REACH the board, or it is holding nothing down.
+lz0 = bz0 + BOARD_T
+foot = cl.slice_plane([0, 0, lz0 + 0.05], [0, 0, -1])   # everything at the board's face
+ck(len(foot.vertices) > 0, 'the clamp comes down to the board at all')
+if len(foot.vertices):
+    fx = foot.vertices[:, 0]
+    over = [x for x in fx if abs(x) <= BOARD2_L/2]
+    ck(bool(over), 'and lands ON the board, not only beside it',
+       f'reaches |x| {min(abs(v) for v in over):.1f}..{max(abs(v) for v in over):.1f} '
+       f'against a board half-length of {BOARD2_L/2:.1f}')
+
+# The screws must miss the board and hit the stand's bosses.
+ck(BACKSTAND_CLAMP_SX - BACKSTAND_BOSS_R > BOARD2_L/2,
+   'both screws land clear of the board',
+   f'boss inner edge {BACKSTAND_CLAMP_SX - BACKSTAND_BOSS_R:.2f} vs board end '
+   f'{BOARD2_L/2:.2f}')
+ck(BACKSTAND_CLAMP_SX + BACKSTAND_BOSS_R < BACKSTAND_WALL_XI,
+   'and inside the buttresses',
+   f'boss outer edge {BACKSTAND_CLAMP_SX + BACKSTAND_BOSS_R:.2f} vs inner face '
+   f'{BACKSTAND_WALL_XI:.2f}')
+# and the stand must actually have a boss under each of them
+for sx in (-1.0, 1.0):
+    px = sx*BACKSTAND_CLAMP_SX
+    py = BACKSTAND_BAY_Y0 + BACKSTAND_SLOT_W/2.0
+    pz = lz0 - BACKSTAND_CLAMP_NIP - 0.30
+    hit = m.contains(np.array([[px + BACKSTAND_BOSS_R - 1.0, py, pz]]))[0]
+    ck(bool(hit), f'the stand has a boss under the screw at x = {px:+.0f}')
+ck(BACKSTAND_CLAMP_NIP > 0,
+   'the pad sits below the boss seat, so it clamps the board not the bosses',
+   f'{BACKSTAND_CLAMP_NIP:.2f} mm of flex')
+
 print(('  ALL PASS' if not FAIL else f'  {len(FAIL)} FAILURE(S): ' + '; '.join(FAIL)))
 sys.exit(1 if FAIL else 0)
