@@ -78,9 +78,27 @@ def seat_drop(mm):
 
 def tab_slot_keep():
     """The volume the display tab has to pass through: a straight slot up to
-    just above the tab, then a 45-degree lead-in on the top inner edge."""
+    just above the tab, then a 45-degree lead-in on the top inner edge.
+
+    IT STARTS BELOW Z_DECK, not below Z_BACK. Sam, 2026-09-05: "Make sure there
+    is a hole on the under side of the screen wires, There is currently a bottom
+    on it where it needs to go straight through." There was, and this is where
+    it came from.
+
+    tab_slot_walls() used to build its wedge from Z_BACK up; when it was taken
+    down to Z_DECK so the walls could carry themselves over the widened cable
+    gap, THIS did not follow. The wedge then ran from -2.40 while the slot cut
+    out of it only started at -1.00, and the 1.40 mm left between them was a
+    floor right across the tab opening at the very back of the base -- a
+    perfect, deliberate-looking plate with the screen's ribbon sitting on top
+    of it.
+
+    Two solids, one moved and one not, is how a floor appears in a part nobody
+    drew a floor into. The rule this earns: when a solid's extent moves, every
+    cut that has to reach through it moves with it.
+    """
     hw, R = TAB_SLOT_HW, TAB_WALL_RO + 5.0
-    keep = box_lwh(0.0, R, -hw, hw, Z_BACK - 1.0, TAB_CHAMF_Z)
+    keep = box_lwh(0.0, R, -hw, hw, Z_DECK - 1.0, TAB_CHAMF_Z)
     keep += prism_taper([(0.0, -hw), (R, -hw), (R, hw), (0.0, hw)],
                         TAB_CHAMF_Z, TAB_WALL_TOP + 0.001,
                         1.0, (hw + (TAB_WALL_TOP - TAB_CHAMF_Z)) / hw)

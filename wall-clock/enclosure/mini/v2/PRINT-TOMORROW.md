@@ -120,6 +120,17 @@ than guess. The one that takes the board without force is the answer.
    which way round the board goes in.
 3. **Clock in:** stand it in the trench. It beds 4 mm and leans back 14°; the
    two buttresses catch its back cover 48 mm up.
+3b. **Screen wires:** the tab slot under the display goes **straight through
+   to the back of the base** — 31 mm of open corridor, 32.35 mm wide, from the
+   display's underside to the bottom face. It did not, until 2026-09-05: a
+   1.40 mm plate sat right across it, left behind when the tab-slot walls were
+   taken down to the bottom plane and the slot cut out of them was not. If you
+   have a base printed before that, this is the floor Sam found; reprint the
+   base only, nothing else changed.
+
+   Behind it the cover and the housing carry a **cable port**, not a slot —
+   87 mm² on the 32 and 60, 238 mm² on the 24 — starting at r = 34. Wires come
+   off the tab, drop straight back, and leave through it.
 4. **Leads:** they leave the clock through the 6 o'clock notch in the back
    cover and run back to the board along the 18 mm channel cut into the foot.
    Nothing pinches them and nothing closes over them. The gate takes the

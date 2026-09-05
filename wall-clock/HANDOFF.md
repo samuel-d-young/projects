@@ -156,6 +156,35 @@ foot that sits on a desk put the tie's loop under the part and the stand rocks
 on it. The relief is deeper than a 2.5 mm tie is thick, so the loop is recessed
 and the foot still lies flat. `render_ties.py` draws the plan view.
 
+## The floor under the screen's wires
+
+`2026-09-05`. Sam: "Make sure there is a hole on the under side of the screen
+wires, There is currently a bottom on it where it needs to go straight
+through." He was right, on **all three bodies**, and it had been there a while.
+
+`tab_slot_walls()` builds a wedge and subtracts `tab_slot_keep()` from it to
+leave the slot. The wedge was taken down from Z_BACK to Z_DECK so the walls
+could carry themselves over the widened cable gap. `tab_slot_keep()` was not
+taken down with it -- it still started at `Z_BACK - 1.00`. The 1.40 mm between
+the two was a plate right across the tab opening at the very back of the base,
+with the ribbon sitting on it.
+
+**The rule this earns: when a solid's extent moves, every cut that has to reach
+through it moves with it.** Two solids, one moved and one not, is how a floor
+appears in a part nobody drew a floor into.
+
+Nothing caught it because every existing test asked whether the TAB fits, and
+the tab stops at z = 10.20 -- ten millimetres above the floor. check2 now sweeps
+the corridor the WIRES use instead, on all three bodies, and it was verified by
+putting the bug back: 6 failures with it, clean without.
+
+Behind the base the cover and housing carry a cable PORT, not a slot: 87 mm2 on
+the 32 and 60, 238 mm2 on the 24, starting at r = 34. That is deliberate and the
+check tests for a port rather than demanding an open back.
+
+**Only the five base meshes changed.** If Sam has a base printed before this,
+reprint the base -- diffuser, cover, housing, stand are all untouched.
+
 ## Do not put this back in any flashing recipe
 
 `git checkout FETCH_HEAD -- wall-clock/esphome/mini-round-clock-with-display.yaml`
