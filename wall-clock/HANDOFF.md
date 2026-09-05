@@ -293,7 +293,7 @@ indistinguishable on a bench by sight or by what is plugged in where.
 |---|---|---|
 | `ac:27:6e:a4:cd:98` | clock #2, `mini-round-clock-2`, 32 LED | flash as clock #2 |
 | `ac:27:6e:a3:3b:ac` | clock #3, live at 192.168.1.69 | flash as clock #3 only |
-| `ac:27:6e:a3:de:6c` | **clock #4** as of 2026-09-05. Was Sam's Flight Deck; he rewired it. Same wiring as clock 3, 32 LEDs. COM10 | flash as clock #4 |
+| `ac:27:6e:a3:de:6c` | **clock #4**, live 2026-09-05. Was Sam's Flight Deck; he rewired it. Same wiring as clock 3, 32 LEDs. COM10, **192.168.1.68**, `mini-round-clock-4.local`, 112 entities. Kept the Flight Deck's DHCP lease | flash as clock #4 |
 | anything else | unknown board | report the MAC and STOP |
 
 2026-09-05, MORNING: Sam said "the second ESP 32 plugged into the computer,
@@ -308,14 +308,24 @@ MAC, found no match, stopped, and only then read its boot banner:
     [deck] up. mode=radar wifi=OK ip=192.168.1.68
 
 **NEVER RUN esptool AT A CLOCK THAT IS IN SERVICE.** It reads the chip by
-driving DTR/RTS to drop it into the ROM bootloader, which reboots the board and
-blanks its panel. On 2026-09-05 the flash task for clock #4 opened by
-"validating the method" against clock 3 on COM11, and Sam watched clock 3's
-screen go blank. It recovers on esptool's own hard reset, but it should never
-have been touched: COM10's expected MAC was already known from the previous
-run, so the target could have been checked against its own known value and
-nothing in service needed disturbing. If a method needs proving, prove it on
-the board you are about to write to.
+driving DTR/RTS into the ROM bootloader, and **it LEAVES THE CHIP THERE.** It
+does not hand the board back. Measured on 2026-09-05: `read-mac` on COM11 took
+clock 3 off the network entirely -- 1 of 112 entities available, mDNS gone,
+.69 not answering -- and it stayed that way until the bench toggled DTR/RTS by
+hand, after which it came straight back to 112 of 112.
+
+(An earlier version of this note said it recovers on esptool's own hard reset.
+That was wrong, it was written here from assumption rather than measurement,
+and the bench found it out the hard way. If you must read the MAC of a LIVE
+board, take it from the ESPHome boot banner instead, or expect to power-cycle
+it afterwards. On a board you are about to overwrite anyway, none of this
+matters.)
+
+The flash task for clock #4 opened by "validating the method" against clock 3,
+and it should never have been touched: COM10's expected MAC was already known
+from the previous run, so the target could have been checked against its own
+known value and nothing in service needed disturbing. If a method needs
+proving, prove it on the board you are about to write to.
 
 **Read the MAC with `python -m esptool --port COMx read-mac`, not off a boot
 banner.** It reads the chip whatever firmware is on it, so it also works on a
