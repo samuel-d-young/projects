@@ -1172,10 +1172,10 @@ number:
     # picture, which is the flicker this whole exercise is about. The first
     # version that worked repainted once a SECOND; 600 is still more than twice
     # as smooth as that.
-    min_value: 250
+    min_value: 400
     max_value: 2000
     step: 10
-    initial_value: 600
+    initial_value: 700
     optimistic: true
     restore_value: true
 
@@ -2244,6 +2244,19 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  # WHICH BAND THE DRIVER IS ASKING FOR, 0..5. mipi_spi runs the display lambda
+  # once per band, top to bottom, and gives it no way to ask which one -- so it
+  # is counted. Incremented on the FIRST LINE of the lambda so every early
+  # return is covered, wrapped at 6, and reset to 0 immediately before each
+  # component.update so a lost frame cannot leave it out of step.
+  #
+  # It is only ever used to NARROW what gets drawn, never to move anything. If
+  # it ever did drift, a band would come back with the marker alone: a missed
+  # repaint, not a corrupted one.
+  - id: an_band
+    type: int
+    restore_value: no
+    initial_value: '0'
   # WHAT THE PANEL IS ALREADY SHOWING. The animation frame used to be drawn
   # ten times a second whether or not anything had moved, which is most of the
   # time: the animator spends far longer in an idle gap holding a resting pose
@@ -2652,6 +2665,7 @@ interval:
                 then:
                   - component.update: bar_lcd
                 else:
+                  - lambda: 'id(an_band) = 0;'
                   - component.update: face_lcd
 
   # ---- Grow eye animator, 10 fps -----------------------------------------------
@@ -2878,6 +2892,7 @@ interval:
                 then:
                   - component.update: bar_lcd
                 else:
+                  - lambda: 'id(an_band) = 0;'
                   - component.update: face_lcd
             - lambda: |-
                 id(an_partial) = false;
@@ -3813,6 +3828,9 @@ display:
       - [0xFE]
       - [0xEE]
     lambda: |-
+      // FIRST LINE, so the early returns below cannot skip it. See an_band.
+      const int band = id(an_band);
+      id(an_band) = (band + 1) % 6;
       if (!id(an_partial)) {
         it.fill(Color::BLACK);                     // what auto-clear used to do
         // A full frame draws the eyes from the SAME drawn-pose globals the
@@ -4047,17 +4065,38 @@ display:
           // What has to stay outside: the sky (moved up to CY - 144 so its
           // longest ray stops at 58), the star row (243..261), "shh" (261..299)
           // and the time (272..328).
+          //
+          // AND IT HAS TO BE DRAWN BAND BY BAND. The first version drew the
+          // whole 248 x 180 rectangle on every one of the six passes and let
+          // draw_pixel_at throw away five sixths of it -- 268000 calls a frame
+          // for 45000 pixels. Measured on the bench: 385 ms a frame with the
+          // clip on against 269 ms with it off. The clipped path was SLOWER
+          // than the full repaint it replaced, which is the opposite of the
+          // point. The bottleneck was never the SPI bus; a clipped frame sends
+          // 90 kB instead of 259, but it walks the draw loop six times over.
+          //
+          // So every rectangle here is intersected with the band first, and the
+          // eye block is skipped outright in the three bands it cannot reach.
           const int AN_L = CX - 124, AN_R = CX + 124;   // x 56..303
           const int AN_T = 60,       AN_B = 240;        // y 60..239
           const int AN_MK = 4;                          // marker column width
+          const int b0 = band <= 5 ? band*60 : 0;       // this band's rows;
+          const int b1 = band <= 5 ? b0 + 60 : 360;     // 0..359 if ever unsure
+          auto strip = [&it, &field](int x, int w, int y0, int y1) {
+            if (y1 > y0) it.filled_rectangle(x, y0, w, y1 - y0, field);
+          };
           if (partial) {
             it.start_clipping(0, 0, AN_MK, 360);
-            it.filled_rectangle(0, 0, AN_MK, AN_T, field);
-            it.filled_rectangle(0, AN_B, AN_MK, 360 - AN_B, field);
+            strip(0, AN_MK, b0, std::min(b1, AN_T));
+            strip(0, AN_MK, std::max(b0, AN_B), b1);
             it.end_clipping();
             it.start_clipping(AN_L, AN_T, AN_R, AN_B);
-            it.filled_rectangle(AN_L, AN_T, AN_R - AN_L, AN_B - AN_T, field);
+            strip(AN_L, AN_R - AN_L, std::max(b0, AN_T), std::min(b1, AN_B));
           }
+          // The eyes, the z's, the yawn and "shh" all live between y 66 and
+          // 238. On an animation frame the other three bands have nothing to
+          // draw and every pixel of them would be rejected one at a time.
+          const bool eyeband = !partial || (b1 > AN_T && b0 < AN_B);
           const float droop = st == 3 ? 1.0f : 0.0f;
           auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
             const int h = (int) (EH * hs), w = EW;
@@ -4101,6 +4140,7 @@ display:
             }
           };
           const int gx = (int) lroundf(id(an_dgx)), gy = (int) lroundf(id(an_dgy));
+          if (eyeband) {
           eye(CX - EX + gx, EY + gy, id(an_dlidl), id(an_dsmile), id(an_dhs), true);
           eye(CX + EX + gx, EY + gy, id(an_dlidr), id(an_dsmile), id(an_dhs), false);
           // The countdown lands where the yawn does, and only one of them can
@@ -4194,6 +4234,7 @@ display:
             }
           }
           if (sound) it.print(CX, CY + 100, id(font_med), ink, TextAlign::CENTER, "shh");
+          }   // eyeband
         }
         // The countdown: minutes to wake while it is almost morning, minutes
         // to bed in the bedtime warning. Where the stars would be.
