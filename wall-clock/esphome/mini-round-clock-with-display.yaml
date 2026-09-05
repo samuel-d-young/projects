@@ -198,7 +198,24 @@ esp32:
 #   NO psram block        stable
 #
 # So the PSRAM on these particular modules does not work, whatever the R8 suffix
-# says it should be. Both framebuffers (253 KB round + 108 KB bar) come out of
+# says it should be.
+#
+# CHALLENGED 2026-09-05, AND IT SURVIVED -- worth writing down because it will
+# be challenged again. Sam's Flight Deck, an ESP32-S3 on the same 2.1in GC9B72
+# panel sitting on the same bench, logs "PNG decoder 45604 bytes in PSRAM, free
+# heap 188k" and allocates six frame buffers. PSRAM plainly works on THAT board.
+#
+# It does not follow that it works here, and the line that settles it is the
+# quad-mode result above: "PSRAM chip is not connected" is the chip failing to
+# answer a hardware probe, not a configuration being rejected. A module whose
+# PSRAM does not answer does not have working PSRAM, whatever its neighbour on
+# the desk manages.
+#
+# If anyone wants to re-open it -- and there is a real prize, since a full
+# 259200-byte framebuffer would delete the entire six-band partial-buffer
+# architecture and every bug that has come out of it -- the test is one build
+# and one boot log, and safe_mode recovers a boot loop. Do it on a bench, not
+# on the clock in the child's room. Both framebuffers (253 KB round + 108 KB bar) come out of
 # internal SRAM with no allocation failure -- `buffer_size` on the displays is
 # partial buffering, not a full frame, which is what makes that possible.
 #

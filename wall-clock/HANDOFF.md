@@ -283,6 +283,30 @@ can see, so every flash is a hands step. What the bench session settled:
   re-downloads into the profile and the build fails on path length.
 - Never pipe the compile through `tail` or `Select-Object -Last`; it hides the
   error and the exit code.
+### THE BOARDS ON THIS BENCH, BY MAC. READ THIS BEFORE YOU FLASH ANYTHING.
+
+| MAC | what it is | do |
+|---|---|---|
+| `ac:27:6e:a4:cd:98` | clock #2, `mini-round-clock-2`, 32 LED | flash as clock #2 |
+| `ac:27:6e:a3:3b:ac` | clock #3, live at 192.168.1.69 | flash as clock #3 only |
+| `ac:27:6e:a3:de:6c` | **SAM'S FLIGHT DECK. NOT A CLOCK.** 192.168.1.68, its own portal on port 80, not an ESPHome device | **NEVER WRITE TO IT** |
+| anything else | unknown board | report the MAC and STOP |
+
+2026-09-05: Sam said "the second ESP 32 plugged into the computer, flash it",
+twice. The second ESP32 on USB was the **Flight Deck**, and clock firmware
+would have destroyed it. It carries the same 2.1in GC9B72 panel as the clocks,
+which is exactly why it looks like one on a bench. The bench session read its
+MAC, found no match, stopped, and only then read its boot banner:
+
+    [deck] board profile 2 2.1in GC9B72 (ACTIVE_BOARD)
+    [deck] up. mode=radar wifi=OK ip=192.168.1.68
+
+**Read the MAC with `python -m esptool --port COMx read-mac`, not off a boot
+banner.** It reads the chip whatever firmware is on it, so it also works on a
+blank board, and it is the only identification that cannot be faked by a
+device that merely looks familiar. Validate the method against a known board
+first -- COM11 must return `ac:27:6e:a3:3b:ac`.
+
 - Clock #1 (round 360x360, 24 LEDs, `mini-round-clock`) is **COM7**. Clock #2
   (`mini-round-clock-2`, 32 LEDs) is **COM12**, and needs its substitutions on
   the command line. Clock 3 (`mini-round-clock-3`, 32 LEDs) is **COM11** and
