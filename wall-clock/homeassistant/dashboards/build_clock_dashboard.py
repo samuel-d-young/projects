@@ -289,6 +289,14 @@ def clock_cards(slug, label):
         "entities": [
             row(e("switch", "display"), "Everything on (master)"),
             row(e("switch", "screen_on"), "Screen on"),
+            # Type anything here and it lands on the grow face, in the star
+            # row's place. Stored on the clock, so it shows even with HA down.
+            section("A message on the screen"),
+            row(e("text", "message"), "Message"),
+            row(e("switch", "show_the_message"), "Show it"),
+            section("The board's own LED"),
+            # Off at every boot whatever HA last said. On for a bench check.
+            row(e("light", "board_led"), "Board LED"),
             row(e("select", "screen"), "Which panel"),
             row(e("select", "face"), "Face"),
             row(e("select", "screen_hour_markers"), "Hour markers"),

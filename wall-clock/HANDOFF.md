@@ -201,9 +201,25 @@ Three routes, all of them from inside Sam's LAN:
 
 * Home Assistant -> ESPHome Device Builder -> the device -> Install ->
   Wirelessly.
-* `esphome -s devicename mini-round-clock-3 -s friendlyname "Zac's Clock" run
+* `esphome -s device_name mini-round-clock-3 -s friendly_name "Zac's Clock" run
   wall-clock/esphome/mini-round-clock-with-display.yaml --device 192.168.1.69`
   (`-s` before the command, `--device` after the file)
+
+  **`device_name` and `friendly_name`, WITH the underscores.** I wrote
+  `-s devicename` here and in three messages to Sam, and it is silently wrong:
+  ESPHome accepts an `-s` for a substitution the file never uses, ignores it,
+  and builds with the defaults. Verified by running `esphome config` both ways:
+
+  ```
+  -s devicename mini-round-clock-3   ->  name: mini-round-clock       (!)
+  -s device_name mini-round-clock-3  ->  name: mini-round-clock-3
+  ```
+
+  The consequence is not a failed build, it is a SILENT RENAME. That command
+  aimed at `--device 192.168.1.69` would have flashed Zac's Clock as
+  `mini-round-clock` / "Mini Round Clock", taking every one of its 112 entities
+  in Home Assistant with it and colliding with the slug held for the third
+  clock. Check the name in the build banner before letting an OTA finish.
 * a Claude session running on the PC or the HA box.
 
 **A cloud session cannot do it.** This container sits on 192.0.2.2 and has no
@@ -235,6 +251,54 @@ more attempts.
 
 The only thing that puts a clock into safe mode is a boot loop or the button.
 It costs a healthy device nothing.
+
+## Updating from Home Assistant, with no PC at all
+
+`wall-clock/esphome/ha-device-configs/` holds two ten-line files for
+`/config/esphome/` on the HA box. They pull the firmware from GitHub at build
+time, so updating a clock is **ESPHome Device Builder -> the device -> Install
+-> Wirelessly** and nothing else. The files never change; the branch does.
+
+VERIFIED end to end by running `esphome config` on the real file from a machine
+with no GitHub login and no HA: the repo clones anonymously (it is public),
+`device_name` and `friendly_name` land, and `!secret` falls through to the main
+config's directory -- which is `/config/esphome/secrets.yaml`, where the add-on
+keeps them anyway. Its README lists the five keys and which two must MATCH the
+running firmware (`wall_clock_ota_password`, or OTA is rejected;
+`wall_clock_api_key`, or HA silently loses all 112 entities).
+
+## A message on the screen, typed in Home Assistant
+
+`text.<clock>_message` (40 chars) plus `switch.<clock>_show_the_message`. It
+lands on the grow face in the star row's place, and takes it while it is set --
+below the animation box that is the only free band and the time owns CY + 120.
+
+Stored on the device, so it survives a reboot and shows while HA is down, which
+is the half that matters.
+
+**It is fitted to the panel's chord, not to a fixed width.** The screen is a
+circle: there is 330 px at CY + 72 but only 199 at CY - 150, which is where the
+sun-and-moon face has to put it (its disc reaches CY + 95). A fixed threshold
+printed `ack to bed, mat` there. It now measures the chord, drops font_med to
+font_small, and trims with an ellipsis if even that will not fit.
+
+This does NOT make every setting live. A new CONTROL is a new entity and
+entities are compiled in, so a new dial still needs a flash. What this removes
+is needing one for anything you can say in words.
+
+## The board's own RGB LED
+
+`light.<clock>_board_led`, `restore_mode: ALWAYS_OFF`, on `${board_led_pin}`,
+default GPIO48.
+
+Nothing was driving it, and that is exactly why it was lit: a WS2812 holds
+whatever was last clocked into it, so an undriven one keeps whatever the
+bootloader or power-on noise left there forever. The fix is to drive it once,
+to black. A few N16R8 clones put it on GPIO38 -- `-s board_led_pin GPIO38`.
+
+**If it is a plain red LED, no firmware can turn it off.** The power LED on
+these boards is across the 3V3 rail through a resistor with no GPIO behind it.
+Tape, or lift the resistor.
 
 ## Do not put this back in any flashing recipe
 

@@ -61,6 +61,10 @@ NIGHT_SEED   = 0x9E3779B9   # button.grow_clock_new_night_sky changes this
 NIGHT_BRIGHT = 1.00         # number.grow_clock_night_sky_brightness 0.10..1.00
 NIGHT_SIZE   = 2            # number.grow_clock_night_sky_star_size  1..4
 NIGHT_AT_BED = True         # switch.grow_clock_night_sky_at_bedtime
+# A message typed in Home Assistant. It takes the star row's place while it is
+# set -- there is no other free band under the animation box, and a message
+# someone typed on purpose outranks an ambient row of stars.
+MESSAGE = "back to bed, mate"   # text.<clock>_message
 AN_L, AN_R, AN_T, AN_B = 180 - 124, 180 + 124, 60, 240   # the animation box
 
 def _scaled_eyes(sc):
@@ -284,15 +288,34 @@ def draw_round(st: int, face: str, sound=False) -> Canvas:
 
     # Stars until morning, a row under the eyes; the countdown in their place
     # when it is almost morning or almost bed.
-    if st in (0, 4):
+    # The message takes the star row's place, and on the sun-and-moon face the
+    # top instead -- the disc reaches CY + 95 there. Mirrors the firmware, which
+    # also lets it take that face's countdown spot.
+    sunmoon = face == "sun and moon"
+    if MESSAGE:
+        my = CY - 150 if sunmoon else CY + 72
+        # The chord at that height, same measurement the firmware makes: the
+        # panel is a circle, so there is 330 px at CY + 72 and only 199 at
+        # CY - 150, and a fixed threshold printed "ack to bed, mat" there.
+        room = 2*int(math.sqrt(max(0.0, 180.0**2 - (my - CY)**2))) - 12
+        wide = lambda f, t: it.text_width(f, t)
+        f = font_med if wide(font_med, MESSAGE) <= room else font_small
+        out = MESSAGE
+        while len(out) > 1 and wide(f, out + "...") > room:
+            out = out[:-1]
+        if len(out) < len(MESSAGE):
+            out += "..."
+        it.print(CX, my, f, ink, TextAlign.CENTER, out)
+    # The star row: only when there is no message, exactly as the firmware.
+    if not MESSAGE and st in (0, 4):
         NS = max(3, min(12, STAR_COUNT))
         pitch = min(28, 220 // max(1, NS - 1))
         lit = min(NS, math.ceil(FRAC * NS))
         for i in range(NS):
             star(it, CX - (NS - 1) * pitch // 2 + i * pitch, CY + 72, 9,
                  ink if i < lit else dim(ink, 0.18), STAR_SHAPE == "stars")
-    elif st in (1, 3):
-        it.print(CX, CY - 150 if face == "sun and moon" else CY + 40, font_med, ink,
+    if st in (1, 3) and not (sunmoon and MESSAGE):
+        it.print(CX, CY - 150 if sunmoon else CY + 40, font_med, ink,
                  TextAlign.CENTER, f"{MIN_TO} min")
 
     # The time, digital, along the bottom. Mirrors the firmware exactly: in

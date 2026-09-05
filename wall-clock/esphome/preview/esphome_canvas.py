@@ -139,6 +139,13 @@ class Canvas:
     def filled_triangle(self, x1, y1, x2, y2, x3, y3, c: Color):
         self.d.polygon([(x1, y1), (x2, y2), (x3, y3)], fill=c.rgb())
 
+    def text_width(self, font: Font, text: str) -> int:
+        """What display::get_text_bounds() would give for the width. The
+        firmware fits a message to the panel's chord and this has to agree with
+        it, or the preview lies about which messages fit."""
+        a, b, cc, d = self.d.textbbox((0, 0), text, font=font.font)
+        return int(cc - a)
+
     def print(self, x, y, font: Font, c: Color, align, text: str):
         ax, ay = align
         self.d.text((x, y), text, font=font.font, fill=c.rgb(), anchor=ax + ay)

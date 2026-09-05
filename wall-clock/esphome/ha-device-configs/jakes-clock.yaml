@@ -1,0 +1,25 @@
+# Jake's Clock — the file that lives in /config/esphome on the Home Assistant box.
+#
+# THE WHOLE FIRMWARE IS PULLED FROM GITHUB. This file is the only thing on the
+# HA side, and it never has to change: the package below fetches
+# mini-round-clock-with-display.yaml at build time, so "update the clock" is
+# Install -> Wirelessly in the ESPHome Device Builder add-on and nothing else.
+# No PC, no terminal, no USB.
+#
+# 32 LEDs. Currently at 192.168.1.68.
+substitutions:
+  device_name: mini-round-clock-4
+  friendly_name: "Jake's Clock"
+
+packages:
+  wall_clock:
+    url: https://github.com/samuel-d-young/projects
+    ref: claude/home-assistant-wall-clock-om42v2
+    files: [wall-clock/esphome/mini-round-clock-with-display.yaml]
+    # "always" = re-fetch on every build. The default is 1d, which would quietly
+    # build yesterday's firmware and give no sign it had done so.
+    refresh: always
+    # No credentials. The repo clones anonymously -- checked, not assumed, by
+    # running `esphome config` on this exact file from a machine with no GitHub
+    # login at all. If that ever changes, add `username:` and
+    # `password: !secret github_token` here.

@@ -141,6 +141,22 @@ substitutions:
   # ---- LED ring ------------------------------------------------------------
   led_pin: GPIO5              # keep clear of the QSPI pins below
 
+  # THE DEV BOARD'S OWN RGB LED. Sam, 2026-09-05: "turn off the ESP32 built in
+  # light on both of them." Nothing in this config was driving it, and that is
+  # exactly why it was lit: a WS2812 holds whatever was last clocked into it,
+  # so an undriven one keeps whatever the bootloader, a previous firmware or
+  # power-on noise left there, forever. The fix is not to stop driving it --
+  # it is to drive it, once, to black.
+  #
+  # GPIO48 on an ESP32-S3-DevKitC-1 and most N16R8 clones. A few put it on
+  # GPIO38 instead. If the light does not go out, try:  -s board_led_pin GPIO38
+  # Both pins are otherwise unused here, so a wrong guess costs nothing.
+  #
+  # IF IT IS A PLAIN RED LED IT CANNOT BE TURNED OFF FROM SOFTWARE AT ALL. The
+  # power LED on these boards is wired across the 3V3 rail through a resistor
+  # and has no GPIO behind it. Tape, or lift the resistor. Nothing to try here.
+  board_led_pin: GPIO48
+
   # Which physical LED sits at 12 o'clock. Run Mode = "test chase", see where
   # the red pixel lands, put the offset here. Positive rotates clockwise.
   twelve_oclock_offset: "0"
@@ -1898,6 +1914,16 @@ switch:
   # over each other. With the key in place there is only one.
   #
   # ON restores the partial path, for A/B on the glass without a reflash.
+  # Hide the message without clearing it, so a standing note can be parked
+  # rather than retyped.
+  - platform: template
+    id: grow_msg_show
+    name: "Show the message"
+    entity_category: config
+    icon: mdi:message-outline
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
   - platform: template
     id: grow_night_sky
     name: "Grow clock night sky"
@@ -2350,6 +2376,32 @@ button:
       - lambda: |-
           id(grow_override) = 0;
           id(grow_nap_end) = 0;
+
+# -----------------------------------------------------------------------------
+# A MESSAGE FROM HOME ASSISTANT, ON THE SCREEN
+# -----------------------------------------------------------------------------
+# Sam, 2026-09-05: "Can I just add settings into HASS that show on the screen?"
+#
+# Not in general -- a new CONTROL is a new entity, and entities are compiled in,
+# so a new dial still needs a flash. But the thing behind the question is
+# answerable: this is a free-text field that lands on the face. Type it in Home
+# Assistant, from a script, from an automation, from Assist -- and it appears.
+# No reflash, ever again, for anything you can say in words.
+#
+# It is stored on the device, so it survives a reboot and shows even while Home
+# Assistant is down -- which is the half of it that matters, because the times
+# you most want a message on a child's clock are the times the network is
+# having a bad day.
+text:
+  - platform: template
+    id: grow_msg
+    name: "Message"
+    icon: mdi:message-text
+    optimistic: true
+    restore_value: true
+    max_length: 40
+    initial_value: ""
+    mode: text
 
 globals:
   # ---- The night sky's seed ------------------------------------------------
@@ -3319,6 +3371,22 @@ light:
     # but name. With gamma 1.0 a percentage is a duty, 10% is a real glow, and
     # the two screen-brightness numbers mean what they say.
     gamma_correct: 1.0
+
+  # The board's own RGB LED, driven to black at boot and kept there. Exposed to
+  # HA so it can be turned back on -- it is a useful "is this thing alive" light
+  # on a bench -- but ALWAYS_OFF means every boot starts dark whatever HA last
+  # said, which is what "turn it off" has to mean on a clock in a bedroom.
+  - platform: esp32_rmt_led_strip
+    id: board_led
+    name: "Board LED"
+    entity_category: config
+    icon: mdi:led-off
+    pin: ${board_led_pin}
+    num_leds: 1
+    chipset: WS2812
+    rgb_order: GRB
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 0s
 
   - platform: esp32_rmt_led_strip
     id: ring
@@ -4623,9 +4691,24 @@ display:
           if (sound) it.print(CX, CY + 100, id(font_med), ink, TextAlign::CENTER, "shh");
           }   // eyeband
         }
+        // A MESSAGE FROM HOME ASSISTANT. Resolved HERE, above the countdown,
+        // because on one face the two want the same spot and the countdown has
+        // to know before it draws.
+        const std::string msg = id(grow_msg_show).state ? id(grow_msg).state
+                                                        : std::string();
+        // Where it goes. CY + 72 -- the star row's place -- on every face but
+        // one. THE SUN-AND-MOON FACE HAS NO ROOM THERE: its disc is centred at
+        // CY - 10 with rays out to r = 105, so it reaches CY + 95 and the
+        // message would print straight across it. That face already parks its
+        // countdown at the top for exactly this reason, so the message goes
+        // there too -- and takes it, on the same rule as the star row.
+        const bool sunmoon = (fs == "sun and moon");
+        const int msg_y = sunmoon ? CY - 150 : CY + 72;
+
         // The countdown: minutes to wake while it is almost morning, minutes
         // to bed in the bedtime warning. Where the stars would be.
-        if (id(grow_show_countdown).state && (st == 1 || st == 3) && id(grow_min_to) >= 0) {
+        if (id(grow_show_countdown).state && (st == 1 || st == 3) && id(grow_min_to) >= 0
+            && !(sunmoon && !msg.empty())) {
           char cb[12]; snprintf(cb, sizeof(cb), "%d min", id(grow_min_to));
           // CY + 40, not CY + 72. It used to sit on the star row, which is
           // below the animation box now -- the box would have chopped the top
@@ -4644,10 +4727,44 @@ display:
         // what it already has.
         if (partial) { it.end_clipping(); return; }
 
+        // The message itself, DRAWN AFTER the partial-frame return above, so it
+        // costs an animation frame nothing. It repaints only when the text
+        // changes -- which is precisely the rare full frame this architecture
+        // is built to afford. It takes the star row's place while it is set:
+        // below the box that is the only free band, the time owns CY + 120,
+        // and a message someone typed on purpose outranks a row of stars.
+        if (!msg.empty()) {
+          // HOW MUCH WIDTH THERE ACTUALLY IS AT THAT HEIGHT. The panel is a
+          // 360 px circle, so the chord is 2*sqrt(180^2 - dy^2) and it
+          // collapses fast off centre: 330 px at CY + 72, but only 199 at
+          // CY - 150, where the sun-and-moon face has to put it. A fixed
+          // threshold printed a clipped sentence there -- "ack to bed, mat" --
+          // which is the failure this measurement exists to stop.
+          const int dy_  = msg_y - CY;
+          const int room = 2*(int) sqrtf(fmaxf(0.0f, 180.0f*180.0f
+                                               - (float) dy_*(float) dy_)) - 12;
+          auto wide = [&](font::Font *f, const std::string &t) {
+            int gx_, gy_, w_, h_;
+            it.get_text_bounds(0, 0, t.c_str(), f, TextAlign::TOP_LEFT,
+                               &gx_, &gy_, &w_, &h_);
+            return w_;
+          };
+          // Biggest font that fits, then trim if even the small one does not.
+          // Trimmed with an ellipsis rather than clipped: a sentence that
+          // stops visibly is readable, one whose end is sliced off mid-glyph
+          // just looks broken.
+          font::Font *f = id(font_med);
+          if (wide(f, msg) > room) f = id(font_small);
+          std::string out = msg;
+          while (out.size() > 1 && wide(f, out + "...") > room) out.erase(out.size() - 1);
+          if (out.size() < msg.size()) out += "...";
+          it.print(CX, msg_y, f, ink, TextAlign::CENTER, out.c_str());
+        }
+
         // Stars until morning: a row under the eyes, lit ones solid, spent
         // ones faint. The row is grow_star_count wide at up to 28 px pitch;
         // y = CY + 72 has 165 px of half-width on the round panel.
-        if (id(grow_stars).state && (st == 0 || st == 4)) {
+        if (msg.empty() && id(grow_stars).state && (st == 0 || st == 4)) {
           const int NS = std::max(3, std::min(12, (int) id(grow_star_count).state));
           const int pitch = std::min(28, 220 / std::max(1, NS - 1));
           const bool pointy = id(grow_star_shape).current_option().str() == "stars";

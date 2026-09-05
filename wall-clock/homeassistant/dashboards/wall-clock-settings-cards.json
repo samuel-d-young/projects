@@ -373,6 +373,26 @@
         "name": "Screen on"
       },
       {
+        "type": "section",
+        "label": "A message on the screen"
+      },
+      {
+        "entity": "text.mini_round_clock_3_message",
+        "name": "Message"
+      },
+      {
+        "entity": "switch.mini_round_clock_3_show_the_message",
+        "name": "Show it"
+      },
+      {
+        "type": "section",
+        "label": "The board's own LED"
+      },
+      {
+        "entity": "light.mini_round_clock_3_board_led",
+        "name": "Board LED"
+      },
+      {
         "entity": "select.mini_round_clock_3_screen",
         "name": "Which panel"
       },
@@ -1181,6 +1201,26 @@
         "name": "Screen on"
       },
       {
+        "type": "section",
+        "label": "A message on the screen"
+      },
+      {
+        "entity": "text.mini_round_clock_4_message",
+        "name": "Message"
+      },
+      {
+        "entity": "switch.mini_round_clock_4_show_the_message",
+        "name": "Show it"
+      },
+      {
+        "type": "section",
+        "label": "The board's own LED"
+      },
+      {
+        "entity": "light.mini_round_clock_4_board_led",
+        "name": "Board LED"
+      },
+      {
         "entity": "select.mini_round_clock_4_screen",
         "name": "Which panel"
       },
@@ -1987,6 +2027,26 @@
       {
         "entity": "switch.mini_round_clock_screen_on",
         "name": "Screen on"
+      },
+      {
+        "type": "section",
+        "label": "A message on the screen"
+      },
+      {
+        "entity": "text.mini_round_clock_message",
+        "name": "Message"
+      },
+      {
+        "entity": "switch.mini_round_clock_show_the_message",
+        "name": "Show it"
+      },
+      {
+        "type": "section",
+        "label": "The board's own LED"
+      },
+      {
+        "entity": "light.mini_round_clock_board_led",
+        "name": "Board LED"
       },
       {
         "entity": "select.mini_round_clock_screen",
