@@ -307,6 +307,16 @@ MAC, found no match, stopped, and only then read its boot banner:
     [deck] board profile 2 2.1in GC9B72 (ACTIVE_BOARD)
     [deck] up. mode=radar wifi=OK ip=192.168.1.68
 
+**NEVER RUN esptool AT A CLOCK THAT IS IN SERVICE.** It reads the chip by
+driving DTR/RTS to drop it into the ROM bootloader, which reboots the board and
+blanks its panel. On 2026-09-05 the flash task for clock #4 opened by
+"validating the method" against clock 3 on COM11, and Sam watched clock 3's
+screen go blank. It recovers on esptool's own hard reset, but it should never
+have been touched: COM10's expected MAC was already known from the previous
+run, so the target could have been checked against its own known value and
+nothing in service needed disturbing. If a method needs proving, prove it on
+the board you are about to write to.
+
 **Read the MAC with `python -m esptool --port COMx read-mac`, not off a boot
 banner.** It reads the chip whatever firmware is on it, so it also works on a
 blank board, and it is the only identification that cannot be faked by a
