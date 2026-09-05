@@ -54,7 +54,15 @@ WAKE_COLOUR = "yellow"
 
 # eye geometry, (EX, EY, EW, EH, ER, BAR): centre offset, centre line, width,
 # height, corner radius, closed-bar height
-ROUND_EYES = (60, 180 - 34, 80, 112, 28, 16)
+SCALE = 1.0                 # mirrors number.grow_clock_size / 100, clamped 0.70..1.20
+NIGHT_STARS = 12            # mirrors number.grow_clock_night_sky_stars
+AN_L, AN_R, AN_T, AN_B = 180 - 124, 180 + 124, 60, 240   # the animation box
+
+def _scaled_eyes(sc):
+    return (round(60*sc), 180 - round(34*sc), round(80*sc),
+            round(112*sc), round(28*sc), round(16*sc))
+
+ROUND_EYES = _scaled_eyes(SCALE)
 BAR_EYES = (40, 56, 48, 72, 18, 10)
 
 
@@ -227,6 +235,23 @@ def draw_round(st: int, face: str, sound=False) -> Canvas:
     if face in ("eyes", "eyes and sky", "eyes on colour"):
         # Two eyes, about half the panel wide, a little above centre so the
         # stars and the time fit underneath inside the circle.
+        # The night sky goes FIRST, exactly as the firmware does it, so the
+        # eyes and the z's paint over anything behind them.
+        if st in (0, 4) and NIGHT_STARS:
+            rr = 0x9E3779B9
+            def nxt():
+                nonlocal rr
+                rr = (rr*1664525 + 1013904223) & 0xFFFFFFFF
+                return (rr >> 16) & 0x7FFF
+            for i in range(NIGHT_STARS):
+                nx = AN_L + 8 + nxt() % (AN_R - AN_L - 16)
+                ny = AN_T + 8 + nxt() % (AN_B - AN_T - 16)
+                phase = nxt() % 628
+                r = 2 if nxt() % 3 == 0 else 1
+                tw = 0.675 + 0.325*math.sin(phase/100.0)
+                c = dim(ink, tw)
+                it.filled_rectangle(nx - r, ny, 2*r + 1, 1, c)
+                it.filled_rectangle(nx, ny - r, 1, 2*r + 1, c)
         draw_eyes_resting(it, CX, st, ROUND_EYES, ink, field)
         if st in (0, 4):
             for i in range(3):

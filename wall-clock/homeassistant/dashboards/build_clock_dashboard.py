@@ -401,9 +401,17 @@ def clock_cards(slug, label):
             row(e("select", "grow_clock_wake_colour"), "Wake colour"),
             row(e("select", "grow_clock_bedtime_colour"), "Bedtime colour"),
             row(e("select", "grow_clock_face"), "Face"),
+            # One dial for the whole face. 100% is the size it has always
+            # been; the range stops at 120 because above that the eyes run
+            # past the edge of the fixed window the anti-flicker fix draws in.
+            row(e("number", "grow_clock_size"), "Size of everything"),
             row(e("switch", "grow_clock_stars"), "Stars until morning"),
             row(e("number", "grow_clock_star_count"), "How many stars"),
             row(e("select", "grow_clock_star_shape"), "Star shape"),
+            # Scattered, gently twinkling stars behind the face at sleep time.
+            # Separate from the star row above, which counts down the night.
+            row(e("switch", "grow_clock_night_sky"), "Twinkling night sky"),
+            row(e("number", "grow_clock_night_sky_stars"), "How many in the sky"),
             row(e("switch", "grow_clock_animate"), "Animate the eyes"),
             # The dial that settles the flicker on this panel: how often
             # the face may be redrawn. Sat next to the switch it belongs to.

@@ -605,6 +605,10 @@
         "name": "Face"
       },
       {
+        "entity": "number.mini_round_clock_3_grow_clock_size",
+        "name": "Size of everything"
+      },
+      {
         "entity": "switch.mini_round_clock_3_grow_clock_stars",
         "name": "Stars until morning"
       },
@@ -615,6 +619,14 @@
       {
         "entity": "select.mini_round_clock_3_grow_clock_star_shape",
         "name": "Star shape"
+      },
+      {
+        "entity": "switch.mini_round_clock_3_grow_clock_night_sky",
+        "name": "Twinkling night sky"
+      },
+      {
+        "entity": "number.mini_round_clock_3_grow_clock_night_sky_stars",
+        "name": "How many in the sky"
       },
       {
         "entity": "switch.mini_round_clock_3_grow_clock_animate",
@@ -1373,6 +1385,10 @@
         "name": "Face"
       },
       {
+        "entity": "number.mini_round_clock_4_grow_clock_size",
+        "name": "Size of everything"
+      },
+      {
         "entity": "switch.mini_round_clock_4_grow_clock_stars",
         "name": "Stars until morning"
       },
@@ -1383,6 +1399,14 @@
       {
         "entity": "select.mini_round_clock_4_grow_clock_star_shape",
         "name": "Star shape"
+      },
+      {
+        "entity": "switch.mini_round_clock_4_grow_clock_night_sky",
+        "name": "Twinkling night sky"
+      },
+      {
+        "entity": "number.mini_round_clock_4_grow_clock_night_sky_stars",
+        "name": "How many in the sky"
       },
       {
         "entity": "switch.mini_round_clock_4_grow_clock_animate",
@@ -2141,6 +2165,10 @@
         "name": "Face"
       },
       {
+        "entity": "number.mini_round_clock_grow_clock_size",
+        "name": "Size of everything"
+      },
+      {
         "entity": "switch.mini_round_clock_grow_clock_stars",
         "name": "Stars until morning"
       },
@@ -2151,6 +2179,14 @@
       {
         "entity": "select.mini_round_clock_grow_clock_star_shape",
         "name": "Star shape"
+      },
+      {
+        "entity": "switch.mini_round_clock_grow_clock_night_sky",
+        "name": "Twinkling night sky"
+      },
+      {
+        "entity": "number.mini_round_clock_grow_clock_night_sky_stars",
+        "name": "How many in the sky"
       },
       {
         "entity": "switch.mini_round_clock_grow_clock_animate",

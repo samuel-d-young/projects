@@ -1136,6 +1136,63 @@ number:
     initial_value: 10
     optimistic: true
     restore_value: true
+  # HOW BIG EVERYTHING IS. Sam: "Give options to change the size of everthing
+  # on the screen."
+  #
+  # 120 IS THE CEILING AND IT IS NOT ARBITRARY. The animation box is the window
+  # an animation frame repaints, it runs y 60..239, and it CANNOT be widened at
+  # will: both edges have to land on a 60-row band boundary or the driver sends
+  # a band holding pixels it never wrote. So the face has to fit inside a fixed
+  # window, and what binds first is the eyes' width -- CX + 100*scale <= 301
+  # gives 1.21. The yawn was second at 1.09 until it moved up 4 px; it is 1.25
+  # now. Everything else has more room than that.
+  #
+  # So: 70 to 120. Above 120 the face would start being clipped by the very
+  # thing that stopped the flicker, and a dial that silently breaks the display
+  # is worse than one that stops.
+  - platform: template
+    id: grow_scale
+    name: "Grow clock size"
+    entity_category: config
+    icon: mdi:relative-scale
+    unit_of_measurement: "%"
+    min_value: 70
+    max_value: 120
+    step: 5
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+    mode: slider
+
+  # A NIGHT SKY, scattered and gently twinkling. Sam: "Add some random stars
+  # around the clock when it's sleep time. These stars can twinkle slightly."
+  #
+  # They are drawn INSIDE THE ANIMATION BOX, and that is the whole reason this
+  # is safe. Twinkling means repainting, and repainting is exactly what caused
+  # the flicker -- but only for pixels that do NOT change. A star whose
+  # brightness moves every frame reads as motion, and the box is already being
+  # repainted at the animation rate, so the twinkle costs nothing at all: no
+  # extra frames, no extra SPI, no new band arithmetic.
+  #
+  # Putting them over the whole panel instead would mean repainting the whole
+  # panel to twinkle them, which is the 269 ms full frame that made the moon
+  # and the star row blink for two days. Not worth it for ambience.
+  #
+  # They are drawn FIRST, before the eyes, so no exclusion zone is needed --
+  # the eyes and the z's simply paint over any star behind them.
+  - platform: template
+    id: grow_night_star_count
+    name: "Grow clock night sky stars"
+    entity_category: config
+    icon: mdi:star-shooting
+    min_value: 0
+    max_value: 24
+    step: 1
+    initial_value: 12
+    optimistic: true
+    restore_value: true
+    mode: box
+
   # How many stars the screen counts down through the night.
   - platform: template
     id: grow_star_count
@@ -1747,6 +1804,14 @@ switch:
   # over each other. With the key in place there is only one.
   #
   # ON restores the partial path, for A/B on the glass without a reflash.
+  - platform: template
+    id: grow_night_sky
+    name: "Grow clock night sky"
+    entity_category: config
+    icon: mdi:weather-night
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
   - platform: template
     id: grow_partial
     name: "Grow clock partial redraw"
@@ -4059,7 +4124,16 @@ display:
           // The numbers come from the animator's globals, so the dispatcher's
           // full frame and the 100 ms animation frame draw the same eyes.
           // Geometry is mirrored in preview/grow_faces.py; change both.
-          const int EX = 60, EY = CY - 34, EW = 80, EH = 112, ER = 28, BAR = 16;
+          // EVERY DIMENSION BELOW IS sc TIMES THE ORIGINAL. The clamp is not
+          // decoration: the animation box is fixed at y 60..239 because its
+          // edges must land on band boundaries, so the face has to fit inside a
+          // window that cannot move. What binds first is the eyes' own width,
+          // CX + 100*sc <= AN_R - 2, which is 1.21.
+          const float sc = std::max(0.70f, std::min(1.20f,
+                                                    id(grow_scale).state / 100.0f));
+          const int EX = (int) lroundf(60*sc), EY = CY - (int) lroundf(34*sc),
+                    EW = (int) lroundf(80*sc), EH = (int) lroundf(112*sc),
+                    ER = (int) lroundf(28*sc), BAR = (int) lroundf(16*sc);
           // ---- THE ANIMATION BOX, AND THE FLICKER --------------------------
           // The panel scans itself out of GRAM continuously, about 60 times a
           // second. We write GRAM over SPI, asynchronously, and a whole
@@ -4171,6 +4245,41 @@ display:
           // 238. On an animation frame the other three bands have nothing to
           // draw and every pixel of them would be rejected one at a time.
           const bool eyeband = !partial || (b1 > AN_T && b0 < AN_B);
+
+          // ---- THE NIGHT SKY, and it goes FIRST ----------------------------
+          // Scattered stars that twinkle, at sleep and nap only. Drawn before
+          // the eyes and the z's on purpose: whatever lands behind them is
+          // simply painted over, so there is no exclusion zone to get wrong.
+          //
+          // INSIDE THE ANIMATION BOX, which is the only reason a twinkle is
+          // affordable at all. The box is repainted every animation frame
+          // already, so a star whose brightness moves costs nothing extra --
+          // and a pixel that CHANGES is the one case that never flickered.
+          // Scattering them over the whole panel would mean a full 269 ms
+          // repaint to twinkle them, which is precisely what made the moon and
+          // the star row blink for two days.
+          //
+          // The field is fixed: one seed, so the stars do not walk about
+          // between frames. Only the brightness moves.
+          if (eyeband && id(grow_night_sky).state && (st == 0 || st == 4)) {
+            const int NN = std::max(0, std::min(24,
+                                                (int) id(grow_night_star_count).state));
+            const uint32_t ms = millis();
+            uint32_t rr = 0x9E3779B9u;
+            auto nxt = [&rr]() { rr = rr*1664525u + 1013904223u; return (rr >> 16) & 0x7FFFu; };
+            for (int i = 0; i < NN; i++) {
+              const int nx = AN_L + 8 + (int)(nxt() % (uint32_t)(AN_R - AN_L - 16));
+              const int ny = AN_T + 8 + (int)(nxt() % (uint32_t)(AN_B - AN_T - 16));
+              const int phase = (int)(nxt() % 628u);
+              const int r = (nxt() % 3u == 0u) ? 2 : 1;
+              // "twinkle slightly": 0.35 to 1.0. Never off, never at full.
+              const float tw = 0.675f + 0.325f*sinf(ms/1100.0f + phase/100.0f);
+              const Color c = dim(ink, tw);
+              it.filled_rectangle(nx - r, ny, 2*r + 1, 1, c);
+              it.filled_rectangle(nx, ny - r, 1, 2*r + 1, c);
+            }
+          }
+
           const float droop = st == 3 ? 1.0f : 0.0f;
           auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
             const int h = (int) (EH * hs), w = EW;
@@ -4222,14 +4331,24 @@ display:
           const bool cdown = id(grow_show_countdown).state
                              && (st == 1 || st == 3) && id(grow_min_to) >= 0;
           if (id(an_dmouth) > 0.05f && !cdown) {      // the yawn
-            const int r = 4 + (int) (12 * id(an_dmouth));
-            it.filled_circle(CX + gx, EY + EH / 2 + 20 + gy, r, ink);
-            if (r > 6) it.filled_circle(CX + gx, EY + EH / 2 + 20 + gy, r - 5, field);
+            // 14 and 11, not 20 and 16. The yawn's bottom is the lowest thing
+            // in the box -- 180 + 47*sc now against 180 + 54*sc before -- and
+            // at the old numbers it left the box at a scale of 1.07, which
+            // would have made the size dial clip the face.
+            const int r  = (int) lroundf((3 + 8 * id(an_dmouth)) * sc);
+            const int my = EY + EH / 2 + (int) lroundf(14 * sc) + gy;
+            it.filled_circle(CX + gx, my, r, ink);
+            if (r > 5) it.filled_circle(CX + gx, my, r - (int) lroundf(4*sc), field);
           }
           if (st == 0 || st == 4) {                  // three z's, rising and fading
             for (int i = 0; i < 3; i++) {
               const float ph = fmodf(id(an_dzph) + i / 3.0f, 1.0f);
-              it.print(CX + 70 + (int) (14 * ph), CY - 74 - (int) (24 * ph), id(font_med),
+              // CLAMPED. A 32 px glyph centred at CY - 98*sc reaches the box's
+              // top edge at a scale of 1.01, so above that the z's stop rising
+              // rather than being sliced off by the clip.
+              const int zy = std::max(AN_T + 20,
+                                      CY - (int) lroundf((74.0f + 24.0f*ph) * sc));
+              it.print(CX + (int) lroundf(70*sc) + (int) (14 * ph), zy, id(font_med),
                        dim(ink, 1.0f - ph * 0.9f), TextAlign::CENTER, "z");
             }
           }
