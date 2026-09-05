@@ -8,8 +8,8 @@ from render import render
 from params import *
 import build_v2 as BV
 
-TAG = '-32'
-B   = BV.BODY32
+TAG = sys.argv[1] if len(sys.argv) > 1 else '-32'
+B   = {'': BV.BODY24, '-32': BV.BODY32, '-60': BV.BODY60}[TAG]
 stand = trimesh.load(f'mini-round-clock-backstand{TAG}.stl', process=False)
 
 # the clock, put where the stand expects it -- same transform the builder used
@@ -37,8 +37,8 @@ for name, scene in (('backstand', stand),
         img, hit = render(scene, eye, (0, 0, 1), px=760)
         ax[k].imshow(img, cmap='bone', vmin=0.0, vmax=1.0)
         ax[k].set_title(label, fontsize=9); ax[k].axis('off')
-    fig.suptitle(f'{name}{TAG}   {stand.extents[0]:.0f} x {stand.extents[1]:.0f} x '
+    fig.suptitle(f'{name}{TAG or "-24"}   {stand.extents[0]:.0f} x {stand.extents[1]:.0f} x '
                  f'{stand.extents[2]:.0f} mm, {stand.volume/1000:.1f} cm3',
                  fontsize=10)
-    fig.tight_layout(); fig.savefig(f'render_{name}.png'); plt.close(fig)
-    print(f'wrote render_{name}.png')
+    fig.tight_layout(); fig.savefig(f'render_{name}{TAG or "-24"}.png'); plt.close(fig)
+    print(f'wrote render_{name}{TAG or "-24"}.png')

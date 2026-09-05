@@ -38,6 +38,9 @@ and the old stand-box are cut for 30.00 now.
 
 If you only print one thing, print **1**. Nothing else has changed.
 
+For the 24-LED clock print `mini-round-clock-backstand` (no suffix) instead —
+see the table at the bottom.
+
 `mini-round-clock-housing-32` is the *wall-mount* rear housing and you do not
 need it. `mini-round-clock-standbox-32` and its tray are the old design; they
 are still built and still correct, now for a 30 mm board, if you would rather
@@ -98,10 +101,25 @@ than guess. The one that takes the board without force is the answer.
 | tips sideways at | 39.5° |
 | clock-to-stand contact | 0.50 mm clearance everywhere, 0 mm³ of overlap |
 
-## And the 60
+## The other two bodies
 
-`mini-round-clock-backstand-60` exists and passes the same seven checks. It is
-172 × 134 × 96 mm and 246 cm³ — the footprint scales with the clock, because
-check7 measured an 86 mm foot tipping backwards at 17.5° under a 240 mm clock
-and that is not a stand, it is a hazard. It still replaces a 936 cm³ stand-box
-and tray, so it is 26% of the material even at that size.
+There is a back-stand for every body, and each one passes the same checks.
+**Mind the filenames**: the 24 is the UNTAGGED one, the same convention as
+`mini-round-clock-base.stl` and everything else in this folder. It is not a
+"generic" file — it is the Ø108 body specifically.
+
+| file | body | size mm | vol | tips fwd / back / side |
+|---|---|---|---|---|
+| `mini-round-clock-backstand` | **24 LED, Ø108** | 86.0 · 83.4 · 43.2 | 46 cm³ | 39.5° / 44.7° / 43.1° |
+| `mini-round-clock-backstand-32` | 32 LED, Ø119.9 | 86.0 · 86.3 · 48.0 | 49 cm³ | 36.8° / 42.2° / 39.5° |
+| `mini-round-clock-backstand-60` | 60 LED, Ø240 | 172.2 · 134.4 · 96.1 | 246 cm³ | ≥20° all three |
+
+The 24's stand is the same 86 mm wide as the 32's even though its clock is
+12 mm smaller, and that is deliberate: the footprint scales with the body but
+the **board does not**, so the buttresses cannot come inboard of a 64 mm board
+however small the clock gets. Below the 32 the width is held, not scaled.
+
+The 60's does scale — 172 × 134 × 96. check7 measured an 86 mm foot tipping
+backwards at 17.5° under a 240 mm clock, and that is not a stand, it is a
+hazard. It still replaces a 936 cm³ stand-box and tray, so it is 26% of the
+material even at that size.
