@@ -42,8 +42,10 @@ input_select:
   wall_clock_target:
     name: Customising
     icon: mdi:cog-outline
+    # MUST MATCH the labels in CLOCKS in build_clock_dashboard.py exactly: the
+    # picker buttons set this input_select by option STRING, so a mismatch is a
+    # button that silently does nothing.
     options:
-      - Mini Round Clock
-      - Mini Round Clock 2
-      - Mini Round Clock 3
-      - Test Clock (D1 mini)
+      - Zac's Clock
+      - Jake's Clock
+      - Third Clock

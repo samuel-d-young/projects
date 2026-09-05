@@ -46,35 +46,36 @@ import json, io, sys
 #                  Handing these the full card set is what produces a screen of
 #                  "Entity not found": the entities are not missing, they were
 #                  never compiled in.
-# CLOCK #2 IS REAL and was missing from here. Both clocks run the same firmware
-# (byte-identical except name and LED count); #2 is flashed with substitution
-# overrides so it does not collide with #1 on hostname, OTA target or entity ids:
-#     -s device_name mini-round-clock-2 -s friendly_name 'Mini Round Clock 2'
-#     -s num_leds 32
+# THE NAMES ARE SAM'S CHILDREN'S, and the slugs are not. A slug is the ESPHome
+# entity prefix and changing it means a reflash; a label is free text and is
+# what the picker shows. So the devices stay mini_round_clock_3 and _4 -- which
+# is also what keeps every generated card working -- and only the labels moved.
+# They match the device names in Home Assistant, renamed there with name_by_user
+# on 2026-09-05, which likewise does not disturb entity ids.
+#
+# THREE, not four. Sam, 2026-09-05: "There are not 2 screens there are 3." The
+# two dead entries (Mini Round Clock, Mini Round Clock 2 -- boards that have not
+# answered since 2026-08-31) were deleted from Home Assistant, and the D1 mini
+# test clock has never existed as a device. What is left is two flashed clocks
+# and one Sam has yet to flash.
 CLOCKS = [
-    {"slug": "mini_round_clock",   "label": "Mini Round Clock", "tier": "full",
+    # 24 LED. COM11, 192.168.1.69, ac:27:6e:a3:3b:ac.
+    {"slug": "mini_round_clock_3", "label": "Zac's Clock", "tier": "full",
      "backlight": True},
-    {"slug": "mini_round_clock_2", "label": "Mini Round Clock 2", "tier": "full",
+    # 32 LED. COM10, 192.168.1.68, ac:27:6e:a3:de:6c -- the rewired Flight Deck.
+    {"slug": "mini_round_clock_4", "label": "Jake's Clock", "tier": "full",
      "backlight": True},
-    # Clock 3, 2026-09-03. Sam had a third board on the bench and called it
-    # "clock 3"; it is flashed with -s device_name mini-round-clock-3. Listing
-    # it here costs nothing if it never appears: every card is gated on
-    # binary_sensor.mini_round_clock_3_status, so until the device is on the
-    # network the rows are simply not rendered.
-    {"slug": "mini_round_clock_3", "label": "Mini Round Clock 3", "tier": "full",
+    # NOT FLASHED YET. Sam, 2026-09-05: "Their is a third clock that I will
+    # flash at a later stage." It costs nothing to list: every card is gated on
+    # binary_sensor.mini_round_clock_status, so until the board is on the
+    # network the picker offers it and the "not connected" notice is all that
+    # renders. The slug is the bare prefix because deleting the two dead config
+    # entries freed it -- flash the third board with `-s device_name
+    # mini-round-clock` and it lands here with no further edits.
+    # Rename the label when it has a name.
+    {"slug": "mini_round_clock", "label": "Third Clock", "tier": "full",
      "backlight": True},
-    {"slug": "test_clock",         "label": "Test Clock (D1 mini)", "tier": "basic",
-     "backlight": False},
 ]
-# NOT LISTED, deliberately: wall-clock.yaml. Two reasons, and the second is the
-# one that matters. It has never been flashed, so it is not a device. And a
-# device named `wall-clock` would put its entities in the same
-# `wall_clock_*` namespace as every helper in the Home Assistant package --
-# timer.wall_clock_1, sensor.wall_clock_timer_slots,
-# input_button.wall_clock_timer_dismiss. Nothing would actually collide, but
-# telling which half of that namespace an entity belongs to would be guesswork
-# forever. If that firmware is ever flashed, give the device a different
-# `name:`.
 
 PICKER = "input_select.wall_clock_target"
 
@@ -598,7 +599,43 @@ if __name__ == "__main__":
             # explainer -- it is what stands in for the controls that are
             # hidden, and at the bottom of the page it would be describing
             # something the reader is no longer looking at.
-            notes, secs, tail = [], [], []
+            # NO GAPS MEANS BALANCING WHAT IS ON SCREEN, NOT WHAT IS IN THE
+            # FILE. A sections view lays each section out as a column and packs
+            # them left to right; a short column leaves the space under it
+            # empty. The previous arrangement emitted a 17-row header section
+            # next to 49-row control sections, so the top of the page was one
+            # narrow strip with two thirds of the width blank -- which is the
+            # gap Sam is pointing at.
+            #
+            # Only ONE clock is ever selected, so the page that actually renders
+            # is: the header, that clock's cards, and the shared timers.
+            # Everything else is hidden and collapses. So balance those, and
+            # balance them in two rows that each fill the width:
+            #
+            #   row 1   header + picker + shared timers, over MAX_COLS sections
+            #   row 2   the selected clock's controls and prose, over MAX_COLS
+            #
+            # PROSE SITS AT THE FOOT OF ITS COLUMN, which is what "text boxes at
+            # the bottom" means on a grid: putting every explainer below every
+            # control would give three short columns of text under three tall
+            # ones, and reintroduce the gap from the other end.
+            # The two markdown cards that are NOT prose: the heading that
+            # names the clock being edited, and the online/offline status line.
+            # A filter that only asked "is it markdown" swept both to the foot
+            # of the page, which put the title and the liveness indicator below
+            # three screens of sliders. Sam asked for the TEXT BOXES at the
+            # bottom -- the ones that explain things, not the ones that say what
+            # you are looking at and whether it is switched on.
+            head = [c for c in cards
+                    if c.get("type") == "markdown" and "visibility" not in c
+                    and ("{{ states(" in c.get("content", "")
+                         or "binary_sensor." in c.get("content", ""))]
+            picker = [c for c in cards
+                      if c.get("type") == "entities" and "visibility" not in c
+                      and not c.get("title")]
+            buttons = [c for c in cards if c.get("type") == "horizontal-stack"]
+            top = head[:1] + buttons + head[1:] + picker
+            secs = []
             def grid(cs, vis=None):
                 g = {"type": "grid", "cards": cs}
                 if vis:
@@ -608,16 +645,32 @@ if __name__ == "__main__":
                 c = dict(c)
                 c.pop("visibility", None)
                 return c
-            top = [c for c in cards
-                   if c.get("type") in ("horizontal-stack",)
-                   or (c.get("type") == "entities" and "visibility" not in c
-                       and not c.get("title"))]
+            def spread(items, vis=None, tail_items=()):
+                """Longest first into the shortest column, then the prose under
+                whatever column ended up shortest, so the text lands low."""
+                cols = [[] for _ in range(MAX_COLS)]
+                hs = [0] * MAX_COLS
+                for x in sorted(items, key=card_rows, reverse=True):
+                    i = hs.index(min(hs))
+                    cols[i].append(strip(x)); hs[i] += card_rows(x)
+                for x in sorted(tail_items, key=card_rows, reverse=True):
+                    i = hs.index(min(hs))
+                    cols[i].append(strip(x)); hs[i] += card_rows(x)
+                for col in cols:
+                    if col:
+                        secs.append(grid(col, vis))
+
+            # ---- row 1: the always-visible header, and the shared timers
             shared = [c for c in cards
                       if c.get("type") == "entities" and c.get("title") == "Timers (shared)"]
             notes = [c for c in cards
-                     if c.get("type") == "markdown" and "visibility" not in c]
-            if top:
-                secs.append(grid(top))
+                     if c.get("type") == "markdown" and "visibility" not in c
+                     and c not in head]
+            # The heading and the buttons stay together and stay first: they are
+            # what tells you which clock you are editing and how to change it.
+            spread(top[:2], None, top[2:] + shared + notes)
+
+            # ---- row 2: the selected clock
             for c in CLOCKS:
                 mine = [x for x in cards
                         if any(cond.get("state") == c["label"]
@@ -626,50 +679,13 @@ if __name__ == "__main__":
                         if not any(cond.get("state_not") for cond in x["visibility"])]
                 away = [x for x in mine
                         if any(cond.get("state_not") for cond in x["visibility"])]
-                # The controls come up the page; this clock's own explanatory
-                # markdown goes down to the bottom with the rest of the prose,
-                # still gated on this clock so it only appears when you are
-                # looking at it. That is the "text boxes to the bottom" --
-                # they were interleaved with the sliders, which is what made
-                # the page long and gappy in the first place.
-                body = [x for x in ctrl if x.get("type") != "markdown"]
+                body  = [x for x in ctrl if x.get("type") != "markdown"]
                 prose = [x for x in ctrl if x.get("type") == "markdown"]
-                # BALANCED ACROSS THE GRID, not stacked into one column.
-                # A sections view puts each section in a column of its own, so
-                # all of a clock's cards in ONE section is a single tall
-                # column with the rest of the page's width empty beside it --
-                # which is the gap. Spread over MAX_COLS sections of roughly
-                # equal height they sit side by side and the width is used.
-                # Longest card first into the shortest column: crude, but the
-                # cards here are 8 to 21 rows and it lands within a row or two.
-                if body:
-                    cols = [[] for _ in range(MAX_COLS)]
-                    hs = [0] * MAX_COLS
-                    for x in sorted(body, key=card_rows, reverse=True):
-                        i = hs.index(min(hs))
-                        cols[i].append(strip(x))
-                        hs[i] += card_rows(x)
-                    for col in cols:
-                        if col:
-                            secs.append(grid(col, ctrl[0]["visibility"]))
-                if prose:
-                    tail.append((prose[0]["visibility"], [strip(x) for x in prose]))
+                if body or prose:
+                    spread(body, ctrl[0]["visibility"], prose)
                 if away:
                     secs.append(grid([strip(x) for x in away], away[0]["visibility"]))
-            if shared:
-                secs.append(grid(shared))
-            for vis, cs in tail:
-                cols = [[] for _ in range(MAX_COLS)]
-                hs = [0] * MAX_COLS
-                for x in sorted(cs, key=card_rows, reverse=True):
-                    i = hs.index(min(hs))
-                    cols[i].append(x)
-                    hs[i] += card_rows(x)
-                for col in cols:
-                    if col:
-                        secs.append(grid(col, vis))
-            if notes:
-                secs.append(grid(notes))
+
             view = [{"title": "Settings", "path": "settings",
                      "icon": "mdi:tune-variant", "type": "sections",
                      "max_columns": 3, "sections": secs}]
