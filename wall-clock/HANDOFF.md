@@ -8,6 +8,11 @@ Read this part first. Everything below it is older and still true, but this is
 where the project actually is. Branch `claude/home-assistant-wall-clock-om42v2`
 in both repos; tip **`070a7f3`**, firmware **`2726b0a`**.
 
+> **CONFIRMED FIXED ON THE HARDWARE, 2026-09-05.** Sam, after flashing
+> `06765c3`: "I flashed it, it doesn't flicker!" Eleven builds and ten wrong
+> theories. What follows is why, kept because the mechanism explains several
+> other things about this panel and because the A/B is still one switch away.
+
 ## The flicker: found, and it was the animator
 
 The panel scans itself out of GRAM about sixty times a second. We write GRAM
@@ -57,10 +62,22 @@ Three things had to be true for that to work, and all three are in the lambda's
 3. The sky moved up to `CY - 144` so its longest ray stops at 58, clear of the
    box; the countdown moved to `CY + 40`, inside it, and suppresses the yawn.
 
-**If it still flickers after this,** the remaining candidates are the panel
-itself: reseat the flex and every SPI jumper (SCK, MOSI, CS, DC, RST), then
-`-s lcd_hz 10MHz`. `grow_partial` OFF is the A/B -- the moon and stars should
-start blinking again, and if they do not, the diagnosis above is wrong.
+**And the clip had to be drawn band by band, `06765c3`.** The first version of
+it was measured on the bench at **385 ms a frame against the full repaint's
+269** -- 43% SLOWER than the thing it replaced. It drew its whole 248 x 180
+rectangle on all six band passes and let `draw_pixel_at` reject five sixths of
+it one pixel at a time: 272160 calls to lay down 45360 pixels. The SPI bus was
+never the constraint; the draw loop was. Every rectangle is intersected with
+the band now, the eye block is skipped in the three bands it cannot reach, and
+the band index is counted in `an_band` because the driver does not expose it.
+
+`grow_anim_ms` floors at 400 ms for the same reason: a dial should not offer an
+interval the loop cannot honour.
+
+**The A/B, if it ever comes back:** turn `grow_partial` OFF. The moon and the
+star row should start blinking again within seconds. If they do not, the
+diagnosis above is wrong and the next candidates are the panel flex, the SPI
+jumpers and `-s lcd_hz 10MHz`.
 
 ## The base: a back-stand, not a plinth
 
@@ -74,8 +91,28 @@ take the 14-degree lean; the board bay between them is an open channel with a
 **Sam's board is 30.00 mm**, not the 29.00 the old tray was cut for. Both parts
 and the fit gauge are corrected.
 
+There is one for **every body**, and the 24's is the UNTAGGED file --
+`mini-round-clock-backstand.stl`, same convention as `mini-round-clock-base`.
+The 24's stand is the same 86 mm wide as the 32's because the footprint scales
+with the clock but the board does not.
+
+| file | body | size mm | vol |
+|---|---|---|---|
+| `mini-round-clock-backstand` | 24 LED, O108 | 86.0 x 83.4 x 43.2 | 46 cm3 |
+| `mini-round-clock-backstand-32` | 32 LED, O119.9 | 86.0 x 86.3 x 48.0 | 49 cm3 |
+| `mini-round-clock-backstand-60` | 60 LED, O240 | 172.2 x 134.4 x 96.1 | 246 cm3 |
+
 `check7_backstand.py` is new; `runchecks.sh` runs it once per body. It measures
 off the exported mesh, never off the parameters.
+
+## Do not put this back in any flashing recipe
+
+`git checkout FETCH_HEAD -- wall-clock/esphome/mini-round-clock-with-display.yaml`
+
+Sam keeps uncommitted work in that file -- 134 lines of it as of 2026-09-05 --
+and that command destroys it without asking. Flash from a detached worktree at
+the branch tip instead; it produces byte-identical firmware and touches nothing
+of his.
 
 ## Switches added during the hunt, and what each is for
 
