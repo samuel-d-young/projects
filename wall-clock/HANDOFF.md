@@ -62,9 +62,15 @@ Three things had to be true for that to work, and all three are in the lambda's
 3. The sky moved up to `CY - 144` so its longest ray stops at 58, clear of the
    box; the countdown moved to `CY + 40`, inside it, and suppresses the yawn.
 
-**And the clip had to be drawn band by band, `06765c3`.** The first version of
-it was measured on the bench at **385 ms a frame against the full repaint's
-269** -- 43% SLOWER than the thing it replaced. It drew its whole 248 x 180
+**And the clip had to be drawn band by band, `06765c3`.** MEASURED, END TO END:
+385 ms a frame before, **174 ms after** (six samples on 41eecc5: 176, 174, 174,
+216, 174, 179; the 216 is a collision with the 1 s dispatcher). A 55% cut, and
+the first build where a frame fits comfortably inside the animation interval --
+at the 300 ms default the loop is busy about 60% of the time rather than over
+100%, which is why every earlier value of that dial behaved identically.
+
+The first version of it was measured on the bench at **385 ms a frame against
+the full repaint's 269** -- 43% SLOWER than the thing it replaced. It drew its whole 248 x 180
 rectangle on all six band passes and let `draw_pixel_at` reject five sixths of
 it one pixel at a time: 272160 calls to lay down 45360 pixels. The SPI bus was
 never the constraint; the draw loop was. Every rectangle is intersected with
@@ -78,6 +84,32 @@ interval the loop cannot honour.
 star row should start blinking again within seconds. If they do not, the
 diagnosis above is wrong and the next candidates are the panel flex, the SPI
 jumpers and `-s lcd_hz 10MHz`.
+
+## Why a dial sometimes reverts after a flash, and why it is not alarming
+
+Filed wrongly three times as "restore_value clamps to an endpoint". It does
+not. The verified rule, from a controlled comparison inside a single flash on
+2026-09-05 (2726b0a -> 41eecc5):
+
+| number | traits | stored | after the flash |
+|---|---|---|---|
+| `grow_anim_ms` | min 250 -> **200, changed** | 600 | **300**, the new `initial_value` |
+| `ring_size` | 8..60, **unchanged** | 24 | **24**, survived |
+
+So: **change a number's min, max or step and its stored value is discarded and
+it takes the firmware's new default.** Leave the range alone and a customised
+value survives any number of reflashes. That is benign -- it lands on the
+intended default, not on an endpoint -- and it is worth knowing only so that
+nobody spends an afternoon on it again.
+
+WHAT IS STILL NOT EXPLAINED, kept because pretending otherwise is how this got
+mis-filed the first time: on 2026-09-04 `grow_ring_day_bright` read 5 and
+`grow_ring_night_bright` read 2, when their ranges had NOT changed and their
+`initial_value`s were 25 and 7. Those were stored values, and where they came
+from is unknown. One candidate nobody has checked: ESPHome batches preference
+writes, so a value set in Home Assistant and then reflashed over within the
+minute is lost before it reaches flash. Plausible, unverified, and it would fit
+-- the bench had set those two by hand shortly before.
 
 ## The base: a back-stand, not a plinth
 
