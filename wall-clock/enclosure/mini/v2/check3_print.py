@@ -305,13 +305,18 @@ INLAY = {'mini-round-clock-numerals.stl', 'mini-round-clock-numerals-32.stl',
          'mini-round-clock-numerals-60.stl'}
 NOZZLE = 0.42       # narrowest bead a 0.4 mm nozzle will actually lay down
 
-_gone = [f for f, _, _ in PARTS if not os.path.exists(f)]
+_gone = [f for f, _, _ in PARTS if not os.path.exists(csg.part(f))]
 if _gone:
     print('not built, so not checked: ' + ', '.join(_gone))
-PARTS = [t for t in PARTS if os.path.exists(t[0])]
+_want = len(PARTS)
+PARTS = [t for t in PARTS if os.path.exists(csg.part(t[0]))]
+# See check1: an empty PARTS list used to pass silently.
+if len(PARTS) < _want // 2:
+    print(f'  [FAIL] only {len(PARTS)} of {_want} parts found -- run build_v2.py first')
+    sys.exit(1)
 
 for fn, orient, min_wall in PARTS:
-    m = trimesh.load(fn, process=False); m.merge_vertices()
+    m = trimesh.load(csg.part(fn), process=False); m.merge_vertices()
     zmin = m.bounds[0][2]
     print(f'\n{fn}   ({orient})')
     print(f'         {m.extents[0]:.1f} x {m.extents[1]:.1f} x {m.extents[2]:.1f} mm, '

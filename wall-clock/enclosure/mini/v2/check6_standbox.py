@@ -18,6 +18,7 @@ import sys, math, os
 import numpy as np, trimesh
 from manifold3d import Manifold
 from csg import to_manifold, box_lwh, cyl, tube
+import csg
 import build_v2 as BV
 from params import *
 
@@ -31,7 +32,7 @@ def ck(c, msg, d=''):
 
 
 def load(f):
-    m = trimesh.load(f, process=False)
+    m = trimesh.load(csg.part(f), process=False)
     m.merge_vertices()
     return m
 
@@ -181,7 +182,7 @@ for B, tg in ((BV.BODY24, ''), (BV.BODY32, '-32'), (BV.BODY60, '-60')):
     ff = f'mini-round-clock-diffuser{tg}-flange.stl'
     room = (B.r_lip_i - DIFF_FLANGE_CLR) - B.diff_outer
     if room < DIFF_FLANGE_MIN:
-        ck(not os.path.exists(ff), f'no flange variant: the diffuser already reaches the lip',
+        ck(not os.path.exists(csg.part(ff)), f'no flange variant: the diffuser already reaches the lip',
            f'diffuser r {B.diff_outer:.2f}, lip r {B.r_lip_i:.2f}')
     else:
         Df = load(ff)

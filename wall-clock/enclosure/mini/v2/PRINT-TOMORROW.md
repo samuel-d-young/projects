@@ -1,11 +1,18 @@
 # Print set — 32-LED mini round clock, back-stand version
 
 Built from `build_v2.py` and verified by `sh runchecks.sh`, which now runs
-seven passes and the seventh once for each body. `.3mf` beside every `.stl` — **use the `.3mf`**,
-it carries the intended print orientation; the `.stl` is there if your slicer
-wants one.
+seven passes and the seventh once for each body.
 
-Path: `wall-clock/enclosure/mini/v2/`
+## Where the files are
+
+    wall-clock/enclosure/mini/v2/
+        3mf/      <- PRINT FROM HERE. Carries the intended print orientation.
+        stl/      <- the same parts, if your slicer would rather have an STL
+        input/    <- the two meshes Sam uploaded. Not print files.
+
+Everything in `3mf/` and `stl/` is generated: delete either folder and
+`python3 build_v2.py` puts it back. `input/` is the only thing here that
+cannot be regenerated.
 
 ## What changed since the last print sheet
 
@@ -110,7 +117,7 @@ than guess. The one that takes the board without force is the answer.
 
 There is a back-stand for every body, and each one passes the same checks.
 **Mind the filenames**: the 24 is the UNTAGGED one, the same convention as
-`mini-round-clock-base.stl` and everything else in this folder. It is not a
+`mini-round-clock-base` and everything else in this set. It is not a
 "generic" file — it is the Ø108 body specifically.
 
 | file | body | size mm | vol | tips fwd / back / side |

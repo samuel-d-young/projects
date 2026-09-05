@@ -22,7 +22,7 @@ def ck(cond, msg, detail=''):
 TAG = sys.argv[1] if len(sys.argv) > 1 else '-32'
 B   = {'-32': BV.BODY32, '-60': BV.BODY60, '': BV.BODY24}[TAG]
 FN  = f'mini-round-clock-backstand{TAG}.stl'
-m   = trimesh.load(FN)
+m   = trimesh.load(csg.part(FN))
 lo, hi = m.bounds
 
 print(f'{FN}: {hi[0]-lo[0]:.2f} x {hi[1]-lo[1]:.2f} x {hi[2]-lo[2]:.2f} mm, '
@@ -32,8 +32,8 @@ print(f'{FN}: {hi[0]-lo[0]:.2f} x {hi[1]-lo[1]:.2f} x {hi[2]-lo[2]:.2f} mm, '
 ck(m.is_watertight, 'watertight')
 ck(m.body_count == 1, 'one solid', f'{m.body_count}')
 ck(abs(lo[2]) < 1e-6, 'sits on z = 0', f'{lo[2]:.4f}')
-sb   = trimesh.load(f'mini-round-clock-standbox{TAG}.stl')
-tray = trimesh.load(f'mini-round-clock-standbox-tray{TAG}.stl')
+sb   = trimesh.load(csg.part(f'mini-round-clock-standbox{TAG}.stl'))
+tray = trimesh.load(csg.part(f'mini-round-clock-standbox-tray{TAG}.stl'))
 was  = sb.volume + tray.volume
 ck(m.volume < 0.40 * was, 'less than 40% of the stand-box it replaces',
    f'{m.volume/1000:.1f} vs {was/1000:.1f} cm3, in one part not two')
@@ -179,7 +179,7 @@ ck(hi[0] - BOARD2_L/2 >= 2.0, 'the buttresses stand outboard of the board',
 RHO = 1.24e-3            # g/mm3
 clock_parts = [f'mini-round-clock-base{TAG}.stl', f'mini-round-clock-backcover{TAG}.stl',
                f'mini-round-clock-diffuser{TAG}.stl']
-mv = sum(trimesh.load(f).volume for f in clock_parts)
+mv = sum(trimesh.load(csg.part(f)).volume for f in clock_parts)
 m_clock = mv*RHO + 45.0                  # + ring, panel, screws, leads
 m_stand = m.volume*RHO
 m_board = 12.0

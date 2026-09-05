@@ -3,6 +3,7 @@
 and the open bay are both obvious before anything is sliced."""
 import sys, math; sys.path.insert(0, '.')
 import numpy as np, trimesh, matplotlib
+import csg
 matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from render import render
 from params import *
@@ -10,7 +11,7 @@ import build_v2 as BV
 
 TAG = sys.argv[1] if len(sys.argv) > 1 else '-32'
 B   = {'': BV.BODY24, '-32': BV.BODY32, '-60': BV.BODY60}[TAG]
-stand = trimesh.load(f'mini-round-clock-backstand{TAG}.stl', process=False)
+stand = trimesh.load(csg.part(f'mini-round-clock-backstand{TAG}.stl'), process=False)
 
 # the clock, put where the stand expects it -- same transform the builder used
 th = math.radians(BACKSTAND_TILT)
@@ -26,7 +27,7 @@ M  = np.array([[1, 0, 0, 0],
 clock = []
 for fn in (f'mini-round-clock-base{TAG}.stl', f'mini-round-clock-backcover{TAG}.stl',
            f'mini-round-clock-diffuser{TAG}-plain.stl'):
-    m = trimesh.load(fn, process=False); m.apply_transform(M); clock.append(m)
+    m = trimesh.load(csg.part(fn), process=False); m.apply_transform(M); clock.append(m)
 clock = trimesh.util.concatenate(clock)
 
 VIEWS = [('three-quarter', (-0.75, -1.0, 0.55)), ('side', (-1.0, -0.06, 0.16))]

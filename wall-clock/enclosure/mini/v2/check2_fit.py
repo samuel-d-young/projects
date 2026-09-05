@@ -17,7 +17,7 @@ def ck(c, msg, d=''):
     if not c: FAIL.append(msg)
 
 def load(f):
-    m = trimesh.load(f, process=False); m.merge_vertices(); return m
+    m = trimesh.load(csg.part(f), process=False); m.merge_vertices(); return m
 
 SEG = BV.SEG
 SAM = BV.load_sams_base()
@@ -114,7 +114,7 @@ for B, tg in BODIES:
        f'interference, {wall_clr/max(2*COLLAR_RIB_H,1e-9):.0f}x -- the ribs stand '
        f'{R_DISP_BORE + COLLAR_RIB_H - COLLAR_OD:.2f} mm proud and can crush most '
        f'of that before anything else touches')
-    ck(os.path.exists('mini-round-clock-collar-gauges.stl')
+    ck(os.path.exists(csg.part('mini-round-clock-collar-gauges.stl'))
        and min(GAUGE_HS) <= COLLAR_RIB_H <= max(GAUGE_HS),
        '...and a printed gauge brackets the figure being shipped',
        f'gauges at {", ".join(f"{h:.2f}" for h in GAUGE_HS)}, '
@@ -279,8 +279,8 @@ for B, tg in BODIES:
     # It is built and printed lying on its top face, so nothing had ever
     # measured it against the thing it bolts to. Load the STL, turn it over,
     # drop it on its bosses, and check the assembly rather than the drawing.
-    if os.path.exists('mini-round-clock-board-clamp.stl'):
-        cm = trimesh.load('mini-round-clock-board-clamp.stl', process=False)
+    if os.path.exists(csg.part('mini-round-clock-board-clamp.stl')):
+        cm = trimesh.load(csg.part('mini-round-clock-board-clamp.stl'), process=False)
         cm.merge_vertices()
         X0c = BRD_X0 + BRD_CLAMP_PAD0 - 1.50
         X1c = BRD_CLAMP_SX + BRD_CLAMP_BOSS/2 + 1.50
@@ -429,7 +429,7 @@ for B, tg in BODIES:
        f'{plenum:.2f} mm of clear plenum above the frame, for the display ribbon '
        f'and the ring leads')
     ck(HOUSING_DEEP < BATTERY_MIN_HOUSING
-       and not os.path.exists('mini-round-clock-battery-shelf-x2.stl'),
+       and not os.path.exists(csg.part('mini-round-clock-battery-shelf-x2.stl')),
        'and no battery shelf is shipped, because no battery fits',
        f'a {BAT_T:.2f} mm cell needs a {BATTERY_MIN_HOUSING:.2f} mm housing; '
        f'this one is {HOUSING_DEEP:.2f}')
@@ -533,10 +533,10 @@ for B, tg in BODIES:
 # that the claim survives contact with the built parts.
 for tg in ('-32', '-60'):
     fn = f'mini-round-clock-base{tg}-bar.stl'
-    if not os.path.exists(fn):
+    if not os.path.exists(csg.part(fn)):
         continue
     print(f'\n8. The bar-screen base {fn}')
-    bm = trimesh.load(fn, process=False); bm.merge_vertices()
+    bm = trimesh.load(csg.part(fn), process=False); bm.merge_vertices()
     BB = csg.to_manifold(bm)
     hl, hw = BAR_L/2, BAR_W/2
 

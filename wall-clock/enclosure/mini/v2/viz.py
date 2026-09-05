@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Cross-section atlas via raw plane/triangle segments — no shapely assembly needed."""
 import numpy as np, trimesh, matplotlib
+import csg
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 def clean(path):
-    m = trimesh.load(path, process=False); m.merge_vertices()
+    m = trimesh.load(csg.part(path), process=False); m.merge_vertices()
     m.update_faces(m.nondegenerate_faces()); m.remove_unreferenced_vertices()
     parts = [p for p in m.split(only_watertight=False) if abs(p.volume) > 1.0]
     parts.sort(key=lambda p: -abs(p.volume))

@@ -32,7 +32,7 @@ def load_sams_base(path='base_in.stl'):
     which is what a CAD boolean leaves behind when it fails to merge. It is not
     a feature: it fills the slot the display tab has to pass through. Dropped.
     """
-    m = trimesh.load(path, process=False)
+    m = trimesh.load(csg.part(path), process=False)
     m.merge_vertices(); m.update_faces(m.nondegenerate_faces()); m.remove_unreferenced_vertices()
     parts = [p for p in m.split(only_watertight=False) if abs(p.volume) > 1.0]
     parts.sort(key=lambda p: -abs(p.volume))
@@ -378,7 +378,7 @@ def build_shelf(bat_w, r_inner=None):
 
 
 def load_sams_diffuser():
-    m = trimesh.load('diffuser_in.stl', process=False)
+    m = trimesh.load(csg.part('diffuser_in.stl'), process=False)
     m.merge_vertices(); m.update_faces(m.nondegenerate_faces()); m.remove_unreferenced_vertices()
     parts = [p for p in m.split(only_watertight=False) if abs(p.volume) > 1.0]
     parts.sort(key=lambda p: -abs(p.volume))
@@ -2015,6 +2015,6 @@ if __name__ == '__main__':
         parts.append((build_board_gauge(), 'mini-round-clock-board-gauge', True))
     for man, fn, strict in parts:
         t = csg.finalise(man, fn, strict=strict)
-        t.export(fn + '.stl')
-        t.export(fn + '.3mf')
+        t.export(csg.part_out(fn + '.stl'))
+        t.export(csg.part_out(fn + '.3mf'))
     print('done')

@@ -5,6 +5,7 @@ The clock's +x axis is 12 o'clock, so every view is rolled to put +x at the top
 of the image -- otherwise it is impossible to tell top from side at a glance.
 """
 import numpy as np, trimesh, matplotlib
+import csg
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -86,14 +87,14 @@ def sheet(specs, fn, cols=3, px=680):
     print('wrote', fn)
 
 if __name__ == '__main__':
-    B  = trimesh.load('mini-round-clock-base.stl')
-    H  = trimesh.load('mini-round-clock-housing.stl')
-    D  = trimesh.load('mini-round-clock-diffuser.stl')
-    S  = trimesh.load('mini-round-clock-deskstand.stl')
-    B2 = trimesh.load('mini-round-clock-base-32.stl')
-    H2 = trimesh.load('mini-round-clock-housing-32.stl')
-    D2 = trimesh.load('mini-round-clock-diffuser-32.stl')
-    S2 = trimesh.load('mini-round-clock-deskstand-32.stl')
+    B  = trimesh.load(csg.part('mini-round-clock-base.stl'))
+    H  = trimesh.load(csg.part('mini-round-clock-housing.stl'))
+    D  = trimesh.load(csg.part('mini-round-clock-diffuser.stl'))
+    S  = trimesh.load(csg.part('mini-round-clock-deskstand.stl'))
+    B2 = trimesh.load(csg.part('mini-round-clock-base-32.stl'))
+    H2 = trimesh.load(csg.part('mini-round-clock-housing-32.stl'))
+    D2 = trimesh.load(csg.part('mini-round-clock-diffuser-32.stl'))
+    S2 = trimesh.load(csg.part('mini-round-clock-deskstand-32.stl'))
     sheet([
         (B,'front','BASE - FRONT (plywood side), 12 up','bone'),
         (B,'rear', 'BASE - REAR: annular deck, cable openings','bone'),
@@ -109,11 +110,11 @@ if __name__ == '__main__':
         (D2,'front','DIFFUSER 32 - 32 ticks','bone'),
         (S2,'iso_f','DESK STAND 32','copper'),
     ], 'render_v6_32.png')
-    B6 = trimesh.load('mini-round-clock-base-60.stl')
-    H6 = trimesh.load('mini-round-clock-housing-60.stl')
-    D6 = trimesh.load('mini-round-clock-diffuser-60.stl')
-    G6 = trimesh.load('mini-round-clock-light-guides-60.stl')
-    S6 = trimesh.load('mini-round-clock-deskstand-60.stl')
+    B6 = trimesh.load(csg.part('mini-round-clock-base-60.stl'))
+    H6 = trimesh.load(csg.part('mini-round-clock-housing-60.stl'))
+    D6 = trimesh.load(csg.part('mini-round-clock-diffuser-60.stl'))
+    G6 = trimesh.load(csg.part('mini-round-clock-light-guides-60.stl'))
+    S6 = trimesh.load(csg.part('mini-round-clock-deskstand-60.stl'))
     sheet([
         (B6,'front','BASE 60 - FRONT, 240 mm','bone'),
         (B6,'rear', 'BASE 60 - REAR: ribbed and hollow','bone'),

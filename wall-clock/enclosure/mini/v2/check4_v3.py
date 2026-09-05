@@ -12,7 +12,7 @@ def ck(c, msg, d=''):
     if not c: FAIL.append(msg)
 
 def load(f):
-    m = trimesh.load(f, process=False); m.merge_vertices(); return m
+    m = trimesh.load(csg.part(f), process=False); m.merge_vertices(); return m
 
 import build_v2 as BV
 
