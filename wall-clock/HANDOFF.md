@@ -2,40 +2,80 @@
 
 ---
 
-# STATE AS OF 2026-09-04, END OF DAY
+# STATE AS OF 2026-09-05
 
 Read this part first. Everything below it is older and still true, but this is
 where the project actually is. Branch `claude/home-assistant-wall-clock-om42v2`
-in both repos; firmware tip **`4354f87`**.
+in both repos; tip **`070a7f3`**, firmware **`2726b0a`**.
 
-## The one unresolved thing: the screen flicker
+## The flicker: found, and it was the animator
 
-The moon and the star row shimmer on clock 3's panel. The eyes, the z's and the
-digital time do not. **Ten theories, nine of them wrong**, all recorded in
-BUILD-LOG.md with what each one ruled out. What is left:
+The panel scans itself out of GRAM about sixty times a second. We write GRAM
+over SPI, asynchronously, and a whole 360 x 360 frame is 259200 bytes -- 104 ms
+at 20 MHz, six scans long. So the write walks down the glass while the scan
+walks down the glass, they cross each other several times on the way, and every
+crossing is visible. Over something that is CHANGING it reads as motion. Over
+something being rewritten with the pixels it already had, it reads as a blink.
 
-**The live hypothesis is EDGE STRUCTURE, not the renderer.** Sort the symptoms
-by what each element is *drawn as* — eyes are rounded rectangles (steady),
-z's and time are text glyphs (steady), moon and stars are `filled_circle`
-(both flicker). Not size: the z's are small, bright, steady. Not position: the
-star row and part of the time share the same 60-row band. A rasterised circle
-changes its run-length at every row, and that fine structure beats against the
-panel's polarity-inversion scheme when VCOM is slightly off.
+That is Sam's list, exactly:
 
-`773e1e2` is what makes this the only survivor: with the partial-redraw path
-off, *every* repaint is a full frame and every band is painted in full — and
-the moon and stars still flickered while the other three did not. A
-deterministic renderer cannot do that.
+| element | what it was doing | what he saw |
+|---|---|---|
+| eyes | change every frame | animation |
+| z's | change every frame | animation |
+| time | was not being redrawn | steady |
+| moon | redrawn, never changes | **flickered** |
+| stars | redrawn, never changes | **flickered** |
 
-**The test, which has not been run yet:** flash, flip **"Grow clock flat art
-(test)"** on. It draws the moon as a plain square and the dots as squares —
-uniform width down every row.
+It is also the one measurement none of the ten theories fitted: with the
+animator OFF the panel is perfectly steady, because then a full frame only goes
+out when something actually changed, and one crossing a minute is not a
+flicker. `c635533` had already removed the unconditional 1 Hz repaint. What was
+left was the ANIMATOR: `grow_partial` defaulted OFF, so every animation frame
+repainted all 360 x 360 at up to 4 Hz.
 
-* Goes steady → the panel, not the firmware. Turn flat OFF and **"Grow clock
-  blocky art"** ON; that is the fix and it is already on the clock.
-* Still shimmers → edge structure is out too. Go to hardware: reseat the panel
-  flex and every SPI jumper (SCK, MOSI, CS, DC, RST), try shorter leads, then
-  re-flash with `-s lcd_hz 10MHz`. **Do not write more renderer changes.**
+The init sequence turns TE on (0x35) but `mipi_spi` has no TE input, so the
+write cannot be synced to the scan. The only lever is to write less.
+
+**The fix, `2726b0a`.** `grow_partial` now defaults ON and an animation frame
+repaints y 60..239 and nothing else. The sky, the star row, "shh" and the time
+are left exactly as they are.
+
+Three things had to be true for that to work, and all three are in the lambda's
+"THE ANIMATION BOX" comment:
+
+1. Every band must come back non-empty or `mipi_spi` RETURNS and abandons the
+   rest of the frame. A 4 px column of field-coloured pixels down the far left,
+   drawn only in the rows the box does not cover, marks them. On a round panel
+   the glass at those rows does not reach x = 4, so it is off the picture.
+2. That marker must never share a band with the box. The driver flushes the
+   BOUNDING BOX of what was drawn, and anything inside it this pass did not
+   write goes out as the previous band's contents. So `buffer_size` is pinned
+   at **17%** -- bands of exactly 60 rows -- and 60 and 240 are multiples of 60.
+   **Change one, change the other.** 45-row bands cannot be aligned without
+   cutting through the z's.
+3. The sky moved up to `CY - 144` so its longest ray stops at 58, clear of the
+   box; the countdown moved to `CY + 40`, inside it, and suppresses the yawn.
+
+**If it still flickers after this,** the remaining candidates are the panel
+itself: reseat the flex and every SPI jumper (SCK, MOSI, CS, DC, RST), then
+`-s lcd_hz 10MHz`. `grow_partial` OFF is the A/B -- the moon and stars should
+start blinking again, and if they do not, the diagnosis above is wrong.
+
+## The base: a back-stand, not a plinth
+
+`070a7f3`. The stand-box is superseded by **`mini-round-clock-backstand-32`**:
+one part, 48.9 cm3, 86 x 86 x 48 mm, no lid, no tray, no screws. The clock sits
+on the desk and beds 4 mm into a trench in the foot; two A-frame buttresses
+take the 14-degree lean; the board bay between them is an open channel with a
+30.60 mm slot, four posts and one retaining lip. `PRINT-TOMORROW.md` in
+`enclosure/mini/v2/` is the print sheet.
+
+**Sam's board is 30.00 mm**, not the 29.00 the old tray was cut for. Both parts
+and the fit gauge are corrected.
+
+`check7_backstand.py` is new; `runchecks.sh` runs it once per body. It measures
+off the exported mesh, never off the parameters.
 
 ## Switches added during the hunt, and what each is for
 
