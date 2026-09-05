@@ -1676,6 +1676,218 @@ def build_standbox(B, depth):
     return stand, tray
 
 
+def _wall_yz(prof, x0, x1):
+    """A plate of constant thickness in x, whose SIDE PROFILE is prof, a list of
+    (y, z) in the desk frame. prism extrudes a cross-section along z, and
+    rotate([0, 90, 0]) maps local (X, Y, Z) to world (Z, Y, -X) -- verified,
+    not assumed -- so the profile goes in as (-z, y) and the extrusion axis
+    comes out as x. Winding is fixed inside prism()."""
+    return prism([(-z, y) for (y, z) in prof], x0, x1).rotate([0.0, 90.0, 0.0])
+
+
+def build_backstand(B):
+    """The stand that is not a box. Sam, 2026-09-04: "give make a better base
+    that isn't as bulky... The base needs to be open to fit the cables, and the
+    base can go behind the clock housing with an angle."
+
+    The clock comes down onto the desk and beds BACKSTAND_SIT into a trench in
+    the foot. The trench is not modelled: the whole clock is subtracted from the
+    blank as one cylinder, so the trench walls ARE the clock's own front and
+    back faces at BACKSTAND_CLR, and the part cannot foul the clock anywhere.
+
+    Two buttresses behind it take the lean. Between them is nothing at all --
+    that is the cable route and the board bay, an open channel with no lid, no
+    tray and no screws. Every overhang is 45 degrees or steeper and the part
+    prints flat on its foot with no support.
+    """
+    th  = math.radians(BACKSTAND_TILT)
+    ct, st_, tt = math.cos(th), math.sin(th), math.tan(th)
+    R   = B.r_body
+    Zb  = Z_DECK - (BACKCOVER_PLATE + BACKCOVER_POCKET)   # the clock's back face
+    Zf  = Z_FRONT                                          # and its front face
+    C   = BACKSTAND_CLR
+    FT  = BACKSTAND_FOOT_T
+
+    # Put the clock's lowest point at (y = 0, z = BACKSTAND_SIT). Rotating the
+    # clock frame by 90 - tilt about x sends its +z axis to (0, -cos, +sin) --
+    # forwards and up -- so the lowest point of the disc is the BACK face's
+    # bottom rim, which is what a thing leaning backwards rests on.
+    z0 = BACKSTAND_SIT + R*ct - Zb*st_
+    y0 = R*st_ + Zb*ct
+    xf = lambda m: m.rotate([90.0 - BACKSTAND_TILT, 0.0, 0.0]).translate([0.0, y0, z0])
+    clock = xf(cyl(R + C, Zb - C, Zf + C, SEG))
+
+    # Where the clock's two faces sit, as a function of height. Both are planes:
+    # eliminating the in-plane coordinate from the rotation gives
+    #   y = y0 + tan(tilt)*(z - z0) - q/cos(tilt)
+    # with q the face's own z in the clock frame.
+    back  = lambda z: y0 + tt*(z - z0) - Zb/ct
+    front = lambda z: y0 + tt*(z - z0) - Zf/ct
+    # The same two planes, moved out by the clearance ALONG THE CLOCK'S AXIS --
+    # C/cos(tilt) in y, not C. Anything built to these is outside the clock at
+    # every height, so the clock subtraction never touches it and there is no
+    # feather where the rim crosses it. Only the FOOT is shaped by the clock
+    # itself, because the trench has to follow the rim: that is the seat.
+    backc  = lambda z: back(z) + C/ct
+    frontc = lambda z: front(z) - C/ct
+
+    # THE FOOTPRINT SCALES WITH THE CLOCK, the board bay does not. The numbers
+    # in params are the 32's, so k is 1 there and nothing moves. On the 60 the
+    # clock is 240 mm across and 290 g heavier: check7 measured an 86 mm foot
+    # tipping backwards at 17.5 degrees under it, which is how this got written.
+    # The floors keep the 24 -- which is SMALLER than the 32 -- from pulling the
+    # buttresses in over a board that does not shrink with it.
+    k   = B.r_body / BODY32.r_body
+    XI  = max(BACKSTAND_WALL_XI, BACKSTAND_WALL_XI*k)
+    XO  = XI + (BACKSTAND_WALL_XO - BACKSTAND_WALL_XI)*max(1.0, k)
+    SH  = BACKSTAND_SPINE_H*k
+    KH  = BACKSTAND_KERB_H*max(1.0, k)
+    BY1_ = BACKSTAND_BAY_Y0 + BACKSTAND_SLOT_W
+    Y0 = front(FT) - BACKSTAND_LIP          # the foot's front edge
+    Y1 = max(BY1_ + BACKSTAND_RAIL_T + 2.0, BACKSTAND_BACK*k)   # and its back
+    HW = max(XO + 2.5, BACKSTAND_HW*k)
+
+    # ---- the foot ----------------------------------------------------------
+    fillet = BACKSTAND_FILLET
+    foot_pts = [(-HW, Y0), (HW, Y0), (HW, Y1 - fillet)]
+    for i in range(1, 8):
+        a = math.radians(90.0*i/8.0)
+        foot_pts.append((HW - fillet + fillet*math.cos(a), Y1 - fillet + fillet*math.sin(a)))
+    foot_pts.append((-HW + fillet, Y1))
+    for i in range(1, 8):
+        a = math.radians(90.0 + 90.0*i/8.0)
+        foot_pts.append((-HW + fillet + fillet*math.cos(a), Y1 - fillet + fillet*math.sin(a)))
+    s = prism(foot_pts, 0.0, FT)
+
+    # ---- the front lip, which is the trench's front wall --------------------
+    # It runs up past where the clock's front face crosses it; subtracting the
+    # clock leaves its inner face parallel to that face, at the clearance.
+    # FROM z = 0, not from the foot's top and not buried a millimetre into it.
+    # Both were tried and both are the same mistake in different clothes. The
+    # kerb shares the foot's FRONT face at Y0 and both its side faces at HW, so
+    # it has to share the bottom one too and be a straight extension of the
+    # prism there -- otherwise the boolean leaves a T-junction along the front
+    # bottom edge, and the float32 round trip turns that into five non-manifold
+    # edges on every body. (Meeting exactly at z = FT was worse still: on the 60
+    # the kerb exported as a second body floating above the plate.)
+    # ...and INSET half a millimetre on the front, so it shares no vertical face
+    # or edge with the foot. Sharing the front face exactly left two edges with
+    # four faces on them, which float32 cannot represent.
+    #
+    # NARROWER THAN THE FOOT, and that is not cosmetic. The clock is a leaning
+    # DISC: at the kerb's top its rim has curved in to a half width of
+    # sqrt(R^2 - p^2), and a kerb wider than that has its top plane grazed
+    # tangentially by the rim, which feathers out to nothing. check3 measured
+    # 0.09 mm of it. So the kerb stops well inside the rim and the clock's front
+    # face cuts it cleanly right across.
+    KW = min(HW - 0.5, 20.0*max(1.0, k))
+    s += _wall_yz([(Y0 + 0.5, 0.0), (frontc(0.0), 0.0),
+                   (frontc(KH), KH), (Y0 + 0.5, KH)], -KW, KW)
+
+    # ---- the two buttresses ------------------------------------------------
+    # Front edge: the clock's back face, so the disc beds against the whole
+    # height of it. Back edge: a straight rake from the foot's back corner to
+    # SPINE_T behind the clock at the top -- 33 degrees off vertical, so the
+    # overhang is 57 degrees from horizontal and needs no support.
+    prof = [(backc(FT - 1.0), FT - 1.0),
+            (backc(SH), SH),
+            (backc(SH) + BACKSTAND_SPINE_T*max(1.0, k), SH),
+            # Y1 - FILLET, not Y1: the foot's back corners are radiused, so a
+            # buttress that runs all the way to the back edge overhangs the
+            # fillet at its outer corner. On the 24 that left a 1.12 mm sliver
+            # and check3 found it.
+            (Y1 - BACKSTAND_FILLET, FT - 1.0)]
+    for sgn in (-1.0, 1.0):
+        xi, xo = sorted((sgn*XI, sgn*XO))
+        s += _wall_yz(prof, xi, xo)
+
+    # ---- the board bay: two rails, and a lip on the back one ---------------
+    SW  = BACKSTAND_SLOT_W
+    BY0 = BACKSTAND_BAY_Y0
+    BY1 = BY0 + SW
+    RT, RH = BACKSTAND_RAIL_T, BACKSTAND_RAIL_H
+    BL = BACKSTAND_BOARD_L
+    # The rails run all the way out to the buttresses and TIE THEM TOGETHER.
+    # Two 2.50 mm ribs across the foot cost nothing and stop the pair splaying
+    # under a 290 g clock leaning on them; the board only needs to reach 32.
+    # THE FRONT RAIL TIES THE BUTTRESSES TOGETHER, the back one does not. At
+    # y 7.5..10 the front rail is deep inside the buttress at every height, so
+    # it welds into it cleanly; the back rail at y 40.6..43.1 runs past the
+    # buttress's raked back edge and leaves 0.1 mm slivers where it pokes out.
+    # One tie is enough -- it is a rib across the foot, and the foot is what
+    # actually stops the pair splaying.
+    rx_f = XO - 0.50         # buried in the wall, not flush with its face:
+                             # a coincident face here cost the 60 six rounds
+                             # of float32 cleanup and then failed outright
+    rx_b = BL/2.0 + 1.50     # clear of the buttress altogether
+    rx   = max(rx_f, rx_b)   # for the cuts and the probes below
+    lz0 = FT + BACKSTAND_POST_H + BOARD_T   # the board's top face
+    rh_back = (lz0 + BACKSTAND_LIP_GAP + BACKSTAND_LIP_T) - FT
+    s += box_lwh(-rx_f, rx_f, BY0 - RT, BY0, FT - 1.0, FT + RH)        # low,
+    s += box_lwh(-rx_b, rx_b, BY1, BY1 + RT, FT - 1.0, FT + rh_back)   # carries
+    # posts under the PCB, so the header pins have somewhere to be
+    for sx in (-1.0, 1.0):
+        for sy in (BY0 + 4.0, BY1 - 4.0):
+            s += cyl(3.0, FT - 1.0, FT + BACKSTAND_POST_H, 24,
+                     centre=(sx*(BL/2.0 - 6.0), sy))
+    # The back rail's lip: slide the board's back edge under it, then drop the
+    # front edge in over the low front rail. Nothing screws down and nothing
+    # closes over the board. The lip's underside is a flat ceiling 1.50 mm wide
+    # -- a LEDGE, not a bridge, and check3 allows 2.50.
+    lo = BACKSTAND_LIP_OVER
+    s += box_lwh(-18.0, 18.0, BY1 - lo, BY1,
+                 lz0 + BACKSTAND_LIP_GAP, FT + rh_back)
+
+    # ---- and now take everything away --------------------------------------
+    s -= clock
+    # the board slot itself, and the air over it: the leads come off the top of
+    # a dev board, so nothing may close over it
+    # NOT rx. The rails run THROUGH the buttresses; this cut must stop at their
+    # inner face or it takes the top off both of them -- which is exactly what
+    # it did the first time rx was widened, and check3 is what found it.
+    cx = XI + 0.50
+    s -= box_lwh(-cx, cx, BY0, BY1 - lo, FT + BACKSTAND_POST_H, FT + 200.0)
+    s -= box_lwh(-cx, cx, BY1 - lo, BY1,
+                 FT + BACKSTAND_POST_H, lz0 + BACKSTAND_LIP_GAP)
+    # the window through each buttress, a pentagon with a 45 degree gable
+    wy0, wy1 = BACKSTAND_WIN_Y0, BACKSTAND_WIN_Y1
+    wh, wa = FT + BACKSTAND_WIN_H, FT + BACKSTAND_WIN_APEX
+    win = [(wy0, FT - 1.0), (wy1, FT - 1.0), (wy1, wh),
+           ((wy0 + wy1)/2.0, wa), (wy0, wh)]
+    # The buttress's back edge RAKES FORWARD, so the wall behind the window is
+    # thinnest at the window's tallest back point, not at its base. At y1 = 36
+    # that left 0.98 mm and check3 found it on two bodies.
+    rake = lambda z: (Y1 - BACKSTAND_FILLET) + (backc(SH) + BACKSTAND_SPINE_T*max(1.0, k)
+                                                - (Y1 - BACKSTAND_FILLET)) * (z - (FT - 1.0)) / (SH - (FT - 1.0))
+    for wy, wz in ((wy1, FT - 1.0), (wy1, wh), ((wy0 + wy1)/2.0, wa)):
+        assert rake(wz) - wy >= 1.5, (
+            f'back-stand: {rake(wz) - wy:.2f} mm of buttress behind the window at '
+            f'y={wy:.1f}, z={wz:.1f}; move BACKSTAND_WIN_Y1 forward')
+    # ONE PER BUTTRESS. Cut across the full width and it goes through the board
+    # bay's rails and the retaining lip as well, which is exactly what the first
+    # version did.
+    for sgn in (-1.0, 1.0):
+        xi, xo = sorted((sgn*(XI - 1.0), sgn*(XO + 1.0)))
+        s -= _wall_yz(win, xi, xo)
+    # The cable gate: a channel out of the foot's top from inside the trench to
+    # inside the bay, and it takes the middle out of the front rail on the way
+    # so the leads reach the board without climbing anything. The rail's two
+    # outer sections still hold the board's front edge and still tie the
+    # buttresses together.
+    #
+    # It starts BEHIND the clock and ends INSIDE the bay on purpose. Ending it
+    # on a face that already exists -- the foot's top, the rail's top, the bay's
+    # front -- is what a boolean cannot do reliably: the first version stopped
+    # 0.001 mm above the foot and that sliver collapsed in the float32 round
+    # trip, taking the 24's manifold with it. Overlap what you cut into.
+    s -= box_lwh(-BACKSTAND_CABLE_HW, BACKSTAND_CABLE_HW,
+                 back(FT) - 2.0, BY0 + 2.0,
+                 FT - BACKSTAND_CABLE_D, FT + RH + 1.0)
+    # and anything that ended up under the desk
+    s -= box_lwh(-500, 500, -500, 500, -500.0, 0.0)
+    return s
+
+
 def make_body(n, ring_od, ring_id, tag=None):
     """A clock of another size: give it the LED count and the ring's outer and
     inner diameter, measured, and every other radius follows the rules the 32
@@ -1716,6 +1928,7 @@ def parts_for(B, sam, full=True):
                                          f'mini-round-clock-deskstand{tg}', True),
         (standbox,                       f'mini-round-clock-standbox{tg}',  True),
         (tray,                           f'mini-round-clock-standbox-tray{tg}', True),
+        (build_backstand(B),             f'mini-round-clock-backstand{tg}', True),
         (build_numerals(B),              f'mini-round-clock-numerals{tg}',  False),
     ]
     # the flange only where there is a trough to fill: the 60's diffuser

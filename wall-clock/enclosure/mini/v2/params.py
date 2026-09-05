@@ -129,7 +129,7 @@ BOARD_L, BOARD_W, BOARD_T = 63.27, 28.19, 1.60
 # not a fit. A 0.81 mm error in the direction that closes a slot is exactly
 # the kind that a drawing cannot catch and a printed channel settles in a
 # minute.
-BOARD2_W, BOARD2_L, BOARD2_H = 29.00, 64.00, 14.00
+BOARD2_W, BOARD2_L, BOARD2_H = 30.00, 64.00, 14.00
 # The gauge brackets the slot, because a printed 32.40 mm slot is not 32.40 --
 # it is that minus the elephant's foot and the wall's own squish, and this
 # printer's number for that is unknown. Four channels, 0.40 apart, and the one
@@ -138,7 +138,7 @@ BOARD2_W, BOARD2_L, BOARD2_H = 29.00, 64.00, 14.00
 # 29.00, which is the board itself and will not go in; 29.80 gives 0.40 of
 # real clearance, 30.20 gives 0.80. So the answer is almost certainly the
 # middle pair, and the outer two are there to prove it.
-BOARD2_GAUGE_SLOTS = (29.40, 29.80, 30.20, 30.60)
+BOARD2_GAUGE_SLOTS = (30.20, 30.60, 31.00, 31.40)
 BOARD2_GAUGE_LEN   = 30.00   # a section of channel, not the whole 64
 BOARD_CLR   = 0.45          # per side, in the pocket
 BOARD_LIFT  = 1.20          # pads under the PCB, so header tails have somewhere to go
@@ -1527,16 +1527,14 @@ STANDBOX_TIP_TARGET = 21.0   # tipping design angle, forward AND back; check6
 # own board mount keeps BOARD_W/BOARD_L, because those parts already fit and
 # there is no reason to disturb them.
 #
-# 30.20 is the third of the four gauge channels. He is printing tonight without
-# the gauge, so this is a judgement call and it is deliberately the LOOSE one
-# of the middle pair: the params note above reckons a nominal 30.20 slot prints
-# to about 0.80 of real clearance, 0.40 a side. That is an ordinary FDM slip
-# fit, the corner hooks hold the board down anyway, and it tolerates more
-# printer variation than 29.80 would. A board that rattles slightly is a
-# nuisance; a board that will not go in wastes the whole print.
-# If it IS sloppy, set this to 29.80 and re-run -- one number, one re-slice.
-STANDBOX_SLOT_W   = 30.20
-STANDBOX_BOARD_W  = BOARD2_W   # 29.00, Sam's, not the drawing's 28.19
+# 30.60, was 30.20. Sam, 2026-09-04: "the width of the board is 30mm" -- the
+# 29.00 this was cut for was a mis-measure, and 30.20 against a 30.00 board is
+# 0.10 a side NOMINAL, which a printed slot eats before the board arrives. At
+# 30.60 the worst case is 30.20 across and the fit is 0.10 a side; the typical
+# case is a 0.30 slip fit. The gauge brackets it either way.
+# If it IS sloppy, set this to 30.20 and re-run -- one number, one re-slice.
+STANDBOX_SLOT_W   = 30.60
+STANDBOX_BOARD_W  = BOARD2_W   # 30.00, Sam's, not the drawing's 28.19
 STANDBOX_BOARD_L  = BOARD2_L   # 64.00, Sam's, not the drawing's 63.27
 STANDBOX_BOARD_H  = BOARD2_H   # 14.00 over the PCB, headers included
 # "the heigt is 14mm but wires stick out the top because it is a dev board" --
@@ -1569,3 +1567,63 @@ DIFF_FLANGE_D     = DIFF_SEAT_Z - Z_RECESS - 0.30    # 2.63, behind the face
 DIFF_FLANGE_CLR   = 0.30     # radial, to the lip's inner wall
 DIFF_FLANGE_CHAMF = 0.60     # on its front outer edge
 DIFF_FLANGE_MIN   = 1.00     # narrower than this and there is nothing to add
+
+
+# --- 7. the back-stand -------------------------------------------------------
+# Sam, 2026-09-04: "give make a better base that isn't as bulky. Also the width
+# of the board is 30mm. The base needs to be open to fit the cables, and the
+# base can go behind the clock housing with an angle."
+#
+# So the plinth goes. The stand-box lifted the clock 32 mm on a closed box with
+# a lid, two screws and a slide-in tray: 196.6 cm3 of plastic to hold a 12 g
+# board. This does the same job with a quarter of that, and it is open on every
+# side that does not have to carry something.
+#
+# The clock comes down to the desk and beds 4 mm into a trench in the foot, so
+# the trench walls -- which are the clock's own front and back faces, cut by
+# subtracting the clock -- set the lean. Two buttresses behind it take the
+# weight of the lean; everything between them is air, which is where the leads
+# and the board live. Nothing is enclosed, so nothing needs a lid.
+BACKSTAND_TILT    = 14.00    # degrees back from vertical. The stand-box was 12
+BACKSTAND_SIT     =  1.00    # the clock's lowest point, above the desk
+BACKSTAND_FOOT_T  =  5.00    # the foot plate, so the trench is 4 mm deep
+BACKSTAND_CLR     =  0.50    # everywhere the stand meets the clock
+BACKSTAND_LIP     =  5.00    # foot in front of where the clock's front face
+                             # crosses the foot's top -- the front of the trench
+BACKSTAND_KERB_H  = 15.00    # and how high that front lip climbs
+BACKSTAND_KERB_T  =  4.00    # its thickness at the top
+BACKSTAND_BACK    = 48.00    # the foot's back edge. Sets tipping backwards and
+                             # has to clear the board bay, which ends at 42.6
+BACKSTAND_HW      = 43.00    # half width of the foot
+BACKSTAND_FILLET  =  4.00    # on the foot's back corners
+BACKSTAND_WALL_XI = 34.00    # the buttresses: inner face, |x|. Outboard of the
+BACKSTAND_WALL_XO = 40.50    # board, which is 64 long and centred
+BACKSTAND_SPINE_H = 48.00    # how far up the clock's back they reach
+BACKSTAND_SPINE_T =  8.00    # material behind the clock's back face up there
+# The window through each buttress: the board's connector end looks straight at
+# it from 2 mm away, and the leads want a way out. A pentagon with a 45-degree
+# gable, so there is no flat roof to bridge and no support to pick out of it.
+BACKSTAND_WIN_Y0  = 14.00
+BACKSTAND_WIN_Y1  = 32.00    # 32, not 36: at 36 only 0.98 mm of buttress
+                             # was left behind it where the back rake comes
+                             # forward. build_backstand asserts the margin now
+BACKSTAND_WIN_H   = 12.00    # height of the straight sides, above the foot
+BACKSTAND_WIN_APEX= 23.50    # the gable's apex, above the foot. The gable is 52
+                             # degrees: at exactly 45 it lands on the wrong side
+                             # of check3's flatter-than-45 test
+# The board bay: an open channel, no lid, no tray, no screws.
+BACKSTAND_SLOT_W  = 30.60    # for a 30.00 board. A printed slot loses up to
+                             # FDM_SLOT_UNDER = 0.40 across, so the worst case
+                             # is 30.20 -- still 0.10 a side, and the fit gauge
+                             # brackets it at 30.20 / 30.60 / 31.00 / 31.40
+BACKSTAND_BOARD_L = BOARD2_L
+BACKSTAND_BOARD_H = BOARD2_H
+BACKSTAND_BAY_Y0  = 10.00    # front face of the slot
+BACKSTAND_POST_H  =  4.00    # PCB underside above the foot's top: header pins
+BACKSTAND_RAIL_T  =  2.50
+BACKSTAND_RAIL_H  =  6.00    # above the foot's top -- 0.40 over the board's top
+BACKSTAND_LIP_OVER=  1.50    # the rear rail's lip, over the board's top face
+BACKSTAND_LIP_T   =  1.60
+BACKSTAND_LIP_GAP =  0.20    # over the board's top face, so it is held not gripped
+BACKSTAND_CABLE_HW=  9.00    # the channel from the trench back to the bay
+BACKSTAND_CABLE_D =  3.00    # how deep it is cut into the foot
