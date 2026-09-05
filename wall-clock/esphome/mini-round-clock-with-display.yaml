@@ -105,6 +105,27 @@ substitutions:
   # Override on the command line to A/B without editing:  -s lcd_hz 40MHz
   lcd_hz: 20MHz
 
+  # THE ROUND PANEL'S BUFFER, AND THE BAND HEIGHT THAT FALLS OUT OF IT. These
+  # three must agree, and the lambda cannot check them: mipi_spi runs the
+  # display writer once per BAND and gives it no way to ask which band it is
+  # in, so the band index is counted and the height is taken from here.
+  #
+  #   lcd_buffer  what ESPHome is asked for. It takes the first divisor of 360
+  #               small enough, so 17% -> 1/6.
+  #   lcd_bands   360 / lcd_band_h. What the counter wraps at.
+  #   lcd_band_h  the band height the animation box is aligned to.
+  #
+  # ON A BOARD WITH WORKING PSRAM this becomes one band and the whole six-band
+  # problem goes away -- no counter, no marker column, no alignment:
+  #
+  #   -s lcd_buffer 100% -s lcd_bands 1 -s lcd_band_h 360
+  #
+  # plus a `psram:` block. Do not do that on the clock modules: their PSRAM
+  # fails its hardware probe outright -- see the note under esp32: below.
+  lcd_buffer: 17%
+  lcd_bands: "6"
+  lcd_band_h: "60"
+
   # The render reads the real LED count from the strip at runtime, so this
   # only has to be right for the light component itself.
   # Default ring size, and the initial value of the runtime "Ring LED count"
@@ -3690,7 +3711,7 @@ display:
     # on this board (see the note at the top of the file). If the log ever says
     # "Buffer allocation failed", this is the line: the fallback is to drop the
     # animation box back to a full repaint (grow_partial off) and remove this.
-    buffer_size: 17%
+    buffer_size: ${lcd_buffer}
     pixel_mode: 16bit         # MUST match COLMOD 0x05 in the table above
     invert_colors: false      # flip if the image looks like a photo negative
 
@@ -3873,7 +3894,7 @@ display:
     lambda: |-
       // FIRST LINE, so the early returns below cannot skip it. See an_band.
       const int band = id(an_band);
-      id(an_band) = (band + 1) % 6;
+      id(an_band) = (band + 1) % ${lcd_bands};
       if (!id(an_partial)) {
         it.fill(Color::BLACK);                     // what auto-clear used to do
         // A full frame draws the eyes from the SAME drawn-pose globals the
@@ -4123,16 +4144,26 @@ display:
           const int AN_L = CX - 124, AN_R = CX + 124;   // x 56..303
           const int AN_T = 60,       AN_B = 240;        // y 60..239
           const int AN_MK = 4;                          // marker column width
-          const int b0 = band <= 5 ? band*60 : 0;       // this band's rows;
-          const int b1 = band <= 5 ? b0 + 60 : 360;     // 0..359 if ever unsure
+          const int b0 = band < ${lcd_bands} ? band*${lcd_band_h} : 0;
+          const int b1 = band < ${lcd_bands} ? b0 + ${lcd_band_h} : 360;
           auto strip = [&it, &field](int x, int w, int y0, int y1) {
             if (y1 > y0) it.filled_rectangle(x, y0, w, y1 - y0, field);
           };
           if (partial) {
-            it.start_clipping(0, 0, AN_MK, 360);
-            strip(0, AN_MK, b0, std::min(b1, AN_T));
-            strip(0, AN_MK, std::max(b0, AN_B), b1);
-            it.end_clipping();
+            // THE MARKER IS ONLY FOR BANDED RENDERING. With a single band
+            // nothing can come back empty, so there is nothing to keep alive --
+            // and drawing it anyway would be actively wrong: the marker rows and
+            // the box rows would share that one band, giving a bounding box of
+            // x 0..303 with only the two of them written and everything between
+            // flushed as whatever the buffer held. That is the exact failure the
+            // alignment exists to prevent, and one band is the case where the
+            // alignment cannot help.
+            if (${lcd_bands} > 1) {
+              it.start_clipping(0, 0, AN_MK, 360);
+              strip(0, AN_MK, b0, std::min(b1, AN_T));
+              strip(0, AN_MK, std::max(b0, AN_B), b1);
+              it.end_clipping();
+            }
             it.start_clipping(AN_L, AN_T, AN_R, AN_B);
             strip(AN_L, AN_R - AN_L, std::max(b0, AN_T), std::min(b1, AN_B));
           }

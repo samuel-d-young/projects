@@ -285,16 +285,22 @@ can see, so every flash is a hands step. What the bench session settled:
   error and the exit code.
 ### THE BOARDS ON THIS BENCH, BY MAC. READ THIS BEFORE YOU FLASH ANYTHING.
 
+THE TABLE IS THE AUTHORITY, NOT THE PORT AND NOT THE PANEL. Every one of
+these boards is an ESP32-S3 carrying the same 2.1in GC9B72, so they are
+indistinguishable on a bench by sight or by what is plugged in where.
+
 | MAC | what it is | do |
 |---|---|---|
 | `ac:27:6e:a4:cd:98` | clock #2, `mini-round-clock-2`, 32 LED | flash as clock #2 |
 | `ac:27:6e:a3:3b:ac` | clock #3, live at 192.168.1.69 | flash as clock #3 only |
-| `ac:27:6e:a3:de:6c` | **SAM'S FLIGHT DECK. NOT A CLOCK.** 192.168.1.68, its own portal on port 80, not an ESPHome device | **NEVER WRITE TO IT** |
+| `ac:27:6e:a3:de:6c` | **clock #4** as of 2026-09-05. Was Sam's Flight Deck; he rewired it. Same wiring as clock 3, 32 LEDs. COM10 | flash as clock #4 |
 | anything else | unknown board | report the MAC and STOP |
 
-2026-09-05: Sam said "the second ESP 32 plugged into the computer, flash it",
-twice. The second ESP32 on USB was the **Flight Deck**, and clock firmware
-would have destroyed it. It carries the same 2.1in GC9B72 panel as the clocks,
+2026-09-05, MORNING: Sam said "the second ESP 32 plugged into the computer,
+flash it", twice. The second ESP32 on USB was then his **Flight Deck**, and
+clock firmware would have destroyed it. He has since rewired that board into
+clock #4, so the row above has changed and the near-miss is history -- but the
+RULE is not, and this is why it exists. It carries the same 2.1in GC9B72 panel as the clocks,
 which is exactly why it looks like one on a bench. The bench session read its
 MAC, found no match, stopped, and only then read its boot banner:
 
