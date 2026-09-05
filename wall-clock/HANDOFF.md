@@ -292,8 +292,8 @@ indistinguishable on a bench by sight or by what is plugged in where.
 | MAC | what it is | do |
 |---|---|---|
 | `ac:27:6e:a4:cd:98` | clock #2, `mini-round-clock-2`, 32 LED | flash as clock #2 |
-| `ac:27:6e:a3:3b:ac` | clock #3, live at 192.168.1.69 | flash as clock #3 only |
-| `ac:27:6e:a3:de:6c` | **clock #4**, live 2026-09-05. Was Sam's Flight Deck; he rewired it. Same wiring as clock 3, 32 LEDs. COM10, **192.168.1.68**, `mini-round-clock-4.local`, 112 entities. Kept the Flight Deck's DHCP lease | flash as clock #4 |
+| `ac:27:6e:a3:3b:ac` | **Zac's Clock** (clock #3), 192.168.1.69, **24 LED** | flash as clock #3 only |
+| `ac:27:6e:a3:de:6c` | **Jake's Clock** (clock #4), 2026-09-05. Was Sam's Flight Deck; he rewired it. Same wiring as clock 3, **32 LED**. COM10, **192.168.1.68**, `mini-round-clock-4.local`, 112 entities. Kept the Flight Deck's DHCP lease | flash as clock #4 |
 | anything else | unknown board | report the MAC and STOP |
 
 2026-09-05, MORNING: Sam said "the second ESP 32 plugged into the computer,
@@ -364,11 +364,15 @@ esphome run mini-round-clock-with-display.yaml --device COM12 `
 
 # clock 3 -- the third board, 2026-09-03. THE ONE THAT IS ACTUALLY RUNNING.
 # COM11 on the bench; 192.168.1.69, MAC ac:27:6e:a3:3b:ac,
-# mini-round-clock-3.local. 32 LEDs, not 24 -- Sam said "32 LEDS" for this
+# mini-round-clock-3.local. 24 LEDs -- Sam, 2026-09-05: "Zac's is the 24 LED
 # board. num_leds is only the compile-time DEFAULT in any case; the ring size
 # is a runtime number in Home Assistant with a ceiling of 60.
-esphome run mini-round-clock-with-display.yaml --device COM11 `
-  -s device_name mini-round-clock-3 -s friendly_name "Mini Round Clock 3" -s num_leds 32
+esphome -s device_name mini-round-clock-3 -s friendly_name "Mini Round Clock 3" `
+  -s num_leds 24 run mini-round-clock-with-display.yaml --device COM11
+
+# clock 4 -- "Jake's Clock". COM10, 192.168.1.68, ac:27:6e:a3:de:6c. 32 LEDs.
+esphome -s device_name mini-round-clock-4 -s friendly_name "Mini Round Clock 4" `
+  -s num_leds 32 run mini-round-clock-with-display.yaml --device COM10
 ```
 
 **Identify a board before writing to it.** `esphome logs
