@@ -137,7 +137,34 @@ than guess. The one that takes the board without force is the answer.
    middle 18 mm out of the front rail so the leads reach the board without
    climbing anything.
 
-## The enclosed build — print these instead
+## The enclosed build — electronics in the base
+
+`2026-09-05`, and this supersedes the deep-housing set below. Sam: "Actually,
+change of plans. I like having the electronics in the base under the clock."
+
+**Two parts, and they replace the back-stand only:**
+
+| print | instead of | |
+|---|---|---|
+| `mini-round-clock-plinth{tag}` | `mini-round-clock-backstand{tag}` | the same stand with the bay walled up to a lid height |
+| `mini-round-clock-plinth{tag}-lid` | — | 2.5 mm plate, prints flat, two M2 x 8 screws |
+
+The clock itself is **unchanged**: base, back cover, the ORIGINAL `housing`
+(not `-deep`), diffusers, numerals. The hold-down bar is optional — the board
+is captive under the lid.
+
+**Why it was a small change.** The bay was already walled on all four sides —
+front rail, back rail, two buttresses. It never had a lid. The plinth adds a
+collar that carries those four walls up to one flat plane, and the lid closes
+it. **12.4 mm of clear air over the board**, which is a Dupont shell plus room.
+
+**Assembly.** Board into the bay as before, cable ties if you want them, leads
+in through the gate from the trench. Then slide the lid's front tongue into the
+slot in the front wall, drop the back onto its seat, two screws. The USB looks
+out through the buttress window as it always did, and those windows are the
+bay's ventilation — this is a closed box, not a sealed one.
+
+## The deep-housing build — superseded, kept because it works
 
 `2026-09-05`. The open back-stand is superseded for anyone who wants the clock
 closed. Sam: "The current back stand doesn't work... I want the clock to be

@@ -39,3 +39,13 @@ for t in '' -32 -60; do
         echo '*** FAILED ***'; cat /tmp/wc-check.txt; exit 1
     fi
 done
+# check 9: the plinth — the back-stand with a lid on the bay, which is where
+# the electronics live now.
+for t in '' -32 -60; do
+    printf '%-22s ' "check9_plinth.py ${t:-24}"
+    if python3 check9_plinth.py "$t" > /tmp/wc-check.txt 2>&1; then
+        tail -1 /tmp/wc-check.txt
+    else
+        echo '*** FAILED ***'; cat /tmp/wc-check.txt; exit 1
+    fi
+done

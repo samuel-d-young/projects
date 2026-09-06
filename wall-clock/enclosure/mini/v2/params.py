@@ -1796,3 +1796,35 @@ HOUSING_S3_TIE_Y    = (-14.0, 14.0)   # where the two ties cross the board
 # own port at +x. Nothing is cut for it: the plenum IS the gate. This is only
 # the clear height asserted in the build.
 HOUSING_S3_PLENUM_MIN = 12.00
+
+
+# =============================================================================
+# v11 — THE PLINTH: the same stand, with a lid on the bay
+# =============================================================================
+# Sam, 2026-09-05: "Actually, change of plans. I like having the electronics in
+# the base under the clock."
+#
+# This is option B from DESIGN-BRIEF, and it turned out to be a much smaller
+# change than the write-up implied. THE BAY IS ALREADY WALLED ON ALL FOUR SIDES:
+# the front rail, the back rail and the two buttresses. What it has never had is
+# a lid. So the plinth is the back-stand plus a collar that carries the walls up
+# to a lid height, plus the lid.
+#
+# 14.00 above the foot's top face, which is 12.40 of clear air over the board.
+# Not 8: a Dupont shell on a header is about 10 mm tall, and a lid that fouls
+# the plugs is a lid nobody fits twice. The clock is nowhere near it -- its back
+# face crosses y = 7.50 at z = 29, and the collar's front wall tops out at 16.50.
+PLINTH_LID_Z   = 14.00   # lid underside, above the foot's top
+PLINTH_LID_T   =  2.50
+PLINTH_LID_CLR =  0.30   # per side, lid to collar
+PLINTH_BOSS_R  =  3.25   # the screw bosses, sunk INTO the side walls so they
+                         # take nothing away from the bay
+PLINTH_BOSS_INSET = 3.50 # from the back wall's outer face
+PLINTH_BOSS_X  = 30.00   # |x| of the two screws. 30, not 43: at |x| >= 40 the
+                         # side wall is buttress all the way to z = 48, so a
+                         # vertical pilot there is a blind hole inside solid
+                         # material -- no screwdriver reaches it, and it exports
+                         # as a sealed void, which is how it was found
+PLINTH_TONGUE_HW = 30.00 # the lid's front tongue, half width
+PLINTH_TONGUE_L  =  4.00 # how far it slides into the front wall
+PLINTH_SCREW_PILOT = 1.60

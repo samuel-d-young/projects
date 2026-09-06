@@ -353,3 +353,36 @@ the mesh rather than trusting the parameter.
 `check8_deep_housing.py` tests the JOURNEY, not the shape -- board in, plug in,
 wires through, board out -- because the back-stand failed precisely by passing
 every shape test there was.
+
+### Then built: option B instead
+
+Sam, 2026-09-05: "Actually, change of plans. I like having the electronics in
+the base under the clock."
+
+`mini-round-clock-plinth{tag}` + `-lid`. **It turned out to be a far smaller
+change than the write-up above implied, and the reason is worth recording: the
+bay was already walled on all four sides** -- the front rail, the back rail and
+the two buttresses. What it had never had was a lid. So the plinth is the
+back-stand plus a collar that carries those four walls up to one flat plane,
+plus a 2.5 mm plate. 12.4 mm of clear air over the board.
+
+Three things the mesh caught that reading the code would not have:
+
+* **The collar slabbed the bay floor.** Drawn as a solid block hollowed from
+  `FT + 0.50`, it left 1.50 mm of new material lying across the whole bay --
+  burying the hold-down bosses and lifting the board. The void has to start
+  BELOW the foot's top: the collar is a ring of walls and the floor is the
+  foot's, already there. It exported as four negative-volume bodies, which is
+  how it was found.
+* **Two of the four lid screws were inside a buttress.** At |x| >= 40 the side
+  wall is buttress all the way to z = 48, so a vertical pilot there is a blind
+  hole in solid material that no screwdriver reaches. Two screws at the back at
+  |x| = 30, and the front edge slides into a slot instead.
+* **The front is a slot and the back is a seat, and they cannot be the same
+  height.** The collar is drawn to `lid_z + LID_T` so the front wall can roof
+  the tongue; left at that height all the way round, the back wall stands
+  exactly where the lid's back edge goes -- 768 mm3 of interference, which is
+  the whole back of the lid.
+
+The deep housing stays in the tree and still passes check8. It is the better
+answer if the clock ever goes on a wall, where a base is dead weight.

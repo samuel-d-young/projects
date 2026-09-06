@@ -1921,7 +1921,7 @@ def build_backstand_clamp():
     return g.translate([0.0, y0, top + BACKSTAND_CLAMP_T])
 
 
-def build_backstand(B, deep=False):
+def build_backstand(B, deep=False, closed=False):
     """The stand that is not a box. Sam, 2026-09-04: "give make a better base
     that isn't as bulky... The base needs to be open to fit the cables, and the
     base can go behind the clock housing with an angle."
@@ -2217,9 +2217,108 @@ def build_backstand(B, deep=False):
         s -= _tie_pad(sx*tex, BACKSTAND_TIE_END_Y,
                       BACKSTAND_TIE_END_L, BACKSTAND_TIE_END_G,
                       0.0, FT + 1.0, axis='x', relief_w=BACKSTAND_TIE_END_L + 1.0)
+    # ---- THE PLINTH'S COLLAR AND LID SEAT --------------------------------
+    # Sam, 2026-09-05: "I like having the electronics in the base under the
+    # clock." This is that, and it is a small change because THE BAY IS ALREADY
+    # WALLED ON ALL FOUR SIDES -- front rail, back rail, two buttresses. What it
+    # has never had is a lid.
+    #
+    # The buttresses rake forward as they rise, so above about z = 9 they stop
+    # reaching the back rail: at the lid height they span y to 32.7 on the 24
+    # and the bay needs 43.1. The collar is what carries all four walls up to
+    # one flat plane, and it is drawn as a solid block with the bay hollowed out
+    # of it rather than as four walls butted together -- four boxes meeting on
+    # shared planes is the coincident-face case this file keeps relearning.
+    if closed:
+        lid_z = FT + PLINTH_LID_Z
+        # HOLLOW FROM BELOW THE FLOOR, not from FT + 0.50. The first version
+        # took the void from half a millimetre above the foot's top and so left
+        # a 1.50 mm slab of new material lying across the whole bay -- it buried
+        # the hold-down bosses and lifted the board. The collar is a RING OF
+        # WALLS and nothing else; the floor is the foot's, already there.
+        col = box_lwh(-XO, XO, BY0 - RT - 2.0, BY1 + RT + 2.0,
+                      FT - 1.0, lid_z + PLINTH_LID_T)
+        col -= box_lwh(-XI, XI, BY0, BY1, FT - 2.0, lid_z + PLINTH_LID_T + 1.0)
+        # the windows go through the collar too -- they are the USB's way out
+        # and the bay's ventilation, and a sealed box round a dev board is not
+        # a thing anyone wants
+        for sgn in (-1.0, 1.0):
+            xi, xo = sorted((sgn*(XI - 1.0), sgn*(XO + 1.0)))
+            col -= _wall_yz(win, xi, xo)
+        s += col
+        # ---- what the lid sits on -----------------------------------------
+        # Two ledges hanging off the side walls, and the back wall's own top.
+        for sx in (-1.0, 1.0):
+            x0, x1 = sorted((sx*(XI - 3.0), sx*XI))
+            s += box_lwh(x0, x1, BY0, BY1, lid_z - PLINTH_LID_T, lid_z)
+        # ---- and how it is held --------------------------------------------
+        # TWO SCREWS, AT THE BACK ONLY. Not four: at the front the side walls
+        # are buttress all the way to z = 48, so a vertical pilot there comes
+        # out inside solid material -- the first version drilled two blind holes
+        # that no screwdriver could ever reach, and they exported as sealed
+        # voids, which is how they were found. The front edge slides into a slot
+        # in the front wall instead, which costs nothing and holds better.
+        for sx in (-1.0, 1.0):
+            s -= cyl(PLINTH_SCREW_PILOT/2.0, lid_z - 9.0, lid_z + PLINTH_LID_T + 1.0,
+                     24, centre=(sx*PLINTH_BOSS_X, BY1 + RT + 2.0 - PLINTH_BOSS_INSET))
+        s -= box_lwh(-PLINTH_TONGUE_HW, PLINTH_TONGUE_HW,
+                     BY0 - PLINTH_TONGUE_L, BY0 + 0.10,
+                     lid_z - 0.20, lid_z + PLINTH_LID_T + 0.30)
+        # AND THE BACK WALL HAS TO COME DOWN TO THE LID'S OWN HEIGHT. The
+        # collar is drawn to lid_z + LID_T so the FRONT wall can roof the
+        # tongue's slot; left at that height all the way round, the back wall
+        # stands exactly where the lid's back edge goes -- 768 mm3 of
+        # interference, which is the whole back of the lid. The front is a
+        # slot, the back is a seat, and they cannot be the same height.
+        s -= box_lwh(-XI, XI, BY1, BY1 + RT + 3.0,
+                     lid_z, lid_z + PLINTH_LID_T + 1.0)
     # and anything that ended up under the desk
     s -= box_lwh(-500, 500, -500, 500, -500.0, 0.0)
     return s
+
+
+def build_plinth_lid(B, deep=False):
+    """The lid that closes the bay. Four M2 x 8 self-tappers into the collar's
+    side walls, and it comes off without disturbing the clock.
+
+    It sits ON the collar rather than in a rebate. A rebate would have to take
+    2 mm off the inside of every wall, and the front and back walls are only
+    2.50 thick -- it would leave 0.50 mm of lip holding a lid that people will
+    lever off with a fingernail.
+
+    Prints flat, face down, no support: it is a plate with four holes in it.
+    Exported lying on the bed at z = 0.
+    """
+    th  = math.radians(BACKSTAND_TILT)
+    k   = B.r_body / BODY32.r_body
+    XI  = max(BACKSTAND_WALL_XI, BACKSTAND_WALL_XI*k)
+    XO  = XI + (BACKSTAND_WALL_XO - BACKSTAND_WALL_XI)*max(1.0, k)
+    BY0 = BACKSTAND_BAY_Y0
+    BY1 = BY0 + BACKSTAND_SLOT_W
+    RT  = BACKSTAND_RAIL_T
+    C   = PLINTH_LID_CLR
+    # It spans the BAY, not the collar. The collar's side-wall tops are buried
+    # under buttress at the front, so a lid as wide as the collar could not be
+    # put on at all.
+    g = box_lwh(-XI + C, XI - C, BY0 - PLINTH_TONGUE_L + C,
+                BY1 + RT + 2.0 - C, 0.0, PLINTH_LID_T)
+    # the tongue is the FRONT of the plate itself -- it slides into the slot in
+    # the front wall, so the front needs no screws and no ledge
+    # BY0 + C, not BY0 - C. The collar's front wall is solid all the way to
+    # y = BY0, so a plate that goes full width from BY0 - C leaves a 0.30 mm
+    # strip of itself standing inside that wall -- 7 mm3 a side, which is small
+    # and is still a lid that will not go on.
+    g -= box_lwh(-XI - 1.0, -PLINTH_TONGUE_HW + C, BY0 - PLINTH_TONGUE_L - 1.0,
+                 BY0 + C, -1.0, PLINTH_LID_T + 1.0)
+    g -= box_lwh(PLINTH_TONGUE_HW - C, XI + 1.0, BY0 - PLINTH_TONGUE_L - 1.0,
+                 BY0 + C, -1.0, PLINTH_LID_T + 1.0)
+    for sx in (-1.0, 1.0):
+        cxy = (sx*PLINTH_BOSS_X, BY1 + RT + 2.0 - PLINTH_BOSS_INSET)
+        g -= cyl(SCREW_CLEAR/2.0, -1.0, PLINTH_LID_T + 1.0, 24, centre=cxy)
+        # countersunk, so nothing stands proud of a lid that faces the desk
+        g -= cyl(SCREW_HEAD/2.0, PLINTH_LID_T - 1.60, PLINTH_LID_T + 1.0, 32,
+                 centre=cxy)
+    return g
 
 
 def make_body(n, ring_od, ring_id, tag=None):
@@ -2265,6 +2364,8 @@ def parts_for(B, sam, full=True):
         (tray,                           f'mini-round-clock-standbox-tray{tg}', True),
         (build_backstand(B),             f'mini-round-clock-backstand{tg}', True),
         (build_backstand(B, deep=True),  f'mini-round-clock-backstand{tg}-deep', True),
+        (build_backstand(B, closed=True), f'mini-round-clock-plinth{tg}',      True),
+        (build_plinth_lid(B),            f'mini-round-clock-plinth{tg}-lid',   True),
         (build_backstand_clamp(),        f'mini-round-clock-backstand-clamp', True),
         (build_numerals(B),              f'mini-round-clock-numerals{tg}',  False),
     ]
