@@ -256,3 +256,61 @@ beam theory at E ≈ 2500 MPa, not a bench test.
    make a failure disappear.
 5. Regenerate `sketch_sections.py` and the renders, update `README.md` and
    `../../../BUILD-LOG.md`, and commit.
+
+---
+
+## The back-stand does not work, and the reason is measurable
+
+Sam, 2026-09-05: "The current back stand doesn't work. The placement of the
+ESP32 is too close to the wires coming out from the screen and the ESP32 can't
+be placed there. I want the clock to be enclosed."
+
+**The screen's wires leave the back of the clock at x = +41.** That is not a
+guess: mapping the housing's cable port through the same transform the stand
+builds the clock with puts its mouth at
+
+| body | port mouth, stand frame |
+|---|---|
+| 24 LED | x +41, y 28.7, z 49.5 |
+| 32 LED | x +41, y 25.3, z 56.5 |
+
+and the buttresses stand at **|x| 40.0 .. 46.5, up to z 48**. So the port is
+directly outboard, level with the top of a buttress, and **50 mm above the
+board's top face at z 6.6** — with a buttress between the two. The wires have
+to come out sideways, over a buttress, and down. There is nowhere for the
+board's connector end to be, which is exactly what Sam hit.
+
+None of the seven checks caught it because every one of them models the clock
+as a plain cylinder. `check7` proves the stand never touches that cylinder;
+nothing looked at what comes OUT of it. **A checker that models a part by its
+envelope cannot see a hole in it.**
+
+### What fits inside the clock, measured
+
+Probing a 66 x 32 mm footprint through the assembled stack:
+
+| gap | 24 LED | 32 LED |
+|---|---|---|
+| deck to back cover | z -3 .. -7.5 | z -3 .. -7.5 |
+| back cover to housing plate | z -12 .. -16.5 (4.5 mm) | z -12 .. -13 (1.5 mm) |
+
+The board needs 4.8 mm (1.6 PCB + 3.2 of USB shell and module). So it does NOT
+fit in today's housing on either body — the 24 is marginal, the 32 is not close.
+Housing depth is 25 mm on the 24 and 20 mm on the 32; **option A below needs
+about +12 mm.**
+
+### Four ways out
+
+`enclose-options.png` draws the first three to scale.
+
+* **A — deepen the rear housing and put the board inside the clock.** The wires
+  never leave. The stand becomes a plain cradle: no bay, no gate, no zip ties.
+  Costs 12 mm of depth and a reprint of the housing and the stand.
+* **B — a closed plinth under the clock.** Clock body untouched; a lidded box
+  under it holds the board. Needs ~60 mm of wire down a channel.
+* **C — a lidded pod on the back plate.** Least change; a visible backpack.
+* **D — turn the clock 90 degrees in the stand so the port points DOWN**, and
+  add `rotation:` to the display so the picture stays upright. No new parts at
+  all, and the wires then drop straight into the trench and the cable gate the
+  stand already has. It does not enclose anything -- it is the make-it-work-
+  tonight option.
