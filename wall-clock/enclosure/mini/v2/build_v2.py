@@ -367,6 +367,124 @@ def build_rear_housing(pocket_d, r_body=None, r_inner=None, with_board=True,
     return body
 
 
+def build_rear_housing_s3(B):
+    """The deep rear housing: the ESP32 lives INSIDE the clock.
+
+    Sam, 2026-09-05: "I want the clock to be enclosed... The ESP32 could sit
+    under the clock housing." This is that, and it is the only one of the four
+    options in DESIGN-BRIEF where the screen's wires never leave the clock --
+    so the fault that killed the back-stand cannot recur in a different place.
+
+    It reuses build_rear_housing for the shell, the keyhole, the screw pillars,
+    the vents and the mains gate, with with_board=False: the mount inside that
+    function is sized for BOARD_L/BOARD_W (63.27 x 28.19), and SAM'S BOARD IS
+    64.00 x 30.00. It would not have gone in. Everything below is the new mount.
+
+    LAYOUT, and every part of it is forced by something:
+
+      along y      because the wall-hanger's keyhole is cut through the rear
+                   plate at x 34..46, y +-4.5. A board along x wants its
+                   hold-down at |x| = 36, y = 0 -- straight through the keyhole.
+                   Along y the board is |x| <= 15.3 and the keyhole is clear.
+      USB at -y    pushed out until the board's end is HOUSING_S3_USB_GAP from
+                   the inner wall AT THE RAIL CORNERS. A centred board leaves
+                   19 mm between its connector and the wall and no USB-C plug
+                   bridges that. The wall then takes the insertion load, which
+                   is the only real force this thing ever sees.
+      rails        touching the board's 1.60 mm EDGE only, never a face, so
+                   pads and solder fillets are irrelevant to them.
+      far-end lip  slide the far end under it, drop the USB end in.
+      two ties     recessed into the rear plate exactly as the back-stand's are
+                   -- two slots joined by a relief in the UNDERSIDE, so the
+                   loop never stands proud of the face that goes on the wall.
+
+    Prints rear-plate-down, like the shallow one: every wall here is vertical
+    and the only overhang is the lip's 1.50 mm ledge.
+    """
+    RB, RI = B.r_body, B.r_inner
+    PT = HOUSING_S3_PLATE
+    # THE VENTS HAVE TO GET OUT OF THE USB WINDOW'S WAY. Measured on the first
+    # build: the window is at 270 degrees and a vent sat 10 degrees off it, so
+    # the two merged into one 24 mm hole where a 13 mm one was drawn -- and the
+    # vent stopped being a vent. Manifold, clean, and wrong.
+    #
+    # The exclusion is the sum of the two half-widths plus a margin, not a
+    # guess: the window is HOUSING_S3_USB_W wide at the wall, which is
+    # asin(w/2r) either side of 270, and a vent spans VENT_L/2 either side of
+    # its own angle. Offending vents are MOVED rather than dropped -- a clock
+    # with the bottom half of its ventilation deleted is a worse part than one
+    # with its vents 8 degrees from where they were drawn.
+    r_wall = (RI + RB)/2.0
+    excl = math.degrees(math.asin(min(1.0, HOUSING_S3_USB_W/2.0/r_wall))) + VENT_L/2.0 + 2.0
+    va = []
+    for a in B.vent_ang:
+        d = ((a - 270.0 + 180.0) % 360.0) - 180.0        # signed, -180..180
+        if abs(d) < excl:
+            a = 270.0 + math.copysign(excl, d if d != 0 else 1.0)
+        va.append(a)
+    body = build_rear_housing(HOUSING_S3_POCKET, RB, RI, with_board=False,
+                              vent_ang=va, screw_ang=B.screw_ang,
+                              screw_r=B.screw_r, plate_t=PT)
+    z0 = Z_DECK - (PT + HOUSING_S3_POCKET) + PT      # the pocket floor
+    SW = HOUSING_S3_SLOT_W
+    hw = SW/2.0
+    # Where the board's USB end lands. The pocket is a CYLINDER, so the wall
+    # bites first at the rail corners, not on the centreline: solve for y there.
+    y_wall = -math.sqrt(max(RI*RI - hw*hw, 1.0))
+    y_usb  = y_wall + HOUSING_S3_USB_GAP
+    y_far  = y_usb + BOARD2_L
+    assert y_far + 6.0 < math.sqrt(max(RI*RI - hw*hw, 1.0)), (
+        f'deep housing: the board reaches y {y_far:.1f} and the wall is at '
+        f'{math.sqrt(RI*RI - hw*hw):.1f}; the body is too small for it')
+    lz0 = z0 + HOUSING_S3_POST_H + BOARD_T           # the board's top face
+    rh  = HOUSING_S3_POST_H + BOARD_T + HOUSING_S3_RAIL_OVER
+
+    # ---- the two rails, running the board's whole length ------------------
+    RT = HOUSING_S3_RAIL_T
+    for sx in (-1.0, 1.0):
+        x0, x1 = sorted((sx*hw, sx*(hw + RT)))
+        body += box_lwh(x0, x1, y_usb - 2.0, y_far + RT, z0 - 1.0, z0 + rh)
+    # ---- the far-end wall, and the lip over the board's top ----------------
+    body += box_lwh(-hw - RT, hw + RT, y_far, y_far + RT, z0 - 1.0,
+                    lz0 + HOUSING_S3_LIP_GAP + HOUSING_S3_LIP_T)
+    body += box_lwh(-hw + 2.0, hw - 2.0, y_far - HOUSING_S3_LIP_OVER, y_far,
+                    lz0 + HOUSING_S3_LIP_GAP,
+                    lz0 + HOUSING_S3_LIP_GAP + HOUSING_S3_LIP_T)
+    # ---- nothing may close over the board ---------------------------------
+    # The rails and the lip are added ABOVE; this takes back the air over the
+    # board between them, so the loom has somewhere to be and the board can be
+    # lifted straight out once the ties are cut.
+    body -= box_lwh(-hw, hw, y_usb - 1.0, y_far - HOUSING_S3_LIP_OVER,
+                    z0 + HOUSING_S3_POST_H + 0.50, Z_DECK + 1.0)
+
+    # ---- the USB-C window, through the wall at the board's end ------------
+    # From the pocket floor up, so a plug's overmould has room under it as well
+    # as over it. Cut radially well past the outer wall.
+    uw, uh = HOUSING_S3_USB_W/2.0, HOUSING_S3_USB_H
+    body -= box_lwh(-uw, uw, -RB - 4.0, y_usb + 2.0,
+                    z0 + HOUSING_S3_POST_H - 0.50, z0 + HOUSING_S3_POST_H + uh)
+
+    # ---- the cable ties, recessed into the rear plate ----------------------
+    # Same argument as the back-stand's: a pair of holes through a plate that
+    # goes flat against a wall puts the tie's loop between the two, and the
+    # clock then hangs on a 1 mm ridge of nylon. The relief is what fixes it.
+    tw, tl = HOUSING_S3_TIE_W, HOUSING_S3_TIE_L
+    for ty in HOUSING_S3_TIE_Y:
+        yy = y_usb + BOARD2_L/2.0 + ty
+        for sx in (-1.0, 1.0):
+            body -= box_lwh(sx*HOUSING_S3_TIE_X - tw/2.0, sx*HOUSING_S3_TIE_X + tw/2.0,
+                            yy - tl/2.0, yy + tl/2.0, Z_DECK - 200.0, z0 + 0.50)
+        body -= box_lwh(-HOUSING_S3_TIE_X - tw/2.0, HOUSING_S3_TIE_X + tw/2.0,
+                        yy - tl/2.0 - 0.5, yy + tl/2.0 + 0.5,
+                        z0 - PT - 1.0, z0 - PT + HOUSING_S3_TIE_RELIEF)
+    # and the plenum over it all, which is what makes this design work at all
+    plenum = Z_DECK - lz0
+    assert plenum >= HOUSING_S3_PLENUM_MIN, (
+        f'deep housing: only {plenum:.1f} mm of plenum over the board; the '
+        f'screen tail and the ring leads need {HOUSING_S3_PLENUM_MIN:.1f}')
+    return body
+
+
 def build_shelf(bat_w, r_inner=None):
     """One battery shelf. Print TWO, one either side.
 
@@ -1803,7 +1921,7 @@ def build_backstand_clamp():
     return g.translate([0.0, y0, top + BACKSTAND_CLAMP_T])
 
 
-def build_backstand(B):
+def build_backstand(B, deep=False):
     """The stand that is not a box. Sam, 2026-09-04: "give make a better base
     that isn't as bulky... The base needs to be open to fit the cables, and the
     base can go behind the clock housing with an angle."
@@ -1821,7 +1939,14 @@ def build_backstand(B):
     th  = math.radians(BACKSTAND_TILT)
     ct, st_, tt = math.cos(th), math.sin(th), math.tan(th)
     R   = B.r_body
-    Zb  = Z_DECK - (BACKCOVER_PLATE + BACKCOVER_POCKET)   # the clock's back face
+    # THE CLOCK'S BACK FACE, and it moved. With the deep housing the ESP32 is
+    # inside the clock and the back face is at Z_DECK - PLATE - POCKET, not at
+    # the back cover. Everything in this function is derived from Zb -- the
+    # trench, the buttresses' front edge, the foot's front lip -- so the whole
+    # stand follows from this one line. Build it with the old Zb against a deep
+    # clock and the buttresses stand THROUGH the housing.
+    Zb  = (Z_DECK - (HOUSING_S3_PLATE + HOUSING_S3_POCKET) if deep
+           else Z_DECK - (BACKCOVER_PLATE + BACKCOVER_POCKET))
     Zf  = Z_FRONT                                          # and its front face
     C   = BACKSTAND_CLR
     FT  = BACKSTAND_FOOT_T
@@ -2129,6 +2254,7 @@ def parts_for(B, sam, full=True):
              vent_ang=B.vent_ang, screw_ang=B.screw_ang, screw_r=B.screw_r,
              plate_t=None if B.n == 24 else PLATE_T_BIG),
                                          f'mini-round-clock-housing{tg}',   True),
+        (build_rear_housing_s3(B),       f'mini-round-clock-housing{tg}-deep', True),
         (build_backcover(B),             f'mini-round-clock-backcover{tg}', True),
         (build_diffuser(B),              f'mini-round-clock-diffuser{tg}',  True),
         (build_diffuser(B, numerals_on=False),
@@ -2138,6 +2264,7 @@ def parts_for(B, sam, full=True):
         (standbox,                       f'mini-round-clock-standbox{tg}',  True),
         (tray,                           f'mini-round-clock-standbox-tray{tg}', True),
         (build_backstand(B),             f'mini-round-clock-backstand{tg}', True),
+        (build_backstand(B, deep=True),  f'mini-round-clock-backstand{tg}-deep', True),
         (build_backstand_clamp(),        f'mini-round-clock-backstand-clamp', True),
         (build_numerals(B),              f'mini-round-clock-numerals{tg}',  False),
     ]

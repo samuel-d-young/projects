@@ -20,8 +20,14 @@ def ck(cond, msg, detail=''):
     if not cond: FAIL.append(msg)
 
 TAG = sys.argv[1] if len(sys.argv) > 1 else '-32'
+# The DEEP variant is a different stand for a different clock: with the ESP32
+# inside the housing the clock's back face is 22.6 mm further back, and every
+# dimension of the stand derives from it. Same checks, different Zb and a
+# different file -- the alternative was a second copy of this file that would
+# drift out of step with it.
+DEEP = len(sys.argv) > 2 and sys.argv[2] == 'deep'
 B   = {'-32': BV.BODY32, '-60': BV.BODY60, '': BV.BODY24}[TAG]
-FN  = f'mini-round-clock-backstand{TAG}.stl'
+FN  = f'mini-round-clock-backstand{TAG}{"-deep" if DEEP else ""}.stl'
 m   = trimesh.load(csg.part(FN))
 lo, hi = m.bounds
 
@@ -35,7 +41,8 @@ ck(abs(lo[2]) < 1e-6, 'sits on z = 0', f'{lo[2]:.4f}')
 sb   = trimesh.load(csg.part(f'mini-round-clock-standbox{TAG}.stl'))
 tray = trimesh.load(csg.part(f'mini-round-clock-standbox-tray{TAG}.stl'))
 was  = sb.volume + tray.volume
-ck(m.volume < 0.40 * was, 'less than 40% of the stand-box it replaces',
+ck(m.volume < (0.55 if DEEP else 0.40) * was,
+   f'less than {55 if DEEP else 40}% of the stand-box it replaces',
    f'{m.volume/1000:.1f} vs {was/1000:.1f} cm3, in one part not two')
 
 # ---- 2. the clock ----------------------------------------------------------
@@ -44,7 +51,8 @@ ck(m.volume < 0.40 * was, 'less than 40% of the stand-box it replaces',
 # being checked -- but at ZERO clearance, so any contact at all is a failure.
 th = math.radians(BACKSTAND_TILT)
 ct, st_ = math.cos(th), math.sin(th)
-Zb = Z_DECK - (BACKCOVER_PLATE + BACKCOVER_POCKET)
+Zb = (Z_DECK - (HOUSING_S3_PLATE + HOUSING_S3_POCKET) if DEEP
+      else Z_DECK - (BACKCOVER_PLATE + BACKCOVER_POCKET))
 Zf = Z_FRONT
 z0 = BACKSTAND_SIT + B.r_body*ct - Zb*st_
 y0 = B.r_body*st_ + Zb*ct

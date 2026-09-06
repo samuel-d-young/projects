@@ -314,3 +314,42 @@ about +12 mm.**
   all, and the wires then drop straight into the trench and the cable gate the
   stand already has. It does not enclose anything -- it is the make-it-work-
   tonight option.
+
+### Built: option A
+
+Sam, 2026-09-05: "I like the deeper housing idea. It could be up to 85mm deep."
+
+`mini-round-clock-housing{tag}-deep`, **31.5 mm deep, whole clock 55.9 mm front
+to back**. Not 85 -- the board is 4.80 mm lying flat and the loom wants a bend
+radius, not a hall. 28 mm of clear pocket leaves 26.4 mm of plenum over the
+board and the clock still reads as a disc. `HOUSING_S3_POCKET` is one number if
+a battery ever goes back in (`BATTERY_MIN_HOUSING` is 43.29).
+
+It reuses `build_rear_housing` for the shell, keyhole, screw pillars, vents and
+mains gate, with `with_board=False`. **The mount inside that function is sized
+for 63.27 x 28.19 and Sam's board is 64.00 x 30.00** -- it would never have gone
+in. Everything else is new:
+
+| | why it is where it is |
+|---|---|
+| board along **y** | the keyhole is cut through the rear plate at x 34..46. A board along x wants its hold-down at \|x\| 36, y 0 -- straight through it |
+| USB end at **-y**, 1.60 mm off the wall | a centred 64 mm board leaves **19 mm** between its connector and the wall, and no USB-C plug bridges that. The old mount accepted it |
+| rails on the **edge** | 1.60 mm of PCB edge only, never a face, so pads and solder fillets are irrelevant |
+| far-end lip | slide the far end under, drop the USB end in |
+| two cable ties | recessed into the rear plate, same pattern as the back-stand: a pair of plain holes puts the loop between them and the clock hangs on a ridge of nylon |
+
+`mini-round-clock-backstand{tag}-deep` goes with it. `build_backstand` takes
+`deep=True` and everything follows from one line -- the clock's back face is
+22.6 mm further back, so the trench, the buttresses and the front lip all move
+with it. Build the shallow stand for a deep clock and the buttresses stand
+straight through the housing.
+
+**The vents had to move.** First build put one 10 degrees from the USB window
+and the two merged into a single 24 mm hole where 13 was drawn -- manifold,
+clean, and wrong, with the vent no longer a vent. They are pushed clear by the
+sum of the two half-widths plus a margin, and check8 measures the opening off
+the mesh rather than trusting the parameter.
+
+`check8_deep_housing.py` tests the JOURNEY, not the shape -- board in, plug in,
+wires through, board out -- because the back-stand failed precisely by passing
+every shape test there was.

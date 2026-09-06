@@ -1732,3 +1732,67 @@ BACKSTAND_TIE_END_L   =   5.50  # 1.25 mm of floor left before the buttress
 BACKSTAND_TIE_END_G   =   4.20
 
 
+
+
+# =============================================================================
+# v10 — THE DEEP REAR HOUSING: the ESP32 lives INSIDE the clock
+# =============================================================================
+# Sam, 2026-09-05: "The current back stand doesn't work. The placement of the
+# ESP32 is too close to the wires coming out from the screen... I want the clock
+# to be enclosed... The ESP32 could sit under the clock housing." Then: "I like
+# the deeper housing idea. It could be up to 85mm deep."
+#
+# WHY THE STAND FAILED, measured rather than guessed. Mapping the housing's
+# cable port through the transform the back-stand places the clock with puts its
+# mouth at x = +41, z 49.5 (24) / 56.5 (32) in the stand frame, while the
+# buttresses stand at |x| 40.0..46.5 up to z 48. The screen's wires come out
+# SIDEWAYS, level with the top of a buttress, 50 mm above the board, with the
+# buttress in between. No amount of cable management fixes that; the board has
+# to be somewhere else.
+#
+# Inside the clock, the wires never leave at all -- which is why this is the fix
+# and not a workaround.
+#
+# 28.00, not 85. Sam offered up to 85 mm and it is not needed: the board is
+# 4.80 mm tall lying flat and the loom wants a bend radius, not a hall. 28 gives
+# 23 mm of clear plenum over the board and keeps the whole clock at 55.9 mm
+# deep, which still reads as a disc rather than a tin. Raise this one number if
+# a battery goes back in -- BATTERY_MIN_HOUSING is 43.29.
+HOUSING_S3_POCKET = 28.00    # clear depth inside, above the plate
+HOUSING_S3_PLATE  = 3.50     # the rear plate, same as PLATE_T
+HOUSING_S3_POST_H =  0.00    # PCB underside above the pocket floor. 0 because
+                             # Sam had the stand's four posts removed -- his
+                             # board has no header tails to clear. Put 4.00 back
+                             # if that changes; everything below derives from it
+# THE BOARD LIES ALONG y, NOT x, AND THE KEYHOLE IS WHY. The wall-hanger's
+# keyhole is cut through the rear plate at x 34..46, y +-4.5. A board along x
+# would want its hold-down bosses at |x| = 36, y = 0 -- straight through it.
+# Along y the board occupies |x| <= 15.3 and the keyhole is 19 mm clear.
+HOUSING_S3_SLOT_W = 30.60    # rails, for a 30.00 board. Same rule as the
+                             # back-stand: a printed slot loses up to
+                             # FDM_SLOT_UNDER, so the worst case is 30.20
+HOUSING_S3_RAIL_T =  2.50
+HOUSING_S3_RAIL_OVER = 0.40  # how far the rail clears the board's top face
+HOUSING_S3_LIP_OVER  = 1.50  # the far-end lip, over the board's top
+HOUSING_S3_LIP_T     = 1.60
+HOUSING_S3_LIP_GAP   = 0.20
+# THE USB END GOES AGAINST THE WALL. A centred 64 mm board leaves 19 mm between
+# its connector and the inner wall, and a USB-C plug cannot bridge that -- the
+# original board_mount accepted it and it is the reason nobody could plug this
+# in. The board is pushed out until its end is HOUSING_S3_USB_GAP from the wall
+# AT THE RAIL CORNERS, which is where the cylinder bites first.
+HOUSING_S3_USB_GAP  =  1.60  # board end to inner wall, at |x| = SLOT_W/2
+HOUSING_S3_USB_W    = 13.00  # the window: wide enough for a USB-C overmould
+HOUSING_S3_USB_H    =  8.50  # and tall enough to clear the shell on the board
+# The far end is held by a lip; the middle by two cable ties, the same recessed
+# pattern as the back-stand's -- two slots joined by a relief in the underside,
+# so the tie's loop never stands proud of the wall-mount face.
+HOUSING_S3_TIE_X    = 11.00  # |x| of the two slots in each pair
+HOUSING_S3_TIE_L    =  6.00  # slot length, along y
+HOUSING_S3_TIE_W    =  2.00
+HOUSING_S3_TIE_RELIEF = 1.20
+HOUSING_S3_TIE_Y    = (-14.0, 14.0)   # where the two ties cross the board
+# The gate the screen's tail and the ring leads come through, in from the base's
+# own port at +x. Nothing is cut for it: the plenum IS the gate. This is only
+# the clear height asserted in the build.
+HOUSING_S3_PLENUM_MIN = 12.00

@@ -137,6 +137,35 @@ than guess. The one that takes the board without force is the answer.
    middle 18 mm out of the front rail so the leads reach the board without
    climbing anything.
 
+## The enclosed build — print these instead
+
+`2026-09-05`. The open back-stand is superseded for anyone who wants the clock
+closed. Sam: "The current back stand doesn't work... I want the clock to be
+enclosed."
+
+Swap **two** parts and nothing else:
+
+| instead of | print | why |
+|---|---|---|
+| `mini-round-clock-housing{tag}` | `mini-round-clock-housing{tag}-deep` | 31.5 mm instead of 20-25, and the ESP32 lives inside it |
+| `mini-round-clock-backstand{tag}` | `mini-round-clock-backstand{tag}-deep` | the clock's back face is 22.6 mm further back; the shallow stand's buttresses would stand through the housing |
+
+You do **not** need `backstand-clamp` any more, and the base, back cover,
+diffusers and numerals are all unchanged.
+
+The whole clock becomes **55.9 mm front to back** (was 44.4). The screen's wires
+never leave it, which is the entire point: they were coming out at x = +41,
+level with the top of a buttress and 50 mm above the board, with the buttress in
+between.
+
+**Assembly.** The housing prints rear-plate-down, no support. Slide the board's
+far end under the lip, drop the USB end down between the rails — its end sits
+1.6 mm off the wall, so a USB-C plug reaches it through the window. Two small
+cable ties across the board, threaded down one slot and back up the other; the
+relief in the underside keeps the loop inside the plate so the clock still lies
+flat on a wall. Screen tail and ring leads come in through the base's own port
+at +x and have 26.4 mm of plenum to sit in.
+
 ## Numbers, measured off the built mesh
 
 | | |
