@@ -418,3 +418,41 @@ test.
 
 And a correction to what was said out loud: the board is NOT captive under the
 lid. The lid clears it by 12.4 mm and never touches it. The bar is required.
+
+## The dock: a clean sheet
+
+Sam, 2026-09-05: "I hate the stand. Start again. I want it enclosed."
+
+Fair. The back-stand had been through five generations -- open A-frame, a 30 mm
+board, zip ties, a hold-down bar, a bolted-on collar and lid -- and every one
+was a patch on the one before. It was a skeleton with a box grafted to it.
+
+`mini-round-clock-dock{tag}` + `-cap`. A closed block, 92 x 79 x 40 (24) or
+104 x 79 x 40 (32), with the clock's own shape scooped out of the top.
+
+**THE SPLIT IS FORCED, NOT CHOSEN.** A closed box with a seat on top cannot be
+printed in one piece without support: hollowed from below it has to bridge its
+entire ceiling, and turned over the seat becomes a 90 mm cavern. Split at the
+cavity's ceiling and both halves are trivial -- the tray is walls and a floor,
+the cap is a slab with a valley in it, and a valley is open to the sky.
+
+Everything else followed from print orientation too:
+
+* **The locating rim is on the TRAY.** The cap prints seat-up with its flat
+  underside on the bed, so it cannot have a spigot, skirt or boss on that face
+  -- they would be under the build plate.
+* **The screws go in from the BACK.** Down through the cap puts two heads in the
+  seat, under the clock, where a screwdriver cannot reach. Up from below puts
+  two counterbores in the underside, and Sam had already said what he thinks of
+  holes underneath. Through the rim's back face does neither.
+* **The wire drop runs the FULL length of the seat.** The port sits at 12
+  o'clock in the model and Sam turns the clock to suit; a design that has to
+  know which way up he fits it is a design that will be wrong.
+
+**The footprint scales with the body, and the 60 is why.** At the 32's tail the
+240 mm clock -- 1.1 kg with its centre of mass 125 mm up -- tipped backwards at
+12.9 degrees. Scaled, it makes 28.1. The floor at k = 1.0 leaves the 24 and the
+32 exactly where they were.
+
+The cap is modelled solid, 107-124 cm3. That is not its weight: it is a slab and
+the slicer hollows it.

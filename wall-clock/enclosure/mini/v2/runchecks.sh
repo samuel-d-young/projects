@@ -49,3 +49,13 @@ for t in '' -32 -60; do
         echo '*** FAILED ***'; cat /tmp/wc-check.txt; exit 1
     fi
 done
+# check 10: the dock — the clean-sheet enclosed base. Sam: "I hate the stand.
+# Start again. I want it enclosed."
+for t in '' -32 -60; do
+    printf '%-22s ' "check10_dock.py ${t:-24}"
+    if python3 check10_dock.py "$t" > /tmp/wc-check.txt 2>&1; then
+        tail -1 /tmp/wc-check.txt
+    else
+        echo '*** FAILED ***'; cat /tmp/wc-check.txt; exit 1
+    fi
+done

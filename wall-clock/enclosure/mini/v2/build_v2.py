@@ -2347,6 +2347,129 @@ def build_plinth_lid(B, deep=False):
     return g
 
 
+# =============================================================================
+# THE DOCK — a clean sheet. Sam: "I hate the stand. Start again."
+# =============================================================================
+def _dock_frame(B):
+    """Everything both dock parts need to agree about, worked out once.
+
+    Returns the clock's placing transform and the box's own extents. Both parts
+    are built from THIS and never from each other's numbers -- the plinth's bay
+    ended up half a millimetre narrower than the stand's because two places
+    computed the same edge differently."""
+    th = math.radians(DOCK_TILT)
+    ct, st_, tt = math.cos(th), math.sin(th), math.tan(th)
+    R  = B.r_body
+    Zb = Z_DECK - (BACKCOVER_PLATE + BACKCOVER_POCKET)
+    Zf = Z_FRONT
+    sit = DOCK_H - DOCK_BED
+    z0 = sit + R*ct - Zb*st_
+    y0 = R*st_ + Zb*ct
+    xf = lambda m: m.rotate([90.0 - DOCK_TILT, 0.0, 0.0]).translate([0.0, y0, z0])
+    front = lambda z: y0 + tt*(z - z0) - Zf/ct
+    back  = lambda z: y0 + tt*(z - z0) - Zb/ct
+    hw = max(46.0, R - 8.0)                    # narrower than the clock, always
+    # THE FOOTPRINT SCALES WITH THE CLOCK, and the 60 is why. At the 32's tail
+    # the 240 mm body -- 1.1 kg of it, with its centre of mass 125 mm up --
+    # tipped backwards at 12.9 degrees. The floor at 1.0 leaves the 24 and the
+    # 32 exactly where they were, because both already clear 29 degrees.
+    k = max(1.0, R / BODY32.r_body)
+    y_f = front(DOCK_H) - DOCK_LIP*k
+    y_b = back(DOCK_H) + DOCK_TAIL*k
+    return dict(xf=xf, front=front, back=back, hw=hw, y_f=y_f, y_b=y_b,
+                Zb=Zb, Zf=Zf, ct=ct)
+
+
+def _dock_screws(F):
+    """The two back screws: through the tray's rim, into the cap's own slab."""
+    z = DOCK_CAP_Z + DOCK_RIM/2.0
+    return [(sx*DOCK_SCREW_X, z) for sx in (-1.0, 1.0)]
+
+
+def build_dock(B):
+    """The tray: floor, four walls, the board's bay, and a rim the cap sits in.
+
+    Prints open-side-up. There is not one overhang in it -- every wall is
+    vertical, the floor is flat, and the only ceiling is the cap, which is a
+    separate part for exactly that reason.
+    """
+    F = _dock_frame(B)
+    hw, y_f, y_b = F['hw'], F['y_f'], F['y_b']
+    W = DOCK_WALL
+    # walls stand DOCK_RIM proud of the cap's underside, so the cap drops into
+    # a rebate rather than balancing on the wall tops
+    g = box_lwh(-hw, hw, y_f, y_b, 0.0, DOCK_CAP_Z + DOCK_RIM)
+    g -= box_lwh(-hw + W, hw - W, y_f + W, y_b - W, DOCK_FLOOR, DOCK_CAP_Z + DOCK_RIM + 1.0)
+
+    # ---- the board, centred, long axis across ------------------------------
+    # Centred on purpose: the hold-down bar that already exists is drawn for a
+    # centred board with its bosses at |x| = BACKSTAND_CLAMP_SX, and reusing a
+    # part Sam has already printed beats a new one that does the same job.
+    by = DOCK_BOARD_Y
+    sw = BACKSTAND_SLOT_W
+    for sy in (-1.0, 1.0):
+        y = by + sy*(sw/2.0 + DOCK_RAIL_T/2.0)
+        g += box_lwh(-BOARD2_L/2.0 - 4.0, BOARD2_L/2.0 + 4.0,
+                     y - DOCK_RAIL_T/2.0, y + DOCK_RAIL_T/2.0,
+                     DOCK_FLOOR - 0.5, DOCK_FLOOR + BOARD_T + 0.40)
+    seat = DOCK_FLOOR + BOARD_T - BACKSTAND_CLAMP_NIP
+    for sx in (-1.0, 1.0):
+        g += cyl(BACKSTAND_BOSS_R, DOCK_FLOOR - 0.5, seat, 32,
+                 centre=(sx*BACKSTAND_CLAMP_SX, by))
+        # BLIND. A pilot through the floor is a hole in the underside, which is
+        # the whole thing Sam asked to be rid of.
+        g -= cyl(BACKSTAND_SCREW_PILOT/2.0, DOCK_FLOOR + 0.80, seat + 1.0, 24,
+                 centre=(sx*BACKSTAND_CLAMP_SX, by))
+
+    # ---- the USB tunnel, out of the left wall ------------------------------
+    # It IS a tunnel: the board's end is at |x| = 32 and the wall is further
+    # out, so a plug has to reach. Sized for an OVERMOULD rather than for the
+    # connector, which is the mistake the rear housing's own mount made.
+    g -= box_lwh(-hw - 4.0, -BOARD2_L/2.0 + 2.0,
+                 by - DOCK_USB_W/2.0, by + DOCK_USB_W/2.0,
+                 DOCK_FLOOR + 0.60, DOCK_FLOOR + 0.60 + DOCK_USB_H)
+
+    # ---- the two back screws ----------------------------------------------
+    for (px, pz) in _dock_screws(F):
+        g -= box_lwh(px - SCREW_CLEAR/2.0, px + SCREW_CLEAR/2.0,
+                     y_b - W - 1.0, y_b + 1.0, pz - SCREW_CLEAR/2.0, pz + SCREW_CLEAR/2.0)
+        # a counterbore so the head sits inside the rim rather than proud of it
+        g -= box_lwh(px - SCREW_HEAD/2.0, px + SCREW_HEAD/2.0,
+                     y_b - 1.60, y_b + 1.0, pz - SCREW_HEAD/2.0, pz + SCREW_HEAD/2.0)
+    return g
+
+
+def build_dock_cap(B):
+    """The cap: a plain slab with the clock's own seat cut out of its top.
+
+    The seat is the CLOCK, subtracted -- so its walls are the clock's own faces
+    at the clearance and it cannot foul the clock anywhere. That is the one
+    thing about the old trench that was right, and it is kept.
+
+    Prints SEAT UP, flat side on the bed. The seat is a valley open to the sky:
+    no ceiling, no bridge, no support, and nothing hanging off the underside --
+    which is why the locating rim is on the TRAY and not here.
+    """
+    F = _dock_frame(B)
+    hw, y_f, y_b = F['hw'], F['y_f'], F['y_b']
+    W, C = DOCK_WALL, DOCK_FIT
+    g = box_lwh(-hw + W + C, hw - W - C, y_f + W + C, y_b - W - C,
+                DOCK_CAP_Z, DOCK_H)
+    # the seat
+    g -= F['xf'](cyl(B.r_body + DOCK_CLR, F['Zb'] - DOCK_CLR, F['Zf'] + DOCK_CLR, SEG))
+    # the wire drop, the full length of the seat
+    g -= box_lwh(-DOCK_DROP_HW, DOCK_DROP_HW,
+                 F['front'](DOCK_H) + 2.0, F['back'](DOCK_H) - 2.0,
+                 DOCK_CAP_Z - 1.0, DOCK_H + 1.0)
+    # the two back screws thread into the slab itself -- 20 mm of it, so there
+    # is no need for a boss and nothing to hang off the printed face
+    for (px, pz) in _dock_screws(F):
+        g -= box_lwh(px - DOCK_PILOT/2.0, px + DOCK_PILOT/2.0,
+                     y_b - W - C - 12.0, y_b + 1.0,
+                     pz - DOCK_PILOT/2.0, pz + DOCK_PILOT/2.0)
+    return g
+
+
 def make_body(n, ring_od, ring_id, tag=None):
     """A clock of another size: give it the LED count and the ring's outer and
     inner diameter, measured, and every other radius follows the rules the 32
@@ -2391,6 +2514,8 @@ def parts_for(B, sam, full=True):
         (build_backstand(B),             f'mini-round-clock-backstand{tg}', True),
         (build_backstand(B, deep=True),  f'mini-round-clock-backstand{tg}-deep', True),
         (build_backstand(B, closed=True), f'mini-round-clock-plinth{tg}',      True),
+        (build_dock(B),                  f'mini-round-clock-dock{tg}',         True),
+        (build_dock_cap(B),              f'mini-round-clock-dock{tg}-cap',     True),
         (build_plinth_lid(B),            f'mini-round-clock-plinth{tg}-lid',   True),
         (build_backstand_clamp(),        f'mini-round-clock-backstand-clamp', True),
         (build_numerals(B),              f'mini-round-clock-numerals{tg}',  False),

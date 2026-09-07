@@ -1828,3 +1828,67 @@ PLINTH_BOSS_X  = 30.00   # |x| of the two screws. 30, not 43: at |x| >= 40 the
 PLINTH_TONGUE_HW = 30.00 # the lid's front tongue, half width
 PLINTH_TONGUE_L  =  4.00 # how far it slides into the front wall
 PLINTH_SCREW_PILOT = 1.60
+
+
+# =============================================================================
+# v12 — THE DOCK. A clean sheet, because the stand was patched one time too many
+# =============================================================================
+# Sam, 2026-09-05: "I hate the stand. Start again. I want it enclosed."
+#
+# The back-stand had been through five generations -- open A-frame, 30 mm board,
+# zip ties, a hold-down bar, a bolted-on collar and lid -- and every one of them
+# was a patch on the one before. It is a skeleton with a box grafted to it. This
+# is not that.
+#
+# THE DOCK IS TWO PARTS AND BOTH PRINT WITH NO SUPPORT, which is the whole
+# reason for the split:
+#
+#   tray   walls and a floor, open at the top. Prints open-side-up: every
+#          surface in it is a vertical wall or a flat floor.
+#   cap    a slab with the clock's own seat cut into its top. Prints seat-up:
+#          the seat is a VALLEY, open to the sky, so it has no ceiling to
+#          bridge and no overhang anywhere.
+#
+# Every other arrangement of a closed box with a seat on top needs support. A
+# one-piece box hollowed from below has to bridge its whole ceiling; printed
+# upside down the seat becomes a 90 mm cavern. The seam is a horizontal line a
+# third of the way up, which reads as deliberate rather than as a repair.
+DOCK_TILT   = 14.00   # unchanged from the stand: proven on the desk, and the
+                      # one thing about the old part Sam never complained about
+DOCK_H      = 40.00   # total height, desk to the top of the cap
+DOCK_BED    = 14.00   # how far the clock sinks into the seat
+DOCK_CAP_Z  = 20.00   # the cap's underside. 6 mm of cap under the seat's
+                      # lowest point, and 17 mm of clear tray beneath that
+DOCK_FLOOR  =  3.00
+DOCK_WALL   =  2.50
+DOCK_CLR    =  0.40   # clock to seat, all round
+DOCK_LIP    =  9.00   # cap in front of where the clock's front face crosses
+                      # the top -- the visible lip under the dial
+DOCK_TAIL   = 36.00   # and behind the back face. This is what stops it tipping
+                      # backwards; check10 measures the angle rather than
+                      # trusting it
+DOCK_FIT    =  0.25   # cap to tray, per side
+# THE CAP DROPS INTO A RIM ON THE TRAY, AND IS SCREWED FROM THE BACK. Both of
+# those are forced, not chosen:
+#   * the cap prints SEAT UP with its flat underside on the bed, so it cannot
+#     have a spigot, a skirt or a boss hanging off that face -- they would be
+#     under the build plate. The locating rim therefore belongs to the tray.
+#   * screwing down through the cap would put four heads in the seat, under the
+#     clock, where a screwdriver cannot go; screwing up from below puts four
+#     counterbores in the underside, and Sam has already said what he thinks of
+#     holes underneath. Two screws through the BACK of the rim solve both: the
+#     floor stays solid and the top stays clean.
+DOCK_RIM    =  4.00   # how far the tray's walls stand above the cap's underside
+DOCK_SCREW_X = 25.00  # |x| of the two back screws
+DOCK_PILOT  = 1.60
+# The wire drop: one slot the whole length of the seat, so it does not matter
+# WHERE round the rim the clock's port ends up. That is not laziness -- the port
+# sits at 12 o'clock in the model and Sam turns the clock to suit, and a design
+# that has to know which way up he fits it is a design that will be wrong.
+DOCK_DROP_HW = 7.00
+# The board: centred, long axis across, so the hold-down bar that already exists
+# fits it unchanged.
+DOCK_BOARD_Y = 20.00  # centre of the board, front to back
+DOCK_RAIL_T  =  2.50
+DOCK_USB_W   = 14.00
+DOCK_USB_H   =  9.00

@@ -137,7 +137,48 @@ than guess. The one that takes the board without force is the answer.
    middle 18 mm out of the front rail so the leads reach the board without
    climbing anything.
 
-## The enclosed build — electronics in the base
+## THE DOCK — print this. Everything below is superseded.
+
+`2026-09-05`. Sam: "I hate the stand. Start again. I want it enclosed."
+
+Two parts replace the stand, the plinth and its lid:
+
+| print | | |
+|---|---|---|
+| `mini-round-clock-dock{tag}` | the tray | open side UP, no support |
+| `mini-round-clock-dock{tag}-cap` | the lid, with the clock's seat in it | seat UP, flat side on the bed, no support |
+
+plus `mini-round-clock-backstand-clamp`, unchanged, to hold the board down.
+
+The clock itself is untouched: base, back cover, the ORIGINAL `housing`,
+diffusers, numerals.
+
+|  | 24 LED | 32 LED |
+|---|---|---|
+| dock | 92 × 79 × 40 mm | 104 × 79 × 40 mm |
+| tips fwd / back / side | 29.2° / 31.5° / 34.2° | 28.1° / 29.1° / 35.5° |
+
+**Why two parts.** A closed box with a seat on its top cannot be printed in one
+piece without support: hollowed from below it has to bridge its whole ceiling,
+and turned over the seat becomes a 90 mm cavern. Split at the cavity's ceiling,
+the tray is walls and a floor and the cap is a slab with a valley in it — and a
+valley is open to the sky, so there is nothing to bridge in either.
+
+**The cap is modelled solid** (107–124 cm³). That is not what it weighs: it is a
+slab and the slicer hollows it. At 15% infill expect roughly 35–45 g.
+
+**Assembly.** Board into the tray between the rails, hold-down bar over it, two
+M2 × 6 into the bosses. Leads up through the wire drop. Cap into the rim, two
+M2 × 10 through the **back** of the rim. Clock into the seat.
+
+**Nothing pierces the underside** — not a slot, not a countersink. The screws go
+in from the back for exactly that reason, and the seat's fixings would have been
+under the clock where no screwdriver reaches.
+
+**The wire drop runs the full length of the seat** (30 mm), so it does not matter
+which way round the rim the clock's port ends up.
+
+## Superseded: the plinth — electronics in the base
 
 `2026-09-05`, and this supersedes the deep-housing set below. Sam: "Actually,
 change of plans. I like having the electronics in the base under the clock."
