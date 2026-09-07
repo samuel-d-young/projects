@@ -286,6 +286,14 @@ for sx in (-1.0, 1.0):
     pz = lz0 - BACKSTAND_CLAMP_NIP - 0.30
     hit = m.contains(np.array([[px + BACKSTAND_BOSS_R - 1.0, py, pz]]))[0]
     ck(bool(hit), f'the stand has a boss under the screw at x = {px:+.0f}')
+# AND THE BAR HAS TO FIT BETWEEN THE BUTTRESSES. This file tested the bar
+# against the board and against its own bosses and never against the stand, so
+# an 81.5 mm plate in an 81.0 mm bay went unnoticed until check9 did the
+# boolean. Every part that goes INTO another one gets this test now.
+_hit = csg.to_trimesh(csg.to_manifold(m) ^ csg.to_manifold(cl))
+ck(_hit.volume < 1.0, 'the hold-down bar does not foul the stand',
+   f'{_hit.volume:.2f} mm3')
+
 ck(BACKSTAND_CLAMP_NIP > 0,
    'the pad sits below the boss seat, so it clamps the board not the bosses',
    f'{BACKSTAND_CLAMP_NIP:.2f} mm of flex')

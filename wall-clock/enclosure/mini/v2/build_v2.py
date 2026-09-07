@@ -1889,7 +1889,18 @@ def build_backstand_clamp():
     seat = lz0 - BACKSTAND_CLAMP_NIP
     top  = lz0 + BOARD_TALL + BACKSTAND_CLAMP_LIFT  # the plate's underside
     W    = BACKSTAND_CLAMP_W / 2.0
-    X    = BACKSTAND_CLAMP_SX + BACKSTAND_BOSS_R + 1.50
+    # THE PLATE HAS TO FIT BETWEEN THE BUTTRESSES, and it did not. At
+    # CLAMP_SX + BOSS_R + 1.50 it is 81.5 mm wide against a bay that is 81.0,
+    # so it fouled both buttresses by 0.25 mm -- and by 0.75 in the plinth,
+    # where the collar puts back the half-millimetre the bay cut had taken. It
+    # went unseen because check7 tested the bar against the BOARD and the
+    # bosses and never against the stand itself; check9 does the boolean and
+    # check7 does it now too.
+    #
+    # A millimetre inside the buttress face, and the plate still covers the
+    # screw head with room: the clearance hole reaches x 37.65 and this is 39.0.
+    _XI  = max(BACKSTAND_WALL_XI, BACKSTAND_WALL_XI*(BODY32.r_body/BODY32.r_body))
+    X    = min(BACKSTAND_CLAMP_SX + BACKSTAND_BOSS_R + 1.50, _XI - 1.00)
     y0   = BACKSTAND_BAY_Y0 + BACKSTAND_SLOT_W/2.0  # centred across the slot
 
     g = box_lwh(-X, X, -W, W, top, top + BACKSTAND_CLAMP_T)
@@ -2163,6 +2174,15 @@ def build_backstand(B, deep=False, closed=False):
         s -= cyl(BACKSTAND_SCREW_PILOT/2.0, 1.0, seat + 1.0, 24,
                  centre=(sx*BACKSTAND_CLAMP_SX, BY0 + SW/2.0))
     # ---- ZIP-TIE POINTS ----------------------------------------------------
+    # NOT ON THE PLINTH. Sam, 2026-09-05: "Make the base enclosed underneath."
+    # These six slots are the only holes in the foot -- everything else down
+    # there is a blind pocket -- so skipping them makes the underside solid.
+    #
+    # They earn their place on the OPEN stand, where they are the only thing
+    # holding the board and the leads. In the plinth the box is closed and the
+    # screw-down bar does the holding, so they would be six holes into a sealed
+    # bay for no gain.
+
     # Sam, 2026-09-05: "Add some holes for zip ties to go through to hold cables
     # and the ESP32." Three pairs, and every one of them has its loop recessed
     # into the underside so the stand still sits flat -- see _tie_pad.
@@ -2180,43 +2200,44 @@ def build_backstand(B, deep=False, closed=False):
     #
     # This is an ALTERNATIVE to the screw-down bar, not a companion. The bar's
     # plate lies right across where this tie has to go. Use one or the other.
-    tbx, tbl = BACKSTAND_TIE_BOARD_X, BACKSTAND_TIE_BOARD_L
-    tf, tb = BACKSTAND_TIE_BOARD_F, BACKSTAND_TIE_BOARD_B
-    for sx in (-1.0, 1.0):
-        cx0 = sx*tbx
-        # the two rail notches, from half a millimetre INSIDE the foot so they
-        # share no plane with its top face
-        s -= box_lwh(cx0 - tbl/2.0, cx0 + tbl/2.0, BY0 - RT - 0.5, BY0 + 0.2,
-                     FT - 0.5, FT + 20.0)
-        s -= box_lwh(cx0 - tbl/2.0, cx0 + tbl/2.0, BY1 - 0.2, BY1 + RT + 0.5,
-                     FT - 0.5, FT + 20.0)
-        s -= _tie_pad(cx0, (tf + tb)/2.0, tbl, tb - tf, 0.0, FT + 0.5, axis='x',
-                      relief_w=tbl + 1.0)
-    # (b) THE LEADS, in the strip of open foot behind the clock and outboard of
-    # the cable gate. They run front to back through the gate, so the slots do
-    # too and the loop crosses them. The front slot reaches y 3.20 and the
-    # clock's back face crosses the foot's top at y 1.01 -- 2.19 mm of margin,
-    # asserted below because it is the one number here that moves with the tilt.
-    tly = BACKSTAND_TIE_LEAD_Y - BACKSTAND_TIE_LEAD_L/2.0
-    assert tly - back(FT) >= 1.5, (
-        f'lead tie: only {tly - back(FT):.2f} mm between the slot and the trench')
-    for sx in (-1.0, 1.0):
-        s -= _tie_pad(sx*BACKSTAND_TIE_LEAD_X, BACKSTAND_TIE_LEAD_Y,
-                      BACKSTAND_TIE_LEAD_L, BACKSTAND_TIE_LEAD_G,
-                      0.0, FT + RH + 1.0, axis='y', relief_w=BACKSTAND_TIE_LEAD_L + 1.0)
-    # (c) THE USB LEAD, on the bare floor between the board's end and the
-    # buttress. It leaves the board running outward in x, so these slots run in
-    # x. Behind the hold-down boss, which ends at y 28.55, and in front of the
-    # back rail.
-    tex = BACKSTAND_TIE_END_X
-    assert tex + BACKSTAND_TIE_END_L/2.0 <= XI - 1.0, (
-        f'end tie: {XI - (tex + BACKSTAND_TIE_END_L/2.0):.2f} mm to the buttress')
-    assert BACKSTAND_TIE_END_Y - BACKSTAND_TIE_END_G/2.0 - BACKSTAND_TIE_W/2.0 - 0.5 \
-        >= BY0 + SW/2.0 + BACKSTAND_BOSS_R, 'end tie: the boss is in the way'
-    for sx in (-1.0, 1.0):
-        s -= _tie_pad(sx*tex, BACKSTAND_TIE_END_Y,
-                      BACKSTAND_TIE_END_L, BACKSTAND_TIE_END_G,
-                      0.0, FT + 1.0, axis='x', relief_w=BACKSTAND_TIE_END_L + 1.0)
+    if not closed:
+        tbx, tbl = BACKSTAND_TIE_BOARD_X, BACKSTAND_TIE_BOARD_L
+        tf, tb = BACKSTAND_TIE_BOARD_F, BACKSTAND_TIE_BOARD_B
+        for sx in (-1.0, 1.0):
+            cx0 = sx*tbx
+            # the two rail notches, from half a millimetre INSIDE the foot so they
+            # share no plane with its top face
+            s -= box_lwh(cx0 - tbl/2.0, cx0 + tbl/2.0, BY0 - RT - 0.5, BY0 + 0.2,
+                         FT - 0.5, FT + 20.0)
+            s -= box_lwh(cx0 - tbl/2.0, cx0 + tbl/2.0, BY1 - 0.2, BY1 + RT + 0.5,
+                         FT - 0.5, FT + 20.0)
+            s -= _tie_pad(cx0, (tf + tb)/2.0, tbl, tb - tf, 0.0, FT + 0.5, axis='x',
+                          relief_w=tbl + 1.0)
+        # (b) THE LEADS, in the strip of open foot behind the clock and outboard of
+        # the cable gate. They run front to back through the gate, so the slots do
+        # too and the loop crosses them. The front slot reaches y 3.20 and the
+        # clock's back face crosses the foot's top at y 1.01 -- 2.19 mm of margin,
+        # asserted below because it is the one number here that moves with the tilt.
+        tly = BACKSTAND_TIE_LEAD_Y - BACKSTAND_TIE_LEAD_L/2.0
+        assert tly - back(FT) >= 1.5, (
+            f'lead tie: only {tly - back(FT):.2f} mm between the slot and the trench')
+        for sx in (-1.0, 1.0):
+            s -= _tie_pad(sx*BACKSTAND_TIE_LEAD_X, BACKSTAND_TIE_LEAD_Y,
+                          BACKSTAND_TIE_LEAD_L, BACKSTAND_TIE_LEAD_G,
+                          0.0, FT + RH + 1.0, axis='y', relief_w=BACKSTAND_TIE_LEAD_L + 1.0)
+        # (c) THE USB LEAD, on the bare floor between the board's end and the
+        # buttress. It leaves the board running outward in x, so these slots run in
+        # x. Behind the hold-down boss, which ends at y 28.55, and in front of the
+        # back rail.
+        tex = BACKSTAND_TIE_END_X
+        assert tex + BACKSTAND_TIE_END_L/2.0 <= XI - 1.0, (
+            f'end tie: {XI - (tex + BACKSTAND_TIE_END_L/2.0):.2f} mm to the buttress')
+        assert BACKSTAND_TIE_END_Y - BACKSTAND_TIE_END_G/2.0 - BACKSTAND_TIE_W/2.0 - 0.5 \
+            >= BY0 + SW/2.0 + BACKSTAND_BOSS_R, 'end tie: the boss is in the way'
+        for sx in (-1.0, 1.0):
+            s -= _tie_pad(sx*tex, BACKSTAND_TIE_END_Y,
+                          BACKSTAND_TIE_END_L, BACKSTAND_TIE_END_G,
+                          0.0, FT + 1.0, axis='x', relief_w=BACKSTAND_TIE_END_L + 1.0)
     # ---- THE PLINTH'S COLLAR AND LID SEAT --------------------------------
     # Sam, 2026-09-05: "I like having the electronics in the base under the
     # clock." This is that, and it is a small change because THE BAY IS ALREADY
@@ -2238,7 +2259,12 @@ def build_backstand(B, deep=False, closed=False):
         # WALLS and nothing else; the floor is the foot's, already there.
         col = box_lwh(-XO, XO, BY0 - RT - 2.0, BY1 + RT + 2.0,
                       FT - 1.0, lid_z + PLINTH_LID_T)
-        col -= box_lwh(-XI, XI, BY0, BY1, FT - 2.0, lid_z + PLINTH_LID_T + 1.0)
+        # XI + 0.50, matching the bay cut above. At XI the collar puts back the
+        # half millimetre that cut had taken out, so the plinth's bay came out
+        # narrower than the open stand's -- two parts that are meant to hold the
+        # same board disagreeing by half a millimetre.
+        col -= box_lwh(-(XI + 0.50), XI + 0.50, BY0, BY1,
+                       FT - 2.0, lid_z + PLINTH_LID_T + 1.0)
         # the windows go through the collar too -- they are the USB's way out
         # and the bay's ventilation, and a sealed box round a dev board is not
         # a thing anyone wants

@@ -150,8 +150,17 @@ change of plans. I like having the electronics in the base under the clock."
 | `mini-round-clock-plinth{tag}-lid` | — | 2.5 mm plate, prints flat, two M2 x 8 screws |
 
 The clock itself is **unchanged**: base, back cover, the ORIGINAL `housing`
-(not `-deep`), diffusers, numerals. The hold-down bar is optional — the board
-is captive under the lid.
+(not `-deep`), diffusers, numerals.
+
+**The hold-down bar is REQUIRED, not optional.** An earlier version of this
+sheet said the board was captive under the lid. It is not — the lid sits
+12.4 mm above the board and never touches it. `mini-round-clock-backstand-clamp`
+and two M2 x 6 self-tappers are what hold the board down.
+
+**The underside is solid.** Sam: "Make the base enclosed underneath." The six
+cable-tie slots were the only holes in the foot, and the plinth does not cut
+them — everything else down there is a blind pocket. The open back-stand keeps
+them, because there they are the only thing holding anything.
 
 **Why it was a small change.** The bay was already walled on all four sides —
 front rail, back rail, two buttresses. It never had a lid. The plinth adds a

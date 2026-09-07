@@ -386,3 +386,35 @@ Three things the mesh caught that reading the code would not have:
 
 The deep housing stays in the tree and still passes check8. It is the better
 answer if the clock ever goes on a wall, where a base is dead weight.
+
+### And enclosed underneath
+
+Sam, 2026-09-05: "Make the base enclosed underneath."
+
+Measured first: the only holes in the foot were the six cable-tie slots, at
+|x| 16, 26 and 35.5. Everything else in the underside -- the tie reliefs, the
+boss pilots, the lid pilots -- is a blind pocket. So the plinth simply does not
+cut them, and check9 proves it by firing a column up from below the desk at
+every square millimetre of the bay and requiring material in the way. The open
+back-stand keeps them: there they are the only thing holding the board and the
+leads.
+
+**Two things this turned up that were already wrong.**
+
+* **The hold-down bar has never fitted.** At `CLAMP_SX + BOSS_R + 1.50` the
+  plate is 81.5 mm wide and the bay is 81.0, so it fouled both buttresses by
+  0.25 mm -- and by 0.75 in the plinth, where the collar was putting back the
+  half millimetre the bay cut had taken. It went unseen for the same reason the
+  wire port did: check7 tested the bar against the BOARD and against its own
+  bosses, and never against the stand it goes into. The plate is now
+  `min(that, XI - 1.00)`, and both check7 and check9 do the boolean.
+* **The plinth's bay was half a millimetre narrower than the stand's**, because
+  the collar's void was drawn to XI while the bay cut goes to XI + 0.50. Two
+  parts meant to hold the same board, disagreeing.
+
+The rule, for the third time in this file: **a part that goes INSIDE another one
+gets a boolean against it.** Testing it against what it grips is not the same
+test.
+
+And a correction to what was said out loud: the board is NOT captive under the
+lid. The lid clears it by 12.4 mm and never touches it. The bar is required.

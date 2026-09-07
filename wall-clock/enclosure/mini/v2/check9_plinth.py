@@ -95,6 +95,49 @@ roof = csg.to_trimesh(both).contains(
 ck(roof.mean() > 0.97, 'and the bay is roofed over',
    f'{roof.mean()*100:.1f}% of the bay has lid above it')
 
+# ---- 4b. THE UNDERSIDE IS SOLID -----------------------------------------
+# Sam, 2026-09-05: "Make the base enclosed underneath." The six zip-tie slots
+# were the only holes in the foot -- everything else down there is a blind
+# pocket -- so the plinth skips them. This is the test that they stayed gone:
+# a ray up from below the desk must hit material before it reaches the bay,
+# everywhere inside the footprint.
+gx, gy = np.meshgrid(np.arange(-XO + 1, XO, 1.0),
+                     np.arange(BY0 - RT, BY1 + RT, 1.0), indexing='ij')
+below = np.column_stack([gx.ravel(), gy.ravel(), np.full(gx.size, 0.25)])
+inbay = np.column_stack([gx.ravel(), gy.ravel(), np.full(gx.size, FT + 1.0)])
+holed = (~P.contains(below)) & (~P.contains(inbay))
+ck(not holed.any(), 'the foot is solid underneath — no hole into the bay',
+   f'{holed.sum()} of {holed.size} columns open top to bottom')
+# and the open stand still HAS them, or the ties stopped working there
+Sb = S.contains(below); Si = S.contains(inbay)
+ck(((~Sb) & (~Si)).any(),
+   '...while the open back-stand keeps its cable-tie slots',
+   f'{((~Sb) & (~Si)).sum()} columns open, as designed')
+
+# ---- 4c. THE BAR IS NOT OPTIONAL ANY MORE, SO IT HAS TO FIT UNDER THE LID
+# With the tie slots gone the lid is 12.4 mm above the board and does not touch
+# it, so the screw-down bar is what holds the board. (I told Sam the bar was
+# optional "because the board is captive under the lid" -- it is not, and this
+# is the check that says so out loud.)
+# The bar is EXPORTED IN ITS PRINT POSE -- flipped and dropped to the bed -- so
+# it has to be put back before it can be compared with anything. This is the
+# same inverse check7 applies; change one and change the other. Comparing the
+# print pose straight off the disk reads 5824 mm3 of "interference" that is
+# simply a part lying somewhere else.
+CL = trimesh.load(csg.part('mini-round-clock-backstand-clamp.stl'))
+_lz0  = FT + BACKSTAND_POST_H + BOARD_T
+_top  = _lz0 + BOARD_TALL + BACKSTAND_CLAMP_LIFT
+_y0   = BY0 + BACKSTAND_SLOT_W/2.0
+_flip = np.eye(4); _flip[1, 1] = -1.0; _flip[2, 2] = -1.0
+CL.apply_translation([0.0, -_y0, -(_top + BACKSTAND_CLAMP_T)])
+CL.apply_transform(_flip)
+CL.apply_translation([0.0, _y0, 0.0])
+ck(CL.bounds[1][2] < lid_z, 'the hold-down bar fits under the lid',
+   f'bar tops out at z {CL.bounds[1][2]:.1f}, lid underside {lid_z:.1f}')
+both_ = csg.to_trimesh(csg.to_manifold(P) ^ csg.to_manifold(CL))
+ck(both_.volume < 1.0, 'and it does not foul the plinth',
+   f'{both_.volume:.2f} mm3')
+
 # ---- 5. the screws land in material, and a driver can reach them ---------
 for sx in (-1.0, 1.0):
     px, py = sx*PLINTH_BOSS_X, y_back - PLINTH_BOSS_INSET
