@@ -1726,11 +1726,17 @@ def build_standbox(B, depth):
     # Pockets either side of the bay, open at the bottom, roof bridged, split
     # into cells no wider than STANDBOX_CELL_MAX -- and stopping short of the
     # cradle's legs at |x| = STAND_ARCH_HW, which stay solid to the desk.
+    # ...EXCEPT THAT THEY ARE OFF NOW. Sam: "Make the base enclosed
+    # underneath", and these were the two biggest holes in the whole set --
+    # 19 x 66 mm each, straight through the bottom face. They bought model
+    # volume and nothing else: a solid plinth is hollowed by the slicer's
+    # infill just the same, and the print barely notices. STANDBOX_POCKETS
+    # puts them back if the weight ever matters more than the look.
     pockets = None
     xi = bay_w/2 + STANDBOX_WALL
     xo = min(hw - STANDBOX_WALL, STAND_ARCH_HW - 1.0)
     span = xo - xi
-    if span >= 8.0:
+    if STANDBOX_POCKETS and span >= 8.0:
         ncell = max(1, int(math.ceil(span / STANDBOX_CELL_MAX)))
         cwid = (span - (ncell - 1)*STANDBOX_RIB_T) / ncell
         for sign in (-1, 1):

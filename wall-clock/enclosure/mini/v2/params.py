@@ -1892,3 +1892,20 @@ DOCK_BOARD_Y = 20.00  # centre of the board, front to back
 DOCK_RAIL_T  =  2.50
 DOCK_USB_W   = 14.00
 DOCK_USB_H   =  9.00
+
+
+# =============================================================================
+# v13 — the stand-box, closed underneath
+# =============================================================================
+# Sam, 2026-09-05, choosing between four bases: "B, I like the stand box." And
+# before that: "I want it enclosed" and "Make the base enclosed underneath."
+#
+# The stand-box was already the enclosed one -- a plinth with the bay opening
+# at the BACK, closed by a tray that is also the lid and carries the USB-C
+# window. The one thing against it was the pair of lightening pockets, open at
+# the bottom, 19 x 66 mm each: by far the biggest holes in anything in this set.
+#
+# They are gone. They saved model volume and nothing else -- the slicer hollows
+# a solid plinth with infill just as well, and print time barely moves. What
+# they cost was the one property Sam has now asked for three times.
+STANDBOX_POCKETS = False

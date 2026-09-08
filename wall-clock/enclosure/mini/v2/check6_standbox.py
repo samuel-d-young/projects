@@ -222,4 +222,30 @@ for B, tg in ((BV.BODY24, ''), (BV.BODY32, '-32'), (BV.BODY60, '-60')):
 print()
 if FAIL:
     print(f'CHECK 6: {len(FAIL)} FAILURES'); [print('   -', f) for f in FAIL]; sys.exit(1)
+# =============================================================================
+# ENCLOSED. Sam asked for that three times, and picked this stand to have it.
+# =============================================================================
+# The bay opens at the BACK and the tray closes it, so the only thing that was
+# ever open in the bottom face was the pair of lightening pockets -- 19 x 66 mm
+# each, the biggest holes in anything in this set. STANDBOX_POCKETS is off and
+# this is the test that keeps it that way.
+print('\n7. Enclosed')
+for B, tg in ((BV.BODY24, ''), (BV.BODY32, '-32'), (BV.BODY60, '-60')):
+    S = load(f'mini-round-clock-standbox{tg}.stl')
+    lo, hi = S.bounds
+    gx, gy = np.meshgrid(np.arange(lo[0] + 2, hi[0] - 1, 2.0),
+                         np.arange(lo[1] + 2, hi[1] - 1, 2.0), indexing='ij')
+    pts = np.column_stack([gx.ravel(), gy.ravel(), np.full(gx.size, 0.4)])
+    outline = S.contains(np.column_stack([gx.ravel(), gy.ravel(),
+                                          np.full(gx.size, 0.4)]))
+    # a hole is a column that is open at the bottom AND open a centimetre up,
+    # inside the plinth's own outline in plan
+    up = S.contains(np.column_stack([gx.ravel(), gy.ravel(),
+                                     np.full(gx.size, 10.0)]))
+    inside = (np.abs(gx.ravel()) < B.r_body - 3) & \
+             (gy.ravel() > lo[1] + 4) & (gy.ravel() < hi[1] - 4)
+    holes = inside & (~outline) & (~up)
+    ck(not holes.any(), f'{B.n}-LED: nothing open in the underside',
+       f'{holes.sum()} of {inside.sum()} columns open')
+
 print('CHECK 6: the S3 lives in the stand, the clock leans back, the covers and diffusers fit')

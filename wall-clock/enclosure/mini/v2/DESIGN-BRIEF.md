@@ -456,3 +456,28 @@ Everything else followed from print orientation too:
 
 The cap is modelled solid, 107-124 cm3. That is not its weight: it is a slab and
 the slicer hollows it.
+
+## And the answer was B
+
+Shown the desk stand, the stand-box, the back-stand and the new dock side by
+side, Sam picked the stand-box: "B, I like the stand box."
+
+Which is worth recording, because **it was already the enclosed one.** The bay
+opens at the BACK and the tray that carries the board IS the lid -- it slides in
+like a drawer, and its end plate with the USB-C window closes the bay and screws
+to the back face. The leads drop from the clock through the cradle's own
+6 o'clock notch, cut with the same solid the cradle was cut with.
+
+Everything the back-stand, the plinth and the dock were built to solve, this
+part had solved in v9. The lesson is not a geometric one: **when a design keeps
+failing, look back at what was replaced before building a fourth thing.** Two of
+today's three rebuilds were unnecessary.
+
+One change was needed and it was small: the two lightening pockets, 19 x 66 mm
+each, open straight through the bottom face -- the biggest holes in anything in
+this set, on the part chosen for being enclosed. `STANDBOX_POCKETS` is off, and
+check6 now sweeps the underside and fails the moment they come back. Verified by
+turning them on again: 624 open columns on the 24, 608 on the 32, 948 on the 60.
+
+The dock stays in the tree. It is a good part and it passes check10; it is
+simply not the one Sam wants.

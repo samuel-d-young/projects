@@ -137,7 +137,41 @@ than guess. The one that takes the board without force is the answer.
    middle 18 mm out of the front rail so the leads reach the board without
    climbing anything.
 
-## THE DOCK — print this. Everything below is superseded.
+## THE STAND-BOX — print this. Everything below is superseded.
+
+`2026-09-05`. Shown four bases side by side, Sam picked it: "B, I like the
+stand box."
+
+It was already the enclosed one, and that is why it wins: the bay opens at the
+**back**, and the tray that carries the board **is the lid** — it slides in like
+a drawer and its end plate, with the USB-C window in it, closes the bay and
+screws to the back face. The leads drop straight from the clock through the
+cradle's own 6 o'clock notch into the bay, cut with the same solid the cradle
+was cut with, so the two cannot disagree.
+
+| print | | |
+|---|---|---|
+| `mini-round-clock-standbox{tag}` | the plinth and cradle in one | flat on its foot, no support |
+| `mini-round-clock-standbox-tray{tag}` | the drawer, and the lid | flat, lid standing |
+
+The clock is untouched: base, back cover, the ORIGINAL `housing`, diffusers,
+numerals. No hold-down bar — the tray has its own rails and hooks.
+
+|  | 24 LED | 32 LED |
+|---|---|---|
+| stand-box | 108 × 72 × 55 mm | 121 × 72 × 61 mm |
+| lean | 12° | 12° |
+
+**What changed today: it is closed underneath.** It had two lightening pockets
+in the bottom face, 19 × 66 mm each — by far the biggest holes in anything in
+this set. They bought model volume and nothing else: a solid plinth is hollowed
+by the slicer's infill just the same. `STANDBOX_POCKETS` puts them back if the
+weight ever matters more than the look, and check6 fails the moment they return.
+
+**It is modelled solid** (229 cm³ on the 24, 269 on the 32). That is not what it
+weighs — at 15% infill expect roughly 70–85 g.
+
+## Superseded: the dock
 
 `2026-09-05`. Sam: "I hate the stand. Start again. I want it enclosed."
 
