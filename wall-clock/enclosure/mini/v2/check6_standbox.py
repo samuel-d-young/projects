@@ -67,90 +67,73 @@ for B, tg in ((BV.BODY24, ''), (BV.BODY32, '-32'), (BV.BODY60, '-60')):
     cw, chh = STANDBOX_BAY_CHAMF_W, STANDBOX_BAY_CHAMF_H
     _, notch, h0 = BV._stand_solid(B, depth, STANDBOX_TILT)
 
-    print('\n1. The bay is there, the right size, and open at the back')
-    # the tray's length of bay from the back face: full width up to the
-    # chamfers, and the narrower flat up to the roof -- all void
-    lo = box_lwh(-bay_w/2 + 0.3, bay_w/2 - 0.3, y1 - bay_l + 0.3, y1 + 0.5, z0 + 0.3, z1 - chh - 0.3)
-    hi = box_lwh(-bay_w/2 + cw + 0.3, bay_w/2 - cw - 0.3, y1 - bay_l + 0.3, y1 + 0.5, z1 - chh, z1 - 0.3)
-    left = (lo ^ S).volume() + (hi ^ S).volume()
-    ck(left < 1.0, f'bay {bay_w:.1f} x {bay_l:.1f} x {z1-z0:.1f} mm is clear', f'{left:.1f} mm3 of solid in it')
-    ck(z1 - z0 >= BRD_POST_H + BOARD_T + 14.0,
-       'bay is tall enough for the board and the leads on top of it',
-       f'{z1-z0:.1f} clear, needs {BRD_POST_H + BOARD_T + 14.0:.1f}')
-    # the roof is bridged: measure the flat ceiling's width at the roof plane
-    roof = box_lwh(-bay_w/2 - 1.0, bay_w/2 + 1.0, y1 - bay_l + 5.0, y1 - bay_l + 6.0, z1 - 0.2, z1 - 0.05)
-    void = roof - (roof ^ S)
-    vb = void.bounding_box()
-    ck(vb[3] - vb[0] <= 25.0, f'the bay roof\'s flat span is {vb[3]-vb[0]:.1f} mm (check3 allows 25)')
-    # ...and the chamfers under it are steeper than 45 deg
-    ck(chh / cw > 1.0, f'chamfers are {math.degrees(math.atan2(chh, cw)):.1f} deg from the horizontal')
+    print('\n1. The well is there, and it is open at the TOP')
+    # Sam: "Remove the sliding tray. Because it is a dev board, wires stick out
+    # the top." The drawer is gone; the bay is a well the board drops into. So
+    # the test is no longer "is the tunnel clear" but "is the lid off".
+    well_hw = BOARD2_W/2 + STANDBOX_WELL_CLR + FDM_SLOT_UNDER/2
+    Sm = load(f'mini-round-clock-standbox{tg}.stl')
+    Cm = load(f'mini-round-clock-standbox-cradle{tg}.stl')
+    lo, hi = Sm.bounds
+    H = STANDBOX_PLINTH_H
+    xs = np.arange(-well_hw + 1, well_hw, 1.0)
+    ys = np.arange(lo[1] + STANDBOX_WALL + 2, hi[1] - STANDBOX_WALL - 1, 1.5)
+    gx, gy = np.meshgrid(xs, ys, indexing='ij')
+    roof = Sm.contains(np.column_stack([gx.ravel(), gy.ravel(),
+                                        np.full(gx.size, H - 0.5)]))
+    ck(not roof.any(), 'the well is open to the sky over its whole length',
+       f'{roof.sum()} of {roof.size} probes blocked')
+    ck(H - STANDBOX_FLOOR >= BRD_POST_H + STANDBOX_BOARD_H + STANDBOX_WIRE_H,
+       'and deep enough for the board, its headers AND the loom on top',
+       f'{H - STANDBOX_FLOOR:.1f} mm against '
+       f'{BRD_POST_H + STANDBOX_BOARD_H + STANDBOX_WIRE_H:.1f} needed')
 
-    print('\n2. The tray fits the bay, and the board fits the tray')
-    tb = T.bounding_box()
-    ck(abs((tb[3] - tb[0]) - (bay_w + 2*STANDBOX_LID_LIP)) < 0.2,
-       'tray is the bay plus the lid lips wide', f'{tb[3]-tb[0]:.2f} mm')
-    ck(abs(tb[2]) < 0.02 and abs(tb[5] - (H - z0)) < 0.05,
-       'it sits flat: nothing below the floor plane, the lid reaches the roof',
-       f'z {tb[2]:.2f} .. {tb[5]:.2f}, roof at {H - z0:.2f}')
-    # the tray proper (without the lid) must be narrower than the bay by the
-    # worst FDM slot loss, and the board must fit between the rails the same way
-    body = T ^ box_lwh(-100, 100, 0.5, 200, -10, 100)     # everything past the lid
-    bb = body.bounding_box()
-    ck(bay_w - (bb[3] - bb[0]) >= 2*FDM_SLOT_UNDER,
-       'tray clears the bay even when the bay prints narrow',
-       f'{bay_w - (bb[3]-bb[0]):.2f} mm total, needs {2*FDM_SLOT_UNDER:.2f}')
-    # the board's own envelope, on the pads, is clear of everything
-    slot = box_lwh(-STANDBOX_BOARD_W/2 - 0.2, STANDBOX_BOARD_W/2 + 0.2, 5.0, STANDBOX_BOARD_L - 5.0,
-                   STANDBOX_TRAY_T + BRD_POST_H + 0.3, STANDBOX_TRAY_T + BRD_POST_H + BOARD_T - 0.3)
-    ck((slot ^ T).volume() < 1.0, 'the board slot between the rails is clear of the pads',
-       f'{(slot ^ T).volume():.1f} mm3 in the way')
-    rails = box_lwh(-rail_y - STANDBOX_RAIL_T + 0.3, rail_y + STANDBOX_RAIL_T - 0.3,
-                    10, STANDBOX_BOARD_L - 10, STANDBOX_TRAY_T + 0.5, STANDBOX_TRAY_T + STANDBOX_RAIL_H - 0.5) - \
-            box_lwh(-rail_y - 0.3, rail_y + 0.3, 0, 200, -10, 100)
-    ck((rails ^ T).volume() > 0.8 * rails.volume(), 'both rails are there', f'{(rails ^ T).volume()/rails.volume()*100:.0f}% present')
-    # the hooks over the far corners, and nothing between them
-    tray_l = STANDBOX_BOARD_L + BRD_END_CLR + STANDBOX_RAIL_T
-    hy0, hy1 = tray_l - STANDBOX_RAIL_T - STANDBOX_BAR_W + 0.3, tray_l - STANDBOX_RAIL_T - 0.3
-    hz0, hz1 = STANDBOX_TRAY_T + BRD_LIP_Z0 + 0.3, STANDBOX_TRAY_T + BRD_RAIL_TOP - 0.3
-    hooks = box_lwh(-rail_y + 0.3, -rail_y + STANDBOX_HOOK_W - 0.3, hy0, hy1, hz0, hz1) + \
-            box_lwh(rail_y - STANDBOX_HOOK_W + 0.3, rail_y - 0.3, hy0, hy1, hz0, hz1)
-    gap = box_lwh(-rail_y + STANDBOX_HOOK_W + 0.3, rail_y - STANDBOX_HOOK_W - 0.3, hy0, hy1, hz0, hz1)
-    ck((hooks ^ T).volume() > 0.9 * hooks.volume() and (gap ^ T).volume() < 1.0,
-       f'two {STANDBOX_HOOK_W:.0f} mm hooks over the far corners, open between them',
-       f'{(hooks ^ T).volume()/hooks.volume()*100:.0f}% hook, {(gap ^ T).volume():.1f} mm3 between')
-    # USB window in the lid, at the connector height
-    z_usb = STANDBOX_TRAY_T + BRD_POST_H + BOARD_T + BOARD_TALL/2
-    win = box_lwh(-USB_WIN_W/2 + 0.3, USB_WIN_W/2 - 0.3, -STANDBOX_LID_T - 0.5, 0.5,
-                  z_usb - USB_WIN_H/2 + 0.3, z_usb + USB_WIN_H/2 - 0.3)
-    ck((win ^ T).volume() < 1.0, f'USB-C window {USB_WIN_W:.0f} x {USB_WIN_H:.0f} open in the lid', f'{(win ^ T).volume():.1f} mm3 blocking')
+    print('\n2. The board drops in, and the loom stays on it')
+    ymid = (lo[1] + hi[1])/2.0
+    z_pcb = STANDBOX_FLOOR + BRD_POST_H
+    def clear(ztop, what):
+        gx2, gy2, gz2 = np.meshgrid(
+            np.arange(-BOARD2_W/2 + 0.5, BOARD2_W/2, 1.0),
+            np.arange(ymid - BOARD2_L/2 + 0.5, ymid + BOARD2_L/2, 1.5),
+            np.arange(z_pcb + 0.2, ztop, 0.8), indexing='ij')
+        h = Sm.contains(np.column_stack([gx2.ravel(), gy2.ravel(), gz2.ravel()]))
+        ck(not h.any(), what, f'{h.sum()} of {h.size} probes hit material')
+    clear(z_pcb + BOARD_T, "Sam's 64 x 30 board sits in the well")
+    clear(z_pcb + STANDBOX_BOARD_H, 'its headers clear the walls')
+    clear(H - 0.5, 'and so does the loom standing on them')
+    # a vertical drop, not a slide: the board must come STRAIGHT down
+    gx3, gy3, gz3 = np.meshgrid(
+        np.arange(-BOARD2_W/2 + 0.5, BOARD2_W/2, 1.5),
+        np.arange(ymid - BOARD2_L/2 + 0.5, ymid + BOARD2_L/2, 2.0),
+        np.arange(z_pcb + BOARD_T + 1.0, H + 8.0, 1.5), indexing='ij')
+    down = Sm.contains(np.column_stack([gx3.ravel(), gy3.ravel(), gz3.ravel()]))
+    ck(not down.any(), 'it goes STRAIGHT down — nothing overhangs the well',
+       f'{down.sum()} of {down.size} probes blocked')
 
-    print('\n3. The leads can get from the clock into the bay')
-    # the cradle's own notch, from 3 mm inside the bay up through the roof
-    # and 6 mm into the cradle: all of it void, and there is enough of it
-    p = notch ^ box_lwh(-200, 200, -200, 200, z1 - 3.0, H + 6.0)
-    pb = p.bounding_box()
-    blocked = (p ^ S).volume()
-    ck(blocked < 1.0 and p.volume() > 200.0,
-       f'the notch runs through the roof into the bay, at y {pb[1]:.0f}..{pb[4]:.0f}',
-       f'{blocked:.1f} mm3 in the way, {p.volume():.0f} mm3 of notch')
+    print('\n3. The leads get from the clock into the well')
+    zc = H + 1.0
+    thr = Cm.contains(np.array([[0.0, ymid, zc]]))
+    ck(not thr.all(), "the cradle's notch is above the well")
 
-    print('\n4. The lid screws have something to bite')
-    zs = (z0 + z1)/2
-    for sx in (-1, 1):
-        xs = sx*(bay_w/2 + 4.5)
-        # the pilot is drilled STANDBOX_WALL + STANDBOX_BOSS_L - 1 deep from
-        # the back face (it starts 1 mm inside the pillar's front); probe it
-        # 0.3 short of that, and the 5 mm of material around it
-        pd = STANDBOX_WALL + STANDBOX_BOSS_L - 1.0
-        pilot = cyl(STANDBOX_SCREW_PILOT/2 - 0.2, 0.0, pd - 0.3, 24,
-                    centre=(xs, 0.0)).rotate([-90.0, 0.0, 0.0]) \
-                    .translate([0.0, y1 - pd + 0.3, zs])
-        meat = (box_lwh(xs - 2.5, xs + 2.5, y1 - pd + 0.3, y1 - 0.3, zs - 2.5, zs + 2.5)
-                - cyl(STANDBOX_SCREW_PILOT/2 + 0.2, -1.0, 30.0, 24, centre=(xs, 0.0))
-                      .rotate([-90.0, 0.0, 0.0]).translate([0.0, y1 - 20.0, zs]))
-        ck((pilot ^ S).volume() < 0.5 and (meat ^ S).volume() > 0.97*meat.volume(),
-           f'pilot at x={xs:+.1f}: {pd:.1f} mm deep with solid all round',
-           f'{(pilot ^ S).volume():.1f} mm3 in the hole, {(meat ^ S).volume()/meat.volume()*100:.0f}% solid around it')
+    print('\n4. The cradle is the lid, and it goes on')
+    inter = csg.to_trimesh(to_manifold(Sm) ^ to_manifold(Cm))
+    ck(inter.volume < 1.0, 'cradle and plinth do not interfere',
+       f'{inter.volume:.2f} mm3')
+    ck(abs(Cm.bounds[0][2] - H) < 0.01, 'the cradle sits on the plinth at z = H',
+       f'{Cm.bounds[0][2]:.2f}')
+    BOTH = csg.to_trimesh(to_manifold(Sm) + to_manifold(Cm))
+    lid = BOTH.contains(np.column_stack([gx.ravel(), gy.ravel(),
+                                         np.full(gx.size, H + STANDBOX_ROOF/2)]))
+    # It roofs the well EXCEPT the lead notch, which is the whole point of the
+    # notch. So the test is not "how much is covered" -- it is "is everything
+    # that is open the notch, and nothing else". A percentage would have passed
+    # a hole anywhere.
+    openx = np.abs(gx.ravel()[~lid])
+    ck(lid.any(), 'the cradle roofs the well')
+    ck(openx.size == 0 or openx.max() <= STAND_NOTCH_HW + 1.0,
+       'and the only thing open is the leads\' notch',
+       f'{(~lid).sum()} cells open, all within |x| = '
+       f'{openx.max() if openx.size else 0:.1f} of a {STAND_NOTCH_HW:.0f} mm notch')
 
     print('\n5. It stays up, leaning back')
     # the clock's centre: on the cradle axis, mid-depth

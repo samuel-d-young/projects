@@ -1909,3 +1909,30 @@ DOCK_USB_H   =  9.00
 # a solid plinth with infill just as well, and print time barely moves. What
 # they cost was the one property Sam has now asked for three times.
 STANDBOX_POCKETS = False
+
+
+# =============================================================================
+# v14 — no tray. The board drops in from ABOVE
+# =============================================================================
+# Sam, 2026-09-05: "Remove the sliding tray. Because it is a dev board, wires
+# stick out the top. Design another way to mount the ESP32."
+#
+# He is right and the fault is structural, not dimensional. A drawer only works
+# if the board and everything attached to it can pass through the opening. A dev
+# board with a Dupont loom on its headers is 5 mm of board and 15 mm of wire,
+# and the leads it is being connected to come DOWN through the roof at the far
+# end -- so fitting it meant feeding a loom through a 67 mm tunnel and hoping.
+# No clearance number fixes that.
+#
+# So the bay becomes a WELL, open at the top, closed on all four sides and
+# underneath, and the cradle is the lid. Board goes in from above with the loom
+# already on it, leads drop through the cradle's own notch, cradle goes on.
+# Nothing is threaded through anything.
+STANDBOX_WELL_CLR  = 0.60   # well to board, per side, on top of the slot rule
+STANDBOX_PIN_R     = 2.00   # locating pins on the plinth's top face. On the
+                            # PLINTH, because the cradle prints saddle-up with
+                            # its underside on the bed and cannot carry a pin
+                            # there -- it would be under the build plate
+STANDBOX_PIN_H     = 4.00
+STANDBOX_PIN_CLR   = 0.25
+STANDBOX_LID_SCREW_Y = 6.00 # the two screws, in from the back face

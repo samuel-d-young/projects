@@ -151,11 +151,29 @@ was cut with, so the two cannot disagree.
 
 | print | | |
 |---|---|---|
-| `mini-round-clock-standbox{tag}` | the plinth and cradle in one | flat on its foot, no support |
-| `mini-round-clock-standbox-tray{tag}` | the drawer, and the lid | flat, lid standing |
+| `mini-round-clock-standbox{tag}` | the plinth, with the well in it | open side up, no support |
+| `mini-round-clock-standbox-cradle{tag}` | the saddle, which is the lid | seat up, flat side on the bed, no support |
 
 The clock is untouched: base, back cover, the ORIGINAL `housing`, diffusers,
-numerals. No hold-down bar — the tray has its own rails and hooks.
+numerals. No hold-down bar, no tray.
+
+**The drawer is gone.** Sam: "Remove the sliding tray. Because it is a dev
+board, wires stick out the top." He is right, and the fault was structural: a
+drawer only works if the board *and everything plugged into it* can pass
+through the opening. A dev board with a Dupont loom is 5 mm of board and 15 mm
+of wire, and the leads it connects to come **down** through the roof at the far
+end — so fitting it meant feeding a loom through a 67 mm tunnel toward wires
+coming the other way. No clearance number fixes that.
+
+So the bay is now a **well**: closed on four sides and underneath, open at the
+top, 30 mm deep. The board drops straight in with the loom already on it, the
+leads drop through the cradle's own notch, and the cradle goes on over the lot.
+Nothing is threaded through anything.
+
+**Assembly.** Board into the well, on its four pads, between the rails. Plug the
+clock's leads onto it. Lower the cradle over the four pins — the leads pass up
+through its notch. Two M2 × 12 down through the back of the cradle. Clock into
+the saddle.
 
 |  | 24 LED | 32 LED |
 |---|---|---|

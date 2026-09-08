@@ -11,7 +11,7 @@ import build_v2 as BV
 TAG = sys.argv[1] if len(sys.argv) > 1 else '-32'
 B   = {'': BV.BODY24, '-32': BV.BODY32, '-60': BV.BODY60}[TAG]
 S = trimesh.load(csg.part(f'mini-round-clock-standbox{TAG}.stl'), process=False)
-T = trimesh.load(csg.part(f'mini-round-clock-standbox-tray{TAG}.stl'), process=False)
+T = trimesh.load(csg.part(f'mini-round-clock-standbox-cradle{TAG}.stl'), process=False)
 
 # THE CLOCK, PUT WHERE THE CRADLE WAS CUT FOR IT. The cradle is cut with a
 # cylinder spanning local z -depth..0, so the clock's FRONT face is at local
@@ -35,24 +35,25 @@ for fn in (f'mini-round-clock-base{TAG}.stl', f'mini-round-clock-backcover{TAG}.
 clock = trimesh.util.concatenate(clock)
 
 # the tray, drawn PULLED OUT of the back so it reads as a drawer
-tray_out = T.copy(); tray_out.apply_translation([0.0, 34.0, 0.0])
+tray_out = T.copy(); tray_out.apply_translation([0.0, 0.0, 34.0])
 
 scenes = [('the plinth', S),
-          ('the tray, pulled out of the back', trimesh.util.concatenate([S, tray_out]))]
+          ('the cradle, lifted off', trimesh.util.concatenate([S, tray_out]))]
 fig, ax = plt.subplots(1, 3, figsize=(14.6, 5.4), dpi=150)
-EYES = [(-0.72, -1.0, 0.55), (0.55, 1.0, 0.45)]   # front three-quarter, then
+EYES = [(-0.72, -1.0, 0.55), (-0.72, -1.0, 0.35)]   # front three-quarter, then
                                                   # from BEHIND, which is the
                                                   # only view the drawer reads in
 for k, (label, sc) in enumerate(scenes):
     img, _ = render(sc, EYES[k], (0, 0, 1), px=780)
     ax[k].imshow(img, cmap='bone', vmin=0, vmax=1)
     ax[k].set_title(label, fontsize=9); ax[k].axis('off')
-img, _ = render(trimesh.util.concatenate([S, clock]), (-0.72, -1.0, 0.5), (0, 0, 1), px=780)
+img, _ = render(trimesh.util.concatenate([S, T, clock]), (-0.72, -1.0, 0.5), (0, 0, 1), px=780)
 ax[2].imshow(img, cmap='bone', vmin=0, vmax=1)
 ax[2].set_title('with the clock', fontsize=9); ax[2].axis('off')
 fig.suptitle(f'standbox{TAG or "-24"} — {S.extents[0]:.0f} x {S.extents[1]:.0f} x '
-             f'{S.extents[2]:.0f} mm, leaning back {STANDBOX_TILT:.0f}°; '
-             f'the bay opens at the BACK and the tray is its lid. Nothing open underneath.',
+             f'{S.extents[2] + T.extents[2] - STANDBOX_ROOF:.0f} mm, leaning back '
+             f'{STANDBOX_TILT:.0f}°; the board drops into the well from above with its '
+             f'loom on, and the cradle is the lid. Nothing open underneath.',
              fontsize=10)
 fig.tight_layout(); fig.savefig(f'render_standbox{TAG or "-24"}.png'); plt.close(fig)
 print(f'wrote render_standbox{TAG or "-24"}.png')

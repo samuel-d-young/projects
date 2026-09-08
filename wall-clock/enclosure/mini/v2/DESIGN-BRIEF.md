@@ -481,3 +481,37 @@ turning them on again: 624 open columns on the 24, 608 on the 32, 948 on the 60.
 
 The dock stays in the tree. It is a good part and it passes check10; it is
 simply not the one Sam wants.
+
+### No drawer: the board drops in from above
+
+Sam, 2026-09-05: "Remove the sliding tray. Because it is a dev board, wires
+stick out the top. Design another way to mount the ESP32."
+
+**The fault was structural, not dimensional.** A drawer only works if the board
+AND everything plugged into it can pass through the opening. A dev board with a
+Dupont loom is 5 mm of board and 15 mm of wire, and the leads it is being
+connected to come DOWN through the roof at the far end -- so fitting it meant
+feeding a loom through a 67 mm tunnel toward wires coming the other way. No
+clearance number fixes that, which is why the headroom sums in the old builder
+all passed while the part was unusable.
+
+The bay is a WELL now: closed on four sides and underneath, open at the top,
+30 mm deep. The CRADLE IS THE LID. Board in from above with the loom on, leads
+down through the cradle's own notch, cradle on, two screws.
+
+The split falls out of printing, exactly as the dock's did:
+
+* the plinth prints open-side-up -- walls and a floor, no overhang;
+* the cradle prints SEAT UP with a flat underside, because the seat is a valley
+  open to the sky;
+* so **the locating pins are on the PLINTH**. A pin on the cradle's underside
+  would be under the build plate.
+
+Two things measured rather than assumed:
+
+* **No end stops in the well.** A pair of 2.50 mm ribs to locate the board took
+  1.50 mm out of its own footprint at each end -- 120 probes inside the board.
+  The well is BOARD2_L + 2 long and its own end walls do the job.
+* **The cradle roofs the well except the lead notch**, and check6 tests that as
+  "everything open is within the notch's own half-width", not as a percentage.
+  A percentage would have passed a hole anywhere.

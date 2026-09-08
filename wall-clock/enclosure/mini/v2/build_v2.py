@@ -1632,28 +1632,24 @@ def _teardrop(r, z0, z1, seg=24):
 
 
 def build_standbox(B, depth):
-    """The stand with the S3 in it. Sam: "housed at the bottom of the clock in
-    the stand. Make the clock lean back a bit though."
+    """The stand Sam picked, rebuilt so the board drops in from ABOVE.
 
-    The cradle is _stand_solid at STANDBOX_TILT, for a clock wearing the flat
-    back cover. Under and behind it, in the desk frame so everything in it is
-    level, a plinth: a box the width of the clock, with a BAY for the board
-    tray opening at the back, a lightening pocket open at the bottom either
-    side of it (roof bridged, ribbed past STANDBOX_CELL_MAX), and the cradle's
-    own 6 o'clock notch re-cut through the plinth's roof so the leads drop
-    straight from the clock into the bay. The notch is the SAME solid the
-    cradle was cut with, put through the same transform -- so the two cuts
-    cannot disagree.
+    Sam, 2026-09-05: "B, I like the stand box." Then: "Remove the sliding tray.
+    Because it is a dev board, wires stick out the top."
 
-    How deep the plinth runs is set by tipping, both ways: the toe in front by
-    the forward angle, the back edge by the backward one, each to
-    STANDBOX_TIP_TARGET with the clock's centre where the cover puts it.
-    STANDBOX_PLINTH_D is the floor, not the answer -- on the 60 the centre is
-    137 mm up and the plinth runs 56 mm behind the cradle axis.
+    The drawer is gone and the fault it had was structural, not dimensional: a
+    tray only works if the board AND everything plugged into it can pass through
+    the opening, and a dev board with a Dupont loom is 5 mm of board and 15 mm
+    of wire being fed down a 67 mm tunnel toward leads coming the other way.
 
-    Returns (stand, tray). The tray carries the board and IS the lid: a floor
-    with pads and rails, a hook over each far corner, and an end plate with
-    the USB-C window that closes the bay and screws to the back face.
+    So the bay is a WELL -- closed on four sides and underneath, open at the
+    top -- and the CRADLE IS THE LID. Board in from above with the loom already
+    on it, leads down through the cradle's own notch, cradle on, two screws.
+
+    Returns (plinth, cradle). Both print with no support: the plinth is walls
+    and a floor open upward, and the cradle is the saddle with a flat underside,
+    printed seat-up, which is why the locating pins are on the PLINTH -- a pin
+    on the cradle's underside would be under the build plate.
     """
     t = STANDBOX_TILT
     s, notch, h0 = _stand_solid(B, depth, t)
@@ -1662,160 +1658,76 @@ def build_standbox(B, depth):
     y_com = (depth/2)*math.sin(math.radians(t))
     z_com = h0 - (depth/2)*math.cos(math.radians(t))
     # The plinth's front face sits PROUD of the cradle's front-most point,
-    # never on it: on the 32 body, whose cradle needs no toe, the cradle's
-    # tilted front face meets a flush vertical face along the foot's front
-    # edge -- a line tangency, and in float32 that is exactly a NotManifold.
+    # never on it: a box with its side on the cradle's own plane unions into
+    # coplanar faces that come apart in float32.
     toe = max(0.5, z_com*tip + bb[1] - y_com)
     y0 = bb[1] - toe
     y1 = max(y0 + STANDBOX_PLINTH_D + max(0.0, toe - 4.0), y_com + z_com*tip + 0.5)
     hw = B.r_body
     H = STANDBOX_PLINTH_H
 
-    # --- the bay, sized off the tray ----------------------------------------
-    # SAM'S board, not the drawing's. The rails used to be BOARD_W/2 +
-    # BRD_RAIL_CLR apart, i.e. 28.99, against a board that measures 29.00 --
-    # a negative fit that no print tuning could rescue. STANDBOX_SLOT_W is the
-    # channel between the rails and it is the one number to turn if the fit is
-    # wrong; the base's own board mount is untouched and keeps BOARD_W/BOARD_L.
-    rail_y = STANDBOX_SLOT_W/2
-    tray_w = STANDBOX_SLOT_W + 2*STANDBOX_RAIL_T                    # 34.20
-    tray_l = STANDBOX_BOARD_L + BRD_END_CLR + STANDBOX_RAIL_T       # 67.50
-    bay_w = tray_w + 2*STANDBOX_BAY_CLR
-    bay_l = tray_l + STANDBOX_BAY_CLR
-    bay_z0 = STANDBOX_FLOOR
-    bay_z1 = H - STANDBOX_ROOF
-    # Headroom, stated as what it actually has to hold rather than a bare 14:
-    # the tray's own floor, the pads that lift the PCB clear of its header
-    # tails, Sam's 14 mm over the PCB with the headers on, and air above that
-    # for the leads, because he said they stick out of the top.
-    need = STANDBOX_TRAY_T + BRD_POST_H + STANDBOX_BOARD_H + STANDBOX_WIRE_H
-    assert bay_z1 - bay_z0 >= need, \
-        f'bay {bay_z1 - bay_z0:.2f} too low: needs {need:.2f} for board + leads'
-    assert bay_w + 2*STANDBOX_WALL <= 2*hw, 'bay wider than the clock'
-    # The bay opens at the back and runs forward at least the tray's length,
-    # and further -- to 2 mm past the front of the cradle's notch -- when the
-    # notch lands ahead of that. On the 60 the plinth is pushed back for
-    # stability while the notch stays under the clock, and a bay that stopped
-    # short would leave the leads a dead-end trench in the roof. A longer bay
-    # is a longer tunnel, not a wider bridge.
-    nb = (notch ^ box_lwh(-300, 300, -300, 300, bay_z1 - 1.0, H + 1.0)).bounding_box()
-    bay_y0 = min(y1 - bay_l, nb[1] - 2.0)
-    assert bay_y0 - y0 >= STANDBOX_WALL, 'bay runs into the plinth\'s front wall'
+    # --- the well, sized off SAM'S board -----------------------------------
+    well_hw = BOARD2_W/2 + STANDBOX_WELL_CLR + FDM_SLOT_UNDER/2
+    well_y0 = y0 + STANDBOX_WALL
+    well_y1 = y1 - STANDBOX_WALL
+    assert well_y1 - well_y0 >= BOARD2_L + 1.0, (
+        f'well {well_y1 - well_y0:.1f} long, board is {BOARD2_L}')
+    well_z0 = STANDBOX_FLOOR
+    # Headroom, stated as what it has to hold: the pads that lift the PCB clear
+    # of its header tails, the board and its components, and the LOOM standing
+    # on top of them -- which is the whole reason the tray went.
+    need = BRD_POST_H + STANDBOX_BOARD_H + STANDBOX_WIRE_H
+    assert H - well_z0 >= need, \
+        f'well {H - well_z0:.2f} deep: needs {need:.2f} for board, headers and loom'
+    assert 2*well_hw + 2*STANDBOX_WALL <= 2*hw, 'well wider than the clock'
 
-    # 0.4 mm WIDER than the cradle each side, not flush with it: the cradle's
-    # side faces are the planes x = +-hw, and a box with its sides on those
-    # same planes unions into coplanar faces that come apart in float32 --
-    # the 32 and the 60 both failed finalise on exactly that. Proud, the
-    # cradle's sides are buried. Built from z = -1 and cut at the desk plane
-    # at the very end, with everything else, so the bottom is one face.
     plinth = box_lwh(-hw - 0.4, hw + 0.4, y0, y1, -1.0, H)
-    # The bay: its section in x-z is a box with the two top corners chamfered
-    # (STANDBOX_BAY_CHAMF_W in, _H up: 54.5 deg, steeper than check3's 45),
-    # so the flat ceiling is bay_w - 2*CHAMF_W = 23.8 mm and not a 34 mm
-    # bridge. Drawn in x-y, extruded along z, stood up about x.
-    cw, chh = STANDBOX_BAY_CHAMF_W, STANDBOX_BAY_CHAMF_H
-    sec = [(-bay_w/2, bay_z0), (bay_w/2, bay_z0), (bay_w/2, bay_z1 - chh),
-           (bay_w/2 - cw, bay_z1), (-bay_w/2 + cw, bay_z1), (-bay_w/2, bay_z1 - chh)]
-    bay = prism(sec, 0.0, (y1 + 1.0) - bay_y0).rotate([90.0, 0.0, 0.0]) \
-              .translate([0.0, y1 + 1.0, 0.0])
-    # The bay and the lightening pockets are cut from the ASSEMBLED solid,
-    # not from the plinth alone: the cradle's stop wall runs down into the
-    # plinth's roof and 3 mm past it, and cut from the plinth alone that
-    # lower lip was left hanging inside the bay (1.2 cm3 of it, check6) and
-    # as a fin in each pocket with nothing under it to print on.
-    # Pockets either side of the bay, open at the bottom, roof bridged, split
-    # into cells no wider than STANDBOX_CELL_MAX -- and stopping short of the
-    # cradle's legs at |x| = STAND_ARCH_HW, which stay solid to the desk.
-    # ...EXCEPT THAT THEY ARE OFF NOW. Sam: "Make the base enclosed
-    # underneath", and these were the two biggest holes in the whole set --
-    # 19 x 66 mm each, straight through the bottom face. They bought model
-    # volume and nothing else: a solid plinth is hollowed by the slicer's
-    # infill just the same, and the print barely notices. STANDBOX_POCKETS
-    # puts them back if the weight ever matters more than the look.
-    pockets = None
-    xi = bay_w/2 + STANDBOX_WALL
-    xo = min(hw - STANDBOX_WALL, STAND_ARCH_HW - 1.0)
-    span = xo - xi
-    if STANDBOX_POCKETS and span >= 8.0:
-        ncell = max(1, int(math.ceil(span / STANDBOX_CELL_MAX)))
-        cwid = (span - (ncell - 1)*STANDBOX_RIB_T) / ncell
-        for sign in (-1, 1):
-            for k in range(ncell):
-                a = xi + k*(cwid + STANDBOX_RIB_T)
-                b = a + cwid
-                c = box_lwh(a if sign > 0 else -b, b if sign > 0 else -a,
-                            y0 + STANDBOX_WALL, y1 - STANDBOX_WALL, -1.0, bay_z1)
-                pockets = c if pockets is None else pockets + c
+    plinth -= box_lwh(-well_hw, well_hw, well_y0, well_y1, well_z0, H + 1.0)
 
-    stand = s + plinth
-    stand -= bay
-    if pockets is not None:
-        stand -= pockets
-    # M2 pilots for the lid, in the back face either side of the bay. The
-    # back wall is 3 mm, which is one turn of an M2; so each pilot gets a
-    # PILLAR behind the wall, in the back corner of the pocket, from the desk
-    # to the roof -- added AFTER the pocket is cut, or the pocket takes it
-    # away again (which is what happened to the first version's bosses).
-    # Buried 1 mm into the back wall, the side wall and the roof, and it
-    # stands on the desk, so it prints as a post and not as a cantilever.
-    zs = (bay_z0 + bay_z1)/2
-    for sx in (-1, 1):
-        xs = sx*(bay_w/2 + 4.5)
-        stand += box_lwh(xs - STANDBOX_BOSS_R, xs + STANDBOX_BOSS_R,
-                         y1 - STANDBOX_WALL - STANDBOX_BOSS_L, y1 - 2.0,
-                         -1.0, bay_z1 + 1.0)
-        # ...and the pilot runs 1 mm PAST the back face, so its end cap never
-        # lands on that face
-        stand -= _teardrop(STANDBOX_SCREW_PILOT/2, 0.0, STANDBOX_WALL + STANDBOX_BOSS_L) \
-                 .rotate([-90.0, 0.0, 0.0]).translate([xs, y1 - STANDBOX_WALL - STANDBOX_BOSS_L + 1.0, zs])
-    # the notch, through the roof and into the bay: the leads' way down.
-    # Only down to just under the roof, not through the bay floor.
-    stand -= notch ^ box_lwh(-200, 200, -200, 200, bay_z1 - 1.0, 400.0)
-    stand = stand ^ box_lwh(-300, 300, -300, 300, 0.0, 400.0)
+    # rails on the board's long edges, touching the 1.60 mm EDGE only, and four
+    # pads under it so soldered header tails have somewhere to be
+    for sx in (-1.0, 1.0):
+        x0_, x1_ = sorted((sx*(BOARD2_W/2 + 0.30), sx*well_hw))
+        plinth += box_lwh(x0_, x1_, well_y0, well_y1, well_z0 - 0.5,
+                          well_z0 + BRD_POST_H + BOARD_T + 0.40)
+    y_mid = (well_y0 + well_y1)/2.0
+    for yy in (y_mid - BOARD2_L/2.0 + 9.0, y_mid + BOARD2_L/2.0 - 9.0):
+        for sx in (-1.0, 1.0):
+            plinth += cyl(BRD_POST_D/2.0, well_z0 - 0.5, well_z0 + BRD_POST_H, 32,
+                          centre=(sx*BRD_POST_HY, yy))
+    # NO END STOPS. The well is BOARD2_L + 2 long, so its own end walls locate
+    # the board with a millimetre of slop each end; a pair of 2.50 mm ribs
+    # inside that took 1.50 mm out of the board's own footprint at each end,
+    # which check6 caught as 120 probes inside the board.
 
-    # --- the tray, printed flat, in its own frame: floor on z = 0, board
-    #     along +y with the connector end at y = 0 where the lid is ----------
-    T = STANDBOX_TRAY_T
-    tray = box_lwh(-tray_w/2, tray_w/2, 0.0, tray_l, 0.0, T)
-    # rails, touching only the board's edge
-    for sx in (-1, 1):
-        tray += box_lwh(sx*rail_y if sx > 0 else -(rail_y + STANDBOX_RAIL_T),
-                        rail_y + STANDBOX_RAIL_T if sx > 0 else -rail_y,
-                        0.0, tray_l, T - 0.01, T + STANDBOX_RAIL_H)
-    # end stop at the antenna end
-    tray += box_lwh(-tray_w/2, tray_w/2, tray_l - STANDBOX_RAIL_T, tray_l,
-                    T - 0.01, T + BRD_RAIL_TOP)
-    # a hook over each far corner of the board, from the rail STANDBOX_HOOK_W
-    # inward, the board slides under them. Not one bar across: that is a 26 mm
-    # flat ceiling between the rails, over check3's 25.
-    for sx in (-1, 1):
-        x_in = rail_y - STANDBOX_HOOK_W
-        tray += box_lwh(x_in if sx > 0 else -(rail_y + STANDBOX_RAIL_T),
-                        rail_y + STANDBOX_RAIL_T if sx > 0 else -x_in,
-                        tray_l - STANDBOX_RAIL_T - STANDBOX_BAR_W, tray_l - STANDBOX_RAIL_T + 0.01,
-                        T + BRD_LIP_Z0, T + BRD_RAIL_TOP)
-    # four pads under the board, between the pad rows
-    for yy in (10.0, STANDBOX_BOARD_L - 8.0):
-        for sx in (-1, 1):
-            tray += cyl(BRD_POST_D/2, T - 0.01, T + BRD_POST_H, 32,
-                        centre=(sx*BRD_POST_HY, yy))
-    # the lid: the tray's end plate at y = 0, covering the bay's opening and
-    # the roof above it, out to STANDBOX_LID_LIP past the bay each side. Its
-    # bottom edge is the tray's floor plane -- the plinth's own 2 mm floor
-    # shows under it -- so the whole part sits flat on the bed. The first
-    # version ran 2 mm below the floor, which would have printed on air.
-    lid_w = bay_w + 2*STANDBOX_LID_LIP
-    lid = box_lwh(-lid_w/2, lid_w/2, -STANDBOX_LID_T, 0.01, 0.0, H - bay_z0)
-    # USB-C window, centred on the connectors' height above the tray floor
-    z_usb = T + BRD_POST_H + BOARD_T + BOARD_TALL/2
-    lid -= box_lwh(-USB_WIN_W/2, USB_WIN_W/2, -STANDBOX_LID_T - 1.0, 1.0,
-                   z_usb - USB_WIN_H/2, z_usb + USB_WIN_H/2)
-    # screw clearance, matching the pilots
-    for sx in (-1, 1):
-        lid -= _teardrop(STANDBOX_SCREW_CLEAR/2, -STANDBOX_LID_T - 1.0, 1.0) \
-               .rotate([-90.0, 0.0, 0.0]).translate([sx*(bay_w/2 + 4.5), 0.0, zs - bay_z0])
-    tray += lid
-    return stand, tray
+    # --- USB-C, straight out of the back wall ------------------------------
+    z_usb = well_z0 + BRD_POST_H + BOARD_T + BOARD_TALL/2.0
+    plinth -= box_lwh(-USB_WIN_W/2.0, USB_WIN_W/2.0, y1 - STANDBOX_WALL - 1.0, y1 + 1.0,
+                      z_usb - USB_WIN_H/2.0, z_usb + USB_WIN_H/2.0)
+
+    # --- the joint: pins on the plinth, screws down through the cradle ------
+    pin_x = well_hw + (hw - well_hw)/2.0
+    pins = [(sx*pin_x, yy) for sx in (-1.0, 1.0) for yy in (y0 + 8.0, y1 - 8.0)]
+    for (px, py) in pins:
+        plinth += cyl(STANDBOX_PIN_R, H - 4.0, H + STANDBOX_PIN_H, 24, centre=(px, py))
+    scr = [(sx*(well_hw + 5.5), y1 - STANDBOX_LID_SCREW_Y) for sx in (-1.0, 1.0)]
+    for (px, py) in scr:
+        plinth -= cyl(STANDBOX_SCREW_PILOT/2.0, H - 9.0, H + 1.0, 24, centre=(px, py))
+    plinth = plinth ^ box_lwh(-300, 300, -300, 300, 0.0, 400.0)
+
+    # --- the cradle: everything above H, plus a lid over the rest of the top -
+    cradle = s ^ box_lwh(-300, 300, -300, 300, H, 400.0)
+    cradle += box_lwh(-hw - 0.4, hw + 0.4, y0, y1, H, H + STANDBOX_ROOF)
+    cradle -= notch                     # the leads' way down, cut with the SAME
+                                        # solid the cradle's seat was cut with
+    for (px, py) in pins:
+        cradle -= cyl(STANDBOX_PIN_R + STANDBOX_PIN_CLR, H - 1.0,
+                      H + STANDBOX_PIN_H + 0.6, 24, centre=(px, py))
+    for (px, py) in scr:
+        cradle -= cyl(STANDBOX_SCREW_CLEAR/2.0, H - 1.0, H + 400.0, 24, centre=(px, py))
+        cradle -= cyl(SCREW_HEAD/2.0, H + STANDBOX_ROOF - 1.8, H + 400.0, 32,
+                      centre=(px, py))
+    return plinth, cradle
 
 
 def _wall_yz(prof, x0, x1):
@@ -2499,7 +2411,7 @@ def parts_for(B, sam, full=True):
     """Everything one body needs. full=False skips the bar variants."""
     tg = B.tag
     cover_depth = Z_FRONT - (Z_DECK - (BACKCOVER_PLATE + BACKCOVER_POCKET))
-    standbox, tray = build_standbox(B, cover_depth)
+    standbox, cradle = build_standbox(B, cover_depth)
     parts = [
         (assemble_base(B, sam),          f'mini-round-clock-base{tg}',      True),
         (build_rear_housing(
@@ -2516,7 +2428,7 @@ def parts_for(B, sam, full=True):
         (build_stand(B, Z_FRONT - (Z_DECK - HOUSING_DEEP)),
                                          f'mini-round-clock-deskstand{tg}', True),
         (standbox,                       f'mini-round-clock-standbox{tg}',  True),
-        (tray,                           f'mini-round-clock-standbox-tray{tg}', True),
+        (cradle,                         f'mini-round-clock-standbox-cradle{tg}', True),
         (build_backstand(B),             f'mini-round-clock-backstand{tg}', True),
         (build_backstand(B, deep=True),  f'mini-round-clock-backstand{tg}-deep', True),
         (build_backstand(B, closed=True), f'mini-round-clock-plinth{tg}',      True),
