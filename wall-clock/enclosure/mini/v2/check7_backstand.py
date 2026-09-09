@@ -38,12 +38,28 @@ print(f'{FN}: {hi[0]-lo[0]:.2f} x {hi[1]-lo[1]:.2f} x {hi[2]-lo[2]:.2f} mm, '
 ck(m.is_watertight, 'watertight')
 ck(m.body_count == 1, 'one solid', f'{m.body_count}')
 ck(abs(lo[2]) < 1e-6, 'sits on z = 0', f'{lo[2]:.4f}')
-sb   = trimesh.load(csg.part(f'mini-round-clock-standbox{TAG}.stl'))
-tray = trimesh.load(csg.part(f'mini-round-clock-standbox-tray{TAG}.stl'))
-was  = sb.volume + tray.volume
-ck(m.volume < (0.55 if DEEP else 0.40) * was,
-   f'less than {55 if DEEP else 40}% of the stand-box it replaces',
-   f'{m.volume/1000:.1f} vs {was/1000:.1f} cm3, in one part not two')
+# This used to assert "less than 40% of the stand-box it replaces", against the
+# stand-box's volume plus its tray's. Two things were wrong with that and only
+# the second one broke it:
+#
+#   * the tray stopped existing, so the file it loaded was gone; and
+#   * A RATIO AGAINST A PART THAT IS ITSELF CHANGING IS NOT A GUARD. Opening
+#     the stand-box's bottom took it from 1037 cm3 to 566 on the 60, and the
+#     back-stand's ratio went from 25% to 45% without the back-stand changing
+#     by a single cubic millimetre.
+#
+# What this test is actually for is "the back-stand has not silently ballooned",
+# so it is an absolute ceiling per part, measured, with 15% of headroom. The
+# comparison with the stand-box is printed as information, not judged.
+CEILING = {   # cm3, the built volume + 15%
+    ('',    False):  55.0, ('',    True):  68.0,
+    ('-32', False):  59.0, ('-32', True):  72.0,
+    ('-60', False): 294.0, ('-60', True): 320.0,
+}[(TAG, DEEP)]
+sb = trimesh.load(csg.part(f'mini-round-clock-standbox{TAG}.stl'))
+ck(m.volume/1000.0 < CEILING, f'has not grown past its {CEILING:.0f} cm3 ceiling',
+   f'{m.volume/1000:.1f} cm3; the stand-box it replaces is {sb.volume/1000:.1f}, '
+   f'so this is {100*m.volume/sb.volume:.0f}% of it')
 
 # ---- 2. the clock ----------------------------------------------------------
 # The clock as a solid, in the same desk frame the part was built in. Built

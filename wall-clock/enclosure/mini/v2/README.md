@@ -42,7 +42,6 @@ Pick a body. Everything in one column goes together; nothing crosses over.
 | **diffuser, no numerals** | `-diffuser-plain` | `-diffuser-32-plain` | `-diffuser-60-plain` |
 | **diffuser with the flange**, §12 (`-flange-plain`: no numerals) | `-diffuser-flange` | `-diffuser-32-flange` | — |
 | **stand-box**, §12 *(instead of housing + stand)* | `-standbox` | `-standbox-32` | `-standbox-60` |
-| **stand-box tray** + 2 × M2 × 8, §12 | `-standbox-tray` — one part, any body | | |
 | **back cover**, §12 *(with the stand-box)* | `-backcover` | `-backcover-32` | `-backcover-60` |
 
 Every filename is prefixed `mini-round-clock`.
@@ -1388,18 +1387,29 @@ desk, three parts replace it and the stand:
   and keyhole as the housing so the base does not know the difference, and a
   notch through the rim at 6 o'clock the full depth of the pocket for the
   leads. The clock is 33.3 mm deep with it on, against 49.4 with the housing.
-- **`-standbox`** — `_stand_solid` (the desk stand's own cradle, now a
-  function of the tilt) at **12°**, on a **plinth** 29 mm high in the desk
-  frame. In the plinth: a **bay** 34.2 × 67.4 × 23 mm opening at the back,
-  a lightening pocket open underneath either side of it, two pillars in the
-  pockets' back corners carrying 1.6 mm pilots for the lid screws, and the
-  cradle's **own 6 o'clock notch cut again through the plinth's roof** — the
-  same solid through the same transform, so the two cuts cannot disagree —
-  which is how the leads get from the clock into the bay.
-- **`-standbox-tray`** — the board on the housing's pads and rails, a hook
-  over each far corner, an end stop, and an end plate that **is the lid**:
-  it closes the bay, carries the 22 × 6 USB-C window at the connector's
-  height, and screws to the plinth's back face with two M2 × 8.
+- **`-standbox`** — **one part, and the whole base.** `_stand_solid` (the desk
+  stand's own cradle, a function of the tilt) at **12°**, lapped 3 mm into a
+  **plinth** 34 mm high with rounded corners, a 2.5 mm top chamfer and a 1.5 mm
+  reveal at the foot. **The bottom is fully open**: a cavity 36 mm wide down the
+  middle for the board, and the wings either side hollowed to the desk and
+  ribbed so no ceiling bridges more than 28 mm.
+
+  The board lies **component side up on two shelves** 27 mm apart, tops 5 mm off
+  the desk, and goes in from underneath **rolled about 30°** — 30 mm of board
+  cannot pass flat through a 27 mm gap. **Two cable ties** hold it: each shelf is
+  cut clean through at each tie, just outboard of the board's edge, so the tie
+  goes over the board, down through one window, across the open bottom and up
+  the other, into a groove across the shelf tops. USB-C leaves through the back
+  wall on the board's own axis.
+
+  The **clock's seat is cut from the assembled solid**, not just from the
+  cradle — cutting it from the cradle alone and then unioning a plinth into it
+  put 491 mm³ of plastic inside the clock on the 24 and 1134 on the 60. And the
+  cavity's ceiling is **the clock's underside** less 2.5 mm, not the plinth's
+  roof: the clock leans into the plinth and bottoms out 5 mm below its top face.
+  The cradle's **own 6 o'clock notch is cut again through the plinth's roof** —
+  the same solid through the same transform, so the two cuts cannot disagree —
+  which is how the leads get from the clock into the cavity.
 
 How deep the plinth runs is not a number in `params.py`; it is **whatever
 tipping needs**, both ways, with the clock's centre where the back cover puts
@@ -1460,14 +1470,38 @@ builds one body from it. No preset for a ring nobody has measured.
 ### Verified
 
 check6 (`check6_standbox.py`), all measured on the built STLs, all three
-bodies: bay clear and 23 mm tall; roof flat span 24.1 mm; tray clears the
-bay by 1.20 mm even printed narrow; both rails and both hooks present; USB
-window open; the notch runs through the roof into the bay (0 mm³ in the
-way); both pilots 10 mm deep with 100% solid around them; tips forward past
-21.0° and back past 34.7 / 31.5 / 21.2°; back cover 8.90 deep, notch open;
-plain diffuser = numbered + numerals; flange reaches 0.30 short of the lip,
-front on the face plane, 2.63 deep, seated overlap with the base 0.00 mm³.
-check1 and check3 cover the new parts too.
+bodies, and written as **journeys** rather than dimensions:
+
+* the cavity mouth is clear across its whole area (23.6 / 23.5 / 35.5 cm²) and
+  clear up to the shelves;
+* the board's way in — there is a roll angle that passes the shelves (31–32°),
+  it sweeps 17.3 mm into 20.9 of headroom, and the rolled board is lifted
+  through the shelf plane against the actual mesh in 0.5 mm steps and then
+  rolled flat at the top, 0.00 mm³ of contact at every pose;
+* seated, each thing is probed over the width IT occupies — the PCB across
+  30 mm, the headers and their Dupont housings out to |x| 14, the loom inside
+  that — and the headroom sum is 20.9 against 20.6 needed;
+* the tie's way round, all four legs: down through the window outboard of the
+  board's edge, across the open bottom, up the other side, into the groove;
+  and the groove is a groove, with shelf either side of it;
+* USB-C's way out, a straight run on the board's axis with wall still beside
+  the window;
+* **the clock into its seat** — the real base and back cover, in the stand's own
+  transform, booleaned against the real stand: 0.00 mm³, with 2.88 mm of roof
+  between the clock's underside and the board's cavity, and the leads dropping
+  straight through the notch;
+* it tips forward past 21.0° and back past 31.3 / 28.2 / 21.2°;
+* and the three things that make it look like something — corner radius, top
+  chamfer, foot reveal — measured, at a y where the plinth's own edge is
+  exposed rather than under the cradle's lap.
+
+Then, unchanged: back cover 8.90 deep with its notch open; plain diffuser =
+numbered + numerals; flange 0.30 short of the lip, front on the face plane,
+2.63 deep, seated overlap with the base 0.00 mm³. check1 and check3 cover the
+new parts too — check3 reports the stand-box's ceiling area rather than judging
+it, because a part printed with its opening on the bed is all ceiling by
+design, and the bridge-span (13.2 / 15.1 / 22.0 mm) and island tests are what
+carry the meaning there.
 
 Not verified: nothing here has been printed. The 120 mm lead figure is from
 the model. The M2 pilot at 1.60 mm in PLA is the same rule as the M3 at 2.50.

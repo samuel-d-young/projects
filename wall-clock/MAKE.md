@@ -40,7 +40,6 @@ All in `enclosure/mini/v2/`, all prefixed `mini-round-clock`.
 | diffuser, **no numerals** | `-diffuser-plain` | `-diffuser-32-plain` | `-diffuser-60-plain` |
 | diffuser **with the flange** (`-flange-plain` = no numerals) | `-diffuser-flange` | `-diffuser-32-flange` | — |
 | **stand-box** *(instead of the housing + desk stand)* | `-standbox` | `-standbox-32` | `-standbox-60` |
-| **stand-box tray** + 2 × M2 × 8 | `-standbox-tray` — one part, any body | | |
 | **back cover** *(with the stand-box)* | `-backcover` | `-backcover-32` | `-backcover-60` |
 
 ### The 1.9" bar screen instead of the round one
@@ -82,25 +81,33 @@ same lead-in — **the collar gauge still applies unchanged**.
 > *"create the back of the clock to house the ESP32 S3. It could be housed at
 > the bottom of the clock in the stand. Make the clock lean back a bit though."*
 
-Three parts replace the housing and the desk stand: **`-backcover`**, a flat
+**Two** parts replace the housing and the desk stand: **`-backcover`**, a flat
 8.9 mm back with the same screw holes and keyhole as the housing and a notch
-at 6 o'clock for the leads; **`-standbox`**, the cradle leaning back **12°**
-(the plain stand is 10°) on a 29 mm plinth with a bay in it; and
-**`-standbox-tray`**, which carries the board on the same pads and rails the
-housing did and *is* the lid — its end plate closes the bay, with the USB-C
-window in it, and takes **two M2 × 8 self-tappers** into 1.6 mm pilots in the
-plinth's back face. The bay is open at the back only; the plinth's lightening
-pockets are open underneath.
+at 6 o'clock for the leads; and **`-standbox`**, which is now the entire base in
+**one piece** — the cradle leaning back **12°** (the plain stand is 10°) on a
+34 mm plinth, **fully open underneath**. No lid, no tray, no screws.
+
+The board lies component side up on two shelves and goes in **from below,
+rolled about 30°**: 30 mm of board will not pass flat through the 27 mm gap
+between the shelves. **Two cable ties** hold it down, each passing through a
+window cut clean through the shelf just outboard of the board's edge. USB-C
+comes out of the back wall.
 
 Assembly, in this order: **(1)** base, ring, display and diffuser as usual;
 **(2)** back cover on with the housing's M3 screws, leads out through its
 6 o'clock notch — **allow 120 mm of lead from the deck**, which is about
-30 mm down through the plinth's roof and up to 67 mm along the bay to the
-board (from the model, not measured on a print); **(3)** board onto the
-tray's pads, under the two corner hooks, up against the end stop;
-**(4)** clock into the cradle, notch down; **(5)** leads down through the
-notch into the bay, onto the board; **(6)** tray in from the back, screws.
+30 mm down through the plinth's roof and up to 67 mm along the cavity to the
+board (from the model, not measured on a print); **(3)** turn the base over,
+roll the board about 30° and lift it in between the shelves, then let it drop
+flat, component side up, USB-C lined up with the window in the back wall;
+**(4)** two cable ties, each over the board, down through the window in one
+shelf, across the open bottom and up through the other; **(5)** clock into the
+cradle, notch down; **(6)** leads down through the notch onto the board.
 The USB-C comes out of the back of the plinth, at desk level.
+
+The ties cross the **top** of the board, 14 mm in from each end. Check nothing
+tall is in the way on your board — the windows are 4 mm long, so a tie can be
+nudged past a component.
 
 The **`-flange`** diffusers fill the trough between the diffuser and the
 base's lip — *"larger on the outside to fit to the edge of the base"* — and

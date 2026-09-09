@@ -63,8 +63,7 @@ All in `enclosure/mini/v2/`, prefixed `mini-round-clock`.
 | desk stand — flat, 8–10% infill | `-deskstand` | `-deskstand-32` | `-deskstand-60` |
 | **diffuser, no numerals** — same print settings as the diffuser | `-diffuser-plain` | `-diffuser-32-plain` | `-diffuser-60-plain` |
 | **diffuser with the flange** — fills the trough out to the base's lip; `-flange-plain` has no numerals | `-diffuser-flange` | `-diffuser-32-flange` | — (already reaches the lip) |
-| **stand-box** — the S3 lives in the stand, clock leans back 12°. Flat on its desk face, 8–10% infill | `-standbox` | `-standbox-32` | `-standbox-60` |
-| **stand-box tray** — carries the board and is the lid. **2 × M2 × 8 self-tappers** | `-standbox-tray` | same part | same part |
+| **stand-box** — the whole base in ONE part, open underneath; the S3 lies on two shelves held by **2 cable ties**, clock leans back 12°. Foot down, 8–10% infill | `-standbox` | `-standbox-32` | `-standbox-60` |
 | **back cover** — the flat back for a clock in the stand-box, replaces the housing. Plate down | `-backcover` | `-backcover-32` | `-backcover-60` |
 
 | File | |
@@ -72,7 +71,7 @@ All in `enclosure/mini/v2/`, prefixed `mini-round-clock`.
 | `enclosure/mini/v2/params.py` | Every dimension, each with where it came from |
 | `enclosure/mini/v2/build_v2.py` | Generates every part, all three bodies. `--custom N OD ID` builds a body of another size from a measured ring, `--only -32` one body |
 | `enclosure/mini/v2/measure_uploaded.py` | Re-derives `params.py` from Sam's STLs. **Run this first if he sends new files** |
-| `enclosure/mini/v2/runchecks.sh` | Six verification passes — topology, fit, printability, diffuser, desk stand, stand-box |
+| `enclosure/mini/v2/runchecks.sh` | Ten verification passes — topology, fit, printability, diffuser, desk stand, stand-box, back-stand, deep housing, plinth, dock. Several run once per body |
 | `enclosure/mini/v2/README.md` | What changed and why, section by section |
 | `enclosure/mini/v2/render_*.py` `*.png` | Picture sheets, all drawn from `params.py` |
 

@@ -1473,7 +1473,10 @@ STANDBOX_TILT     = 12.00    # degrees back from vertical; the cradle alone is 1
 BACKCOVER_POCKET  = 6.50     # clear depth behind the deck: room for the leads to
                              # turn the corner, nothing else lives in here
 BACKCOVER_PLATE   = 2.40     # the plate itself, like PLATE_T_BIG
-STANDBOX_PLINTH_H = 32.00    # top of the box. The cradle shell's lowest point
+STANDBOX_PLINTH_H = 34.00   # 34, not 32: the clock leans INTO the plinth, and
+                            # the deeper it sinks the lower its underside sits
+                            # over the board. 34 puts the clock's rim 5 mm below
+                            # the top face and still leaves 26.0 of cavity
                              # is STAND_LIFT - STAND_SHELL = 30 at the front, so
                              # this stays 1 mm under it and never lands ON it
 STANDBOX_PLINTH_D = 72.00    # front to back. The bay is 67.4 deep and needs a
@@ -1504,6 +1507,17 @@ STANDBOX_SCREW_CLEAR = 2.30  # through the lid
 # round hole's ceiling is a run of near-flat facets, and check3 flags them at
 # 22-37 degrees. A 45-degree point on top prints clean and the screw does
 # not care. The point stands r*sqrt(2) above the centre.
+STANDBOX_CEIL_SPAN = 28.00   # the stand-box's cavity ceiling, flat and bridged.
+                             # 28 and not CELL_MAX's 24, because the chamfer
+                             # that would have bought those 4 mm eats the
+                             # headroom exactly where the loom's Dupont housings
+                             # stand -- at the board's EDGES, |x| 11 to 15 --
+                             # and the ceiling is the clock's underside, which
+                             # cannot be raised. A 28 mm flat bridge across an
+                             # internal, invisible roof is a thing the printer
+                             # does; 17.5 mm of headroom where 20.6 is needed is
+                             # not. So the chamfer is 4 mm wide, the flat runs
+                             # out to |x| = 14, and the bridge is 28.
 STANDBOX_CELL_MAX = 24.00    # widest unsupported roof span in the lightening
                              # pockets; wider gets a 2 mm rib. 24 because check3
                              # allows a 25 mm bridge and nothing here is exempt
@@ -1546,7 +1560,7 @@ STANDBOX_WIRE_H   = 5.00
 # check3's 25. Widening the chamfer takes the span back to 23.40. The slope
 # drops from 54.5 to 50.6 degrees, still comfortably over the 45 minimum, and
 # the chamfer only narrows the bay ABOVE the rails so the tray still passes.
-STANDBOX_BAY_CHAMF_W = 6.00
+STANDBOX_BAY_CHAMF_W = 4.00
 STANDBOX_BAY_CHAMF_H = 7.30
 
 # The diffuser can carry a FLANGE out to the base's rim. Sam: "larger on the
@@ -1936,3 +1950,81 @@ STANDBOX_PIN_R     = 2.00   # locating pins on the plinth's top face. On the
 STANDBOX_PIN_H     = 4.00
 STANDBOX_PIN_CLR   = 0.25
 STANDBOX_LID_SCREW_Y = 6.00 # the two screws, in from the back face
+
+
+# =============================================================================
+# v16 — one part, open underneath, and made to look like something
+# =============================================================================
+# Sam, 2026-09-08: "Make the base look much nicer, and the bottom can be fully
+# open, with a spot for ziptie down the ESP32 with the USB cable out he back."
+#
+# "The bottom CAN be fully open" is a permission, and it is the one that unlocks
+# the rest. With no floor to protect there is no reason for a lid, a drawer, a
+# cradle or a seam: the base goes back to being ONE PART, a shell you turn over,
+# drop the board into and set down. Every join this stand has grown in a day --
+# tray, collar, cap, cradle, four pins, two screws -- disappears.
+#
+# The looks are three moves, all of them cheap:
+STANDBOX_CORNER_R  = 6.00   # rounded vertical corners
+STANDBOX_CHAMF     = 2.50   # a chamfer round the top edge, so it reads as
+                            # drawn rather than sawn
+STANDBOX_REVEAL_D  = 1.50   # and a reveal at the foot: the bottom 2.5 mm steps
+STANDBOX_REVEAL_H  = 2.50   # IN, so the plinth appears to float rather than to
+                            # sit in a puddle of its own plastic
+# The cavity, open to the desk. Its top corners are chamfered so the ceiling is
+# a 28 mm bridge and not a 36 mm one -- the same trick the old bay used, and the
+# reason STANDBOX_CEIL_SPAN exists. Only 4 mm of chamfer, though: see the note
+# on STANDBOX_CEIL_SPAN for why the last 4 mm of bridge is cheaper than the
+# headroom the chamfer would take.
+STANDBOX_LAP       =  3.00  # how far the cradle reaches down past the plinth's
+                            # top face. Butting them at H would union two
+                            # coplanar faces; 3 mm of overlap is a solid join
+STANDBOX_SEAT_OVER =  0.20  # the stand-box cuts the clock's seat out of the
+                            # WHOLE assembled solid, and the cradle inside it
+                            # already has that seat: identical curved surfaces
+                            # survive in doubles and go non-manifold in float32,
+                            # so the plinth's cut is opened two tenths
+STANDBOX_ROOF_MIN  =  2.50  # material between the board's cavity and the clock's
+                            # seat, at the one point where they come closest.
+                            # A bridge, so 2.5 is generous
+STANDBOX_CAV_HW    = 18.00  # the ceiling's flat span is 2*(CAV_HW-BAY_CHAMF_W)
+                            # = 28, which is STANDBOX_CEIL_SPAN exactly. The
+                            # build asserts both that and "the flat reaches the
+                            # board's edges", rather than leaving either to
+                            # check3. Measured worst bridge: 13.2 / 15.1 / 22.0
+# The board lies on two shelves and is held by two cable ties that pass right
+# round board and shelf together.
+#
+# The first version of this said "NO SLOTS: with the bottom open a tie can loop
+# under a shelf". That was wrong, and the check caught it: the shelf runs from
+# the board's edge OUT TO THE WALL, so a tie coming over the board and down past
+# its edge lands on shelf, and the only way past is the wall. A tie can loop
+# under a shelf only where there is a hole to get under it through. So each
+# shelf is cut clean through at each tie, just outboard of the board's edge --
+# four windows, and the tie drops through one, crosses the open bottom and comes
+# up the other.
+#
+# The gap between the shelves is the other thing the check found. The board is
+# 30 mm wide and has to reach a shelf top it cannot pass through flat, so it goes
+# in tilted, and the tilt it needs is acos(gap / 30): at an 11 mm inner edge that
+# is 43 deg and 20.4 mm of swept height in 22 mm of headroom, which is not a
+# thing to ask of someone holding a soldered loom. At 13.5 it is 31-32 deg and
+# 17.3 mm, measured against the mesh at every half-millimetre of the lift.
+STANDBOX_SHELF_XI  = 13.50  # inner edge: 1.5 mm of ledge under the board's edge,
+                            # and a 27 mm gap so the board tilts in at 30 deg
+STANDBOX_SHELF_Z   =  3.20  # 3.2, not 6: the ceiling is not the plinth's roof, it
+STANDBOX_SHELF_T   =  2.00  # is the CLOCK, which leans into the plinth and
+                            # bottoms out at z 29.1. STANDBOX_ROOF_MIN off that
+                            # puts the ceiling at 26.2, and the board and its loom
+                            # want 20.6 of it. The 5.4 mm left over is spent
+                            # DOWNWARDS, on what hangs under the board: a shelf
+                            # top at 5.2 clears a 4 mm header tail off the desk by
+                            # 1.2 and leaves 3.2 mm for the tie's loop to pass
+                            # under the shelf. 0.3 mm of headroom in hand.
+STANDBOX_TIE_GROOVE_W = 3.60   # a groove across each shelf so the tie has a
+STANDBOX_TIE_GROOVE_D = 0.80   # place to sit and cannot walk along the board
+STANDBOX_TIE_INSET = 14.00     # from each end of the board
+STANDBOX_TIE_WIN_W  = 4.00     # and the window through the shelf at each tie:
+STANDBOX_TIE_WIN_XI = 15.40    # 4 mm along the shelf, starting 0.4 mm outboard
+                               # of the board's own edge (BOARD2_W/2 = 15) so the
+                               # tie clears the board on its way down

@@ -479,6 +479,11 @@ this set, on the part chosen for being enclosed. `STANDBOX_POCKETS` is off, and
 check6 now sweeps the underside and fails the moment they come back. Verified by
 turning them on again: 624 open columns on the 24, 608 on the 32, 948 on the 60.
 
+> **REVERSED on 2026-09-08.** Sam: "the bottom can be fully open". The
+> underside sweep is gone and the wings are hollowed out on purpose -- see
+> "One part, open underneath" at the end of this file. `STANDBOX_POCKETS` is
+> still False and is now dead: the hollowing is not optional any more.
+
 The dock stays in the tree. It is a good part and it passes check10; it is
 simply not the one Sam wants.
 
@@ -515,3 +520,135 @@ Two things measured rather than assumed:
 * **The cradle roofs the well except the lead notch**, and check6 tests that as
   "everything open is within the notch's own half-width", not as a percentage.
   A percentage would have passed a hole anywhere.
+
+### One part, open underneath
+
+Sam, 2026-09-08: "Make the base look much nicer, and the bottom can be fully
+open, with a spot for ziptie down the ESP32 with the USB cable out he back."
+
+**"The bottom CAN be fully open" is the permission that unlocked everything
+else.** With no floor to protect there is nothing for a lid to close: no lid, no
+cradle as a separate part, no drawer, no four locating pins, no two M2 screws,
+no seam. The base went back to being ONE shell you turn over, drop the board
+into and set down. Every join this stand had grown in three days disappeared
+because one requirement was lifted.
+
+Worth remembering the shape of that: the parts count was never driven by the
+electronics. It was driven by a closed floor.
+
+#### Two faults, both "right shape, cannot be assembled"
+
+Neither was visible in a render, and both were in work I had already built and
+called finished.
+
+**1. The cable tie had nowhere to pass.** The first version's comment said, in
+so many words, "NO SLOTS: with the bottom open a tie can loop under a shelf".
+That is true only where there is a hole to get under the shelf through. The
+shelf ran from the board's edge OUT TO THE WALL for the board's whole length, so
+a tie coming over the board and down past its edge landed on shelf and had
+nowhere to go. Measured: one unbroken run of material from y -25.6 to 43.9 at
+x = 16.
+
+Each shelf is now cut clean through at each tie, just outboard of the board's
+edge — four windows — and check6 walks the whole path: over the board, down
+through the window, across the open bottom, up the other side, and back into a
+groove that stops the tie walking.
+
+**2. The plinth's roof was inside the clock.** `_stand_solid` cuts the clock's
+seat out of the CRADLE. The stand-box then unioned a plinth into the cradle and
+filled the seat straight back in: **491 mm³ of plastic inside the clock on the
+24, 559 on the 32, 1134 on the 60**, a solid slab from z 30 to 34 right across
+the middle. It had been there since the stand-box was first built.
+
+No check caught it in seven passes, and the reason is worth writing down:
+**every one of them treated the clock as something the stand held, rather than
+as a part that goes inside another one.** They measured the well, the tray, the
+tipping angle, the covers, the notch — the stand alone, every time. A part that
+goes inside another one gets a boolean against it. check6 now does, and reads
+0.0 mm³.
+
+#### The ceiling is the clock, not the roof
+
+Which the same fix exposed. The cavity's ceiling had been set from
+`H - STANDBOX_ROOF` — the plinth's own top face, less a roof. But the clock
+leans INTO the plinth: its seat bottoms out at z 29.1, five millimetres below the
+plinth's top. The real ceiling is the clock's underside less a roof, and it is
+now derived from the seat solid's own bounding box rather than from a parameter.
+
+That cost 8 mm of headroom, and it had to come from somewhere:
+
+* the shelves dropped from a top at z 8 to z 5.2, which also puts 1.2 mm of
+  daylight under a 4 mm header tail and 3.2 mm under the shelf for the tie to
+  loop through -- the 5.4 mm the ceiling left over is spent DOWNWARDS, on what
+  hangs under the board, because that is the only place left to spend it;
+* the cavity's top chamfer went from 6 mm wide to 4, so the flat ceiling runs
+  out to |x| = 14. That matters because **the tall things on a dev board are at
+  its EDGES** — the headers, and the Dupont housings standing on them. A chamfer
+  that buys a narrower bridge by taking height off the edges takes it exactly
+  where the loom is. The bridge is 28 mm instead of 24; it is an internal,
+  invisible ceiling and the printer does 28 mm.
+
+check6 now measures two ceilings, the flat middle and the board's own edge, and
+probes each thing over the width IT occupies. Probing all of them across the
+full 30 mm was what let a 3 mm shortfall at the edges pass as a 22 mm headroom.
+
+#### Making it look like something
+
+Three moves, all cheap, all measured rather than admired: 6 mm radii on the
+vertical corners, a 2.5 mm chamfer round the top edge, and a 1.5 mm reveal at
+the foot so the plinth reads as floating rather than sitting in a puddle of its
+own plastic.
+
+Measuring them was harder than making them. The chamfer test read the plinth's
+top edge as 0.4 mm on the 60 — because the cradle laps 3 mm down over the plinth
+and is only 0.4 mm narrower, so the probe was measuring the cradle. It now finds
+a y where the plinth's own edge is exposed, by asking the cradle solid.
+
+And with the bottom open, the wings either side of the board's cavity are
+hollowed to the desk too, ribbed so no ceiling bridges more than 28 mm (measured
+worst: 13.2 on the 24, 22.0 on the 60): the same shell measured before and after,
+**1037 cm³ down to 566 on the 60 and 274 to 155 on the 32.**
+
+One consequence of the reveal, written down rather than left to be discovered:
+it steps the OUTSIDE in by 1.5 mm, so over the bottom 2.5 mm the wall is 1.50 mm
+and not 3.00. That is above check3's 1.20 minimum, and it is 2.5 mm of wall in
+pure compression at the foot of a desk stand, so it stays -- but it is the
+thinnest thing in the part and it is there on purpose.
+
+#### Two float32 traps, for the next person
+
+Both showed up as `Error.NotManifold` from a part that was watertight in
+doubles, because `finalise()` quantises to float32 before it checks.
+
+* **Cutting a solid with a surface it already has.** The cradle's seat is cut
+  with a cylinder; cutting the assembled stand with the identical cylinder
+  leaves two coincident curved surfaces. Two tenths of a millimetre of daylight
+  (`STANDBOX_SEAT_OVER`) fixed it.
+* **Stopping a cut exactly where an inherited one continues.** Clipping the
+  leads' notch at z = H put the new cut's top edge exactly on the cradle's own
+  notch faces — three bad edges on the 60. Run the cut past it instead;
+  subtracting from empty space costs nothing.
+
+The general rule both are instances of: **do not create a face where one already
+is.** Overlap, or offset, or do not cut at all.
+
+#### A ratio against a moving part is not a guard
+
+check7 asserted that the back-stand is "less than 40% of the stand-box it
+replaces". Opening the stand-box's bottom took it from 1037 cm³ to 566 on the
+60, and the back-stand's ratio went from 25% to 45% **without the back-stand
+changing by a single cubic millimetre**. The test would have failed and pointed
+at the wrong part.
+
+It is an absolute ceiling per part now — the built volume plus 15% — with the
+comparison printed as information rather than judged. A regression guard has to
+be anchored to something that does not move, and another part under active
+design is not that.
+
+#### What still needs Sam's eyes
+
+The cable ties cross the TOP of the board, 14 mm in from each end. On a
+DevKitC-1 that lands in the middle third, clear of the USB shells and the
+antenna keep-out — but there is no verified component map for the board in Sam's
+hand, so it is written down as unverified rather than asserted. The windows are
+4 mm long, so a tie can be nudged; `STANDBOX_TIE_INSET` moves them properly.

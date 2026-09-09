@@ -1616,6 +1616,33 @@ def _stand_solid(B, depth, tilt):
     return s, xf(notch), h0
 
 
+def _clock_seat(B, depth, tilt, over=0.0):
+    """The clock's own pocket, in the desk frame -- the SAME cylinder that
+    _stand_solid cuts its saddle with, transformed the same way.
+
+    This exists because the stand-box got it wrong. _stand_solid cuts the seat
+    out of the cradle, and the stand-box then unions a plinth into the cradle
+    and FILLS THE SEAT BACK IN: 491 mm3 of it on the 24, 1134 on the 60, a solid
+    slab from z 30 to 34 right across the middle. No check saw it, because every
+    check treated the clock as something the stand held rather than as a part
+    that goes inside another one -- and a part that goes inside another one gets
+    a boolean against it.
+
+    So the seat is cut from the ASSEMBLED stand, once, at the end.
+
+    `over` opens the radius a little. The cradle's own seat is already cut with
+    this cylinder, so cutting the union with the identical one leaves two
+    coincident curved surfaces -- which survive in doubles and collapse when
+    finalise() quantises to float32, and the part comes out non-manifold. Two
+    tenths of a millimetre of daylight costs nothing and the mesh closes.
+    """
+    R = B.r_body + STAND_CLR + over
+    toe = 5.0
+    return (cyl(R, -depth - 0.001, toe + 5.0, SEG)
+            .rotate([90.0 - tilt, 0.0, 0.0])
+            .translate([0.0, 0.0, STAND_LIFT + B.r_body*math.cos(math.radians(tilt))]))
+
+
 def _teardrop(r, z0, z1, seg=24):
     """A hole for printing sideways: a cylinder along z with a point on its
     local -y side (which rotate([-90, 0, 0]) turns into +z, up). The point is
@@ -1631,25 +1658,69 @@ def _teardrop(r, z0, z1, seg=24):
     return cyl(r, z0, z1, seg) + prism([(-c, 0.2), (-c, -c), (0.0, -apex), (c, -c), (c, 0.2)], z0, z1)
 
 
+def _rrect(hw, hd, r, seg=8):
+    """A rounded rectangle, centred on the origin, counter-clockwise.
+
+    Rounded corners are the cheapest thing that stops a printed box looking
+    like a printed box, and prism() takes a point list, so this is all it takes.
+    """
+    r = max(0.1, min(r, hw - 0.1, hd - 0.1))
+    pts = []
+    for cx, cy, a0 in ((hw - r, hd - r, 0.0), (-(hw - r), hd - r, 90.0),
+                       (-(hw - r), -(hd - r), 180.0), ((hw - r), -(hd - r), 270.0)):
+        for k in range(seg + 1):
+            a = math.radians(a0 + 90.0*k/seg)
+            pts.append((cx + r*math.cos(a), cy + r*math.sin(a)))
+    return pts
+
+
 def build_standbox(B, depth):
-    """The stand Sam picked, rebuilt so the board drops in from ABOVE.
+    """The stand Sam picked, as ONE part with the bottom open.
 
-    Sam, 2026-09-05: "B, I like the stand box." Then: "Remove the sliding tray.
-    Because it is a dev board, wires stick out the top."
+    Sam, 2026-09-08: "Make the base look much nicer, and the bottom can be fully
+    open, with a spot for ziptie down the ESP32 with the USB cable out he back."
 
-    The drawer is gone and the fault it had was structural, not dimensional: a
-    tray only works if the board AND everything plugged into it can pass through
-    the opening, and a dev board with a Dupont loom is 5 mm of board and 15 mm
-    of wire being fed down a 67 mm tunnel toward leads coming the other way.
+    "The bottom CAN be fully open" is the permission that unlocks everything
+    else. With no floor to protect there is no reason for a lid, a drawer, a
+    cradle or a seam: the base is one shell you turn over, drop the board into
+    and set down. Every join this stand grew in a day -- tray, collar, cap,
+    cradle, four pins, two screws -- is gone.
 
-    So the bay is a WELL -- closed on four sides and underneath, open at the
-    top -- and the CRADLE IS THE LID. Board in from above with the loom already
-    on it, leads down through the cradle's own notch, cradle on, two screws.
+    The board lies on two shelves, component side UP so its loom stands into the
+    cavity's headroom, and TWO CABLE TIES PASS RIGHT ROUND BOARD AND SHELF.
 
-    Returns (plinth, cradle). Both print with no support: the plinth is walls
-    and a floor open upward, and the cradle is the saddle with a flat underside,
-    printed seat-up, which is why the locating pins are on the PLINTH -- a pin
-    on the cradle's underside would be under the build plate.
+    Each shelf is cut clean through at each tie, just outboard of the board's
+    edge, and that window is the whole trick: the tie comes over the board, drops
+    through the window, crosses the open bottom and comes back up the other side.
+    The first version of this had no windows -- "with the bottom open a tie can
+    loop under a shelf" -- and check6 measured the shelf as one unbroken run of
+    material from the board's edge to the wall, which is a tie with nowhere to
+    go. A groove across each shelf top joins its two windows so the tie sits
+    flush and cannot walk along the board.
+
+    The board goes in TILTED, from underneath: 30 mm of board cannot pass flat
+    through a 27 mm gap. Rolled about 31 degrees it sweeps 17 mm of height into
+    20.9 mm of headroom, comes up between the shelves, and drops flat onto them.
+
+    USB-C leaves through the back wall, on the board's own axis.
+
+    THE CEILING IS THE CLOCK. Not the plinth's roof: the clock leans INTO the
+    plinth and its rim bottoms out about 5 mm below the plinth's top face, so the
+    cavity's ceiling is the seat solid's own lowest point less STANDBOX_ROOF_MIN.
+    Taking it from H - STANDBOX_ROOF instead is what put 491 mm3 of plinth inside
+    the clock on the 24 and 1134 on the 60.
+
+    The cavity's top corners are chamfered, but only 4 mm wide, so the flat
+    ceiling runs out to |x| = 14. That is deliberate: the tall things on a dev
+    board are at its EDGES -- the headers, and the Dupont housings standing on
+    them -- so a chamfer that buys a narrower bridge takes its height exactly
+    where the loom is. 28 mm of internal bridge is cheaper than 3 mm of missing
+    headroom.
+
+    The wings either side of the cavity are hollowed to the desk as well, ribbed
+    so nothing bridges more than STANDBOX_CEIL_SPAN. Prints on its foot, no
+    support; the whole inside is ceiling, which is what a shell open to the bed
+    is, and check3 says so rather than pretending to measure it.
     """
     t = STANDBOX_TILT
     s, notch, h0 = _stand_solid(B, depth, t)
@@ -1657,77 +1728,140 @@ def build_standbox(B, depth):
     tip = math.tan(math.radians(STANDBOX_TIP_TARGET))
     y_com = (depth/2)*math.sin(math.radians(t))
     z_com = h0 - (depth/2)*math.cos(math.radians(t))
-    # The plinth's front face sits PROUD of the cradle's front-most point,
-    # never on it: a box with its side on the cradle's own plane unions into
-    # coplanar faces that come apart in float32.
     toe = max(0.5, z_com*tip + bb[1] - y_com)
     y0 = bb[1] - toe
     y1 = max(y0 + STANDBOX_PLINTH_D + max(0.0, toe - 4.0), y_com + z_com*tip + 0.5)
-    hw = B.r_body
-    H = STANDBOX_PLINTH_H
+    hw = B.r_body + 0.4          # proud of the cradle's own sides, never flush:
+                                 # a box with its side on the cradle's plane
+                                 # unions into coplanar faces that come apart
+    H  = STANDBOX_PLINTH_H
+    yc, hd = (y0 + y1)/2.0, (y1 - y0)/2.0
 
-    # --- the well, sized off SAM'S board -----------------------------------
-    well_hw = BOARD2_W/2 + STANDBOX_WELL_CLR + FDM_SLOT_UNDER/2
-    well_y0 = y0 + STANDBOX_WALL
-    well_y1 = y1 - STANDBOX_WALL
-    assert well_y1 - well_y0 >= BOARD2_L + 1.0, (
-        f'well {well_y1 - well_y0:.1f} long, board is {BOARD2_L}')
-    well_z0 = STANDBOX_FLOOR
-    # Headroom, stated as what it has to hold: the pads that lift the PCB clear
-    # of its header tails, the board and its components, and the LOOM standing
-    # on top of them -- which is the whole reason the tray went.
-    need = BRD_POST_H + STANDBOX_BOARD_H + STANDBOX_WIRE_H
-    assert H - well_z0 >= need, \
-        f'well {H - well_z0:.2f} deep: needs {need:.2f} for board, headers and loom'
-    assert 2*well_hw + 2*STANDBOX_WALL <= 2*hw, 'well wider than the clock'
+    # ---- the plinth: rounded corners, a chamfered top, a reveal at the foot -
+    C, RV, RVH = STANDBOX_CHAMF, STANDBOX_REVEAL_D, STANDBOX_REVEAL_H
+    outer = _rrect(hw, hd, STANDBOX_CORNER_R)
+    inner = _rrect(hw - RV, hd - RV, max(1.0, STANDBOX_CORNER_R - RV))
+    plinth  = prism(inner, 0.0, RVH)
+    plinth += prism(outer, RVH, H - C)
+    plinth += prism_taper(outer, H - C, H, (hw - C)/hw, (hd - C)/hd)
+    plinth = plinth.translate([0.0, yc, 0.0])
 
-    plinth = box_lwh(-hw - 0.4, hw + 0.4, y0, y1, -1.0, H)
-    plinth -= box_lwh(-well_hw, well_hw, well_y0, well_y1, well_z0, H + 1.0)
+    # ---- the clock's own seat, and the ceiling it leaves for the board -----
+    # The plinth is a box and the clock leans INTO it: on the 24 its rim reaches
+    # 5 mm below the plinth's top face. So the seat is cut from the assembled
+    # solid, and the cavity's ceiling is not a parameter -- it is whatever the
+    # clock leaves, less a roof. Setting it from H - STANDBOX_ROOF instead put
+    # 491 mm3 of plinth inside the clock on the 24 and 1134 on the 60.
+    seat = _clock_seat(B, depth, t, over=STANDBOX_SEAT_OVER)
+    seat_low = seat.bounding_box()[2]
+    ceil = seat_low - STANDBOX_ROOF_MIN
+    assert ceil > STANDBOX_SHELF_Z + STANDBOX_SHELF_T + 5.0, (
+        f'the clock sits at z {seat_low:.1f}; nothing like room for a board under it')
 
-    # rails on the board's long edges, touching the 1.60 mm EDGE only, and four
-    # pads under it so soldered header tails have somewhere to be
+    # ---- the cavity, open to the desk --------------------------------------
+    chw = STANDBOX_CAV_HW
+    cy0, cy1 = y0 + STANDBOX_WALL, y1 - STANDBOX_WALL
+    cw, chh = STANDBOX_BAY_CHAMF_W, STANDBOX_BAY_CHAMF_H
+    assert 2*(chw - cw) <= STANDBOX_CEIL_SPAN, (
+        f'cavity ceiling would bridge {2*(chw - cw):.1f} mm, '
+        f'over the {STANDBOX_CEIL_SPAN:.0f} allowed')
+    # and the flat has to reach the board's EDGES, because that is where the
+    # headers are and the loom stands on the headers
+    assert chw - cw >= BOARD2_W/2.0 - 1.5, (
+        f'the ceiling starts sloping at |x| {chw - cw:.1f}, inside the loom at '
+        f'{BOARD2_W/2.0 - 1.5:.1f}')
+    sec = [(-chw, -2.0), (chw, -2.0), (chw, ceil - chh),
+           (chw - cw, ceil), (-chw + cw, ceil), (-chw, ceil - chh)]
+    cav = prism(sec, 0.0, cy1 - cy0).rotate([90.0, 0.0, 0.0]).translate([0.0, cy1, 0.0])
+    # The plinth owns everything below H and the cradle everything above it,
+    # with a 3 mm overlap so the union has no coplanar faces to lose in float32.
+    # The seat and the cavity are cut from the PLINTH only: the cradle already
+    # has the seat, and re-cutting it left four bad edges on the 24 that only
+    # appeared after finalise() quantised.
+    plinth = plinth - seat - cav
+    plinth += s ^ box_lwh(-300, 300, -300, 300, H - STANDBOX_LAP, 400.0)
+
+    # ---- the two shelves, and the ties that hold the board to them ---------
+    bz = STANDBOX_SHELF_Z
+    by1 = cy1 - 1.0
+    by0 = by1 - BOARD2_L
+    assert by0 - cy0 >= 0.5, f'board reaches y {by0:.1f}, cavity starts at {cy0:.1f}'
     for sx in (-1.0, 1.0):
-        x0_, x1_ = sorted((sx*(BOARD2_W/2 + 0.30), sx*well_hw))
-        plinth += box_lwh(x0_, x1_, well_y0, well_y1, well_z0 - 0.5,
-                          well_z0 + BRD_POST_H + BOARD_T + 0.40)
-    y_mid = (well_y0 + well_y1)/2.0
-    for yy in (y_mid - BOARD2_L/2.0 + 9.0, y_mid + BOARD2_L/2.0 - 9.0):
+        x0_, x1_ = sorted((sx*STANDBOX_SHELF_XI, sx*chw))
+        plinth += box_lwh(x0_, x1_, by0 - 1.0, by1 + 1.0, bz, bz + STANDBOX_SHELF_T)
+    ties = (by0 + STANDBOX_TIE_INSET, by1 - STANDBOX_TIE_INSET)
+    for ty in ties:
+        # the seat: shallow, right across, so the tie lies flush on the shelf
+        plinth -= box_lwh(-chw - 1.0, chw + 1.0,
+                          ty - STANDBOX_TIE_GROOVE_W/2.0, ty + STANDBOX_TIE_GROOVE_W/2.0,
+                          bz + STANDBOX_SHELF_T - STANDBOX_TIE_GROOVE_D,
+                          bz + STANDBOX_SHELF_T + 1.0)
+        # and the two windows the tie actually passes through, outboard of the
+        # board's edge and clean through shelf and all
         for sx in (-1.0, 1.0):
-            plinth += cyl(BRD_POST_D/2.0, well_z0 - 0.5, well_z0 + BRD_POST_H, 32,
-                          centre=(sx*BRD_POST_HY, yy))
-    # NO END STOPS. The well is BOARD2_L + 2 long, so its own end walls locate
-    # the board with a millimetre of slop each end; a pair of 2.50 mm ribs
-    # inside that took 1.50 mm out of the board's own footprint at each end,
-    # which check6 caught as 120 probes inside the board.
+            x0_, x1_ = sorted((sx*STANDBOX_TIE_WIN_XI, sx*(chw + 1.0)))
+            # +2.5 and not +1.0: the groove's cut stops at +1.0, and two cuts
+            # whose top faces land on the same plane and share an edge is the
+            # coincident-face trap again -- eight bad edges at z = 6.2, all at
+            # x = 19, the moment the shelf moved. Both cuts are into air; the
+            # only rule is that they must not agree about where they stop.
+            plinth -= box_lwh(x0_, x1_,
+                              ty - STANDBOX_TIE_WIN_W/2.0, ty + STANDBOX_TIE_WIN_W/2.0,
+                              bz - 1.0, bz + STANDBOX_SHELF_T + 2.5)
+    # the tie has to get past the board's edge to reach its window, and the
+    # window has to leave some shelf behind: both are geometry, so assert them
+    assert STANDBOX_TIE_WIN_XI >= BOARD2_W/2.0 + 0.30, (
+        f'tie window starts at {STANDBOX_TIE_WIN_XI:.2f}, inside the board edge '
+        f'at {BOARD2_W/2.0:.2f}')
+    assert chw - STANDBOX_TIE_WIN_XI >= 2.00, (
+        f'only {chw - STANDBOX_TIE_WIN_XI:.2f} mm of window to thread a tie through')
+    assert STANDBOX_TIE_WIN_W >= STANDBOX_TIE_GROOVE_W, 'window narrower than the tie'
+    # headroom, stated as what it has to hold: the board, its headers, and the
+    # LOOM standing on them -- which is the whole reason the drawer went
+    need = BOARD_T + STANDBOX_BOARD_H + STANDBOX_WIRE_H
+    assert ceil - (bz + STANDBOX_SHELF_T) >= need, (
+        f'{ceil - (bz + STANDBOX_SHELF_T):.1f} mm over the shelves, needs {need:.1f} '
+        f'(clock bottoms out at z {seat_low:.1f})')
 
-    # --- USB-C, straight out of the back wall ------------------------------
-    z_usb = well_z0 + BRD_POST_H + BOARD_T + BOARD_TALL/2.0
-    plinth -= box_lwh(-USB_WIN_W/2.0, USB_WIN_W/2.0, y1 - STANDBOX_WALL - 1.0, y1 + 1.0,
+    # ---- the wings, hollowed out to the desk -------------------------------
+    # "The bottom can be fully open" is not only permission for the cavity: the
+    # plinth either side of it was a solid block 26 mm deep and the whole
+    # footprint wide, and on the 60 that is most of a kilo of filament to hold a
+    # 12 g board. With no floor to keep, the wings become cells open to the
+    # desk, ribbed so no stretch of ceiling bridges more than STANDBOX_CEIL_SPAN.
+    #
+    # One consequence, stated rather than hidden: the foot's reveal steps the
+    # OUTSIDE in by STANDBOX_REVEAL_D, so over the bottom STANDBOX_REVEAL_H the
+    # wall is W - REVEAL_D = 1.50 mm rather than 3.00. That is above check3's
+    # 1.20 minimum and it is 2.5 mm of wall in pure compression at the foot of a
+    # desk stand, so it stays -- but it is the thinnest thing in the part and it
+    # is here on purpose, not by accident.
+    W = STANDBOX_WALL
+    wing = prism(_rrect(hw - W, hd - W, max(1.0, STANDBOX_CORNER_R - W)),
+                 0.0, ceil).translate([0.0, yc, 0.0])
+    wing -= box_lwh(-(chw + W), chw + W, y0 - 1.0, y1 + 1.0, -1.0, ceil + 1.0)
+    span = (hw - W) - (chw + W)
+    n = max(1, int(math.ceil(span/STANDBOX_CEIL_SPAN)))
+    for i in range(1, n):
+        rx = (chw + W) + span*i/n
+        for sx in (-1.0, 1.0):
+            wing -= box_lwh(sx*rx - STANDBOX_RIB_T/2.0, sx*rx + STANDBOX_RIB_T/2.0,
+                            y0 - 1.0, y1 + 1.0, -1.0, ceil + 1.0)
+    plinth -= wing
+
+    # ---- USB-C, straight out of the back wall on the board's own axis ------
+    z_usb = bz + STANDBOX_SHELF_T + BOARD_T + BOARD_TALL/2.0
+    plinth -= box_lwh(-USB_WIN_W/2.0, USB_WIN_W/2.0, cy1 - 1.0, y1 + 2.0,
                       z_usb - USB_WIN_H/2.0, z_usb + USB_WIN_H/2.0)
 
-    # --- the joint: pins on the plinth, screws down through the cradle ------
-    pin_x = well_hw + (hw - well_hw)/2.0
-    pins = [(sx*pin_x, yy) for sx in (-1.0, 1.0) for yy in (y0 + 8.0, y1 - 8.0)]
-    for (px, py) in pins:
-        plinth += cyl(STANDBOX_PIN_R, H - 4.0, H + STANDBOX_PIN_H, 24, centre=(px, py))
-    scr = [(sx*(well_hw + 5.5), y1 - STANDBOX_LID_SCREW_Y) for sx in (-1.0, 1.0)]
-    for (px, py) in scr:
-        plinth -= cyl(STANDBOX_SCREW_PILOT/2.0, H - 9.0, H + 1.0, 24, centre=(px, py))
-    plinth = plinth ^ box_lwh(-300, 300, -300, 300, 0.0, 400.0)
-
-    # --- the cradle: everything above H, plus a lid over the rest of the top -
-    cradle = s ^ box_lwh(-300, 300, -300, 300, H, 400.0)
-    cradle += box_lwh(-hw - 0.4, hw + 0.4, y0, y1, H, H + STANDBOX_ROOF)
-    cradle -= notch                     # the leads' way down, cut with the SAME
-                                        # solid the cradle's seat was cut with
-    for (px, py) in pins:
-        cradle -= cyl(STANDBOX_PIN_R + STANDBOX_PIN_CLR, H - 1.0,
-                      H + STANDBOX_PIN_H + 0.6, 24, centre=(px, py))
-    for (px, py) in scr:
-        cradle -= cyl(STANDBOX_SCREW_CLEAR/2.0, H - 1.0, H + 400.0, 24, centre=(px, py))
-        cradle -= cyl(SCREW_HEAD/2.0, H + STANDBOX_ROOF - 1.8, H + 400.0, 32,
-                      centre=(px, py))
-    return plinth, cradle
+    # ---- and the leads' way down from the clock ----------------------------
+    # the same notch solid the seat was cut with. Clipped at the BOTTOM only, so it is a hole through the roof and not a
+    # trench across the plinth. Not at the top: the plinth fills the cradle's
+    # notch through the lap band, so the cut has to run right up past it, and
+    # stopping it at H put the new cut's top edge exactly on the cradle's own
+    # notch faces -- three bad edges on the 60, and only after float32.
+    stand = plinth - (notch ^ box_lwh(-200, 200, -200, 200, ceil - 1.0, 400.0))
+    return stand ^ box_lwh(-300, 300, -300, 300, 0.0, 400.0)
 
 
 def _wall_yz(prof, x0, x1):
@@ -2411,7 +2545,7 @@ def parts_for(B, sam, full=True):
     """Everything one body needs. full=False skips the bar variants."""
     tg = B.tag
     cover_depth = Z_FRONT - (Z_DECK - (BACKCOVER_PLATE + BACKCOVER_POCKET))
-    standbox, cradle = build_standbox(B, cover_depth)
+    standbox = build_standbox(B, cover_depth)
     parts = [
         (assemble_base(B, sam),          f'mini-round-clock-base{tg}',      True),
         (build_rear_housing(
@@ -2428,7 +2562,6 @@ def parts_for(B, sam, full=True):
         (build_stand(B, Z_FRONT - (Z_DECK - HOUSING_DEEP)),
                                          f'mini-round-clock-deskstand{tg}', True),
         (standbox,                       f'mini-round-clock-standbox{tg}',  True),
-        (cradle,                         f'mini-round-clock-standbox-cradle{tg}', True),
         (build_backstand(B),             f'mini-round-clock-backstand{tg}', True),
         (build_backstand(B, deep=True),  f'mini-round-clock-backstand{tg}-deep', True),
         (build_backstand(B, closed=True), f'mini-round-clock-plinth{tg}',      True),

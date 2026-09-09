@@ -6318,3 +6318,92 @@ carries `FLAT` and `BLOCK` flags mirroring the two switches.
 RAM:   [==        ]  19.2% (used 62812 bytes from 327680 bytes)
 Flash: [======    ]  61.1% (used 1120879 bytes from 1835008 bytes)
 ```
+
+---
+
+## 2026-09-08 — the stand-box becomes one part, open underneath
+
+Sam: *"Make the base look much nicer, and the bottom can be fully open, with a
+spot for ziptie down the ESP32 with the USB cable out he back."*
+
+### What shipped
+
+`mini-round-clock-standbox{tag}` is now **one part**, and the only part of the
+base. The lid, the cradle, the sliding tray, the four locating pins and the two
+M2 screws are gone — "the bottom can be fully open" removed the requirement all
+of them existed to satisfy.
+
+|  | 24 | 32 | 60 |
+|---|---|---|---|
+| stand-box | 108.8 × 72.0 × 58.7 | 120.7 × 72.0 × 61.4 | 240.8 × 105.7 × 88.8 mm |
+| model volume | 136 cm³ | 155 cm³ | 566 cm³ |
+| the same shell, wings solid | 234 | 274 | 1037 cm³ |
+
+* **Open underneath**: 23.6 cm² under the 24, 35.5 under the 60, plus the wings
+  either side of the board's cavity hollowed to the desk and ribbed so no
+  ceiling bridges more than `STANDBOX_CEIL_SPAN` = 28 mm.
+* **The zip-tie spot**: two shelves 27 mm apart, tops 5.2 mm up, each cut clean
+  through at each tie just outboard of the board's edge, with a shallow groove
+  across the shelf top joining the two windows.
+* **USB-C out the back**, on the board's own axis.
+* **Looks**: 6 mm corner radii, a 2.5 mm top chamfer, a 1.5 mm foot reveal.
+
+### Two faults found in work already called finished
+
+1. **The cable tie had nowhere to pass.** The shelf ran unbroken from the
+   board's edge out to the wall — measured as one run of material from y −25.6
+   to 43.9 at x = 16. A tie can loop under a shelf only where there is a hole to
+   get under it through.
+2. **The plinth's roof was inside the clock**: 491 mm³ on the 24, 559 on the 32,
+   1134 on the 60. `_stand_solid` cuts the seat out of the *cradle*; the
+   stand-box unioned a plinth into it and filled the seat back in. Present since
+   the stand-box was first built, and invisible to seven checks because **all of
+   them measured the stand alone.** A part that goes inside another one gets a
+   boolean against it.
+
+Both now have tests. check6 walks the tie's whole path — over the board, down
+through the window, across the open bottom, up the other side — and booleans the
+real clock (base + back cover, in the stand's own transform) against the real
+base. That reads 0.0 mm³ on all three.
+
+### The ceiling is the clock
+
+Fixing (2) exposed that the cavity's ceiling had been taken from
+`H - STANDBOX_ROOF`, the plinth's own top face. But the clock leans *into* the
+plinth and bottoms out at z 29.1, five millimetres below it. The ceiling is now
+derived from the seat solid's bounding box, less `STANDBOX_ROOF_MIN` = 2.5.
+
+That cost 8 mm of headroom. It came back from dropping the shelves to a top at
+z 5 and narrowing the cavity's top chamfer from 6 mm to 4, so the flat ceiling
+reaches |x| = 14 — because **the tall things on a dev board are at its edges**,
+and a chamfer that buys a narrower bridge takes its height exactly where the
+Dupont housings stand. check6 now measures the flat ceiling and the board's edge
+separately, and probes each thing over the width it occupies.
+
+### Two float32 traps
+
+Both appeared as `Error.NotManifold` from a part that was watertight in doubles,
+because `finalise()` quantises before it checks:
+
+* cutting the assembled stand with the same cylinder the cradle's seat was cut
+  with — two coincident curved surfaces. `STANDBOX_SEAT_OVER` = 0.20 fixes it;
+* clipping the leads' notch at z = H, which put the new cut's top edge exactly
+  on the cradle's inherited notch faces. Run the cut past instead.
+
+**Do not create a face where one already is.**
+
+### Checks
+
+`check1` and `check3` lost the `standbox-cradle` entries; `check7` compared the
+back-stand against *plinth + tray* and broke the moment the tray stopped
+existing — it compares one part to one part now. `check6` is rewritten around
+journeys: the bottom being open, the board's tilted way in (30° roll, verified
+against the mesh at every 0.5 mm of lift), the tie's way round, the USB lead's
+way out, the clock into its seat.
+
+### Unverified, flagged for Sam
+
+The ties cross the **top** of the board 14 mm in from each end. On a DevKitC-1
+that is the middle third, clear of the USB shells and the antenna keep-out, but
+there is no verified component map for the board in his hand. The windows are
+4 mm long so a tie can be nudged; `STANDBOX_TIE_INSET` moves them properly.

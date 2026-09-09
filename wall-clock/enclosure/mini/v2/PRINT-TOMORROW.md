@@ -1,7 +1,7 @@
-# Print set — 32-LED mini round clock, back-stand version
+# Print set — 32-LED mini round clock, stand-box version
 
-Built from `build_v2.py` and verified by `sh runchecks.sh`, which now runs
-seven passes and the seventh once for each body.
+Built from `build_v2.py` and verified by `sh runchecks.sh`, which runs ten
+passes, several of them once per body.
 
 ## Where the files are
 
@@ -16,43 +16,48 @@ cannot be regenerated.
 
 ## What changed since the last print sheet
 
-You asked for a base that isn't as bulky, open for the cables, sitting behind
-the clock at an angle. So the plinth is gone. The old stand-box was a closed
-box with a lid, two M2 screws and a slide-in tray — **197 cm³ plus an 11 cm³
-tray, about 244 g of filament, to hold a 12 g board.**
+The base is the **stand-box**, the one you picked, and it is now **one part
+with the bottom fully open**. The lid, the cradle, the sliding tray, the four
+locating pins and the two M2 screws are all gone — you turn it over, tilt the
+board in onto two shelves, and hold it with two cable ties. USB-C comes out the
+back. Full detail is under **THE STAND-BOX** below, including the one step that
+needs your hands.
 
-The **back-stand** does the same job in one part, `47.2 cm³ / ~59 g`. The clock
-comes down onto the desk and beds 4 mm into a trench in the foot; two
-buttresses behind it take the lean. Everything between them is air — that is
-the cable route and the board bay, an open channel with no lid, no tray and no
-screws. Nothing is enclosed, so nothing needs closing.
+Two faults were found and fixed while building it, both of the same kind — a
+part that is the right shape and cannot be assembled:
 
-It is **48 mm tall against 61**, **86 mm wide against 121**, and it prints flat
-on its foot with no support: every overhang is 45° or steeper, and the two
-windows have 45° gables rather than flat roofs.
+* the shelf ran unbroken from the board's edge out to the wall, so **the cable
+  tie you asked for had nowhere to pass**; and
+* the plinth's roof was sitting **inside the clock** — 491 mm³ on the 24,
+  1134 on the 60 — because the clock's seat was only ever cut from the cradle
+  and the plinth was then unioned back into it. Seven checks had measured that
+  stand and none of them had ever put the clock in it.
 
-You also told me the board is **30 mm**, not the 29 I had. Both the back-stand
-and the old stand-box are cut for 30.00 now.
+Both now have tests: check6 walks the tie's whole path, and booleans the real
+clock against the real base.
 
 ## Print these
 
 | # | file | size mm (x·y·z) | vol | notes |
 |---|---|---|---|---|
-| 1 | `mini-round-clock-backstand-32` | 98.0 · 86.3 · 48.0 | 51 cm³ | **the new base.** One part, no lid |
-| 1b | `mini-round-clock-backstand-clamp` | 81.5 · 20.0 · 6.9 | 7 cm³ | holds the board down. Two M2 self-tappers |
+| 1 | `mini-round-clock-standbox-32` | 120.7 · 72.0 · 61.4 | 155 cm³ | **the base.** One part, foot down, no support |
 | 2 | `mini-round-clock-base-32` | 119.8 · 119.8 · 24.4 | 138 cm³ | the clock body |
 | 3 | `mini-round-clock-backcover-32` | 119.8 · 119.8 · 8.9 | 34 cm³ | flat back, for the stand version |
 | 4 | `mini-round-clock-diffuser-32-plain` | 112.4 · 112.4 · 6.8 | 24 cm³ | no numerals — see the material note |
 
 If you only print one thing, print **1**. Nothing else has changed.
 
-For the 24-LED clock print `mini-round-clock-backstand` (no suffix) instead —
-see the table at the bottom.
+For the 24-LED clock print `mini-round-clock-standbox` (no suffix) instead, and
+for the 240 mm one `mini-round-clock-standbox-60` — see the table under THE
+STAND-BOX.
+
+You will also need **two cable ties**, 3.6 mm wide or narrower. Nothing else:
+no screws, no heat-set inserts.
 
 `mini-round-clock-housing-32` is the *wall-mount* rear housing and you do not
-need it. `mini-round-clock-standbox-32` and its tray are the old design; they
-are still built and still correct, now for a 30 mm board, if you would rather
-have the clock lifted.
+need it. The **back-stand**, the **dock** and the **plinth** are earlier
+answers to the same question, still built and still correct; they are described
+further down and none of them is what you asked for last.
 
 ## Material
 
@@ -62,24 +67,150 @@ ruins the optics, corrodes anything nearby, and is a genuine hazard. This has
 been the standing rule on this build since the first BOM and it has not
 changed.
 
-Everything else is ordinary PLA or PETG. The back-stand has no threads in it,
-so PLA is fine; PETG if you want the foot to stop caring about a warm room.
+Everything else is ordinary PLA or PETG. The stand-box has no threads and no
+screws in it at all, so PLA is fine; PETG if you want the foot to stop caring
+about a warm room.
 
-## The one number that might be wrong
+## The numbers that might be wrong
 
-The board channel is **30.60 mm** for your 30.00 mm board — measured off the
-built STL, not off the drawing. That is 0.30 mm a side nominal, and a printed
-slot can lose up to 0.40 mm across, so the worst case is still 0.10 a side.
+**On the stand-box there is no slot at all**, which is the point of holding the
+board with ties instead of clamping it in a channel: a millimetre either way on
+the board's width changes how much shelf is under its edge, not whether it goes
+in. At 30.00 mm the ledge is 1.4 mm a side. At 31.00 it would be 0.9 — still a
+ledge. At 29.00 it is 1.9. Nothing to re-slice.
 
-**If it is sloppy:** `BACKSTAND_SLOT_W = 30.20` in `params.py`, re-run
-`python3 build_v2.py`. **If it will not go in:** `31.00`. One number, one
-re-slice.
+What could still be wrong:
 
-`mini-round-clock-board-fit-gauge` (23 cm³, ~15 min) now has channels at
-**30.20 / 30.60 / 31.00 / 31.40** — print it first if you would rather know
-than guess. The one that takes the board without force is the answer.
+1. **Where the ties cross the board.** 14 mm in from each end, across the top.
+   Unverified against your board's actual components — see the note under THE
+   STAND-BOX. `STANDBOX_TIE_INSET` moves them.
+2. **How tall your loom stands.** The cavity gives 21.0 mm over the shelves and
+   the allowance is 20.6 — the board, 14 mm of headers with Dupont housings on
+   them, and 5 mm of wire standing on those. If your connectors are taller than
+   14 mm above the PCB, that 0.4 mm of slack is gone. Measure a plugged
+   connector before printing if you want to be sure.
+3. **Header tails under the board.** They have 1.2 mm to the desk. Trimmed
+   tails have plenty; untrimmed ones on a 2.54 mm header could touch.
 
-## Assembly
+*The back-stand, if you print that instead:* its board channel is **30.60 mm**,
+0.30 a side nominal, and a printed slot can lose 0.40 across, so the worst case
+is 0.10 a side. Sloppy → `BACKSTAND_SLOT_W = 30.20`; will not go in → `31.00`.
+`mini-round-clock-board-gauge` (13 cm³, ~15 min) has channels at
+**30.20 / 30.60 / 31.00 / 31.40** if you would rather know than guess.
+
+## THE STAND-BOX — print this. Everything below is superseded.
+
+`2026-09-05`. Shown four bases side by side, Sam picked it: "B, I like the
+stand box." `2026-09-08`: "Make the base look much nicer, and the bottom can be
+fully open, with a spot for ziptie down the ESP32 with the USB cable out he
+back."
+
+**It is now ONE part.** No lid, no cradle, no tray, no pins, no screws. That
+permission — the bottom *can* be open — is what did it: with no floor to
+protect there is nothing for a lid to close, so the base is a single shell you
+turn over, drop the board into and set down.
+
+| print | | |
+|---|---|---|
+| `mini-round-clock-standbox{tag}` | the whole base | **foot down**, no support |
+
+The clock is untouched: base, back cover, the ORIGINAL `housing`, diffusers,
+numerals. Nothing else to print, and nothing to screw together.
+
+|  | 24 LED | 32 LED | 60 LED |
+|---|---|---|---|
+| stand-box | 108.8 × 72.0 × 58.7 mm | 120.7 × 72.0 × 61.4 mm | 240.8 × 105.7 × 88.8 mm |
+| model volume | 136 cm³ | 155 cm³ | 566 cm³ |
+| lean | 12° | 12° | 12° |
+
+Model volume solid would be ~168 g of PLA on the 24 and ~193 g on the 32. It
+will not be that: the part is now a shell, so most of that volume is already
+absent and infill has little left to thin. **Let the slicer give you the real
+number** — I am not going to guess it.
+
+### How the board goes in
+
+**The board goes in tilted, from underneath, and this is the one step that
+needs your hands.**
+
+1. Turn the base over, or hold it up on its back edge.
+2. The board goes in **component side up**, so the loom stands into the
+   headroom rather than hanging out of the bottom.
+3. Two shelves run down the inside, 27.2 mm apart, tops 5.2 mm off the desk.
+   The board is 30 mm wide, so **roll it about 32° to get it between them**,
+   lift it past, and let it drop flat onto the shelves. It sweeps 17.3 mm of
+   height into 20.9 mm of headroom, so there is room, but it is a deliberate
+   move and not a drop-in. (Verified against the mesh, not the arithmetic: the
+   rolled board is lifted through in half-millimetre steps and then rolled flat
+   at the top, and it touches nothing at any of them.)
+4. The board's back end sits 1 mm inside the back wall. **USB-C lines up with
+   the window in the back wall** — that is how you know it is the right way
+   round and the right way up.
+5. **Two cable ties.** Each one goes over the board, down through the window cut
+   through the shelf just outboard of the board's edge, across the open bottom,
+   and up through the window on the other side. There is a shallow groove across
+   each shelf top so the tie sits flush and cannot walk along the board. Tie
+   positions are 14 mm in from each end of the board.
+6. Plug the clock's leads on. They come down through the notch in the roof at
+   6 o'clock, straight into the cavity.
+7. Clock into the saddle.
+
+**One thing to check with your own eyes, because I could not verify it:** the
+tie crosses the *top* of the board at those two points. On the DevKitC-1 those
+land in the middle third, clear of the USB shells at one end and the antenna
+keep-out at the other, but I do not have a verified component map for your
+board. If something tall is in the way, thread the tie beside it — the windows
+are 4 mm long, so there is play — or tell me and I will move `STANDBOX_TIE_INSET`.
+
+### Numbers, measured off the built mesh
+
+| | 24 | 32 | 60 |
+|---|---|---|---|
+| envelope mm | 108.8 × 72.0 × 58.7 | 120.7 × 72.0 × 61.4 | 240.8 × 105.7 × 88.8 |
+| model volume | 135.6 cm³ | 155.2 cm³ | 566.0 cm³ |
+| open underneath | 23.6 cm² | 23.5 cm² | 35.5 cm² |
+| cavity | 35.7 wide × 66.0 deep | 35.7 × 66.0 | 35.7 × 99.5 |
+| ceiling over the board | 26.2 mm flat, 24.7 at the board's edge | same | same |
+| headroom over the shelves | 20.9 mm, against 20.6 needed | same | same |
+| shelves | 27.2 mm apart, tops at z 5.2 | 27.3 apart | 27.2 apart |
+| ledge under each board edge | 1.4 mm | 1.3 mm | 1.4 mm |
+| roll to get the board in | 32° | 31° | 32° |
+| under the board | 1.2 mm to the desk under a 4 mm tail; 3.2 mm for the tie's loop | same | same |
+| worst flat bridge | 13.2 mm | 15.1 mm | 22.0 mm |
+| clock-to-stand overlap | 0.0 mm³ | 0.0 mm³ | 0.0 mm³ |
+| roof between clock and cavity | 2.88 mm | 2.88 mm | 2.88 mm |
+| tips forward / back | 21.0° / 31.3° | 21.0° / 28.2° | 21.0° / 21.2° |
+
+### What changed today
+
+* **One part instead of three.** The lid, the cradle, the four locating pins
+  and the two M2 screws are gone.
+* **The bottom is fully open** — 23.6 cm² under the 24, 35.5 cm² under the 60 —
+  and the wings either side of the board's cavity are hollowed out to the desk
+  as well, ribbed so no stretch of ceiling bridges more than 28 mm. That took
+  the 60 from 1037 cm³ to 566 and the 32 from 274 to 155 — the same shell
+  measured before and after the wings were opened.
+* **It looks like something.** 6 mm radii on the vertical corners, a 2.5 mm
+  chamfer round the top edge, and a 1.5 mm reveal at the foot so the plinth
+  reads as floating rather than sitting in a puddle of its own plastic.
+* **A real spot for the zip ties**, which the first version of this did not
+  have: the shelf ran unbroken from the board's edge out to the wall, so the tie
+  had nowhere to pass. check6 now walks the tie's whole path.
+* **The clock's seat is cut from the whole base.** It was only ever cut from the
+  cradle, and the plinth's roof was then unioned back into it — 491 mm³ of
+  plastic inside the clock on the 24, 1134 on the 60. No check had ever put the
+  clock in the stand and looked. There is one now, and it reads 0.0 mm³.
+* **The shelves sit 5.2 mm up, not 8.** The cavity's ceiling is not the plinth's
+  roof — it is the *clock*, which leans into the plinth and bottoms out at
+  z 29.1. That leaves a ceiling at 26.2 with 2.9 mm of roof under the clock, so
+  20.9 mm of headroom for a board and a loom that want 20.6. The 5.4 mm left
+  over goes downwards: 1.2 mm under a 4 mm header tail to the desk, and 3.2 mm
+  under the shelf for the tie's loop.
+
+## Superseded: assembling the back-stand
+
+The back-stand is not the base you asked for last. This is kept because the
+part is still built, still correct and still passes its checks.
 
 1. **Board in:** slide its back long edge under the lip on the rear rail, then
    drop the front edge in over the low front rail. It lies **flat on the bay
@@ -136,58 +267,6 @@ than guess. The one that takes the board without force is the answer.
    Nothing pinches them and nothing closes over them. The gate takes the
    middle 18 mm out of the front rail so the leads reach the board without
    climbing anything.
-
-## THE STAND-BOX — print this. Everything below is superseded.
-
-`2026-09-05`. Shown four bases side by side, Sam picked it: "B, I like the
-stand box."
-
-It was already the enclosed one, and that is why it wins: the bay opens at the
-**back**, and the tray that carries the board **is the lid** — it slides in like
-a drawer and its end plate, with the USB-C window in it, closes the bay and
-screws to the back face. The leads drop straight from the clock through the
-cradle's own 6 o'clock notch into the bay, cut with the same solid the cradle
-was cut with, so the two cannot disagree.
-
-| print | | |
-|---|---|---|
-| `mini-round-clock-standbox{tag}` | the plinth, with the well in it | open side up, no support |
-| `mini-round-clock-standbox-cradle{tag}` | the saddle, which is the lid | seat up, flat side on the bed, no support |
-
-The clock is untouched: base, back cover, the ORIGINAL `housing`, diffusers,
-numerals. No hold-down bar, no tray.
-
-**The drawer is gone.** Sam: "Remove the sliding tray. Because it is a dev
-board, wires stick out the top." He is right, and the fault was structural: a
-drawer only works if the board *and everything plugged into it* can pass
-through the opening. A dev board with a Dupont loom is 5 mm of board and 15 mm
-of wire, and the leads it connects to come **down** through the roof at the far
-end — so fitting it meant feeding a loom through a 67 mm tunnel toward wires
-coming the other way. No clearance number fixes that.
-
-So the bay is now a **well**: closed on four sides and underneath, open at the
-top, 30 mm deep. The board drops straight in with the loom already on it, the
-leads drop through the cradle's own notch, and the cradle goes on over the lot.
-Nothing is threaded through anything.
-
-**Assembly.** Board into the well, on its four pads, between the rails. Plug the
-clock's leads onto it. Lower the cradle over the four pins — the leads pass up
-through its notch. Two M2 × 12 down through the back of the cradle. Clock into
-the saddle.
-
-|  | 24 LED | 32 LED |
-|---|---|---|
-| stand-box | 108 × 72 × 55 mm | 121 × 72 × 61 mm |
-| lean | 12° | 12° |
-
-**What changed today: it is closed underneath.** It had two lightening pockets
-in the bottom face, 19 × 66 mm each — by far the biggest holes in anything in
-this set. They bought model volume and nothing else: a solid plinth is hollowed
-by the slicer's infill just the same. `STANDBOX_POCKETS` puts them back if the
-weight ever matters more than the look, and check6 fails the moment they return.
-
-**It is modelled solid** (229 cm³ on the 24, 269 on the 32). That is not what it
-weighs — at 15% infill expect roughly 70–85 g.
 
 ## Superseded: the dock
 
@@ -295,7 +374,7 @@ relief in the underside keeps the loop inside the plate so the clock still lies
 flat on a wall. Screen tail and ring leads come in through the base's own port
 at +x and have 26.4 mm of plenum to sit in.
 
-## Numbers, measured off the built mesh
+## Numbers, measured off the built mesh — the back-stand
 
 | | |
 |---|---|
@@ -310,7 +389,7 @@ at +x and have 26.4 mm of plenum to sit in.
 | tips sideways at | 39.4° |
 | clock-to-stand contact | 0.50 mm clearance everywhere, 0 mm³ of overlap |
 
-## The other two bodies
+## The other two bodies — the back-stand
 
 There is a back-stand for every body, and each one passes the same checks.
 **Mind the filenames**: the 24 is the UNTAGGED one, the same convention as
@@ -330,5 +409,5 @@ however small the clock gets. Below the 32 the width is held, not scaled.
 
 The 60's does scale — 172 × 134 × 96. check7 measured an 86 mm foot tipping
 backwards at 17.5° under a 240 mm clock, and that is not a stand, it is a
-hazard. It still replaces a 936 cm³ stand-box and tray, so it is 26% of the
-material even at that size.
+hazard. At 256 cm³ it is 45% of the stand-box's 566 — a margin that was much
+wider before the stand-box's bottom was opened and its wings hollowed out.

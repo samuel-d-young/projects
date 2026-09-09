@@ -1,5 +1,6 @@
 #!/bin/sh
-# All seven verification passes. Non-zero exit if any of them finds anything.
+# All ten verification passes, several of them once per body. Non-zero exit if
+# any of them finds anything.
 set -e
 cd "$(dirname "$0")"
 for c in check1_topology.py check2_fit.py check3_print.py check4_v3.py check5_stand.py check6_standbox.py; do

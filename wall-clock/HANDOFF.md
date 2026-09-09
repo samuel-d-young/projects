@@ -335,14 +335,27 @@ of his.
 
 ## Enclosure: done, ready to print
 
-`57bce1b`. **`mini-round-clock-standbox-32.3mf` + `-standbox-tray-32.3mf`.**
+**`mini-round-clock-standbox-32.3mf` — ONE part, and the only part of the base.**
 See `enclosure/mini/v2/PRINT-TOMORROW.md`.
 
-The tray used to be cut from the drawing's 28.19 mm board, putting the rails
-**28.99 apart against a 29.00 board** — a negative fit that could never have
-worked. Now `STANDBOX_SLOT_W = 30.20`, measured off the built STL. **If the
-board is sloppy set 29.80, if tight 30.60**, then re-run `build_v2.py`. All six
-checks pass.
+`2026-09-09`: Sam asked for the base to look nicer, with the bottom fully open,
+a spot for a zip tie and USB out the back. "The bottom *can* be open" removed
+the requirement the lid, the cradle, the tray, the four pins and the two M2
+screws all existed to serve, so the base is now a single shell: turn it over,
+roll the board ~31° to get it between the shelves, let it drop flat, two cable
+ties through the windows cut through the shelves. **No screws. Two cable ties,
+3.6 mm or narrower, are the only hardware.**
+
+Two faults were found in already-shipped work while doing it — the tie had
+nowhere to pass, and the plinth's roof was sitting inside the clock (491 mm³ on
+the 24, 1134 on the 60, because the clock's seat was only ever cut from the
+cradle). Both now have tests. All ten checks pass.
+
+*Superseded, kept for the history:* the tray used to be cut from the drawing's
+28.19 mm board, putting the rails 28.99 apart against a 29.00 board — a negative
+fit that could never have worked. `STANDBOX_SLOT_W = 30.20` fixed it. There is
+no tray any more; the shelves are `STANDBOX_SHELF_XI`, and the board is located
+by the ties, not by a slot.
 
 ## Blocked, needing Samuel's hands
 
