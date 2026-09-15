@@ -1,0 +1,399 @@
+<title>Ten Things Worth Building</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root {
+    --ground:#E9ECEF; --surface:#FDFDFC; --surface-2:#F1F3F5;
+    --ink:#12171C; --ink-2:#3D4852; --ink-3:#6B7681;
+    --rule:#D3D8DD; --rule-soft:#E2E6E9;
+    --accent:#A85B12; --accent-ink:#7A4109; --accent-wash:#F6EADC;
+    --go:#2C6E4E; --go-wash:#E2EFE7;
+    --hold:#8A6512; --hold-wash:#F5EDD8;
+    --stop:#963228; --stop-wash:#F6E4E1;
+    --term-bg:#12171C; --term-fg:#E4E8EB;
+    --shadow:0 1px 2px rgba(18,23,28,.05), 0 8px 24px -12px rgba(18,23,28,.18);
+    --measure:68ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#0E1216; --surface:#161C22; --surface-2:#1D242B;
+      --ink:#E8ECEF; --ink-2:#B3BDC6; --ink-3:#7E8A95;
+      --rule:#2C353D; --rule-soft:#232B32;
+      --accent:#E0A254; --accent-ink:#F0C288; --accent-wash:#2A2118;
+      --go:#6DBE92; --go-wash:#16241D;
+      --hold:#D8B25A; --hold-wash:#262016;
+      --stop:#E08276; --stop-wash:#2A1A18;
+      --term-bg:#05080A; --term-fg:#E4E8EB;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#0E1216; --surface:#161C22; --surface-2:#1D242B;
+    --ink:#E8ECEF; --ink-2:#B3BDC6; --ink-3:#7E8A95;
+    --rule:#2C353D; --rule-soft:#232B32;
+    --accent:#E0A254; --accent-ink:#F0C288; --accent-wash:#2A2118;
+    --go:#6DBE92; --go-wash:#16241D;
+    --hold:#D8B25A; --hold-wash:#262016;
+    --stop:#E08276; --stop-wash:#2A1A18;
+    --term-bg:#05080A; --term-fg:#E4E8EB;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing:border-box; }
+  body {
+    background:var(--ground); color:var(--ink);
+    font-family:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+    font-size:16.5px; line-height:1.62; margin:0; padding:0 1.25rem 6rem;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:62rem; margin:0 auto; }
+  .col { max-width:var(--measure); }
+
+  h1,h2,h3,.eyebrow,.optname,.stat-n,.num {
+    font-family:Archivo,ui-sans-serif,system-ui,sans-serif;
+  }
+  h1 { font-size:clamp(2.1rem,6vw,3.3rem); font-weight:700; letter-spacing:-.022em;
+       line-height:1.05; margin:0 0 .6rem; text-wrap:balance; }
+  h2 { font-size:clamp(1.3rem,3vw,1.7rem); font-weight:600; letter-spacing:-.014em;
+       line-height:1.2; margin:0 0 .4rem; text-wrap:balance; }
+  p { margin:0 0 1rem; }
+  strong { font-weight:600; color:var(--ink); }
+  code,.mono { font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.88em; }
+  code { background:var(--surface-2); border:1px solid var(--rule-soft);
+         border-radius:3px; padding:.08em .34em; color:var(--ink-2); }
+
+  .eyebrow { font-size:.7rem; font-weight:600; letter-spacing:.13em;
+             text-transform:uppercase; color:var(--ink-3); margin:0 0 .5rem; }
+
+  header.mast { border-bottom:2px solid var(--ink); padding:3.5rem 0 1.6rem; margin-bottom:2.6rem; }
+  .kicker { font-family:"IBM Plex Mono",monospace; font-size:.74rem; letter-spacing:.1em;
+            text-transform:uppercase; color:var(--accent-ink); margin:0 0 1rem; }
+  .standfirst { font-size:1.12rem; color:var(--ink-2); max-width:46rem; margin:0 0 1.8rem; }
+
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));
+           gap:1px; background:var(--rule); border:1px solid var(--rule); }
+  .stat { background:var(--surface); padding:.85rem 1rem; }
+  .stat-n { font-size:1.6rem; font-weight:700; line-height:1; letter-spacing:-.02em;
+            font-variant-numeric:tabular-nums; display:block; margin-bottom:.28rem; }
+  .stat-l { font-size:.78rem; color:var(--ink-3); line-height:1.35; display:block; }
+
+  section { margin:0 0 3.2rem; }
+  .sec-head { margin-bottom:1.4rem; }
+  .sec-head p { color:var(--ink-2); margin:0; }
+
+  .findings { display:grid; gap:1px; background:var(--rule-soft);
+              border:1px solid var(--rule); box-shadow:var(--shadow); }
+  .finding { background:var(--surface); padding:1.1rem 1.2rem; }
+  .finding h3 { font-family:Archivo,sans-serif; font-size:1rem; font-weight:600;
+                margin:0 0 .3rem; }
+  .finding p { margin:0; color:var(--ink-2); font-size:.95rem; }
+  .finding .flag { display:inline-block; font-family:"IBM Plex Mono",monospace;
+                   font-size:.66rem; font-weight:600; letter-spacing:.06em;
+                   text-transform:uppercase; padding:.14rem .42rem; border-radius:2px;
+                   background:var(--stop-wash); color:var(--stop); margin-bottom:.45rem; }
+
+  ol.opts { list-style:none; margin:0; padding:0; display:grid; gap:1rem; }
+  .opt { background:var(--surface); border:1px solid var(--rule); padding:1.15rem 1.3rem 1.25rem;
+         display:grid; grid-template-columns:2.6rem 1fr; gap:0 1rem; }
+  .num { font-size:1.5rem; font-weight:700; color:var(--accent);
+         font-variant-numeric:tabular-nums; line-height:1.1; }
+  .opt-body { min-width:0; }
+  .optname { font-size:1.15rem; font-weight:700; letter-spacing:-.01em; margin:0 0 .1rem; }
+  .meta { font-family:"IBM Plex Mono",monospace; font-size:.75rem; color:var(--ink-3);
+          margin:0 0 .55rem; display:flex; flex-wrap:wrap; gap:.5rem 1rem; }
+  .opt p { margin:0 0 .6rem; font-size:.96rem; color:var(--ink-2); }
+  .opt p.lead { color:var(--ink); }
+  .opt p:last-child { margin-bottom:0; }
+  .tag { display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:.66rem;
+         font-weight:600; letter-spacing:.05em; text-transform:uppercase;
+         padding:.14rem .42rem; border-radius:2px; }
+  .tag.new { background:var(--accent-wash); color:var(--accent-ink); }
+  .tag.runs { background:var(--go-wash); color:var(--go); }
+  .tag.pi { background:var(--hold-wash); color:var(--hold); }
+  .kill { border-top:1px dashed var(--rule); margin-top:.7rem; padding-top:.55rem;
+          font-size:.86rem; color:var(--ink-3); }
+  .kill b { color:var(--ink-2); font-weight:600; }
+
+  .cmd { background:var(--term-bg); color:var(--term-fg); font-family:"IBM Plex Mono",monospace;
+         font-size:.82rem; padding:.6rem .9rem; overflow-x:auto; border-radius:3px; margin:.2rem 0 .7rem; }
+
+  .callout { border-left:3px solid var(--accent); background:var(--accent-wash);
+             padding:.9rem 1.1rem; margin:1.4rem 0; }
+  .callout p:last-child { margin-bottom:0; }
+
+  .scroll { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:.92rem; }
+  thead th { text-align:left; font-family:Archivo,sans-serif; font-size:.7rem;
+             letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3);
+             font-weight:600; padding:0 1rem .5rem 0; border-bottom:1px solid var(--ink);
+             white-space:nowrap; }
+  tbody td { padding:.65rem 1rem .65rem 0; border-bottom:1px solid var(--rule-soft);
+             vertical-align:top; color:var(--ink-2); }
+  tbody td:first-child { color:var(--ink); font-weight:500; white-space:nowrap; }
+
+  .cuts { display:grid; gap:1px; background:var(--rule-soft);
+          border-block:1px solid var(--rule-soft); }
+  .cut { background:var(--surface); padding:.8rem 0; }
+  .cut b { display:block; font-weight:600; font-size:.95rem; color:var(--ink); }
+  .cut span { color:var(--ink-2); font-size:.91rem; }
+
+  footer.foot { border-top:1px solid var(--rule); padding-top:1.4rem;
+                color:var(--ink-3); font-size:.88rem; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  @media (max-width:34rem) {
+    .opt { grid-template-columns:1fr; gap:.3rem; }
+    .num { font-size:1.1rem; }
+  }
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="kicker">Options survey · 29 August 2026</p>
+  <h1>Ten Things Worth Building</h1>
+  <p class="standfirst">
+    105 ideas invented across eight lenses, then attacked by a pass whose only job was to
+    find the product that already does it. 47 were cut. Two of the survivors already run
+    — and before any of them were designed, the survey found four faults on the machine.
+  </p>
+  <div class="stats">
+    <div class="stat"><span class="stat-n">105</span><span class="stat-l">concepts invented</span></div>
+    <div class="stat"><span class="stat-n">47</span><span class="stat-l">cut, several because something already exists</span></div>
+    <div class="stat"><span class="stat-n">3</span><span class="stat-l">of the ten actually want a Raspberry Pi</span></div>
+    <div class="stat"><span class="stat-n">2</span><span class="stat-l">prototypes running today</span></div>
+  </div>
+</header>
+
+<section>
+  <div class="sec-head col">
+    <p class="eyebrow">Before the options</p>
+    <h2>Four things the survey found on the machine</h2>
+    <p>None of these were designed. They were measured while grounding the ideas, and they reorder the list on their own.</p>
+  </div>
+  <div class="findings">
+    <div class="finding">
+      <span class="flag">Fault</span>
+      <h3>resolve-sync is protecting nothing</h3>
+      <p><code>auto_sync: true</code> and <code>synced_projects: []</code> are independent
+      settings, so nothing errors and nothing warns. Three projects were pushed by hand;
+      the config was last written 29 July. <strong>Nine of your twelve most recently
+      modified projects are in no store at all</strong>, including <code>NZ 360 Footage</code>
+      and <code>R2W &amp; R2B 20.8</code>.</p>
+    </div>
+    <div class="finding">
+      <span class="flag">Fault</span>
+      <h3>The next wedding does not fit</h3>
+      <p>Twelve real jobs measured: <strong>median 278 GB</strong>. <code>K:</code> has
+      46.7 GB free, <code>L:</code> 151.8, <code>V:</code> 20.1 — <strong>219 GB between
+      them, 0.79 of one job.</strong> <code>O:</code> has 10.7 TB, so the machine is not out
+      of disk. It is out of disk <em>where the work is filed</em>, which is why it stays
+      invisible until a card will not offload at a venue at midnight.</p>
+    </div>
+    <div class="finding">
+      <span class="flag">Fault</span>
+      <h3>Ten projects point at a drive that is not mounted</h3>
+      <p>All from Feb–Jun 2024. Six have a plausible media folder elsewhere; <strong>four
+      have nothing findable on any mounted drive, and one of those is a wedding</strong>
+      (<code>bREE &amp; eTHAN</code>). Twenty minutes of checking, not a catastrophe — and
+      getting that distinction right is the whole design brief.</p>
+    </div>
+    <div class="finding">
+      <span class="flag" style="background:var(--go-wash);color:var(--go)">Gift</span>
+      <h3><code>MediaPool:AutoSyncAudio()</code> exists</h3>
+      <p>Waveform-correlation multicam sync — what PluralEyes sells for around $400 — is
+      <strong>one documented call</strong> in the Studio scripting API you already own.
+      That turns option 6 from a signal-processing project into a scripting job.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <p class="eyebrow">The list</p>
+    <h2>Ordered by consequence × odds you finish it</h2>
+    <p>Not by how interesting they are to build. Each has a first evening you can actually do, and a kill criterion — an option with no kill criterion is a trap.</p>
+  </div>
+
+  <ol class="opts">
+
+    <li class="opt">
+      <span class="num">01</span>
+      <div class="opt-body">
+        <h3 class="optname">Deadman</h3>
+        <p class="meta"><span class="tag runs">Tonight</span> <span>0 Pi</span> <span>~3 hours</span></p>
+        <p class="lead">Make resolve-sync structurally unable to report that it is protecting your projects while watching none of them.</p>
+        <p>Tick the projects (two minutes). Then make the agent <em>derive</em> its protected status rather than assert it, and say so out loud if it ever goes empty again. That third part is a <strong>product fix for every editor you ship this to</strong> — anyone can hit it, and the failure is silent by construction.</p>
+        <p class="kill"><b>Kill criterion:</b> none for the first two parts. It is a config fix and a bug fix.</p>
+      </div>
+    </li>
+
+    <li class="opt">
+      <span class="num">02</span>
+      <div class="opt-body">
+        <h3 class="optname">Ledger</h3>
+        <p class="meta"><span class="tag new">Does not exist</span> <span class="tag runs">Prototype runs</span> <span class="tag pi">1 Pi</span> <span>~20 hours</span></p>
+        <p class="lead">What is safe to delete, what exists exactly once, and which project had the Boronia ceremony wide.</p>
+        <p>One index over Resolve's own project database, the job folders, and which volumes are mounted — reporting where they <em>disagree</em>. Run tonight it found the ten dead-path projects, <strong>25 of 34 job folders with no matching project</strong>, and <strong>260 loose media files</strong> belonging to no job (145 in <code>K:\2026</code> alone).</p>
+        <p>The Pi holds the database, the UI and the schedule. The volume walk and the hashing run on the workbench — a Pi in the data path is 120+ hours per pass.</p>
+        <p class="kill"><b>First evening:</b> not code. Find out whether <code>F:</code> is unplugged, re-lettered or gone. <b>Kill if</b> the first census shows most of Weddings already has a second copy.</p>
+      </div>
+    </li>
+
+    <li class="opt">
+      <span class="num">03</span>
+      <div class="opt-body">
+        <h3 class="optname">Freeboard</h3>
+        <p class="meta"><span class="tag runs">Prototype runs</span> <span>0 Pi</span> <span>~8 hours</span></p>
+        <p class="lead">Not a disk-space alert. “Will Saturday's job fit in the place it actually goes?”</p>
+        <p>Every tool can tell you a volume is 99% full, and you have learned to ignore all of them. This needs three things a generic alert lacks: what a job costs (measured), which volumes count, and a verdict rather than a percentage. Its answer on your machine right now:</p>
+        <div class="cmd">VERDICT   WILL NOT FIT</div>
+        <p class="kill"><b>First evening:</b> no code — empty <code>$RECYCLE.BIN</code> (76.5 GB) and <code>CacheClip</code> (72.7 GB), open a second job root on <code>M:</code>. <b>Kill if</b> that gets you past ~560 GB free.</p>
+      </div>
+    </li>
+
+    <li class="opt">
+      <span class="num">04</span>
+      <div class="opt-body">
+        <h3 class="optname">Tithe</h3>
+        <p class="meta"><span>0 Pi</span> <span>~12 hours (tier 0 is one evening)</span></p>
+        <p class="lead">Stop trying to back up 49 TiB. You do not have 49 TiB of irreplaceable data.</p>
+        <p>Delivered masters, every <code>.drp</code>, the repos, the brain vault, property-watch's unbackfillable database, the receipts. That set is small. The text-shaped part is a few gigabytes and can be in a Backblaze bucket with Object Lock before bed, for about the price of a coffee a month — and provider-enforced immutability beats any append-only flag on a box in the same house.</p>
+        <p class="kill"><b>Kill if</b> the classifier's irreplaceable bin comes out above ~4 TB. The rule set is wrong, not the budget.</p>
+      </div>
+    </li>
+
+    <li class="opt">
+      <span class="num">05</span>
+      <div class="opt-body">
+        <h3 class="optname">Housebox</h3>
+        <p class="meta"><span class="tag pi">1 Pi</span> <span>~2 hours</span> <span>the embarrassingly simple one</span></p>
+        <p class="lead">Your own DMX controller, permanently on a Pi. Zero new code — you already wrote the installer.</p>
+        <p><code>N:\DMX Controller</code> ships <code>pi_install.sh</code>: venv, FastAPI, UDP 6454, TCP 8080, systemd unit with <code>Restart=on-failure</code>. And <code>main.py</code> exposes plain GET endpoints clearly built for a Stream Deck:</p>
+        <div class="cmd">/sd/blackout &nbsp; /sd/full &nbsp; /sd/preset/{id} &nbsp; /sd/scene/{name}</div>
+        <p>Scene recall is a URL — so Home Assistant drives the rig with a one-line <code>rest_command</code>, and a physical GO button is one HTTP call.</p>
+        <p class="kill"><b>Two cautions:</b> static IP outside any venue DHCP pool, and keep it separate from xLights — <code>xlights_rgbeffects.xml</code> has zero models in it, so a show build is a much larger and currently speculative project.</p>
+      </div>
+    </li>
+
+    <li class="opt">
+      <span class="num">06</span>
+      <div class="opt-body">
+        <h3 class="optname">Chorus</h3>
+        <p class="meta"><span class="tag new">Does not exist</span> <span>0 Pi</span> <span>~14–30 hours</span></p>
+        <p class="lead">Come home from the wedding to a Resolve project already synced, marked and waiting.</p>
+        <p>Worth doing now because the hard part turns out to be written already: <code>AutoSyncAudio</code> in <code>AUDIO_SYNC_WAVEFORM</code> mode is a documented single call. What remains is import, grouping, timeline assembly and markers. Realistically 1–2 hours per wedding across ~25 weddings — the largest recurring saving in the pool.</p>
+        <p class="kill"><b>Kill if</b> waveform and timecode results disagree by more than ~2 frames on over 10% of clips across two weddings.</p>
+      </div>
+    </li>
+
+    <li class="opt">
+      <span class="num">07</span>
+      <div class="opt-body">
+        <h3 class="optname">On the Record</h3>
+        <p class="meta"><span class="tag new">Does not exist</span> <span>0 Pi</span> <span>~10 hours</span> <span>has an invoice attached</span></p>
+        <p class="lead">A dated, hash-chained register of what Dental Story published, for which practice, on which date.</p>
+        <p>AHPRA complaints arrive a year later, and Instagram lets history be quietly edited. Section 133 now carries a maximum of <strong>AUD $60,000 per offence for an individual</strong> (up from $5,000), in force in every jurisdiction including WA since July 2024 — and AHPRA's enforcement strategy treats <em>“the person or entity who controls part or all of the advertising”</em> as the advertiser. You write the copy. Australind is in WA.</p>
+        <p>Every existing AHPRA tool audits a live website <em>after</em> publication. None keeps a per-post record of why something passed. The hook already exists: eight <code>Posted/</code> folders, a convention you invented.</p>
+        <p class="kill"><b>Kill criterion, and it is real:</b> show one page to a lawyer or your insurer <em>before</em> it goes near a client. A self-maintained register could create an expectation you do not want. Not legal advice.</p>
+      </div>
+    </li>
+
+    <li class="opt">
+      <span class="num">08</span>
+      <div class="opt-body">
+        <h3 class="optname">Roar</h3>
+        <p class="meta"><span class="tag new">Does not exist</span> <span>0 Pi</span> <span>~20 hours</span> <span>compounds over time</span></p>
+        <p class="lead">The room writes your edit markers. Record it, analyse it afterwards, hand every camera card a marker file saying where the good bits were.</p>
+        <p><code>AddMarker(...customData)</code> means the tool can tag its own markers and later delete only its own, without touching yours. It gets better the longer it runs — after twenty events you know things about your own rooms nobody else does.</p>
+        <p class="kill"><b>Kill criterion:</b> measure camera clock drift on one past job first. One hour, and it decides the project.</p>
+      </div>
+    </li>
+
+    <li class="opt">
+      <span class="num">09</span>
+      <div class="opt-body">
+        <h3 class="optname">Customs</h3>
+        <p class="meta"><span class="tag new">Does not exist</span> <span class="tag pi">1 Pi</span> <span>4 h to decide · 40 h to build</span></p>
+        <p class="lead">Does the card actually contain <em>valid</em> files — not just faithfully copied bytes?</p>
+        <p>Every offload tool answers “did the bytes copy correctly”. Hedge and ShotPut do it with checksums; Little Backup Box not even that. <strong>None opens the file to ask whether the camera wrote a valid one.</strong> That is the cleanest verified gap in the whole pool.</p>
+        <p>But do not build the box first. Build the four-hour script that walks ten years of footage and counts how many files are actually malformed. That number decides the other thirty-six hours.</p>
+        <p class="kill"><b>Kill if</b> the script finds zero malformed files across ten years. The box would guard a failure that has never happened to you.</p>
+      </div>
+    </li>
+
+    <li class="opt">
+      <span class="num">10</span>
+      <div class="opt-body">
+        <h3 class="optname">Kit Wall</h3>
+        <p class="meta"><span class="tag new">Does not exist</span> <span>0 Pi (ESP32s)</span> <span>~16 hours</span></p>
+        <p class="lead">At 5am the garage says the drone case and one mic bag are still on the shelf. At 11pm it says the second body never came home.</p>
+        <p>The gear-tracking market is checkout ledgers — a human scans a barcode on the way out. This is sensors: reed switches in printed cradles, so the shelf knows what is on it without anyone remembering to tell it. You have two printers and an ESPHome fleet.</p>
+        <p class="kill"><b>First evening:</b> two slots, not twelve. <b>Print one cradle</b> and test magnet alignment before printing sixteen.</p>
+      </div>
+    </li>
+
+  </ol>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <p class="eyebrow">The boards</p>
+    <h2>What the five Pis end up doing</h2>
+    <p>Only three options claim a board, and one is co-tenancy. Stated plainly rather than dressed up.</p>
+  </div>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Board</th><th>Job</th></tr></thead>
+      <tbody>
+        <tr><td>Pi 4 — <span class="mono">gaffer</span></td><td>canary + watchdog <em>(unchanged)</em></td></tr>
+        <tr><td>Pi 4 — <span class="mono">sparks</span></td><td>ESPHome build server <em>(unchanged — and Kit Wall needs it)</em></td></tr>
+        <tr><td>Pi 4 — <span class="mono">runner</span></td><td>travelling LAN kit <em>(unchanged)</em> + <strong>Housebox</strong></td></tr>
+        <tr><td>Pi 4 — the boxed one</td><td><strong>Ledger</strong> — the always-on index and web UI</td></tr>
+        <tr><td>Pi 5 — <span class="mono">standby</span></td><td>Frigate warm spare, or <strong>Customs</strong> if the four-hour script justifies it</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout col">
+    <p>The Pi 5 is the only board whose two USB3 ports do not share one controller — exactly what a card-in-one-port, SSD-in-the-other copy needs. So if Customs survives its test, that is where it goes.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <p class="eyebrow">Cut</p>
+    <h2>Six ideas that died for good reasons</h2>
+    <p>47 were cut in total. These are the ones you would most likely have wanted to build.</p>
+  </div>
+  <div class="col">
+    <div class="cuts">
+      <div class="cut"><b>A wireless-mic dropout detector</b><span>Your Hollyland Lark transmitters are already 32-bit float onboard recorders marketed explicitly as dropout backups, and the system auto-selects the least congested channel. The gear you own solves it.</span></div>
+      <div class="cut"><b>A gear-bag NFC tracker</b><span>CRDBAG Gear Organizer and ShootPrep already exist, aimed at exactly your profession.</span></div>
+      <div class="cut"><b>An LED timecode beacon</b><span>RocSync (arXiv 2511.14948) does it with a better encoding than the one proposed.</span></div>
+      <div class="cut"><b>A comment-moderation bot for dental clients</b><span>Instagram's own Hidden Words filter and AHPRA's free testimonial tool give you roughly 80% of it this afternoon, for no code.</span></div>
+      <div class="cut"><b>A stage timer for LAN events</b><span><span class="mono">cpvalente/ontime</span> is free, open source and self-hostable. Put it on a Pi and spend the afternoon on Roar.</span></div>
+      <div class="cut"><b>A duplicate finder for the Dental Story folder</b><span>Install Czkawka and delete them. Writing a deduplicator is a classic satisfying trap — and automated deletion on a 99.6%-full volume with no offsite copy is genuinely dangerous.</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <h2>If you only do one thing</h2>
+  </div>
+  <div class="col">
+    <p><strong>Option 1, tonight, three hours.</strong> Your backup tool believes it is running. Nine of your last twelve projects are in no store. Everything else here is an improvement; that one is a fault — and it is in the code you ship to other editors.</p>
+  </div>
+</section>
+
+<footer class="foot col">
+  <p>Full reasoning in the repo: <span class="mono">K:\Claude\projects\pi-rack</span> —
+  <span class="mono">docs/OPTIONS.md</span> for all ten,
+  <span class="mono">docs/GROUND-TRUTH.md</span> §7 for how every measured claim was checked,
+  <span class="mono">prototypes/</span> for the two that already run.</p>
+  <p style="margin-bottom:0">Facts are tagged <em>(verified)</em> or <em>(assumed)</em> throughout.
+  The AHPRA material is verified against AHPRA's own guidance and legal commentary, and is not legal advice.</p>
+</footer>
+
+</div>

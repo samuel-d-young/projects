@@ -1,0 +1,15 @@
+name = "backup-vault"
+summary = """A restic REST repository in append-only mode, plus a weekly job that \
+actually restores random files and proves they came back. The point is not another \
+copy - it is a copy that ransomware on the workbench cannot delete, and evidence \
+that a restore works."""
+
+packages = ["restic", "curl", "jq"]
+ports = [8000]
+min_ram_gb = 2
+wants_boot = "usb-ssd"
+pi5_only = false
+needs_hardware = """A dedicated disk for the repository. Either a USB SSD/HDD on the \
+Pi, or an NFS export from the Synology at 192.168.1.83 (NFS is already enabled, \
+verified 2026-08-28). Size it at 1.5x the data you intend to protect - NOT the full \
+40 TB. See docs/PLAN.md on why a Pi must never be in the 40 TB data path."""

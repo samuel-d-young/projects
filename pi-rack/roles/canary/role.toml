@@ -1,0 +1,13 @@
+name = "canary"
+summary = """The third party that assumes everything else is lying. Writes and reads \
+back a file on every SMB share and NFS export, watches for scheduled jobs going quiet, \
+and reports to Home Assistant over MQTT. Its value is entirely in being independent of \
+the machines it checks."""
+
+packages = ["cifs-utils", "nfs-common", "mosquitto-clients", "python3-minimal", "curl"]
+# 5115 for its own status page. Chosen from a free block; nothing on this LAN uses it.
+ports = [5115]
+min_ram_gb = 1
+wants_boot = "sd"
+pi5_only = false
+needs_hardware = "none"

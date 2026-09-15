@@ -1,0 +1,7 @@
+# Shell scripts run on Linux. A CRLF checkout gives them a CR in the shebang
+# and they fail with "bad interpreter". This has bitten this workbench before.
+*.sh    text eol=lf
+*.toml  text eol=lf
+user-data      text eol=lf
+network-config text eol=lf
+meta-data      text eol=lf

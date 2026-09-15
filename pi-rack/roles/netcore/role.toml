@@ -1,0 +1,13 @@
+name = "netcore"
+summary = """AdGuard Home as the LAN's DNS, with DHCP optionally moved off the router \
+so address reservations live in a file instead of a web UI nobody backs up. Includes \
+the DNS rewrites that make .75 reachable by name even though it is a DHCP lease."""
+
+packages = ["curl", "ca-certificates"]
+# 53 DNS, 3053 the admin UI. Not 3000 - that is already answered by the Tapo-family
+# device at 192.168.1.46, and not 80 either, which invites a collision later.
+ports = [53, 3053, 67]
+min_ram_gb = 1
+wants_boot = "sd"
+pi5_only = false
+needs_hardware = "none"

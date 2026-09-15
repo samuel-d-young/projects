@@ -1,0 +1,763 @@
+<title>Rack Call Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  /* ---- tokens: complete light palette on bare :root ---------------------- */
+  :root {
+    --ground:      #E9ECEF;
+    --surface:     #FDFDFC;
+    --surface-2:   #F1F3F5;
+    --ink:         #12171C;
+    --ink-2:       #3D4852;
+    --ink-3:       #6B7681;
+    --rule:        #D3D8DD;
+    --rule-soft:   #E2E6E9;
+
+    --accent:      #A85B12;   /* signal amber - equipment warning label */
+    --accent-ink:  #7A4109;
+    --accent-wash: #F6EADC;
+
+    --go:          #2C6E4E;
+    --go-wash:     #E2EFE7;
+    --hold:        #8A6512;
+    --hold-wash:   #F5EDD8;
+    --stop:        #963228;
+    --stop-wash:   #F6E4E1;
+
+    --term-bg:     #12171C;
+    --term-fg:     #E4E8EB;
+
+    --shadow:      0 1px 2px rgba(18,23,28,.05), 0 8px 24px -12px rgba(18,23,28,.18);
+
+    --measure: 68ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:     #0E1216;
+      --surface:    #161C22;
+      --surface-2:  #1D242B;
+      --ink:        #E8ECEF;
+      --ink-2:      #B3BDC6;
+      --ink-3:      #7E8A95;
+      --rule:       #2C353D;
+      --rule-soft:  #232B32;
+
+      --accent:     #E0A254;
+      --accent-ink: #F0C288;
+      --accent-wash:#2A2118;
+
+      --go:         #6DBE92;
+      --go-wash:    #16241D;
+      --hold:       #D8B25A;
+      --hold-wash:  #262016;
+      --stop:       #E08276;
+      --stop-wash:  #2A1A18;
+
+      --term-bg:    #05080A;
+      --term-fg:    #E4E8EB;
+
+      --shadow:     0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:     #0E1216;
+    --surface:    #161C22;
+    --surface-2:  #1D242B;
+    --ink:        #E8ECEF;
+    --ink-2:      #B3BDC6;
+    --ink-3:      #7E8A95;
+    --rule:       #2C353D;
+    --rule-soft:  #232B32;
+
+    --accent:     #E0A254;
+    --accent-ink: #F0C288;
+    --accent-wash:#2A2118;
+
+    --go:         #6DBE92;
+    --go-wash:    #16241D;
+    --hold:       #D8B25A;
+    --hold-wash:  #262016;
+    --stop:       #E08276;
+    --stop-wash:  #2A1A18;
+
+    --term-bg:    #05080A;
+    --term-fg:    #E4E8EB;
+
+    --shadow:     0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+  }
+
+  /* ---- base -------------------------------------------------------------- */
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 1.25rem 6rem;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 60rem; margin: 0 auto; }
+  .col  { max-width: var(--measure); }
+
+  h1, h2, h3, .eyebrow, .nodename, .stat-n {
+    font-family: Archivo, "Archivo", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  h1 {
+    font-size: clamp(2.1rem, 6vw, 3.4rem);
+    font-weight: 700;
+    letter-spacing: -.022em;
+    line-height: 1.04;
+    margin: 0 0 .6rem;
+    text-wrap: balance;
+  }
+
+  h2 {
+    font-size: clamp(1.35rem, 3vw, 1.75rem);
+    font-weight: 600;
+    letter-spacing: -.014em;
+    line-height: 1.18;
+    margin: 0 0 .35rem;
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-size: 1.02rem;
+    font-weight: 600;
+    letter-spacing: -.005em;
+    margin: 0 0 .3rem;
+  }
+
+  p { margin: 0 0 1rem; }
+  a { color: var(--accent-ink); }
+
+  strong { font-weight: 600; color: var(--ink); }
+  em { font-style: italic; }
+
+  code, .mono, kbd {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .88em;
+  }
+
+  code {
+    background: var(--surface-2);
+    border: 1px solid var(--rule-soft);
+    border-radius: 3px;
+    padding: .08em .34em;
+    color: var(--ink-2);
+  }
+
+  .eyebrow {
+    font-size: .7rem;
+    font-weight: 600;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin: 0 0 .5rem;
+  }
+
+  /* ---- masthead ---------------------------------------------------------- */
+  header.mast {
+    border-bottom: 2px solid var(--ink);
+    padding: 3.5rem 0 1.6rem;
+    margin-bottom: 2.6rem;
+  }
+
+  .mast .kicker {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .74rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin: 0 0 1rem;
+  }
+
+  .standfirst {
+    font-size: 1.12rem;
+    color: var(--ink-2);
+    max-width: 46rem;
+    margin: 0 0 1.8rem;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+
+  .stat { background: var(--surface); padding: .85rem 1rem; }
+  .stat-n {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums;
+    display: block;
+    margin-bottom: .28rem;
+  }
+  .stat-l { font-size: .78rem; color: var(--ink-3); line-height: 1.35; display: block; }
+
+  /* ---- sections ---------------------------------------------------------- */
+  section { margin: 0 0 3.4rem; }
+  .sec-head { margin-bottom: 1.4rem; }
+  .sec-head p { color: var(--ink-2); margin: 0; }
+
+  /* ---- the phase-0 panel ------------------------------------------------- */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--accent);
+    box-shadow: var(--shadow);
+    padding: 1.6rem 1.5rem 1.3rem;
+  }
+
+  .panel > .lede {
+    font-size: 1.05rem;
+    color: var(--ink);
+    margin-bottom: 1.3rem;
+    max-width: 44rem;
+  }
+
+  ol.steps {
+    list-style: none;
+    counter-reset: step;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 1px;
+    background: var(--rule-soft);
+    border-top: 1px solid var(--rule-soft);
+    border-bottom: 1px solid var(--rule-soft);
+  }
+
+  ol.steps > li {
+    counter-increment: step;
+    background: var(--surface);
+    padding: .95rem 0 .95rem 3.1rem;
+    position: relative;
+  }
+
+  ol.steps > li::before {
+    content: "0." counter(step);
+    position: absolute;
+    left: 0;
+    top: .95rem;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .78rem;
+    font-weight: 600;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .step-t { font-weight: 600; margin: 0 0 .15rem; }
+  .step-d { color: var(--ink-2); font-size: .95rem; margin: 0; }
+  .step-cost {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .76rem;
+    color: var(--ink-3);
+    margin-left: .5rem;
+    white-space: nowrap;
+  }
+
+  /* ---- measure table ----------------------------------------------------- */
+  .scroll { overflow-x: auto; }
+
+  table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+  thead th {
+    text-align: left;
+    font-family: Archivo, sans-serif;
+    font-size: .72rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 600;
+    padding: 0 1rem .5rem 0;
+    border-bottom: 1px solid var(--ink);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: .72rem 1rem .72rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+    color: var(--ink-2);
+  }
+  tbody td:first-child { color: var(--ink); font-weight: 500; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ---- node cards -------------------------------------------------------- */
+  .nodes { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); }
+
+  .node {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    padding: 1.15rem 1.2rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+  }
+
+  .node-top { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; }
+
+  .nodename {
+    font-size: 1.18rem;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    margin: 0;
+  }
+
+  .addr {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .8rem;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .chip {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: .16rem .45rem;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .chip.go   { background: var(--go-wash);   color: var(--go);   }
+  .chip.hold { background: var(--hold-wash); color: var(--hold); }
+  .chip.stop { background: var(--stop-wash); color: var(--stop); }
+
+  .node-hw {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .78rem;
+    color: var(--ink-3);
+  }
+  .node-role { font-size: .94rem; color: var(--ink); font-weight: 500; }
+  .node-why  { font-size: .92rem; color: var(--ink-2); margin: 0; }
+  .node-fail {
+    font-size: .84rem;
+    color: var(--ink-3);
+    border-top: 1px dashed var(--rule);
+    padding-top: .55rem;
+    margin: .2rem 0 0;
+  }
+  .node-fail b { color: var(--ink-2); font-weight: 600; }
+
+  .node.boxed { border-style: dashed; background: transparent; }
+
+  /* ---- callout ----------------------------------------------------------- */
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-wash);
+    padding: .9rem 1.1rem;
+    margin: 1.5rem 0;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ---- cut list ---------------------------------------------------------- */
+  .cuts { display: grid; gap: 1px; background: var(--rule-soft); border-block: 1px solid var(--rule-soft); }
+  .cut { background: var(--surface); padding: .85rem 0; display: grid; grid-template-columns: 1fr; gap: .15rem; }
+  .cut-h { font-weight: 600; font-size: .96rem; }
+  .cut-w { color: var(--ink-2); font-size: .92rem; }
+
+  /* ---- wizard block ------------------------------------------------------ */
+  /* Deliberately a terminal in both themes - it is quoting a shell. Both
+     colours come from tokens defined in every theme block, so it never
+     inherits a ground it was not designed against. */
+  .cmd {
+    background: var(--term-bg);
+    color: var(--term-fg);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .86rem;
+    padding: .7rem .95rem;
+    overflow-x: auto;
+    border-radius: 3px;
+    margin: 0 0 .8rem;
+  }
+  .cmd .pmt { color: var(--accent); }
+
+  .gate { display: grid; gap: .45rem; margin: 1rem 0 0; padding: 0; list-style: none; }
+  .gate li {
+    display: grid;
+    grid-template-columns: 1.4rem 1fr;
+    gap: .5rem;
+    font-size: .93rem;
+    color: var(--ink-2);
+  }
+  .gate li::before { content: "✕"; color: var(--stop); font-weight: 700; }
+
+  footer.foot {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.4rem;
+    color: var(--ink-3);
+    font-size: .88rem;
+  }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @media (max-width: 34rem) {
+    body { font-size: 16px; }
+    ol.steps > li { padding-left: 2.7rem; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <p class="kicker">Build plan · 28 August 2026 · Melbourne</p>
+    <h1>Rack Call Sheet</h1>
+    <p class="standfirst">
+      Four spare Raspberry Pi 4Bs and one Pi 5, and what they should actually do.
+      Three deploy. One waits on a two-minute measurement. One stays in its box
+      on purpose — and the most valuable hour in this whole plan doesn't involve
+      a Raspberry Pi at all.
+    </p>
+    <div class="stats">
+      <div class="stat"><span class="stat-n">126</span><span class="stat-l">ideas generated across nine domains</span></div>
+      <div class="stat"><span class="stat-n">31</span><span class="stat-l">cut outright by an adversarial pass</span></div>
+      <div class="stat"><span class="stat-n">3</span><span class="stat-l">boards deployed, not five</span></div>
+      <div class="stat"><span class="stat-n">$0.30</span><span class="stat-l">a month for the single highest-value item</span></div>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head col">
+      <p class="eyebrow">Start here</p>
+      <h2>The best hour has no Raspberry Pi in it</h2>
+      <p>
+        Three allocation strategies were designed independently — one to reduce loss,
+        one to maximise value, one to minimise burden. All three reached this
+        conclusion separately and then buried it under hostnames. It belongs at the top.
+      </p>
+    </div>
+
+    <div class="panel">
+      <p class="lede">
+        Four actions, about an hour, roughly thirty cents a month. None of them needs a
+        board, a card, or the rack to exist — and doing them deletes the justification
+        for about a third of everything else that was proposed.
+      </p>
+      <ol class="steps">
+        <li>
+          <p class="step-t">Cut the DVR's path out<span class="step-cost">10 min · $0</span></p>
+          <p class="step-d">
+            <code>192.168.1.49</code> runs <code>uc-httpd 1.0.0</code> — a XiongMai DVR
+            web server with well-known unauthenticated RCE, and a standard botnet target.
+            It sits on the flat <code>/24</code> beside the NAS's open SMB and the workbench
+            holding 4.8&nbsp;TB of wedding footage. Block its outbound access on the router.
+            Full VLAN segmentation is better and can come later; don't wait for it.
+          </p>
+        </li>
+        <li>
+          <p class="step-t">Reserve the addresses that already bit you<span class="step-cost">15 min · $0</span></p>
+          <p class="step-d">
+            Home Assistant — 2005 entities, 44 integrations — is on a DHCP <em>lease</em>
+            with no reservation, and that address has already moved once during a migration.
+            Reserve <code>.42</code>, <code>.66</code>, <code>.70</code>, <code>.75</code>,
+            <code>.83</code>, then confirm the pool doesn't overlap <code>.100–.130</code>.
+          </p>
+        </li>
+        <li>
+          <p class="step-t">Give the HA guest the RAM it's sitting next to<span class="step-cost">5 min · $0</span></p>
+          <p class="step-d">
+            The <code>haos</code> guest has 4&nbsp;GB on a 16&nbsp;GB host. Several proposals
+            existed only to relieve pressure inside that VM. Most of them evaporate at 8&nbsp;GB.
+          </p>
+        </li>
+        <li>
+          <p class="step-t">One verified offsite copy of the irreplaceable subset<span class="step-cost">1 hr · ~$0.30/mo</span></p>
+          <p class="step-d">
+            The only item here that survives the house burning down. <code>restic</code> has a
+            native Windows binary — run it from Task Scheduler into a Backblaze B2 bucket with
+            Object Lock and a key that cannot delete. Provider-enforced immutability is a stronger
+            guarantee than an append-only flag on a board in the same house as the threat.
+          </p>
+        </li>
+      </ol>
+
+      <div class="callout">
+        <p><strong>The blocking prerequisite nobody has done.</strong> Before any of this means
+        anything, the tier-1 set has to be written down: walk one complete wedding job from cards
+        to delivery and record every path it touches. If one folder is missed, it is backed up
+        nowhere and verified by nothing — which is worse than having none of this.</p>
+        <p>It is not a big list. Probably 30–200&nbsp;GB against ~49&nbsp;TiB of bulk media.
+        That ratio is the entire point.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head col">
+      <p class="eyebrow">Then</p>
+      <h2>Measure before buying anything</h2>
+      <p>Every allocation below is conditional on facts nobody has read yet. Two of them decide whether hardware gets bought at all.</p>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Question</th><th>How</th><th>What it changes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>RAM and revision of each spare Pi 4</td>
+            <td class="mono">free -h<br>/proc/device-tree/model</td>
+            <td>Which board gets which role. Watch for <strong>rev 1.1</strong> boards — the USB-C CC-resistor fault makes them refuse e-marked cables, and it bites exactly on spares of unknown vintage.</td>
+          </tr>
+          <tr>
+            <td>What the Frigate Pi 5 boots from</td>
+            <td class="mono">ssh .70 'lsblk; free -h'</td>
+            <td>Whether the spare Pi 5 is real insurance or a labelled board telling a lie. <strong>A $15 card versus ~$150 of NVMe.</strong></td>
+          </tr>
+          <tr>
+            <td>Is the Pi 4 at <span class="mono">.55</span> spare, or in service?</td>
+            <td>Log in and look</td>
+            <td>It is a live Debian 13 box patched by nobody. Either way it needs an owner.</td>
+          </tr>
+          <tr>
+            <td>Cisco switch model at <span class="mono">.254</span></td>
+            <td>Web UI or SNMP <span class="mono">sysDescr</span></td>
+            <td>Decides VLAN segmentation, whether PoE is even possible, and whether a 10-inch rack is the right format — a 19-inch switch invalidates the chassis choice.</td>
+          </tr>
+          <tr>
+            <td>Synology model, bays, free capacity</td>
+            <td>DSM</td>
+            <td>Whether Active Backup for Business is available, and whether a local second copy has anywhere to go.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head col">
+      <p class="eyebrow">The allocation</p>
+      <h2>Four boards on, one in a box</h2>
+      <p>Named for the film crew, because that is the trade this rack mostly serves.</p>
+    </div>
+
+    <div class="nodes">
+
+      <article class="node">
+        <div class="node-top">
+          <h3 class="nodename">gaffer</h3>
+          <span class="chip go">Deploy</span>
+        </div>
+        <p class="node-hw">Pi 4 · smallest board · SD · <span class="addr">.101</span></p>
+        <p class="node-role">The witness — canary + watchdog</p>
+        <p class="node-why">
+          The highest-consensus item in the exercise: every strategy proposed a version of it.
+          Its value isn't speed, it's <em>independence</em>. A backup checked by the process that
+          wrote it is not checked. An alert that travels through Home Assistant can't tell you
+          Home Assistant is down. And HA is a VM on <span class="mono">.66</span>, so nothing
+          inside HA can restart HA.
+        </p>
+        <p class="node-fail"><b>If it dies:</b> nothing in the house changes — you just stop being told when something else breaks. An outbound heartbeat covers that.</p>
+      </article>
+
+      <article class="node">
+        <div class="node-top">
+          <h3 class="nodename">sparks</h3>
+          <span class="chip go">Deploy</span>
+        </div>
+        <p class="node-hw">Pi 4 · 4 GB floor · USB SSD · <span class="addr">.102</span></p>
+        <p class="node-role">ESPHome build server</p>
+        <p class="node-why">
+          Not speculative — it unblocks something already logged as blocked. Three routes to
+          rebuilding the Voice PE firmware are closed, so it currently happens in a venv on the
+          Windows box, with the ESP-IDF cache on a drive that has under 50&nbsp;GB free.
+          The 4&nbsp;GB floor isn't negotiable: an esp-idf build on 2&nbsp;GB thrashes or gets
+          OOM-killed, and presents as a mysterious hang.
+        </p>
+        <p class="node-fail"><b>If it dies:</b> builds fall back to the workbench venv — exactly how they're done today. Capability unchanged.</p>
+      </article>
+
+      <article class="node">
+        <div class="node-top">
+          <h3 class="nodename">runner</h3>
+          <span class="chip go">Deploy</span>
+        </div>
+        <p class="node-hw">Pi 4 · smallest board · SD · <span class="addr">.103</span></p>
+        <p class="node-role">The travelling LAN kit</p>
+        <p class="node-why">
+          Not part of the rack — it lives in the camera bag. The counter-intuitive argument for it:
+          it's the <em>lowest-burden</em> board in the plan precisely because it's switched off about
+          360 days a year. DHCP, DNS, NTP, an info page and iperf3, fixing the four things that go
+          wrong at every LAN before anyone has unpacked a PC.
+        </p>
+        <p class="node-fail"><b>Safety interlock:</b> its DHCP server ships disabled and refuses to arm if it can see the home gateway.</p>
+      </article>
+
+      <article class="node">
+        <div class="node-top">
+          <h3 class="nodename">standby</h3>
+          <span class="chip hold">Gated</span>
+        </div>
+        <p class="node-hw">Pi 5 · boot must match <span class="mono">.70</span> · <span class="addr">.104</span></p>
+        <p class="node-role">Warm spare for the Frigate box</p>
+        <p class="node-why">
+          <span class="mono">.70</span> is the only single-purpose production machine on the LAN with
+          no redundancy — six cameras, a Coral TPU — and a Pi 4 is not a drop-in.
+          Deliberately <em>not</em> a video review host: BCM2712 has no hardware H.264 encoder at all,
+          so every transcode would be software x264 while the workbench has Resolve.
+        </p>
+        <p class="node-fail"><b>Blocked on:</b> two minutes of <span class="mono">lsblk</span> over SSH. That single fact is the difference between a spare and a label.</p>
+      </article>
+
+      <article class="node boxed">
+        <div class="node-top">
+          <h3 class="nodename">the fifth</h3>
+          <span class="chip stop">Boxed</span>
+        </div>
+        <p class="node-hw">Pi 4 · labelled · on the shelf</p>
+        <p class="node-role">Deliberately not deployed</p>
+        <p class="node-why">
+          Not laziness — the honest answer. A board sitting in a rack "as a spare" is a board that
+          gets quietly repurposed in three weeks. Five always-on boards is five things that can break
+          and page a solo operator on a wedding weekend. Its <code>fleet.toml</code> entry is written
+          and disabled, so pressing it into service is one command.
+        </p>
+        <p class="node-fail"><b>Recovery time</b> for any of the three above, using it: about twenty minutes.</p>
+      </article>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head col">
+      <p class="eyebrow">Deliberately not built</p>
+      <h2>The more useful list</h2>
+      <p>
+        126 ideas were generated, then attacked by a pass whose only job was to refute them.
+        31 were cut outright and many more were re-homed onto hardware that already exists.
+      </p>
+    </div>
+
+    <div class="col">
+      <div class="cuts">
+        <div class="cut">
+          <p class="cut-h">Any Pi in the bulk data path</p>
+          <p class="cut-w">One pass over ~49&nbsp;TiB through a single Pi NIC is over 120 hours. The machines that own the disks move the bytes; a Pi owns the control plane. This killed the mini-NAS, the S3 target, the store-and-forward relay and the duplicate crawler.</p>
+        </div>
+        <div class="cut">
+          <p class="cut-h">DNS and DHCP on a Pi</p>
+          <p class="cut-w">Rejected by two of three strategies. It converts "an SD card died" into "nobody in the house has internet". The role is built and works — it just isn't recommended, and it refuses to come up as a single resolver without an explicit override.</p>
+        </div>
+        <div class="cut">
+          <p class="cut-h">A camera-card ingest appliance</p>
+          <p class="cut-w">The premise was wrong: there's ~27&nbsp;TB free across the other volumes. The problem is filing discipline, not capacity. And it's the one job where failure costs a non-reshootable client deliverable — the worst place for a headless self-built box.</p>
+        </div>
+        <div class="cut">
+          <p class="cut-h">fail2ban, log2ram, k3s, PXE netboot</p>
+          <p class="cut-w">With password auth off there's nothing to brute-force. Trixie already ships a volatile journal. A k3s control plane is most of a 2&nbsp;GB Pi 4. Netboot would make the NAS a single point of failure for every Pi at once.</p>
+        </div>
+        <div class="cut">
+          <p class="cut-h">Uptime monitoring for client websites</p>
+          <p class="cut-w">Dental Story does social media, not web hosting. Alerts about sites you neither built nor host — at 3am, with no credentials to fix them — create an implied availability responsibility nobody is paying for.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head col">
+      <p class="eyebrow">The wizard</p>
+      <h2>One file, and a gate that has been tested on your drives</h2>
+      <p>
+        <code>fleet.toml</code> is the source of truth. Everything written to a card — hostname,
+        static IP, SSH key, role software — is derived from it, so nothing is typed twice.
+      </p>
+    </div>
+
+    <div class="col">
+      <div class="cmd"><span class="pmt">&gt;</span> pi-wizard doctor</div>
+      <div class="cmd"><span class="pmt">&gt;</span> pi-wizard flash gaffer</div>
+
+      <p>
+        The step that actually turns a generic card into <em>this node</em> is
+        <code>seed</code> — three text files on a FAT32 partition — and it deliberately needs
+        no Administrator. So the fallback always works: write the card with the Imager GUI,
+        then seed it.
+      </p>
+
+      <p>
+        <strong>What goes on the card was verified rather than assumed.</strong> Raspberry Pi OS
+        trixie provisions with <em>cloud-init</em>, not the <code>custom.toml</code> mechanism
+        nearly every current tutorial describes. This was settled by downloading the official
+        image, checking its SHA-256, parsing its partition table and reading the cloud-init
+        config out of its root filesystem. Building on the stale guidance produces a Pi with
+        no user, no key and no network.
+      </p>
+
+      <div class="callout">
+        <p><strong>The near-miss worth knowing about.</strong> Eight of the nine data drives on
+        the workbench report bus type <em>USB</em>, because they live in QNAP enclosures. The
+        obvious safety rule for an SD-card writer — "only offer removable disks" — would have
+        cheerfully offered the 12.7&nbsp;TB volume holding 4.8&nbsp;TB of wedding footage.</p>
+      </div>
+
+      <p>So the gate refuses on four independent grounds, any one of which is sufficient:</p>
+      <ul class="gate">
+        <li>flagged as the system or boot disk</li>
+        <li>bus type is not USB, SD or MMC</li>
+        <li>larger than 2 TiB — no Pi boot device is</li>
+        <li>carries a protected volume label (<span class="mono">M1</span>, <span class="mono">Video Work</span>, <span class="mono">M6 Backup</span>…)</li>
+      </ul>
+      <p style="margin-top:1rem">
+        Then it makes you retype a fingerprint like <code>11:SDXC Card:64.0 GB</code>, and
+        re-checks immediately before writing — a card can be pulled and a data drive plugged into
+        the same reader in between. A test asserts specifically that <em>the bus check alone would
+        have failed</em>, so nobody later simplifies the gate down to it.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head col">
+      <p class="eyebrow">Honest caveats</p>
+      <h2>What isn't proven yet</h2>
+    </div>
+    <div class="col">
+      <p>
+        <strong>Nothing has been booted on real hardware.</strong> Every claim about what happens
+        on first boot is derived from the image's own configuration, read out of the image itself.
+        That is stronger than following a tutorial, but it is not the same as a Pi that came up.
+        It won't be <em>verified</em> until the first card goes in.
+      </p>
+      <p>
+        <strong>The provisioning research had one pass, not two.</strong> Three agents assigned to
+        independently re-verify the imaging, first-boot and SSD-boot mechanics died on a session
+        limit before reporting. The material is source-checked, but unrepeated — the EEPROM and
+        NVMe sections in particular should be checked against the real board before being relied on.
+      </p>
+      <p>
+        <strong>Five facts are still unknown</strong>, and two of them decide whether hardware gets
+        bought. They are twenty minutes of measurement, and they are Phase 1 for exactly that reason.
+      </p>
+    </div>
+  </section>
+
+  <footer class="foot col">
+    <p>
+      Full detail lives in the repo: <span class="mono">K:\Claude\projects\pi-rack</span> —
+      <span class="mono">docs/PLAN.md</span> for the reasoning,
+      <span class="mono">docs/REJECTED.md</span> for what was cut and why,
+      <span class="mono">docs/RUNBOOK.md</span> for the go-live sequence,
+      <span class="mono">docs/GROUND-TRUTH.md</span> for how every measured claim was checked.
+    </p>
+    <p style="margin-bottom:0">
+      Facts are tagged <em>(verified)</em> or <em>(assumed)</em> throughout. Never build on an
+      assumed fact as if it were confirmed.
+    </p>
+  </footer>
+
+</div>

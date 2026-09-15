@@ -1,0 +1,16 @@
+name = "warm-spare"
+summary = """Standby for the production Frigate box at 192.168.1.70. Keeps itself \
+patched, rehearses the failover on a timer, and refuses to call itself a spare until \
+someone has proved it can actually take over. An untested spare is a story you tell \
+yourself."""
+
+packages = ["docker.io", "docker-compose-v2", "curl", "jq", "mosquitto-clients"]
+ports = []
+min_ram_gb = 4
+wants_boot = "usb-ssd"
+pi5_only = true
+needs_hardware = """Must MATCH the production board at .70, and nobody has checked \
+what that is. Run `ssh 192.168.1.70 'lsblk; free -h'` first. If .70 boots from SD and \
+the RAM matches, this costs a $15 card. If .70 boots NVMe, this needs the same base \
+and a stick - roughly $150. The Coral TPU is physically moved at failover time; there \
+is only one."""

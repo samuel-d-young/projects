@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+
+# Generated at flash time, and it contains node addressing.
+inventory/
+
+# Never commit a private key.
+*.pem
+id_*
+!id_*.pub

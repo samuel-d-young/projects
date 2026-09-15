@@ -1,0 +1,16 @@
+name = "eventkit"
+summary = """The travelling LAN-party box. DHCP, DNS, NTP, an info page and iperf3 \
+in one Pi that lives in the camera bag, not the rack. Fixes the four things that go \
+wrong at every event before anyone has unpacked a PC."""
+
+packages = ["dnsmasq", "chrony", "nginx-light", "iperf3", "tcpdump"]
+# 8090 for the info page: 80 invites a collision with whatever the venue runs,
+# and every other candidate port is already taken somewhere on the home LAN.
+ports = [8090, 5201]
+min_ram_gb = 1
+wants_boot = "sd"
+pi5_only = false
+needs_hardware = """A short flat patch cable and a USB-C power bank that does 5V/3A. \
+Optionally a USB-ethernet adapter, which turns this into a two-legged box that can \
+serve the LAN while still taking uplink from the venue - the difference between \
+'helpful' and 'the reason the event ran'."""

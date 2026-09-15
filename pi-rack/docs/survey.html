@@ -1,0 +1,289 @@
+<title>What Pis Are Actually For</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root {
+    --ground:#E9ECEF; --surface:#FDFDFC; --surface-2:#F1F3F5;
+    --ink:#12171C; --ink-2:#3D4852; --ink-3:#6B7681;
+    --rule:#D3D8DD; --rule-soft:#E2E6E9;
+    --accent:#A85B12; --accent-ink:#7A4109; --accent-wash:#F6EADC;
+    --go:#2C6E4E; --go-wash:#E2EFE7;
+    --hold:#8A6512; --hold-wash:#F5EDD8;
+    --stop:#963228; --stop-wash:#F6E4E1;
+    --term-bg:#12171C; --term-fg:#E4E8EB;
+    --shadow:0 1px 2px rgba(18,23,28,.05), 0 8px 24px -12px rgba(18,23,28,.18);
+    --measure:68ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#0E1216; --surface:#161C22; --surface-2:#1D242B;
+      --ink:#E8ECEF; --ink-2:#B3BDC6; --ink-3:#7E8A95;
+      --rule:#2C353D; --rule-soft:#232B32;
+      --accent:#E0A254; --accent-ink:#F0C288; --accent-wash:#2A2118;
+      --go:#6DBE92; --go-wash:#16241D;
+      --hold:#D8B25A; --hold-wash:#262016;
+      --stop:#E08276; --stop-wash:#2A1A18;
+      --term-bg:#05080A; --term-fg:#E4E8EB;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#0E1216; --surface:#161C22; --surface-2:#1D242B;
+    --ink:#E8ECEF; --ink-2:#B3BDC6; --ink-3:#7E8A95;
+    --rule:#2C353D; --rule-soft:#232B32;
+    --accent:#E0A254; --accent-ink:#F0C288; --accent-wash:#2A2118;
+    --go:#6DBE92; --go-wash:#16241D;
+    --hold:#D8B25A; --hold-wash:#262016;
+    --stop:#E08276; --stop-wash:#2A1A18;
+    --term-bg:#05080A; --term-fg:#E4E8EB;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing:border-box; }
+  body { background:var(--ground); color:var(--ink);
+    font-family:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+    font-size:16.5px; line-height:1.62; margin:0; padding:0 1.25rem 6rem;
+    -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:62rem; margin:0 auto; }
+  .col { max-width:var(--measure); }
+
+  h1,h2,h3,.eyebrow,.stat-n { font-family:Archivo,ui-sans-serif,system-ui,sans-serif; }
+  h1 { font-size:clamp(2.1rem,6vw,3.3rem); font-weight:700; letter-spacing:-.022em;
+       line-height:1.05; margin:0 0 .6rem; text-wrap:balance; }
+  h2 { font-size:clamp(1.3rem,3vw,1.7rem); font-weight:600; letter-spacing:-.014em;
+       line-height:1.2; margin:0 0 .4rem; text-wrap:balance; }
+  h3 { font-family:Archivo,sans-serif; font-size:1.02rem; font-weight:600; margin:0 0 .3rem; }
+  p { margin:0 0 1rem; }
+  strong { font-weight:600; color:var(--ink); }
+  code,.mono { font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.88em; }
+  code { background:var(--surface-2); border:1px solid var(--rule-soft);
+         border-radius:3px; padding:.08em .34em; color:var(--ink-2); }
+  .eyebrow { font-size:.7rem; font-weight:600; letter-spacing:.13em;
+             text-transform:uppercase; color:var(--ink-3); margin:0 0 .5rem; }
+
+  header.mast { border-bottom:2px solid var(--ink); padding:3.5rem 0 1.6rem; margin-bottom:2.6rem; }
+  .kicker { font-family:"IBM Plex Mono",monospace; font-size:.74rem; letter-spacing:.1em;
+            text-transform:uppercase; color:var(--accent-ink); margin:0 0 1rem; }
+  .standfirst { font-size:1.12rem; color:var(--ink-2); max-width:46rem; margin:0 0 1.8rem; }
+  .pull { font-size:1.06rem; border-left:3px solid var(--accent); padding:.2rem 0 .2rem 1.1rem;
+          margin:0 0 1.8rem; color:var(--ink); max-width:46rem; }
+
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));
+           gap:1px; background:var(--rule); border:1px solid var(--rule); }
+  .stat { background:var(--surface); padding:.85rem 1rem; }
+  .stat-n { font-size:1.55rem; font-weight:700; line-height:1; letter-spacing:-.02em;
+            font-variant-numeric:tabular-nums; display:block; margin-bottom:.28rem; }
+  .stat-l { font-size:.76rem; color:var(--ink-3); line-height:1.35; display:block; }
+
+  section { margin:0 0 3.2rem; }
+  .sec-head { margin-bottom:1.4rem; }
+  .sec-head p { color:var(--ink-2); margin:0; }
+
+  .gaps { display:grid; gap:1px; background:var(--rule-soft);
+          border:1px solid var(--rule); box-shadow:var(--shadow); }
+  .gap { background:var(--surface); padding:1.1rem 1.2rem; }
+  .gap p { margin:0; color:var(--ink-2); font-size:.95rem; }
+  .gap .fix { margin-top:.5rem; color:var(--ink); font-size:.93rem; }
+
+  .scroll { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:.92rem; }
+  thead th { text-align:left; font-family:Archivo,sans-serif; font-size:.7rem;
+             letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3);
+             font-weight:600; padding:0 1rem .5rem 0; border-bottom:1px solid var(--ink);
+             white-space:nowrap; }
+  tbody td { padding:.6rem 1rem .6rem 0; border-bottom:1px solid var(--rule-soft);
+             vertical-align:top; color:var(--ink-2); }
+  tbody td:first-child { color:var(--ink); font-weight:500; }
+  tbody tr:last-child td { border-bottom:none; }
+  .dead td:first-child { color:var(--stop); }
+
+  ul.plain { margin:0; padding:0; list-style:none; display:grid; gap:.55rem; }
+  ul.plain li { display:grid; grid-template-columns:1.3rem 1fr; gap:.5rem;
+                font-size:.95rem; color:var(--ink-2); }
+  ul.plain li::before { content:"\2715"; color:var(--stop); font-weight:700; }
+  ul.plain li b { color:var(--ink); font-weight:600; }
+
+  .callout { border-left:3px solid var(--accent); background:var(--accent-wash);
+             padding:.9rem 1.1rem; margin:1.4rem 0; }
+  .callout p:last-child { margin-bottom:0; }
+  .callout.warn { border-color:var(--stop); background:var(--stop-wash); }
+
+  .chips { display:flex; flex-wrap:wrap; gap:.4rem; margin:0 0 1rem; }
+  .chip { font-family:"IBM Plex Mono",monospace; font-size:.72rem; padding:.2rem .5rem;
+          border-radius:2px; background:var(--go-wash); color:var(--go); }
+
+  footer.foot { border-top:1px solid var(--rule); padding-top:1.4rem;
+                color:var(--ink-3); font-size:.88rem; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="kicker">Research survey · 29 August 2026</p>
+  <h1>What Pis Are Actually For</h1>
+  <p class="standfirst">
+    Ten categories researched against the live web. 183 distinct uses catalogued, each
+    annotated against a real existing setup. Then two synthesis passes with opposite
+    instincts — one cataloguing, one sceptical.
+  </p>
+  <p class="pull">
+    Almost everything the internet tells you to put on a Raspberry Pi, you already run
+    better somewhere else. The Pi jobs that survive are the ones that need a
+    <strong>separate</strong> box — or a box in a <strong>different building</strong>.
+  </p>
+  <div class="stats">
+    <div class="stat"><span class="stat-n">183</span><span class="stat-l">uses catalogued</span></div>
+    <div class="stat"><span class="stat-n">59</span><span class="stat-l">genuinely good fits</span></div>
+    <div class="stat"><span class="stat-n">19</span><span class="stat-l">actively bad ideas</span></div>
+    <div class="stat"><span class="stat-n">19</span><span class="stat-l">still-recommended projects that are dead</span></div>
+  </div>
+</header>
+
+<section>
+  <div class="sec-head col">
+    <p class="eyebrow">The useful part</p>
+    <h2>Four gaps nothing had caught</h2>
+    <p>Absent from the stack <em>and</em> from the plan written for it last week — which makes these the survey's real output.</p>
+  </div>
+  <div class="gaps">
+    <div class="gap">
+      <h3>There is no remote access at all</h3>
+      <p>No VPN, no tunnel, no overlay network anywhere on the network. Everything worth reaching is LAN-only, for someone who is away from the house for entire days.</p>
+      <p class="fix"><strong>Tailscale</strong>, on the NUC and the workstation — minutes. Its April 2026 pricing change removed the 100-device cap from the free personal plan entirely.</p>
+    </div>
+    <div class="gap">
+      <h3>No password manager, while holding clients' logins</h3>
+      <p>Meta Business Suite and Google Business credentials for multiple dental practices. That is a carried liability.</p>
+      <p class="fix"><strong>Vaultwarden</strong> — 66.4k stars, Rust, ~100 MB. A legitimate Pi job precisely <em>because</em> it should not sit alongside everything else.</p>
+    </div>
+    <div class="gap">
+      <h3>No hardware security keys</h3>
+      <p>Best value-per-minute in the entire survey, and not a Pi at all.</p>
+      <p class="fix">Two FIDO2 keys — one primary, one in a drawer. Twenty minutes, then never maintained again.</p>
+    </div>
+    <div class="gap">
+      <h3>No out-of-band console</h3>
+      <p>A headless hypervisor runs the Home Assistant VM that 2005 entities depend on. If it fails to POST, recovery means carrying a monitor to it.</p>
+      <p class="fix"><strong>PiKVM</strong> (V3 HAT, Pi 4 only) — or just buy a <strong>JetKVM</strong> at about US$103 and skip the build.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <p class="eyebrow">The most valuable section</p>
+    <h2>Still recommended. Actually dead.</h2>
+    <p>Every one of these still ranks well in search and reads as current. Several are the top result for their category.</p>
+  </div>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Project</th><th>Status</th></tr></thead>
+      <tbody class="dead">
+        <tr><td>PiVPN</td><td>Archived 2 Nov 2024. Every “turn your Pi into a VPN” tutorial predates its death.</td></tr>
+        <tr><td>wyoming-satellite</td><td>Archived read-only <strong>27 Jan 2026</strong>, replaced by Linux Voice Assistant.</td></tr>
+        <tr><td>Gravity Sync</td><td>Archived, and structurally cannot work with Pi-hole v6's API layout.</td></tr>
+        <tr><td>MinIO</td><td>Archived 25 Apr 2026 — <em>“NO LONGER MAINTAINED”</em> at the top of the repo.</td></tr>
+        <tr><td>File Browser</td><td>Archived <strong>1 Sep 2026</strong>. 36k stars, and no further bug or security fixes.</td></tr>
+        <tr><td>room-assistant</td><td>Last release <strong>March 2022</strong>; v3 in beta since 2021.</td></tr>
+        <tr><td>motionEyeOS</td><td>Last OS release <strong>2020</strong>. People still flash those images and expose them.</td></tr>
+        <tr><td>Shinobi</td><td>Public repo frozen roughly six years.</td></tr>
+        <tr><td>Double-Take / CompreFace</td><td>Superseded by Frigate's own native face recognition.</td></tr>
+        <tr><td>Promtail</td><td>EOL 2 Mar 2026 → Grafana Alloy. Any Loki guide older than mid-2025 is broken.</td></tr>
+        <tr><td>Drone CI</td><td>Now “Harness Open Source”. The open-source fork is Woodpecker.</td></tr>
+        <tr><td>Dockge</td><td>24.2k stars, last release Mar 2025 — stars lagging reality by a year.</td></tr>
+        <tr><td>Heimdall</td><td>Feature-frozen. The container base keeps <code>pushed_at</code> looking fresh.</td></tr>
+        <tr><td>Enviro+ HAT</td><td>Discontinued — and still the internet's default air-quality answer.</td></tr>
+        <tr><td>RetroPie</td><td>Last tagged release 4.8, <strong>March 2020</strong>. No official Pi 5 image. Use Batocera.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout warn col">
+    <p><strong>NOAA APT weather satellites are gone.</strong> NOAA-18 was decommissioned
+    6 June 2025, NOAA-19 on 13 August, NOAA-15 on 19 August. The last APT transmitter in
+    orbit is silent — so roughly half of every “SDR projects for Raspberry Pi” list is now
+    instructions for receiving nothing. Meteor M2-series LRPT still transmits; APT does not.</p>
+  </div>
+
+  <div class="callout col">
+    <p><strong><code>RPi.GPIO</code> is dead on the Pi 5.</strong> The GPIO registers moved
+    behind the RP1 southbridge, so poking <code>/dev/mem</code> cannot reach them. Any
+    tutorial beginning <code>import RPi.GPIO</code> simply fails. Use <code>gpiozero</code>
+    or <code>lgpio</code>.</p>
+    <p>And watch for repos that <em>moved</em>, where search still surfaces the corpse:
+    Homepage (<code>benphelps</code> → <code>gethomepage</code>), Homebox
+    (<code>hay-kot</code> → <code>sysadminsmedia</code>), BirdNET.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <p class="eyebrow">Verified, not assumed</p>
+    <h2>Google archived the entire Coral toolchain</h2>
+  </div>
+  <div class="col">
+    <p>Confirmed by fetching the repositories directly: <code>pycoral</code> archived
+    <strong>3 July 2025</strong>, <code>libedgetpu</code> archived
+    <strong>14 October 2025</strong>. Frigate no longer recommends Coral for new installs
+    and points builders at Hailo instead.</p>
+    <div class="callout">
+      <p><strong>This is not a reason to replace a working Coral</strong> — and the survey
+      caught me being too enthusiastic about that earlier in the day. A Coral doing 11.5 ms
+      across six cameras with <code>skipped_fps: 0.0</code> is fine; the Hailo-8L benches
+      around 10–13 ms. That is a lateral move at higher cost, and several users report
+      Coral is <em>better</em> at night under IR illumination.</p>
+      <p>Archived is not broken. The archive matters for the <em>next</em> build. If a
+      Coral dies or the camera count grows, the AI HAT+ (Hailo-8L ~$70, Hailo-8 ~$110) is
+      the succession path.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <p class="eyebrow">Popular, and wrong here</p>
+    <h2>Traps</h2>
+  </div>
+  <div class="col">
+    <ul class="plain">
+      <li><b>Jellyfin or Plex on a Pi.</b> Jellyfin's own docs now carry a deprecation notice for Pi V4L2 acceleration, citing the Pi 5's total lack of an H.264 encoder. Plex is worse — a subscription for something the hardware cannot do.</li>
+      <li><b>A Pi as router or firewall.</b> pfSense and OPNsense are x86-only, so it is not a config question, it is impossible as stated. And a Pi 4 has one NIC.</li>
+      <li><b>Nextcloud.</b> PHP stats every file individually against a network mount — the known-worst deployment shape — to duplicate things a NAS already does.</li>
+      <li><b>A k3s cluster on four Pi 4s.</b> When every workload is pinned to specific hardware — an accelerator, a set of mounts, a VM with USB passthrough — there is nothing left to schedule.</li>
+      <li><b>Ollama on a Pi CPU.</b> 2–5 tok/s, and published benchmarks are first-run numbers: without active cooling a Pi 5 halves throughput within about 90 seconds.</li>
+      <li><b>LanCache on a Pi.</b> Measured at 30–40 MB/s with USB storage — <em>slower than a decent NBN connection</em>, so the cache makes downloads worse.</li>
+      <li><b>MagicMirror².</b> The framework is alive; the project is the problem — two-way glass, a frame, a monitor and a wall, for a clock you already have three of.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <p class="eyebrow">Framing</p>
+    <h2>The power argument is weaker than folklore</h2>
+  </div>
+  <div class="col">
+    <p>A Pi 5 idles around <strong>3 W</strong>; an N100 mini PC around <strong>6–8 W</strong>.
+    Run continuously, that difference is roughly <strong>$10 a year</strong> — not the order
+    of magnitude people imply.</p>
+    <p>So if you already own spare boards <em>and</em> spare mini PCs, “cheaper to run” is not
+    a real reason to choose a Pi. The honest reasons are GPIO, HATs, camera modules, and
+    physical separation — a box that can fail without taking anything else with it, or a box
+    that lives somewhere else entirely.</p>
+  </div>
+</section>
+
+<footer class="foot col">
+  <p>Full survey, all 183 uses with popularity signals, RAM figures and gotchas:
+  <span class="mono">K:\Claude\projects\pi-rack\docs\SURVEY.md</span>.
+  Method: ten parallel category researchers required to search before claiming currency,
+  then two synthesis passes with deliberately opposed instincts.</p>
+  <p style="margin-bottom:0">Archive dates for <code>pycoral</code> and <code>libedgetpu</code>
+  were verified by fetching the repositories. Other dates come from the research pass and
+  carry its confidence, not mine.</p>
+</footer>
+
+</div>

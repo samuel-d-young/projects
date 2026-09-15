@@ -1,0 +1,14 @@
+name = "watchdog"
+summary = """An out-of-band arbiter. Watches Home Assistant, its hypervisor, Frigate \
+and the NAS from outside all of them, and after sustained failure runs exactly one \
+allowlisted recovery command over SSH. Rate-limited, always announced, and incapable \
+of running anything not on the list."""
+
+packages = ["openssh-client", "curl", "mosquitto-clients"]
+ports = []
+min_ram_gb = 1
+wants_boot = "sd"
+pi5_only = false
+needs_hardware = """None required. Optionally a USB-to-RJ45 console cable (~AUD $30, \
+buy FTDI not Prolific) to reach the Cisco switch at 192.168.1.254 when the network \
+itself is the thing that broke."""

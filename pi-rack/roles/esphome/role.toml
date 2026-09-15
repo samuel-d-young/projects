@@ -1,0 +1,15 @@
+name = "esphome"
+summary = """A real ESPHome build server on the LAN, reachable on a normal port \
+instead of trapped behind Home Assistant ingress. Compiles Voice PE and wall-clock \
+firmware, keeps the build cache off the workbench, and does OTA updates without \
+the Windows box being on."""
+
+packages = ["python3-venv", "python3-dev", "git", "build-essential"]
+# 6052 is the ESPHome dashboard's own port. Free on this LAN (verified 2026-08-28).
+ports = [6052]
+min_ram_gb = 4
+wants_boot = "usb-ssd"
+pi5_only = false
+# Nothing to buy. A USB cable is needed only for the very first flash of a
+# brand-new board; after that every update is over the air.
+needs_hardware = "none"

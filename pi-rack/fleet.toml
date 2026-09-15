@@ -1,0 +1,168 @@
+# pi-rack fleet definition.
+#
+# This file is the source of truth for the rack. Everything the wizard writes -
+# the cloud-init seed, the static IP, the bootstrap scripts, the docs table - is
+# derived from it. Edit this and re-flash; never configure a node by hand and let
+# the two drift.
+#
+# Validate with:  pi-wizard plan
+#
+# Reasoning for every entry below is in docs/PLAN.md. The short version: three
+# boards deploy, one waits on a two-minute check, one stays in its box on purpose.
+
+[network]
+cidr          = "192.168.1.0/24"
+gateway       = "192.168.1.1"
+# Change this to gaffer's address only if you decide to run the netcore role.
+# See docs/REJECTED.md - two of the three strategies argued against it.
+dns           = ["192.168.1.1"]
+domain        = "lan"
+# CONFIRM THIS SITS OUTSIDE THE ROUTER'S DHCP POOL before flashing anything.
+# It is one of the Phase 1 checks in docs/PLAN.md.
+static_range  = [100, 130]
+
+[fleet]
+# Not "pi", not "admin". These nodes are reachable from the whole LAN.
+admin_user      = "vultron"
+# Make it with:  pi-wizard keygen
+ssh_pubkey_path = "~/.ssh/pi_rack.pub"
+timezone        = "Australia/Melbourne"
+locale          = "en_AU.UTF-8"
+keyboard        = "us"
+wifi_country    = "AU"
+# Left unset deliberately: the wizard picks the fixed drive with the most free
+# space. It must never be K:, which has under 50 GB free of 13 TB.
+# image_cache   = "O:/pi-rack-images"
+
+
+# =============================================================================
+# gaffer - the witness
+# =============================================================================
+# The gaffer is the one who notices when something has stopped working.
+#
+# Highest-consensus node in the whole exercise: every strategy proposed a version
+# of it and every judge kept it. Its value is not speed, it is independence - a
+# backup checked by the process that wrote it is not checked, and an alert that
+# travels through Home Assistant cannot tell you Home Assistant is down.
+#
+# Build this on the board currently at .55, renumbered and REFLASHED rather than
+# adopted in place. That board is a live, unowned Debian 13 Pi nobody is patching;
+# reflashing costs twenty minutes and makes it wizard-rebuildable instead of a
+# hand-built snowflake. Verify it is genuinely idle first.
+[[node]]
+hostname = "gaffer"
+hardware = "pi4-2gb"          # smallest board in the draw - it needs ~512 MB
+ip       = "192.168.1.101"
+roles    = ["canary", "watchdog"]
+boot     = "sd"               # writes almost nothing; a card is genuinely fine here
+ports    = [5115]
+notes    = "Canary + out-of-band watchdog. Ships watch-only; promote deliberately."
+
+
+# =============================================================================
+# sparks - the electrician
+# =============================================================================
+# Builds ESP32 firmware. Not speculative: home-assistant/STATUS.md logs three
+# closed routes to rebuilding the Voice PE firmware, and the wall-clock project
+# needs the same toolchain again.
+#
+# The 4 GB floor is NOT negotiable - an esp-idf build on a 2 GB board thrashes or
+# gets OOM-killed, which presents as a mysterious hang. And it should not live on
+# an SD card: one full build writes several GB.
+#
+# !! CORRECTION 2026-08-29 - READ docs/SURVEY.md BEFORE BUILDING THIS NODE !!
+#
+# The 2026 survey rates this "actively a bad idea", and on the facts it is right.
+# The problem I identified was real - the ESPHome Device Builder add-on is
+# ingress-only, so 6052 is closed, which is why the Alexa wake-word rebuild had to
+# happen from a venv on the Windows box. But the FIX is wrong: that add-on already
+# runs inside the HA VM on an i5-8400T with 16 GB, and moving compiles onto a Pi 4
+# makes them dramatically slower - community reports around 27 minutes for a single
+# ESP32 build.
+#
+# Better fixes, in order: expose the existing add-on on the LAN, or run the ESPHome
+# CLI on the NUC or the workbench. Both are several times faster than this board.
+#
+# Left enabled rather than silently disabled, because it is Samuel's call - but do
+# not flash it without reading the correction first.
+[[node]]
+hostname = "sparks"
+hardware = "pi4-4gb"
+ip       = "192.168.1.102"
+roles    = ["esphome"]
+boot     = "usb-ssd"
+ports    = [6052]
+notes    = "ESPHome build server. Read roles/esphome README-FIRST before rebuilding Voice PE."
+
+
+# =============================================================================
+# runner - the one that travels
+# =============================================================================
+# NOT part of the rack. Lives in the camera bag and comes out at Indie LAN,
+# BIG LAN X, LANSlide, Gamers Retreat.
+#
+# The counter-intuitive argument: it is the lowest-burden board in the plan
+# precisely because it is switched off about 360 days a year. It cannot page
+# anyone at 2am from inside a cupboard.
+#
+# Its DHCP server ships DISABLED and refuses to arm if it can see the home
+# gateway. A box that starts serving addresses the moment it is plugged in is a
+# way to take down a venue's network.
+[[node]]
+hostname = "runner"
+hardware = "pi4-2gb"
+ip       = "192.168.1.103"
+roles    = ["eventkit"]
+boot     = "sd"               # rewritten from this file before each event
+ports    = [8090, 5201]
+notes    = "Travelling LAN kit. `sudo event-dhcp off` before it comes home."
+
+
+# =============================================================================
+# standby - the Pi 5
+# =============================================================================
+# DISABLED until Phase 1 question 2 is answered. Two minutes:
+#
+#     ssh 192.168.1.70 'lsblk; free -h'
+#
+# .70 is the only single-purpose production machine on this LAN with no
+# redundancy - Frigate, six cameras, a Coral TPU - and a Pi 4 is not a drop-in.
+#
+# If .70 boots from SD and the RAM matches, this spare costs a $15 card. If it
+# boots NVMe, this needs the same base and stick, ~$150. If the RAM does not
+# match, this board is not a spare at all and enabling it would be a lie.
+#
+# Deliberately NOT a video review host: BCM2712 has no hardware H.264 encoder at
+# all, so every transcode would be software x264 while .32 has Resolve.
+[[node]]
+hostname = "standby"
+hardware = "pi5-8gb"          # CONFIRM against .70 before enabling
+ip       = "192.168.1.104"
+roles    = ["warm-spare"]
+boot     = "sd"               # change to nvme if .70 boots NVMe
+ports    = []
+enabled  = false
+notes    = "Frigate warm spare. Enable only after matching RAM and boot media to .70."
+
+
+# =============================================================================
+# The fifth board - stays in its box
+# =============================================================================
+# Deliberately not deployed, and written down so that staying boxed is a decision
+# rather than an oversight.
+#
+# A board sitting in a rack "as a spare" is a board that gets quietly repurposed
+# in three weeks. Five always-on boards is five things that can break and page a
+# solo operator on a wedding weekend. Keep it as the physical spare for whichever
+# of gaffer, sparks or runner dies first - with this file and the wizard, that
+# recovery is about twenty minutes.
+#
+# To press it into service: give it a role, set enabled = true, and flash it.
+[[node]]
+hostname = "swing"
+hardware = "pi4-2gb"
+ip       = "192.168.1.105"
+roles    = ["canary"]         # placeholder; whatever it is replacing
+boot     = "sd"
+enabled  = false
+notes    = "COLD SPARE - in its box, labelled. Not deployed on purpose. See docs/PLAN.md."
