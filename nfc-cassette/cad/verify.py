@@ -20,7 +20,7 @@ import params  # noqa: E402
 from _lib import emit, write_manifest  # noqa: E402
 from cassette import build_lid, build_tray  # noqa: E402
 from player import build_base, build_top  # noqa: E402
-from player_slot import build_body as build_slot_body, build_lid as build_slot_lid  # noqa: E402
+from player_slot import build_body as build_slot_body, build_lid as build_slot_lid, build_knob  # noqa: E402
 
 
 def invariants(v: dict, D: dict) -> list[str]:
@@ -84,7 +84,17 @@ def invariants(v: dict, D: dict) -> list[str]:
     chk(D["s_buzzer_cy"] - v["buzzer_d"] / 2 - 1.5 > D["y_pcb0"], "slot: buzzer ring in front of the module wall")
     chk(D["s_plate_bot_z"] > D["s_led_cz"] + v["led_d"] / 2 + 1.0, "slot: LED hole runs into the slot floor plate")
     chk(D["s_pcb_top_z"] + v["cavity_clr"] <= D["s_roof_z"] + 1e-6, "slot: module taller than the cavity")
-    chk(D["s_roof_z"] - 8.0 > D["s_pcb_top_z"] - 8.0, "slot: keepers do not reach the PCB")
+    chk(v["s_lip_engage"] < v["s_edge_free"], "slot: a lip reaches past the PCB's component-free edge strip")
+    chk(D["s_lip_top_z0"] < D["s_pcb_top_z"] - 0.5, "slot: top lip does not reach over the PCB's top edge")
+    chk(D["s_lip_bot_z1"] > D["s_pcb_bot_z"] + 0.5, "slot: bottom lip does not reach over the PCB's bottom edge")
+    corner_inner = v["pn532_l"] / 2 - 2.0 - v["s_corner_zone"]     # where the corner zones start
+    chk(v["s_lip_top_w"] / 2 < corner_inner, "slot: top lip reaches into a corner zone (holes, headers)")
+    chk(v["s_lip_bot_w"] / 2 < corner_inner, "slot: bottom lip reaches into a corner zone (I2C header, DIP switch)")
+    chk(v["s_slot_r"] < D["s_slot_w"] / 2 - 0.3, "slot: plan corner radius too big for the slot width")
+    chk(v["s_slot_r"] <= 1.2, "slot: plan corner radius would pinch the tape's square edges")
+    for (x, y) in D["s_posts"]:
+        chk((x - D["s_led_cx"]) ** 2 + (y + D["s_W"] / 2 - v["wall"] - 4.3) ** 2 > (v["post_d"] / 2 + v["led_d"] / 2 + 0.5) ** 2 or abs(x - D["s_led_cx"]) > v["post_d"] / 2 + v["led_d"] / 2 + 0.5,
+            "slot: the LED body runs into a screw post")
     chk(D["s_d1_rib_gap"] >= 0.5, "slot: D1 mini too close to the module's side rib; widen s_side_margin")
     chk(D["y_d1_1"] + v["cavity_clr"] <= D["s_W"] / 2 - v["wall"] + 1e-6, "slot: D1 mini through the back wall")
     chk(D["s_d1_top_z"] <= D["s_roof_z"] - 0.5, "slot: Dupont on the D1 mini hits the roof")
@@ -102,14 +112,26 @@ def invariants(v: dict, D: dict) -> list[str]:
     chk(D["s_pilot_depth"] < D["s_roof_z"] - v["floor"] - 1.0, "slot: pilot hole reaches the roof")
     chk(D["s_buttons_x0"] + 4 * D["s_buttons_pitch"] + 4.5 < D["s_L"] / 2 - v["corner_r"], "slot: buttons run into the corner radius")
     chk(D["s_led_cx"] - v["led_d"] / 2 > -D["s_L"] / 2 + v["corner_r"], "slot: LED in the corner radius")
-    chk(D["s_buttons_cz"] + 3.0 < D["s_plate_bot_z"] - 0.5, "slot: buttons overlap the slot floor plate level")
+    # cosmetics stay on the face: nothing dents deeper than half the wall, nothing
+    # runs into the LED hole or off the edge
+    # the cutters are centred on the face, so the depth into the wall is k_dimple / k_recess
+    chk(v["k_dimple"] < v["wall"] / 2 + 0.01 and v["k_recess"] < v["wall"] / 2 + 0.01, "slot: a cosmetic recess goes too deep into the wall")
+    for (cx, cz), d in ((D["k_knob_big_c"], v["k_knob_big_d"]), (D["k_knob_small_c"], v["k_knob_small_d"])):
+        chk(abs(cx) + d / 2 + 1.5 < D["s_L"] / 2 - v["corner_r"] and cz + d / 2 + 1.5 < D["s_H"], "slot: a knob recess runs off the face")
+        chk((cx - D["s_led_cx"]) ** 2 + (cz - D["s_led_cz"]) ** 2 > (d / 2 + v["led_d"] / 2 + 1.5) ** 2, "slot: a knob recess hits the LED hole")
+    chk(abs(D["k_knob_big_c"][0] - D["k_knob_small_c"][0]) > (v["k_knob_big_d"] + v["k_knob_small_d"]) / 2 + 2.0, "slot: the two knobs overlap")
+    chk(D["s_buttons_x0"] - v["k_key_w"] / 2 > D["s_led_cx"] + v["led_d"] / 2 + 1.0, "slot: first key covers the LED")
+    chk(D["s_buttons_x0"] + 4 * D["s_buttons_pitch"] + v["k_key_w"] / 2 < D["k_grille_c"][0] - D["k_grille_w"] / 2 - 2.0, "slot: keys run into the grille")
+    chk(D["s_buttons_cz"] + v["k_key_h"] / 2 < D["k_counter_c"][1] - D["k_counter_h"] / 2 - 2.0, "slot: keys run into the counter window")
+    chk(D["k_grille_c"][0] + D["k_grille_w"] / 2 < D["s_L"] / 2 - v["corner_r"] and D["k_grille_c"][1] + D["k_grille_h"] / 2 < D["s_H"] - 1.0, "slot: grille runs off the face")
     return bad
 
 
 def build_all(D: dict):
     return {"cassette_tray": build_tray(D), "cassette_lid": build_lid(D),
             "player_base": build_base(D), "player_top": build_top(D),
-            "slot_body": build_slot_body(D), "slot_lid": build_slot_lid(D)}
+            "slot_body": build_slot_body(D), "slot_lid": build_slot_lid(D),
+            "knob_big": build_knob(D, D["k_knob_big_d"]), "knob_small": build_knob(D, D["k_knob_small_d"])}
 
 
 def valid(part) -> bool:
@@ -142,6 +164,8 @@ def main() -> int:
     emit(parts["player_top"], "player_top", "bay side up", note="4 x M3 x 16 pan head from the top")
     emit(parts["slot_body"], "slot_body", "upside down, top face on the bed", note="slot floor bridges 13 mm")
     emit(parts["slot_lid"], "slot_lid", "outside face down", note="4 x M3 x 10 pan head from below")
+    emit(parts["knob_big"], "knob_big", "flat, base down", note="glue into the left recess")
+    emit(parts["knob_small"], "knob_small", "flat, base down", note="glue into the right recess")
     write_manifest()
     print(f"  nominal built and exported in {time.time() - t0:.0f} s")
     if quick:

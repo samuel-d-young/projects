@@ -62,17 +62,22 @@ def build_body(D: dict):
     blk_y0, blk_y1 = D["y_slot0"] - 0.5, D["y_pcb0"]           # overlaps the front wall a touch
     blk = Pos(0, (blk_y0 + blk_y1) / 2, D["s_plate_bot_z"]) * Box(blk_l, blk_y1 - blk_y0, D["s_roof_z"] - D["s_plate_bot_z"] + 0.5, align=C)
     body = body + blk
+    # plan-view corners of the slot stay nearly square: the tape's thickness edges
+    # are square, and a 2.5 mm radius here pinched its corners (fit check, 2026-09-16)
     slot = Pos(0, (D["y_slot0"] + D["y_slot1"]) / 2, D["s_plate_top_z"]) * _rounded_box(
-        D["s_slot_l"], D["s_slot_w"], H - D["s_plate_top_z"] + 1.0, min(D["cassette_corner_r"] + D["s_slot_clr"], D["s_slot_w"] / 2 - 0.5))
+        D["s_slot_l"], D["s_slot_w"], H - D["s_plate_top_z"] + 1.0, D["s_slot_r"])
     body = body - slot
 
-    # module pocket: two full-height side ribs and two keepers hanging from the roof
+    # module pocket: two full-height side ribs beside the PCB's side edges, and a
+    # top lip hanging from the roof behind the PCB's top edge strip. The PCB's
+    # component side faces the back; nothing here touches it except that strip,
+    # which the listing photos show is bare (the antenna trace is inset ~2 mm).
     rib_len = D["s_rail_y1"] - D["s_rail_y0"]
     for sx in (-1, 1):
         body = body + Pos(sx * D["s_rail_x"], (D["s_rail_y0"] + D["s_rail_y1"]) / 2, floor) * Box(
             D["s_keeper"], rib_len, D["s_roof_z"] - floor + 0.5, align=C)
-        body = body + Pos(sx * D["s_keeper_x"], D["s_keeper_y"], D["s_roof_z"] - 8.0) * Box(
-            4.0, D["s_keeper"], 8.5, align=C)
+    body = body + Pos(0, D["s_lip_y"], D["s_lip_top_z0"]) * Box(
+        D["s_lip_top_w"], D["s_keeper"], D["s_roof_z"] - D["s_lip_top_z0"] + 0.5, align=C)
 
     # screw posts from the roof down to the lid, pilot-drilled from below
     for (x, y) in D["s_posts"]:
@@ -86,11 +91,79 @@ def build_body(D: dict):
     for dy in (-3.0, 0.0, 3.0):
         body = body - Pos(L / 2, D["s_buzzer_cy"] + dy, 6.0) * Rot(0, 90, 0) * Cylinder(1.0, wall * 3, align=CC)
 
-    # cosmetic transport buttons
+    return _front_cosmetics(body, D)
+
+
+def _front_cosmetics(body, D: dict):
+    """Fake transport keys, two knob recesses, a tape-counter window, a REC lamp
+    and a speaker grille on the front face. None of it opens the wall: keys add
+    material, everything else dents it by k_dimple or k_recess. The body prints
+    top-face-down, so on this vertical face real-world UP is print DOWN; the keys
+    get a 45-degree chamfer on their real-world top edge so that edge is
+    self-supporting, and the knobs are separate flat prints glued into recesses.
+    """
+    W, face = D["s_W"], -D["s_W"] / 2
+    kw, kh, kp = D["k_key_w"], D["k_key_h"], D["k_key_proud"]
+    # transport keys: REW PLAY FF STOP REC
     for i in range(5):
         x = D["s_buttons_x0"] + i * D["s_buttons_pitch"]
-        body = body + Pos(x, -W / 2 - 0.6, D["s_buttons_cz"]) * Box(9.0, 1.8, 6.0, align=CC)
+        key = Pos(x, face - kp / 2 + 0.3, D["s_buttons_cz"]) * Box(kw, kp + 0.6, kh, align=CC)
+        # chamfer the real-world top front edge (the print overhang) at 45 degrees
+        key = key - Pos(x, face - kp, D["s_buttons_cz"] + kh / 2) * Rot(0, 90, 0) * _wedge(kw + 0.2, kp)
+        body = body + key
+        # a shallow groove across each key face, like a worn piano key
+        body = body - Pos(x, face - kp, D["s_buttons_cz"] - kh / 2 + 2.0) * Box(kw - 3.0, 1.0, 0.6, align=CC)
+    # knob recesses (the knobs themselves are knob_big / knob_small, glued in)
+    for (cx, cz), d in ((D["k_knob_big_c"], D["k_knob_big_d"]), (D["k_knob_small_c"], D["k_knob_small_d"])):
+        body = body - Pos(cx, face, cz) * Rot(90, 0, 0) * Cylinder((d + 0.3) / 2, 2 * D["k_recess"], align=CC)
+    # tape counter window: a recessed rounded rectangle with a raised frame
+    cx, cz = D["k_counter_c"]
+    cw, ch = D["k_counter_w"], D["k_counter_h"]
+    body = body + Pos(cx, face - 0.4, cz) * Box(cw + 2.4, 0.8, ch + 2.4, align=CC)
+    body = body - Pos(cx, face - 0.8, cz) * Box(cw, 1.6 + 2 * D["k_dimple"], ch, align=CC)
+    # three "digit" bars in the window
+    for i in (-1, 0, 1):
+        body = body + Pos(cx + i * 6.0, face - 0.8 + D["k_dimple"] / 2, cz) * Box(4.0, D["k_dimple"], ch - 2.5, align=CC)
+    # REC lamp: a small recessed disc
+    rx, rz = D["k_rec_c"]
+    body = body - Pos(rx, face, rz) * Rot(90, 0, 0) * Cylinder(2.0, 2 * D["k_dimple"], align=CC)
+    # speaker grille: a field of shallow dimples
+    gx, gz = D["k_grille_c"]
+    nx = int(D["k_grille_w"] // D["k_grille_pitch"])
+    nz = int(D["k_grille_h"] // D["k_grille_pitch"])
+    dimple = Rot(90, 0, 0) * Cylinder(D["k_grille_d"] / 2, 2 * D["k_dimple"], align=CC)
+    for i in range(nx):
+        for j in range(nz):
+            x = gx - (nx - 1) * D["k_grille_pitch"] / 2 + i * D["k_grille_pitch"]
+            z = gz - (nz - 1) * D["k_grille_pitch"] / 2 + j * D["k_grille_pitch"]
+            body = body - Pos(x, face, z) * dimple
     return body
+
+
+def _wedge(length: float, size: float):
+    """A 45-degree triangular prism, `size` on both legs, `length` long along Z
+    (rotate to taste). Used to chamfer the keys' overhanging edge."""
+    from build123d import Polygon, extrude, Plane
+    tri = Polygon((0, 0), (size, 0), (0, size), align=None)
+    return extrude(Plane.XY * tri, length / 2, both=True)
+
+
+def build_knob(D: dict, d: float):
+    """A knob printed flat: a knurled cylinder with a pointer groove, a 45-degree
+    lead-in at the base so it drops into its recess, and a dome-ish top."""
+    h = D["k_knob_h"]
+    knob = Cylinder(d / 2, h, align=C)
+    # knurl: 16 shallow flutes around the side
+    import math
+    n = 16
+    for i in range(n):
+        a = 2 * math.pi * i / n
+        knob = knob - Pos((d / 2) * math.cos(a), (d / 2) * math.sin(a), h / 2 + 0.6) * Cylinder(0.7, h - 1.2, align=CC)
+    # pointer groove across the top
+    knob = knob - Pos(d / 4, 0, h) * Box(d / 2 - 0.5, 1.2, 1.0, align=CC)
+    # chamfer the top edge a little
+    knob = knob - Pos(0, 0, h) * (Cylinder(d / 2 + 1, 1.0, align=CC) - Cylinder(d / 2 - 0.8, 1.2, align=CC))
+    return knob
 
 
 def build_lid(D: dict):
@@ -99,8 +172,10 @@ def build_lid(D: dict):
     for (x, y) in D["s_posts"]:
         lid = lid - Pos(x, y, -0.1) * Cylinder(D["screw_hole"] / 2, floor + 0.2, align=C)
         lid = lid - Pos(x, y, -0.1) * Cylinder(D["screw_head_d"] / 2, D["screw_head_h"] + 0.1, align=C)
-    # shelf the PCB's bottom edge rests on, between the module wall and the keepers
+    # shelf the PCB's bottom edge rests on, and a lip behind its bottom edge strip
+    # (middle only, between the I2C header and the DIP switch)
     lid = lid + Pos(0, (D["y_pcb0"] + D["y_pcb1"]) / 2, floor) * Box(30.0, D["pn532_t"] + D["pcb_clr"], D["s_shelf_h"], align=C)
+    lid = lid + Pos(0, D["s_lip_y"], floor) * Box(D["s_lip_bot_w"], D["s_keeper"], D["s_lip_bot_z1"] - floor, align=C)
     # D1 mini posts + lips
     for p in _posts_and_lips(D["s_d1_cx"], D["s_d1_cy"], D["d1_l"], D["d1_w"], D,
                              top_z=D["s_d1_board_z"], lip_top_z=D["s_d1_board_z"] + D["d1_t"] + 3.0, z0=floor):
@@ -122,4 +197,6 @@ if __name__ == "__main__":
     D = params.derive(params.nominal())
     emit(build_body(D), "slot_body", "upside down, top face on the bed", note="slot floor bridges 13 mm")
     emit(build_lid(D), "slot_lid", "outside face down", note="4 x M3 x 10 pan head from below")
+    emit(build_knob(D, D["k_knob_big_d"]), "knob_big", "flat, base down", note="glue into the left recess")
+    emit(build_knob(D, D["k_knob_small_d"]), "knob_small", "flat, base down", note="glue into the right recess")
     write_manifest()

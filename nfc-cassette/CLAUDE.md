@@ -13,21 +13,28 @@ This repo is only the enclosure. Read `BUILD-LOG.md` last entry first.
 ## Layout
 
 ```
-cad/params.py    every dimension, with provenance (datasheet / derived / choice / assumed)
-cad/cassette.py  tray + lid
-cad/player.py    base (electronics) + top slab (the bay)
-cad/verify.py    the gate: build, export, invariants, corner sweep
-cad/shots.py     docs/nfc-cassette.png from the exported meshes
-cad/_lib.py      export gate (watertight, winding, volume drift, build volume)
-stl/ step/       build output + manifest.json. Regenerating is always safe.
+cad/params.py        every dimension, with provenance (datasheet / derived / choice / assumed)
+cad/cassette.py      tray + lid
+cad/player_slot.py   THE player: body with the slot and the front face, bottom lid, two knobs
+cad/player.py        the earlier flat-bay player (base + top slab), kept as an alternative
+cad/verify.py        the gate: build, export, invariants, corner sweep - all eight parts
+cad/fitcheck_slot.py "does the reader sit inside?": the electronics as solids, exact
+                     intersections with body and lid, and the module's insertion path
+cad/shots_slot.py    docs/nfc-cassette-slot.png; shots.py does the flat version
+cad/_lib.py          export gate (watertight, winding, volume drift, build volume)
+stl/ step/           build output + manifest.json. Regenerating is always safe.
 ```
 
 ## Run
 
 ```
-K:\Claude\robot\.venv\Scripts\python.exe cad\verify.py        # ~2 min: nominal + 128-corner sweep
-K:\Claude\robot\.venv\Scripts\python.exe cad\shots.py
+K:\Claude\robot\.venv\Scripts\python.exe cad\verify.py          # ~10 min: nominal + 128-corner sweep
+K:\Claude\robot\.venv\Scripts\python.exe cad\fitcheck_slot.py   # ~20 s: must end "the reader sits inside"
+K:\Claude\robot\.venv\Scripts\python.exe cad\shots_slot.py
 ```
+
+Run the fit check after any change near the module pocket, the slot, the
+front face or the lid: it found three real collisions the invariants missed.
 
 The robot venv is the one with build123d and trimesh. Nothing here needs
 anything else.

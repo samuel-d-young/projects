@@ -97,9 +97,26 @@ _P: list[Param] = [
     Param("s_module_wall", 1.6, 1.2, 2.0, "choice", "between the slot and the module's flat back"),
     Param("s_roof", 2.4, 2.0, 3.0, "choice", "top face over the module zone"),
     Param("s_side_margin", 13.0, 12.0, 15.0, "choice", "beyond the slot ends; the D1 mini lives on the left behind the module wall"),
-    Param("s_keeper", 1.5, 1.2, 2.0, "choice", "ribs that hold the PCB against the module wall"),
+    Param("s_keeper", 1.5, 1.2, 2.0, "choice", "thickness of the ribs that hold the PCB against the module wall"),
     Param("s_shelf_h", 1.0, 0.8, 1.5, "choice", "rib on the lid the PCB's bottom edge rests on"),
+    Param("s_lip_engage", 1.5, 1.2, 1.8, "choice", "how far the top and bottom lips reach over the PCB's edge strips"),
+    Param("s_edge_free", 2.0, 1.8, 2.5, "assumed", "component-free band along the PCB's top and bottom edges, middle third (from the listing photos: the antenna trace is inset ~2 mm, parts sit inside it)"),
+    Param("s_lip_top_w", 16.0, 12.0, 18.0, "choice", "width of the top lip, centred - clear of the corner zones (holes, headers, DIP switch)"),
+    Param("s_lip_bot_w", 16.0, 10.0, 18.0, "choice", "width of the bottom lip, centred - between the I2C header and the DIP switch"),
+    Param("s_corner_zone", 10.0, 8.0, 12.0, "assumed", "band inside each side edge (after a 2 mm margin) where the headers, holes and DIP switch may sit right up to the top/bottom edges"),
+    Param("s_slot_r", 0.8, 0.5, 1.2, "choice", "plan-view corner radius of the slot; the tape's thickness edges are square, so keep this small or it pinches"),
     Param("s_end_wall", 2.0, 1.6, 2.6, "choice", "slot block beyond each end of the slot"),
+    # ---- front-face cosmetics (Samuel, 2026-09-16: "fake buttons and knobs")
+    Param("k_key_w", 10.0, 8.0, 12.0, "choice", "transport key width"),
+    Param("k_key_h", 9.0, 7.0, 11.0, "choice", "transport key height on the face"),
+    Param("k_key_proud", 3.0, 2.0, 4.0, "choice", "how far a key stands off the face"),
+    Param("k_knob_big_d", 16.0, 12.0, 20.0, "choice", "volume knob, printed flat and glued into its recess"),
+    Param("k_knob_small_d", 11.0, 9.0, 14.0, "choice", "tuning knob"),
+    Param("k_knob_h", 6.0, 4.0, 8.0, "choice", "knob height"),
+    Param("k_recess", 0.6, 0.4, 0.8, "choice", "locating recess in the face for a glued knob"),
+    Param("k_grille_pitch", 3.0, 2.5, 3.5, "choice", "speaker grille dimple pitch"),
+    Param("k_grille_d", 1.6, 1.2, 2.0, "choice", "speaker grille dimple diameter"),
+    Param("k_dimple", 0.8, 0.6, 1.0, "choice", "depth of grille dimples and the counter window"),
 ]
 PARAMS: dict[str, Param] = {p.name: p for p in _P}
 
@@ -225,8 +242,11 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     D["s_rail_x"] = v["pn532_l"] / 2 + v["pcb_clr"] + v["s_keeper"] / 2   # side rib centre
     D["s_rail_y0"] = D["y_slot1"]
     D["s_rail_y1"] = D["y_pcb1"] + v["pcb_clr"] + v["s_keeper"]
-    D["s_keeper_y"] = D["y_pcb1"] + v["pcb_clr"] + v["s_keeper"] / 2
-    D["s_keeper_x"] = v["pn532_l"] / 2 - 5.0
+    # the lips sit BEHIND the PCB plane, in the band just clear of its back face,
+    # and reach over the top / bottom edge strips only - never over a component
+    D["s_lip_y"] = D["y_pcb1"] + v["pcb_clr"] + v["s_keeper"] / 2
+    D["s_lip_top_z0"] = D["s_roof_z"] - v["cavity_clr"] - v["s_lip_engage"]     # bottom of the top lip
+    D["s_lip_bot_z1"] = v["floor"] + v["s_shelf_h"] + v["s_lip_engage"]          # top of the bottom lip
     D["s_antenna_to_card"] = v["s_module_wall"] + v["pn532_t"] + v["shell_floor"] + v["s_slot_clr"] + v["pcb_clr"]
     # D1 mini: long side along X, against the left wall (USB out through it); the
     # gap to the module's side rib is what the sweep checks
@@ -240,9 +260,16 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     D["s_buzzer_cx"] = 40.0
     D["s_buzzer_cy"] = (D["y_pcb0"] + D["y_back_inner"]) / 2
     D["s_buzzer_top_z"] = v["floor"] + 3.0 + v["buzzer_d"] * 0.8     # ring 3 tall, buzzer ~9.6 tall
-    # front face furniture, all below the slot floor plate
-    D["s_led_cx"], D["s_led_cz"] = -46.0, 6.0
-    D["s_buttons_x0"], D["s_buttons_pitch"], D["s_buttons_cz"] = -34.0, 12.0, 6.0
+    # front face furniture. Through-holes (LED) stay below the slot floor plate;
+    # the cosmetics only add material or dent the 2.4 mm wall by k_dimple, so
+    # they may sit anywhere on the face.
+    D["s_led_cx"], D["s_led_cz"] = -46.0, 8.0        # clear of the front-left screw post (fit check)
+    D["s_buttons_x0"], D["s_buttons_pitch"], D["s_buttons_cz"] = -36.0, v["k_key_w"] + 2.0, 9.0
+    D["k_knob_big_c"] = (-48.0, 30.0)            # volume, top-left
+    D["k_knob_small_c"] = (-30.0, 30.0)          # tuning, next to it
+    D["k_counter_c"], D["k_counter_w"], D["k_counter_h"] = (-8.0, 30.0), 22.0, 8.0   # tape counter window
+    D["k_grille_c"], D["k_grille_w"], D["k_grille_h"] = (44.0, 24.0), 28.0, 30.0    # speaker grille, right
+    D["k_rec_c"] = (12.0, 30.0)                  # "REC" lamp recess
     # screw posts: front-left, front-right, back-right, back-middle (x = 0 sits between
     # the module tails and the back wall, which the D1 mini's depth makes deep enough)
     px = D["s_L"] / 2 - v["wall"] - v["post_d"] / 2 - 0.5

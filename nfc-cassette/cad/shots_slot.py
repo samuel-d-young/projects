@@ -53,8 +53,23 @@ def tape(D, lift=0.0, dz_extra=0.0):
     return [(tr, TRAY), (li, TLID)]
 
 
+KNOB = (0.16, 0.16, 0.17)
+
+
+def knobs(D, out=0.0):
+    """The two glued knobs, stood in their recesses on the front face (rotated so
+    their axis points forward, -Y). `out` pulls them off the face for the explosion."""
+    R = rotation_matrix(np.pi / 2, [1, 0, 0])          # knob +Z -> -Y
+    face = -D["s_W"] / 2
+    items = []
+    for name, (cx, cz) in (("knob_big", D["k_knob_big_c"]), ("knob_small", D["k_knob_small_c"])):
+        items.append((load(name, R, dx=cx, dy=face + D["k_recess"] - out, dz=cz), KNOB))
+    return items
+
+
 def scene(D, explode=0.0):
     items = [(load("slot_lid", dz=-explode), LID), (load("slot_body"), BODY)]
+    items += knobs(D, out=explode * 0.5)
     items += tape(D, lift=explode * 1.6)
     return items
 
@@ -79,8 +94,8 @@ def main():
     fig, axes = plt.subplots(1, 3, figsize=(21, 7.5), dpi=100)
     frame(axes[0], scene(D), azim=-35, elev=22)
     axes[0].set_title(f"in use - {D['s_L']:.0f} x {D['s_W']:.0f} x {D['s_H']:.0f} mm, tape stands {D['s_proud']:.0f} mm out of the top", fontsize=11)
-    frame(axes[1], scene(D), azim=145, elev=-25)
-    axes[1].set_title("from below and behind - lid, USB cutout on the left wall", fontsize=11)
+    frame(axes[1], scene(D), azim=0, elev=8)
+    axes[1].set_title("straight on - knobs, counter window, REC lamp, transport keys, LED, speaker grille", fontsize=11)
     frame(axes[2], scene(D, explode=30.0), azim=-35, elev=22)
     axes[2].set_title("exploded - lid drops away, tape lifts out of the top", fontsize=11)
     fig.suptitle("NFC cassette player, slot version - PN532 upright behind the slot, D1 mini on the lid", fontsize=14, fontweight="bold")
