@@ -3383,6 +3383,14 @@ light:
     icon: mdi:led-off
     pin: ${board_led_pin}
     num_leds: 1
+    # ONE RMT memory block. The ESP32-S3 has four 48-symbol TX blocks and
+    # esp32_rmt_led_strip's default `rmt_symbols` on the S3 is 192 -- all four.
+    # This strip is set up before the ring (config order), so with the default
+    # it took every block, the ring's channel was never created, and every
+    # ring frame failed with "RMT TX timeout / rmt_tx_wait_all_done: invalid
+    # argument" fourteen times a second: both rings frozen the night of the
+    # 2026-09-15 flash. One LED needs 24 symbols; 48 is one block.
+    rmt_symbols: 48
     chipset: WS2812
     rgb_order: GRB
     restore_mode: ALWAYS_OFF
@@ -3396,6 +3404,10 @@ light:
                         # and the cap, with no way to tell which one won.
     pin: ${led_pin}
     num_leds: ${max_leds}       # ceiling; actual count is the ring_size number
+    # TWO blocks of the four (see board_led above for why this is set at all).
+    # 96 symbols is a 4-LED ping-pong buffer; the driver streams 60 LEDs through
+    # it fine. Never let these two add up past 192.
+    rmt_symbols: 96
 
     # `WS2812B` is NOT valid here. The accepted set is exactly WS2811, WS2812,
     # SK6812, APA106, SM16703 — a WS2812B ring uses WS2812. (fastled_clockless
