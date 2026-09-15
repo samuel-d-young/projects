@@ -32,7 +32,7 @@ def load_sams_base(path='base_in.stl'):
     which is what a CAD boolean leaves behind when it fails to merge. It is not
     a feature: it fills the slot the display tab has to pass through. Dropped.
     """
-    m = trimesh.load(path, process=False)
+    m = trimesh.load(csg.part(path), process=False)
     m.merge_vertices(); m.update_faces(m.nondegenerate_faces()); m.remove_unreferenced_vertices()
     parts = [p for p in m.split(only_watertight=False) if abs(p.volume) > 1.0]
     parts.sort(key=lambda p: -abs(p.volume))
@@ -78,9 +78,27 @@ def seat_drop(mm):
 
 def tab_slot_keep():
     """The volume the display tab has to pass through: a straight slot up to
-    just above the tab, then a 45-degree lead-in on the top inner edge."""
+    just above the tab, then a 45-degree lead-in on the top inner edge.
+
+    IT STARTS BELOW Z_DECK, not below Z_BACK. Sam, 2026-09-05: "Make sure there
+    is a hole on the under side of the screen wires, There is currently a bottom
+    on it where it needs to go straight through." There was, and this is where
+    it came from.
+
+    tab_slot_walls() used to build its wedge from Z_BACK up; when it was taken
+    down to Z_DECK so the walls could carry themselves over the widened cable
+    gap, THIS did not follow. The wedge then ran from -2.40 while the slot cut
+    out of it only started at -1.00, and the 1.40 mm left between them was a
+    floor right across the tab opening at the very back of the base -- a
+    perfect, deliberate-looking plate with the screen's ribbon sitting on top
+    of it.
+
+    Two solids, one moved and one not, is how a floor appears in a part nobody
+    drew a floor into. The rule this earns: when a solid's extent moves, every
+    cut that has to reach through it moves with it.
+    """
     hw, R = TAB_SLOT_HW, TAB_WALL_RO + 5.0
-    keep = box_lwh(0.0, R, -hw, hw, Z_BACK - 1.0, TAB_CHAMF_Z)
+    keep = box_lwh(0.0, R, -hw, hw, Z_DECK - 1.0, TAB_CHAMF_Z)
     keep += prism_taper([(0.0, -hw), (R, -hw), (R, hw), (0.0, hw)],
                         TAB_CHAMF_Z, TAB_WALL_TOP + 0.001,
                         1.0, (hw + (TAB_WALL_TOP - TAB_CHAMF_Z)) / hw)
@@ -103,7 +121,13 @@ def tab_slot_walls():
     They sit at |y| >= 15.575 and the S3 board is |y| <= 12.70, so the two never
     meet.
     """
-    solid = wedge(TAB_WALL_RI, TAB_WALL_RO, Z_BACK, TAB_WALL_TOP,
+    # DOWN TO Z_DECK, not Z_BACK. The walls used to start on top of the deck, so
+    # any deck opening wider than the slot undercut them -- and the cable gap
+    # Sam asked for is exactly that. Taking them to the part's own bottom plane
+    # means they carry themselves: the deck can be opened to the full slot width
+    # between them, the walls stand on the build plate rather than on a plate
+    # with a hole in it, and there is no coincident face where the two meet.
+    solid = wedge(TAB_WALL_RI, TAB_WALL_RO, Z_DECK, TAB_WALL_TOP,
                   -TAB_WALL_AHALF, TAB_WALL_AHALF)
     # The volume the tab needs: a straight slot up to just above the tab, then a
     # 45-degree lead-in chamfer on the top inner edge so a slightly rotated tab
@@ -270,7 +294,7 @@ def board_mount(z_floor, RB=None, RI=None):
 
 
 def build_rear_housing(pocket_d, r_body=None, r_inner=None, with_board=True,
-                       vent_ang=None, screw_ang=None, screw_r=None):
+                       vent_ang=None, screw_ang=None, screw_r=None, plate_t=None):
     """Electronics box + battery pocket + wall hanger. Prints rear-plate-down.
 
     v6 moved the S3 in here; v9 halves the depth. pocket_d is the clear depth;
@@ -283,9 +307,10 @@ def build_rear_housing(pocket_d, r_body=None, r_inner=None, with_board=True,
     VA = [50, 75, 100, 260, 285, 310] if vent_ang is None else vent_ang
     SA = SCREW_ANG if screw_ang is None else screw_ang
     SR = SCREW_R if screw_r is None else screw_r
+    PT = PLATE_T if plate_t is None else plate_t
     Z1 = Z_DECK                              # -2.40, mates to the base's deck
-    Z0 = Z1 - (PLATE_T + pocket_d)           # rear face, against the wall
-    Z_POCKET = Z0 + PLATE_T                  # floor of the pocket
+    Z0 = Z1 - (PT + pocket_d)                # rear face, against the wall
+    Z_POCKET = Z0 + PT                       # floor of the pocket
 
     body = cyl(RB, Z0, Z1, SEG)
     body -= cyl(RI, Z_POCKET, Z1 + 1.0, SEG)
@@ -310,7 +335,7 @@ def build_rear_housing(pocket_d, r_body=None, r_inner=None, with_board=True,
         x, y = SR*math.cos(math.radians(a)), SR*math.sin(math.radians(a))
         p = cyl(3.60, Z0, Z1, 40, centre=(x, y))
         h = (cyl(SCREW_CLEAR/2, Z0 - 1.0, Z1 + 1.0, 32, centre=(x, y))
-             + cyl(SCREW_HEAD/2, Z0 - 1.0, Z0 + 3.20, 40, centre=(x, y)))
+             + cyl(SCREW_HEAD/2, Z0 - 1.0, Z0 + min(3.20, PT - 0.60), 40, centre=(x, y)))
         pillars = p if pillars is None else pillars + p
         holes = h if holes is None else holes + h
     body += pillars
@@ -339,6 +364,124 @@ def build_rear_housing(pocket_d, r_body=None, r_inner=None, with_board=True,
             vents = v if vents is None else vents + v
     if vents is not None:
         body -= vents
+    return body
+
+
+def build_rear_housing_s3(B):
+    """The deep rear housing: the ESP32 lives INSIDE the clock.
+
+    Sam, 2026-09-05: "I want the clock to be enclosed... The ESP32 could sit
+    under the clock housing." This is that, and it is the only one of the four
+    options in DESIGN-BRIEF where the screen's wires never leave the clock --
+    so the fault that killed the back-stand cannot recur in a different place.
+
+    It reuses build_rear_housing for the shell, the keyhole, the screw pillars,
+    the vents and the mains gate, with with_board=False: the mount inside that
+    function is sized for BOARD_L/BOARD_W (63.27 x 28.19), and SAM'S BOARD IS
+    64.00 x 30.00. It would not have gone in. Everything below is the new mount.
+
+    LAYOUT, and every part of it is forced by something:
+
+      along y      because the wall-hanger's keyhole is cut through the rear
+                   plate at x 34..46, y +-4.5. A board along x wants its
+                   hold-down at |x| = 36, y = 0 -- straight through the keyhole.
+                   Along y the board is |x| <= 15.3 and the keyhole is clear.
+      USB at -y    pushed out until the board's end is HOUSING_S3_USB_GAP from
+                   the inner wall AT THE RAIL CORNERS. A centred board leaves
+                   19 mm between its connector and the wall and no USB-C plug
+                   bridges that. The wall then takes the insertion load, which
+                   is the only real force this thing ever sees.
+      rails        touching the board's 1.60 mm EDGE only, never a face, so
+                   pads and solder fillets are irrelevant to them.
+      far-end lip  slide the far end under it, drop the USB end in.
+      two ties     recessed into the rear plate exactly as the back-stand's are
+                   -- two slots joined by a relief in the UNDERSIDE, so the
+                   loop never stands proud of the face that goes on the wall.
+
+    Prints rear-plate-down, like the shallow one: every wall here is vertical
+    and the only overhang is the lip's 1.50 mm ledge.
+    """
+    RB, RI = B.r_body, B.r_inner
+    PT = HOUSING_S3_PLATE
+    # THE VENTS HAVE TO GET OUT OF THE USB WINDOW'S WAY. Measured on the first
+    # build: the window is at 270 degrees and a vent sat 10 degrees off it, so
+    # the two merged into one 24 mm hole where a 13 mm one was drawn -- and the
+    # vent stopped being a vent. Manifold, clean, and wrong.
+    #
+    # The exclusion is the sum of the two half-widths plus a margin, not a
+    # guess: the window is HOUSING_S3_USB_W wide at the wall, which is
+    # asin(w/2r) either side of 270, and a vent spans VENT_L/2 either side of
+    # its own angle. Offending vents are MOVED rather than dropped -- a clock
+    # with the bottom half of its ventilation deleted is a worse part than one
+    # with its vents 8 degrees from where they were drawn.
+    r_wall = (RI + RB)/2.0
+    excl = math.degrees(math.asin(min(1.0, HOUSING_S3_USB_W/2.0/r_wall))) + VENT_L/2.0 + 2.0
+    va = []
+    for a in B.vent_ang:
+        d = ((a - 270.0 + 180.0) % 360.0) - 180.0        # signed, -180..180
+        if abs(d) < excl:
+            a = 270.0 + math.copysign(excl, d if d != 0 else 1.0)
+        va.append(a)
+    body = build_rear_housing(HOUSING_S3_POCKET, RB, RI, with_board=False,
+                              vent_ang=va, screw_ang=B.screw_ang,
+                              screw_r=B.screw_r, plate_t=PT)
+    z0 = Z_DECK - (PT + HOUSING_S3_POCKET) + PT      # the pocket floor
+    SW = HOUSING_S3_SLOT_W
+    hw = SW/2.0
+    # Where the board's USB end lands. The pocket is a CYLINDER, so the wall
+    # bites first at the rail corners, not on the centreline: solve for y there.
+    y_wall = -math.sqrt(max(RI*RI - hw*hw, 1.0))
+    y_usb  = y_wall + HOUSING_S3_USB_GAP
+    y_far  = y_usb + BOARD2_L
+    assert y_far + 6.0 < math.sqrt(max(RI*RI - hw*hw, 1.0)), (
+        f'deep housing: the board reaches y {y_far:.1f} and the wall is at '
+        f'{math.sqrt(RI*RI - hw*hw):.1f}; the body is too small for it')
+    lz0 = z0 + HOUSING_S3_POST_H + BOARD_T           # the board's top face
+    rh  = HOUSING_S3_POST_H + BOARD_T + HOUSING_S3_RAIL_OVER
+
+    # ---- the two rails, running the board's whole length ------------------
+    RT = HOUSING_S3_RAIL_T
+    for sx in (-1.0, 1.0):
+        x0, x1 = sorted((sx*hw, sx*(hw + RT)))
+        body += box_lwh(x0, x1, y_usb - 2.0, y_far + RT, z0 - 1.0, z0 + rh)
+    # ---- the far-end wall, and the lip over the board's top ----------------
+    body += box_lwh(-hw - RT, hw + RT, y_far, y_far + RT, z0 - 1.0,
+                    lz0 + HOUSING_S3_LIP_GAP + HOUSING_S3_LIP_T)
+    body += box_lwh(-hw + 2.0, hw - 2.0, y_far - HOUSING_S3_LIP_OVER, y_far,
+                    lz0 + HOUSING_S3_LIP_GAP,
+                    lz0 + HOUSING_S3_LIP_GAP + HOUSING_S3_LIP_T)
+    # ---- nothing may close over the board ---------------------------------
+    # The rails and the lip are added ABOVE; this takes back the air over the
+    # board between them, so the loom has somewhere to be and the board can be
+    # lifted straight out once the ties are cut.
+    body -= box_lwh(-hw, hw, y_usb - 1.0, y_far - HOUSING_S3_LIP_OVER,
+                    z0 + HOUSING_S3_POST_H + 0.50, Z_DECK + 1.0)
+
+    # ---- the USB-C window, through the wall at the board's end ------------
+    # From the pocket floor up, so a plug's overmould has room under it as well
+    # as over it. Cut radially well past the outer wall.
+    uw, uh = HOUSING_S3_USB_W/2.0, HOUSING_S3_USB_H
+    body -= box_lwh(-uw, uw, -RB - 4.0, y_usb + 2.0,
+                    z0 + HOUSING_S3_POST_H - 0.50, z0 + HOUSING_S3_POST_H + uh)
+
+    # ---- the cable ties, recessed into the rear plate ----------------------
+    # Same argument as the back-stand's: a pair of holes through a plate that
+    # goes flat against a wall puts the tie's loop between the two, and the
+    # clock then hangs on a 1 mm ridge of nylon. The relief is what fixes it.
+    tw, tl = HOUSING_S3_TIE_W, HOUSING_S3_TIE_L
+    for ty in HOUSING_S3_TIE_Y:
+        yy = y_usb + BOARD2_L/2.0 + ty
+        for sx in (-1.0, 1.0):
+            body -= box_lwh(sx*HOUSING_S3_TIE_X - tw/2.0, sx*HOUSING_S3_TIE_X + tw/2.0,
+                            yy - tl/2.0, yy + tl/2.0, Z_DECK - 200.0, z0 + 0.50)
+        body -= box_lwh(-HOUSING_S3_TIE_X - tw/2.0, HOUSING_S3_TIE_X + tw/2.0,
+                        yy - tl/2.0 - 0.5, yy + tl/2.0 + 0.5,
+                        z0 - PT - 1.0, z0 - PT + HOUSING_S3_TIE_RELIEF)
+    # and the plenum over it all, which is what makes this design work at all
+    plenum = Z_DECK - lz0
+    assert plenum >= HOUSING_S3_PLENUM_MIN, (
+        f'deep housing: only {plenum:.1f} mm of plenum over the board; the '
+        f'screen tail and the ring leads need {HOUSING_S3_PLENUM_MIN:.1f}')
     return body
 
 
@@ -371,7 +514,7 @@ def build_shelf(bat_w, r_inner=None):
 
 
 def load_sams_diffuser():
-    m = trimesh.load('diffuser_in.stl', process=False)
+    m = trimesh.load(csg.part('diffuser_in.stl'), process=False)
     m.merge_vertices(); m.update_faces(m.nondegenerate_faces()); m.remove_unreferenced_vertices()
     parts = [p for p in m.split(only_watertight=False) if abs(p.volume) > 1.0]
     parts.sort(key=lambda p: -abs(p.volume))
@@ -382,6 +525,67 @@ def load_sams_diffuser():
 
 
 # =============================================================================
+def numeral_box(num_h):
+    """Half-extents of the widest numeral, in the frame the dial places it in.
+
+    THE NUMERALS ARE UPRIGHT. They are not rotated to face outward -- a clock
+    face reads upright, which is what Sam asked for and what the Echo does --
+    and that is exactly why a band computed as num_r +/- num_h/2 is wrong. An
+    upright glyph at 10 o'clock has its CORNER pointing at the middle of the
+    dial, not its edge, and the corner reaches further in than the edge does.
+
+    Returns (hx, hy): hx is the half-extent along the model's x, hy along y.
+    text_prism places these with mirror=True, which swaps the glyph's own axes,
+    so the glyph's HEIGHT lands on x and its WIDTH on y.
+    """
+    from csg import text_polys
+    import numpy as _np
+    w = 0.0
+    for t in NUMERALS.values():
+        pts = _np.concatenate(text_polys(t, num_h, family=NUM_FONT,
+                                         weight=NUM_WEIGHT, fontfile=NUM_FONT_FILE))
+        w = max(w, pts[:, 0].max() - pts[:, 0].min())
+    return num_h / 2.0, w / 2.0
+
+
+def numeral_reach(num_r, num_h):
+    """The true innermost and outermost radius the twelve numerals reach.
+
+    The box is axis-aligned (upright) and centred at radius num_r, so how close
+    it comes to the middle depends on WHERE on the dial it sits. Straight up at
+    12 the inner edge is the closest point; at 10 it is a corner, and that is
+    0.5-1.5 mm further in on a small dial. This measures all twelve.
+    """
+    hx, hy = numeral_box(num_h)
+    lo, hi = 1e9, 0.0
+    for h in range(1, 13):
+        a = math.radians(30.0 * (h % 12))
+        cx, cy = abs(num_r * math.cos(a)), abs(num_r * math.sin(a))
+        dx, dy = max(0.0, cx - hx), max(0.0, cy - hy)
+        lo = min(lo, math.hypot(dx, dy))
+        hi = max(hi, math.hypot(cx + hx, cy + hy))
+    return lo, hi
+
+
+def numeral_r_for_inner(limit, num_h):
+    """The smallest num_r whose innermost numeral corner still clears `limit`.
+
+    Bisected rather than solved: the closest point can be an edge or a corner
+    depending on the angle, so the expression changes form partway and a closed
+    solution would have to case-split on something that is cheaper to search.
+    numeral_reach's inner value rises monotonically with num_r, which is all a
+    bisection needs.
+    """
+    lo, hi = limit, limit + 60.0
+    for _ in range(60):
+        mid = (lo + hi) / 2.0
+        if numeral_reach(mid, num_h)[0] < limit:
+            lo = mid
+        else:
+            hi = mid
+    return hi
+
+
 class Body:
     """One clock size. Everything that differs between the 24- and the 32-LED
     build is here, and every derived number keeps the relationship the 24-LED
@@ -441,30 +645,69 @@ class Body:
         # cutting the walls that stop light leaking between LEDs. The tighter
         # side binds, because the tick stays centred.
         if not guides:
-            cell = 2.0 * min(self.led_r - (self.rib_i_ro + TICK_CELL_MARGIN),
-                             (self.rib_o_ri - TICK_CELL_MARGIN) - self.led_r)
-            # ...and the face's own budget, which is the one that binds on the
-            # 24. Everything inboard of the tick is pushed toward the screen
-            # window as the tick grows, and the numeral is not allowed to reach
-            # it -- see NUM_BORE_CLR in params for the arithmetic and for the
-            # three levers if a longer line matters more.
-            stack = (TICK_MARK_GAP + MARK_MAJ_EXT + MARK_LEN + MARK_MAJ_EXT
-                     + NUM_MARGIN + self.num_h)
-            face = 2.0 * (self.led_r - (DIFF_BORE_RI + NUM_BORE_CLR) - stack)
-            L = min(TICK_L_MAX, cell, face)
-            assert L > 2.0, f'{tag or "24"}: no room for a tick ({L:.2f} mm)'
-            self.tick_bound = ('the cell' if L == cell else
-                               'the screen window' if L == face else 'TICK_L_MAX')
-            self.tick_ri = self.led_r - L / 2
-            self.tick_ro = self.led_r + L / 2
-            # ...and the minute marks fall in behind it. Laid out from the tick
-            # inward so a longer tick pushes them along instead of running over
-            # them. The quarter marks are the outermost thing, so the gap is
-            # measured off those.
+            # ONE aperture length on every flat body: APER_L, the 5050 die.
+            # Sam: "make sure each of the plain diffusers have the same size
+            # LED hole ... they are not even at the moment." They were not,
+            # because each body used to take the longest tick it could carry
+            # and the two are bound by different things. Now the mark is fixed
+            # and the FACE gives way to it, in this order:
+            #
+            #   1. the cell has to physically hold it, leaving
+            #      TICK_CELL_MARGIN of rib standing at each end. This is an
+            #      assert, not a min(): a body too small for a 5 mm mark is a
+            #      body this rule does not fit, and it should say so rather
+            #      than quietly go back to per-body lengths.
+            #   2. it stays CENTRED ON THE LED. Centring it on the cell instead
+            #      buys 0.10 mm of rib on the 32's tight side and costs the one
+            #      thing the mark is for: check4 asserts the tick is centred on
+            #      the emitter, and it is right to -- a 5.00 mm slot over a 5.00
+            #      mm die is only exactly as long as the lit thing if the two
+            #      share a centre. The tenth is not worth it; 0.40 of standing
+            #      rib is enough, and the assert below proves it on both sides
+            #      separately rather than on the span.
+            #   3. the numerals are then solved DOWN from their nominal height
+            #      until they clear it -- see below.
+            half = APER_L / 2.0
+            room_i = self.led_r - half - self.rib_i_ro
+            room_o = self.rib_o_ri - (self.led_r + half)
+            assert min(room_i, room_o) >= TICK_CELL_MARGIN - 1e-9, (
+                f'{tag or "24"}: a {APER_L:.2f} mm mark centred on the LED leaves '
+                f'{room_i:.2f} / {room_o:.2f} mm of rib, and the floor is '
+                f'{TICK_CELL_MARGIN:.2f}')
+            self.tick_ri = self.led_r - half
+            self.tick_ro = self.led_r + half
+            self.tick_bound = 'the 5050 die'
+            # THE NUMERALS GIVE WAY, not the mark. Each is placed as far in as
+            # the screen window allows (numeral_r_for_inner), and if its outer
+            # corner still reaches within NUM_MARGIN of the tick, it is set
+            # smaller and placed again. Bisected on height: both reaches are
+            # monotonic in it. NUM_H_MIN is where a stem stops being two clean
+            # beads, and it is an assert rather than a clamp -- a face that
+            # cannot carry legible numerals under a 5 mm mark is a fact to
+            # report, not to round away.
+            limit = self.tick_ri - NUM_MARGIN
+            def _fits(h):
+                r = numeral_r_for_inner(DIFF_BORE_RI + NUM_BORE_CLR, h)
+                return numeral_reach(r, h)[1] <= limit, r
+            ok, r = _fits(self.num_h)
+            if not ok:
+                lo_h, hi_h = NUM_H_MIN, self.num_h
+                assert _fits(lo_h)[0], (
+                    f'{tag or "24"}: even {NUM_H_MIN:.2f} mm numerals reach the '
+                    f'aperture; the face cannot carry a {APER_L:.2f} mm mark')
+                for _ in range(40):
+                    m = (lo_h + hi_h) / 2.0
+                    if _fits(m)[0]: lo_h = m
+                    else:           hi_h = m
+                self.num_h = round(lo_h, 3)
+                r = _fits(self.num_h)[1]
+            self.num_r = r
+            # the minute marks fall in behind the tick, as before
             self.mark_ro_maj = self.tick_ri - TICK_MARK_GAP
             self.mark_ro     = self.mark_ro_maj - MARK_MAJ_EXT
             self.mark_ri     = self.mark_ro - MARK_LEN
             self.mark_ri_maj = self.mark_ri - MARK_MAJ_EXT
+            self.num_fixed   = True
 
         # --- where the numerals go, on every body, by one rule
         # Their OUTER edge sits NUM_MARGIN inboard of the aperture's inner edge,
@@ -472,7 +715,15 @@ class Body:
         # layout -- and they can never break into a 0.20 mm aperture membrane.
         # Inboard of the MARKS, not of the tick -- the marks are now the
         # innermost thing on the dial and the numerals have to clear them.
-        self.num_r = self.mark_ri_maj - NUM_MARGIN - self.num_h / 2
+        # On a guide body the numerals were never solved above, so place them
+        # the old way and then push them in far enough that no CORNER breaks the
+        # window -- the 60 has 30 mm of slack there, but the rule is the rule.
+        if not getattr(self, 'num_fixed', False):
+            self.num_r = self.mark_ri_maj - NUM_MARGIN - self.num_h / 2
+            self.num_r = max(self.num_r,
+                             numeral_r_for_inner(DIFF_BORE_RI + NUM_BORE_CLR,
+                                                 self.num_h))
+        self.num_reach = numeral_reach(self.num_r, self.num_h)
 
 BODY24 = Body('', 24, RING_OD, RING_ID, R_BODY, R_RING_I, R_RING_O, R_LIP_I,
               DECK_RI, SCREW_R, SCREW_ANG, [50, 75, 100, 260, 285, 310])
@@ -585,6 +836,56 @@ def build_board_clamp():
     return g.translate([-(X0 + X1)/2, 0.0, 0.0])
 
 
+def build_board_fit_gauge():
+    """Does SAM'S board fit? Four channels, 0.40 mm apart, and he tells us which.
+
+    Sam, 2026-09-03: "before going ahead, give me some test prints to make sure
+    it will fit the ESP32. The width of the board is 32mm, and the length is
+    64mm."
+
+    32.00 is 3.81 mm wider than the board every mount in this file was derived
+    from, and the stand-box's tray was built for that narrower one: its rails
+    stand at |x| 13.10 and a 32 mm board is 16.00 to the edge. So the tray as
+    shipped does not take his board, and no amount of arithmetic here settles
+    what does -- a printed slot is not its nominal width, and this printer's
+    number for that is unknown. Hence four slots rather than one guess. It is
+    the same method as the collar gauge, which is the one thing in this project
+    that ended a run of wrong fits.
+
+    Each channel is BOARD2_GAUGE_LEN long -- a SECTION, not the whole 64 -- so
+    the print is minutes, and the board is checked on width, which is the axis
+    that has gone wrong. The number beside each channel is the slot's nominal
+    width in millimetres. The rails are the stand-box's own height, so a board
+    that sits down between them here sits down between them there.
+
+    Read it: drop the board in each, from 32.40 upward. The one it enters
+    without force, and cannot rattle sideways in, is the answer. Tell me that
+    number.
+    """
+    T   = 3.00                      # base plate
+    RH  = STANDBOX_RAIL_H           # rail height, as the tray's
+    RT  = STANDBOX_RAIL_T           # rail thickness, as the tray's
+    LN  = BOARD2_GAUGE_LEN
+    PAD = 8.00                      # bare plate at the labelled end
+    gap = 6.00                      # between channels, for the numbers
+    xs, x = [], 0.0
+    for w in BOARD2_GAUGE_SLOTS:
+        xs.append((x, w))
+        x += w + 2*RT + gap
+    W_total = x - gap
+    g = box_lwh(-4.0, W_total + 4.0, -PAD, LN + 4.0, 0.0, T)
+    for x0, w in xs:
+        # two rails making a slot w wide, open at the top and at both ends --
+        # an open channel, because his board has wires standing off the top of
+        # it and nothing may close over them
+        g += box_lwh(x0, x0 + RT, 0.0, LN, T - 0.01, T + RH)
+        g += box_lwh(x0 + RT + w, x0 + 2*RT + w, 0.0, LN, T - 0.01, T + RH)
+        # the number, debossed in the plate below the channel
+        g -= text_prism(f'{w:.1f}', 5.0, (x0 + RT + w/2, -PAD/2 - 0.5),
+                        T - 0.60, T + 0.10)
+    return g
+
+
 def build_board_gauge():
     """The S3 frame on its own, so the fit can be settled before 69 g of housing.
 
@@ -691,7 +992,7 @@ def build_numerals(B):
 
 
 # =============================================================================
-def build_diffuser(B, bar=False):
+def build_diffuser(B, bar=False, numerals_on=True, flange=False):
     """Sam's diffuser, with everything he has asked for since first test-fitting.
 
     1. PRESS FIT, and this time a real one. v3 grew the wall to a 0.10 mm
@@ -866,262 +1167,35 @@ def build_diffuser(B, bar=False):
         d -= ticks
 
     # --- 4. all twelve hours, written on the face ---------------------------
-    d -= numerals(B, -0.10, NUM_DEPTH)
+    # ...unless this is the plain one. Sam: "a diffuser that doesn't have
+    # numbers on it." Same part in every other respect, so the numerals inlay
+    # simply has nowhere to go and is not emitted for it.
+    if numerals_on:
+        d -= numerals(B, -0.10, NUM_DEPTH)
+
+    # --- 5. the flange, out to the base's lip --------------------------------
+    # The face's front plane carries on outward, over the trough between the
+    # band and the lip, as one disc: an annulus from 1.00 mm inside the band's
+    # outer wall (buried in it) to DIFF_FLANGE_CLR short of the lip, from the
+    # face plane back to DIFF_FLANGE_D -- which is neither FACE_T nor the
+    # FACE_T - 0.05 of the inner fill, so its back lands on no other plane.
+    # Its front IS the face plane, the way every other tube on this face is,
+    # so face down it prints as the same first layer. It fills the front
+    # chamfer 2b cut at the band's edge, and gets its own on the new outer
+    # edge. The membrane over the LEDs is untouched: the flange starts
+    # outboard of the band's outer wall.
+    if flange:
+        ro = B.r_lip_i - DIFF_FLANGE_CLR
+        assert ro - B.diff_outer >= DIFF_FLANGE_MIN, (
+            f'{B.n}-LED: the diffuser already reaches the lip; no flange to add')
+        d += tube(B.diff_outer - 1.00, ro, 0.0, DIFF_FLANGE_D, SEG)
+        d -= (cyl(ro + 2.0, -0.10, DIFF_FLANGE_CHAMF, SEG)
+              - cone(ro - DIFF_FLANGE_CHAMF - 0.10, ro, -0.10, DIFF_FLANGE_CHAMF, SEG))
 
     return d
 
 
 # =============================================================================
-#: The pixels the FIRMWARE actually drives, and nothing else.
-#: Read out of the ring lambda in mini-round-clock-with-display.yaml, by
-#: fraction round the dial rather than by LED index, so it lands correctly on
-#: any ring size. The same map is in enclosure/legend/build_legend.py, which
-#: makes the flat laser-cut version -- if you change one, change both.
-#: Do NOT add a name here for a pixel nothing lights. A legend that names a
-#: light which never comes on is worse than no legend.
-LEGEND_CARDINALS = {0.00: "BIN NIGHT", 0.25: "GARAGE", 0.75: "DRIVEWAY"}
-LEGEND_PRESENCE = ("SAM", "LAURA", "AMANDA", "ZAC")
-
-#: Where to break a name that has to go on two lines and has no space to break
-#: at. Without this the fallback splits down the middle, and DRIVEWAY comes out
-#: as DRIV / EWAY -- which is legible and looks like a mistake.
-LEGEND_SPLITS = {"DRIVEWAY": ("DRIVE", "WAY")}
-
-#: The four things on the ring that MOVE, so they can never be labelled by
-#: position. (fraction round the dial, role, the colour it ships as.)
-#: Placed in the diagonals, which is the space the positional names leave.
-#: Colours are the defaults from the theme table in the ring lambda -- every
-#: hue is adjustable in Home Assistant.
-LEGEND_KEY = [
-    (0.125, "HOUR",   "ORANGE"),
-    (0.375, "MINUTE", "BLUE"),
-    (0.625, "TIMER",  "TEAL"),
-    (0.875, "SECOND", "GREY"),
-]
-
-
-def legend_slots(n):
-    """[(led_index, name)] for the pixels this ring actually lights.
-
-    P() in the firmware rounds with C's lroundf -- half AWAY from zero. Python's
-    round() is banker's and goes to even, which puts 15.5 and 16.5 both on 16
-    and silently loses one of the presence names. Hence the explicit floor.
-    """
-    def lround(x):
-        return int(math.floor(x + 0.5))
-
-    out = {}
-    for frac, name in LEGEND_CARDINALS.items():
-        out[lround(frac * n) % n] = name
-    for w, who in enumerate(LEGEND_PRESENCE):
-        out[lround((0.5 + (w - 1.5) / n) * n) % n] = who
-    return sorted(out.items())
-
-
-def build_legend_diffuser(B, bar=False):
-    """The diffuser with a named brim: the legend, as the part it labels.
-
-    Everything the ordinary diffuser is, plus a flat brim standing proud of the
-    face and reaching LEGEND_BAND past the BODY wall, carrying the name of every
-    ambient pixel the firmware drives.
-
-    WHY IT IS ITS OWN PART AND NOT AN OPTION ON THE OTHER ONE
-    The plain diffuser is fitted, verified and printed. This adds 30 mm to its
-    diameter, which is a different print entirely -- a different plate, a
-    different bed, and on the 60 a size not every printer takes. Making it a
-    separate file means the existing one is bit-for-bit unchanged and nobody
-    prints a 150 mm disc who did not ask for one.
-
-    ORIENTATION. Same as the diffuser it extends: face down on the plate. The
-    brim is then a flat annulus lying ON the plate, which is the cheapest thing
-    an FDM printer can be asked to do -- no support, no bridging, and the
-    debossed text is a top surface rather than an overhang.
-    """
-    d = build_diffuser(B, bar=bar)
-
-    r_i = B.diff_outer                       # where the diffuser stops
-    r_o = B.r_body + LEGEND_BAND             # a fixed overhang past the BODY
-    # The brim grows the other way from everything else -- see LEGEND_BAND's
-    # note in params. z = 0 is the visible face; -LEGEND_T is proud of it.
-    z0 = -LEGEND_T
-
-    # IT HAS TO OVERLAP THE DIFFUSER, NOT MEET IT.
-    # Drawn from r_i to r_o and z0 to 0.0 the brim only touches the diffuser
-    # along the z = 0 plane -- a coincident face, which is a contact and not a
-    # union. finalise() caught it as body_count = 2: a brim floating a
-    # rounding error away from the part it belongs to, which a slicer would
-    # have printed as two loose pieces. So it reaches 1.00 mm inboard of the
-    # diffuser's edge and 0.80 mm up into its face, giving a real solid
-    # intersection. Both numbers are well outboard of the LED apertures, so
-    # nothing that has to glow is touched.
-    z1 = 0.80
-    d += tube(r_i - 1.00, r_o, z0, z1, SEG)
-
-    # One tick per LED on the brim's inner edge, so a name can be traced back
-    # to the pixel it belongs to. Debossed from the proud face.
-    r_t0 = r_i + 0.4
-    r_t1 = r_t0 + LEGEND_TICK_L
-    for i in range(B.n):
-        a = 360.0 / B.n * i
-        rm = (r_t0 + r_t1) / 2.0
-        cx = rm * math.cos(math.radians(a))
-        cy = rm * math.sin(math.radians(a))
-        d -= prism(rot_rect(cx, cy, r_t1 - r_t0, LEGEND_TICK_W, a),
-                   z0 - 0.001, z0 + LEGEND_TICK_D)
-
-    # The names. mirror=True for the same reason the numerals use it: this part
-    # is modelled face-at-z=0 and installed turned over, so text laid out the
-    # ordinary way would read back to front. With mirror on, the glyph's "up"
-    # is +x -- which is 12 o'clock -- and its "right" is +y, which is 3.
-    #
-    # EVERY NAME IS UPRIGHT: angle_deg stays 0, so the glyph's up is always
-    # 12 o'clock and the whole brim reads from across the room. Turning each
-    # name tangentially looks tidier in a render and is worse on a wall --
-    # everything from 4 to 8 o'clock ends up upside down.
-    #
-    # Two consequences have to be handled, and both were found by rendering
-    # this rather than by reasoning about it:
-    #
-    #  1. AT 3 AND 9 O'CLOCK an upright name's WIDTH points radially, so a long
-    #     one runs off the brim. The radius is pulled in per name, from its own
-    #     box -- fit is per-name and per-angle, not a fixed inset.
-    #  2. THE FOUR PRESENCE NAMES sit on adjacent LEDs, 360/n apart. On the 32
-    #     that is 11.25 deg, about 13 mm of arc out here, and "AMANDA" is wider
-    #     than that. So they alternate between two radii, which doubles the
-    #     spacing available to any two neighbours.
-    r_mid = r_i + (r_o - r_i) * LEGEND_TXT_R_F
-    stagger = LEGEND_TXT_H * LEGEND_TXT_STAGGER
-    usable = (r_o - 1.2) - (r_i + 1.2)
-
-    def glyph_w(s):
-        """The name's REAL width. Do not estimate this.
-
-        A characters-times-em guess of 0.62 em per cap is about right for
-        Liberation Sans -- which this machine does not have, so matplotlib
-        falls back to DejaVu Sans at nearly 1.0 em. DRIVEWAY measured 27.1 mm
-        against a 16.9 mm guess and ran off the brim reading "RIVEWAY".
-        """
-        pp = np.concatenate(csg.text_polys(
-            s, LEGEND_TXT_H, family=NUM_FONT, weight=NUM_WEIGHT,
-            fontfile=NUM_FONT_FILE))
-        return float(pp[:, 0].max() - pp[:, 0].min())
-
-    def radial_extent(w, h, a_deg):
-        """How much of the brim's DEPTH an upright block actually eats.
-
-        Every name is upright, so its width always lies along model y and its
-        height along model x. How much of that points radially depends on
-        where it sits: at 3 and 9 o'clock the width is fully radial, at 12 and
-        6 it is fully tangential and costs nothing at all. Wrapping on width
-        alone wrapped AMANDA at 6 o'clock into "AMA/NDA", which had acres of
-        room either side of it.
-        """
-        a = math.radians(a_deg)
-        return abs(w * math.sin(a)) + abs(h * math.cos(a))
-
-    def wrap(s, a_deg):
-        """One line, or two, whichever fits the brim's depth at this angle.
-
-        Wrapping beats widening: a one-line DRIVEWAY at 9 o'clock would need a
-        186 mm brim on a 120 mm clock. Two lines keep it at 160.
-        """
-        if radial_extent(glyph_w(s), LEGEND_TXT_H, a_deg) <= usable:
-            return [s]
-        if " " in s:                       # split at the space nearest middle
-            parts = s.split(" ")
-            best, bi = None, 1
-            for k in range(1, len(parts)):
-                lhs, rhs = " ".join(parts[:k]), " ".join(parts[k:])
-                score = abs(glyph_w(lhs) - glyph_w(rhs))
-                if best is None or score < best:
-                    best, bi = score, k
-            return [" ".join(parts[:bi]), " ".join(parts[bi:])]
-        if s in LEGEND_SPLITS:             # a name worth breaking by hand
-            return list(LEGEND_SPLITS[s])
-        k = len(s) // 2                    # otherwise, down the middle
-        return [s[:k], s[k:]]
-
-    for i, name in legend_slots(B.n):
-        a = 360.0 / B.n * i
-        lines = wrap(name, a)
-        step = LEGEND_TXT_H * 1.35
-        w = max(glyph_w(ln) for ln in lines)
-        h = LEGEND_TXT_H + step * (len(lines) - 1)
-        r = r_mid + (stagger / 2.0 if i % 2 == 0 else -stagger / 2.0)
-        # Pull the block inside the brim. The glyph's up is +x, so in the model
-        # frame its width lies along y and its height along x.
-        for _ in range(6):
-            cx = r * math.cos(math.radians(a))
-            cy = r * math.sin(math.radians(a))
-            corners = [(cx + sx * h / 2.0, cy + sy * w / 2.0)
-                       for sx in (-1, 1) for sy in (-1, 1)]
-            rmax = max(math.hypot(px, py) for px, py in corners)
-            rmin = min(math.hypot(px, py) for px, py in corners)
-            over = rmax - (r_o - 1.2)
-            under = (r_i + 1.2) - rmin
-            if over <= 0 and under <= 0:
-                break
-            r -= over if over > 0 else -under
-        cx = r * math.cos(math.radians(a))
-        cy = r * math.sin(math.radians(a))
-        # Lines stack along the GLYPH'S OWN UP, which with mirror on is model
-        # +x -- always, at every angle. Stacking them along the radial
-        # direction instead put DRIVEWAY's two lines side by side at 9
-        # o'clock, printing "DRIV" straight through "EWAY".
-        for k, ln in enumerate(lines):
-            off = step * ((len(lines) - 1) / 2.0 - k)
-            # front deboss: what you read when nothing is lit
-            d -= text_prism(ln, LEGEND_TXT_H, (cx + off, cy),
-                            z0 - 0.001, z0 + LEGEND_TXT_D,
-                            angle_deg=0.0, mirror=True,
-                            family=NUM_FONT, weight=NUM_WEIGHT,
-                            fontfile=NUM_FONT_FILE)
-            # back relief: takes the letter down to LEGEND_MEMBRANE so it is
-            # the thinnest path through the brim and the light comes out there
-            d -= text_prism(ln, LEGEND_TXT_H, (cx + off, cy),
-                            z0 + LEGEND_TXT_D + LEGEND_MEMBRANE, z1 + 0.001,
-                            angle_deg=0.0, mirror=True,
-                            family=NUM_FONT, weight=NUM_WEIGHT,
-                            fontfile=NUM_FONT_FILE)
-
-    # ---- the key: what the MOVING lights are -------------------------------
-    # The names above answer "what is that dot at 3 o'clock". They cannot
-    # answer "what is the orange one", because the hands MOVE -- there is no
-    # pixel to label. So the four travelling elements get a key instead, in
-    # the empty diagonals between the positional names.
-    #
-    # These are roles and the colour each SHIPS as, read out of the theme
-    # table in the ring lambda: hue 17.9 hour, 216 minute, 0-and-desaturated
-    # second, 173.3 timer. Every hue is adjustable in Home Assistant, so the
-    # colour word is a default and not a promise -- worth knowing before
-    # anyone repaints a clock to match its own legend.
-    #
-    # No tick against them, and their own radius, so they read as a key rather
-    # than as a label pointing at whichever pixel they happen to sit beside.
-    for frac, role, colour in LEGEND_KEY:
-        a = frac * 360.0
-        rk = r_i + (r_o - r_i) * LEGEND_KEY_R_F
-        for k, ln in enumerate((role, colour)):
-            off = LEGEND_KEY_H * 1.30 * (0.5 - k)
-            cxk = rk * math.cos(math.radians(a)) + off
-            cyk = rk * math.sin(math.radians(a))
-            d -= text_prism(ln, LEGEND_KEY_H, (cxk, cyk),
-                            z0 - 0.001, z0 + LEGEND_TXT_D,
-                            angle_deg=0.0, mirror=True,
-                            family=NUM_FONT, weight=NUM_WEIGHT,
-                            fontfile=NUM_FONT_FILE)
-            if k == 0:
-                # the role line glows; the colour word under it does not. It
-                # is a footnote, and four more relieved pockets is enough
-                # holes in a 2.8 mm brim.
-                d -= text_prism(ln, LEGEND_KEY_H, (cxk, cyk),
-                                z0 + LEGEND_TXT_D + LEGEND_MEMBRANE, z1 + 0.001,
-                                angle_deg=0.0, mirror=True,
-                                family=NUM_FONT, weight=NUM_WEIGHT,
-                                fontfile=NUM_FONT_FILE)
-    return d
-
-
 def build_base(B, sam):
     """Sam's base for the 24-LED body; his base with a new outer ring for the 32.
 
@@ -1144,7 +1218,12 @@ def build_base(B, sam):
     shelf = DIFF_SEAT_Z - B.band_top - DIFF_SEAT_CLR
     keep += (tube(34.60, KEEP_R32 - 0.50, 10.40, shelf, SEG) - tab_slot_keep())
 
-    ann = tube(KEEP_R32 - 1.00, B.r_body, Z_BACK, Z_FRONT, SEG)
+    # Z_DECK, not Z_BACK. The big bodies used to sit their annulus on top of a
+    # full-width deck, which meant two stacked floor plates. The annulus now
+    # reaches the bottom plane itself and carries the only floor -- see the
+    # DECK_RO_BIG note in params, and the 69 mm bridge that the first version
+    # of this change produced.
+    ann = tube(KEEP_R32 - 1.00, B.r_body, Z_DECK, Z_FRONT, SEG)
     ann -= tube(B.r_ring_i, B.r_ring_o, B.ring_floor, Z_FRONT + 1.0, SEG)
     # inboard of the pocket the diffuser's face sits on a shelf...
     ann -= tube(KEEP_R32 - 2.0, B.r_ring_i, shelf, Z_FRONT + 1.0, SEG)
@@ -1171,29 +1250,33 @@ def hollow(B):
     # guides rest on. Hollowing straight through would have left the guides
     # bridging between ribs.
     shelf_in = Z_RECESS - B.band_top + FACE_T
-    inner = tube(KEEP_R32 + 1.0, B.r_ring_i - HOLLOW_WALL, HOLLOW_FLOOR,
+    # The floor is HOLLOW_FLOOR thick measured from the part's own bottom plane,
+    # which is Z_DECK now, not Z_BACK. Leaving this as an absolute would have
+    # given a 4.40 mm floor -- the thing this change exists to stop.
+    z_floor = Z_DECK + HOLLOW_FLOOR
+    inner = tube(KEEP_R32 + 1.0, B.r_ring_i - HOLLOW_WALL, z_floor,
                  shelf_in - 2.50, SEG)
-    outer = tube(B.r_ring_o + HOLLOW_WALL, B.r_lip_i - HOLLOW_WALL, HOLLOW_FLOOR,
+    outer = tube(B.r_ring_o + HOLLOW_WALL, B.r_lip_i - HOLLOW_WALL, z_floor,
                  GUIDE_SHELF - 2.50, SEG)
     void = inner + outer
     # one circumferential rib in each cavity, so no ceiling spans more than
     # ~14 mm when the part is printed deck-face-down
     keep = (tube((KEEP_R32 + B.r_ring_i)/2 - HOLLOW_RIB_W/2,
                  (KEEP_R32 + B.r_ring_i)/2 + HOLLOW_RIB_W/2,
-                 HOLLOW_FLOOR - 1.0, Z_FRONT + 1.0, SEG)
+                 z_floor - 1.0, Z_FRONT + 1.0, SEG)
             + tube((B.r_ring_o + B.r_lip_i)/2 - HOLLOW_RIB_W/2,
                    (B.r_ring_o + B.r_lip_i)/2 + HOLLOW_RIB_W/2,
-                   HOLLOW_FLOOR - 1.0, Z_FRONT + 1.0, SEG))
+                   z_floor - 1.0, Z_FRONT + 1.0, SEG))
     for k in range(HOLLOW_RIBS):
         a = 360.0/HOLLOW_RIBS * (k + 0.5)
         rm = (KEEP_R32 + B.r_lip_i) / 2
         r = prism(rot_rect(rm*math.cos(math.radians(a)), rm*math.sin(math.radians(a)),
                            B.r_lip_i - KEEP_R32, HOLLOW_RIB_W, a),
-                  HOLLOW_FLOOR - 1.0, Z_FRONT + 1.0)
+                  z_floor - 1.0, Z_FRONT + 1.0)
         keep = keep + r
     for a in B.screw_ang:
         x, y = B.screw_r*math.cos(math.radians(a)), B.screw_r*math.sin(math.radians(a))
-        keep += cyl(5.50, HOLLOW_FLOOR - 1.0, Z_FRONT + 1.0, 32, centre=(x, y))
+        keep += cyl(5.50, z_floor - 1.0, Z_FRONT + 1.0, 32, centre=(x, y))
     # ...and a vent through each shelf, so no cavity is sealed. A sealed void is
     # a second surface shell -- the topology check counts it as a second body,
     # and a slicer cannot drain it either.
@@ -1220,11 +1303,54 @@ def build_deck_for(B):
     # and left a 16 mm annular bridge to print into thin air. At 30 it follows
     # his bore, and the only openings are the ones he already has -- the tab
     # slot at 12 o'clock and the wire slot at 6.
-    d = tube(B.deck_ri, B.r_body - DECK_INSET, Z_DECK, Z_BACK, SEG)
-    # +/-10, not the full slot width: the tab itself never comes below z=8.60,
-    # so this only has to pass the display's ribbon -- and cutting it wider left
-    # the tab-slot walls standing over a void, which cost 2 mm3 of self-overlap
-    d -= box_lwh(20.0, TAB_WALL_RO + 1.0, -10.0, 10.0, Z_DECK - 1.0, Z_BACK + 1.0)
+    # OUTER RADIUS DEPENDS ON THE BODY. On the 24 the deck is the only thing
+    # closing the back, so it runs the full annulus. On the 32 and 60 the base
+    # is rebuilt outboard of KEEP_R32 and brings its own floor, so out there the
+    # deck was a second plate stacked on the first -- 93 cm^3 of pure double-up
+    # on the 60. See DECK_RO_BIG in params for why that is the cut worth making.
+    ro = (B.r_body - DECK_INSET) if B.n == 24 else DECK_RO_BIG
+    d = tube(B.deck_ri, ro, Z_DECK, Z_BACK, SEG)
+    # THE CABLE GAP. Sam: "the gap at the bottom... doesn't allow for the
+    # cables. Make the gap at the bottom gap wider to fit the cables that come
+    # down under the ESP 32." Was +/-10.00; now +/-20.00.
+    #
+    # The old comment here said cutting it wider left the tab-slot walls
+    # standing over a void. That was true when it was cut across the walls'
+    # whole radial run -- so it is not cut there any more. The walls stand at
+    # r 31.00..43.50, and this opening now stops at TAB_CABLE_RO, short of them,
+    # leaving a continuous land under every part of the wall that touches the
+    # deck. check3's island sweep is what proves it rather than this comment.
+    # ...but NOT as one rectangle, because 40 mm undercuts the tab-slot walls.
+    # They stand at r 31.00..43.50 and |y| >= 15.575, and cutting +/-20 through
+    # that band leaves them standing on nothing over |y| 15.575..20.00. The
+    # assembled part then reads 6 mm^3 of SELF-OVERLAP -- trimesh 104126.04
+    # against manifold3d 104120.01 -- which is the coincident-face signature,
+    # and those walls are the whole reason the display stopped tilting.
+    #
+    # THE ACTUAL PINCH, which is what Sam is feeling: the slot the tab passes
+    # through is 31.15 mm wide, and the hole in the deck under it was 20.00.
+    # The deck was NARROWER than the slot above it, so the ribbon met a step on
+    # its way out. That is the thing to fix, and it is free.
+    #
+    # So the opening is stepped, and it is as wide as it can be at every radius:
+    #   r 30.0..31.0   40.00 mm   (inboard of the walls -- mostly bore anyway)
+    #   r 31.0..44.0   32.35 mm   through the wall band: the full slot width,
+    #                             so nothing is pinched and every wall keeps a
+    #                             continuous land under it
+    #   r 44.0..44.5   40.00 mm   (outboard of the walls)
+    # ONE stepped prism, not three butted boxes. Three boxes meeting on shared
+    # planes at x0 and x1 is exactly the coincident-face case this file keeps
+    # relearning: it built, and then finalise() could not get a clean float32
+    # mesh out of it in six rounds -- watertight=False, one bad edge. Extruding
+    # a single closed outline has no internal faces to disagree about.
+    hw   = DECK_CABLE_W / 2
+    slot = TAB_SLOT_HW + 0.60             # 0.60 clear of the slot the tab uses,
+                                          # which the walls now carry themselves
+    x0, x1 = TAB_WALL_RI - 0.50, TAB_WALL_RO + 0.50
+    outline = [(20.0, hw), (x0, hw), (x0, slot), (x1, slot), (x1, hw),
+               (TAB_CABLE_RO, hw), (TAB_CABLE_RO, -hw), (x1, -hw),
+               (x1, -slot), (x0, -slot), (x0, -hw), (20.0, -hw)]
+    d -= prism(outline, Z_DECK - 1.0, Z_BACK + 1.0)
     # +0.40: cutting the deck at exactly Sam's own slot half-width leaves two
     # coincident planes, and the float32 round trip turns those into a 2 mm3
     # disagreement between two ways of measuring the same solid
@@ -1415,38 +1541,1088 @@ def build_stand(B, depth):
     return s - (box_lwh(-200, 200, -200, 200, -1.0, STAND_FOOT) - keep)
 
 
+def build_backcover(B):
+    """A flat back for a clock whose S3 lives in the stand-box.
+
+    The 25 mm housing carried the board; this carries nothing but the plate
+    the clock hangs from and a shallow pocket for the leads to turn the corner
+    in. Same screw pillars and keyhole as the housing, so the base does not
+    know the difference, and the lead exit is a notch in the rim at 6 o'clock
+    the full depth of the pocket.
+    """
+    RB, RI = B.r_body, B.r_inner
+    PT, PD = BACKCOVER_PLATE, BACKCOVER_POCKET
+    Z1 = Z_DECK
+    Z0 = Z1 - (PT + PD)
+    ZP = Z0 + PT
+    body = cyl(RB, Z0, Z1, SEG) - cyl(RI, ZP, Z1 + 1.0, SEG)
+    # keyhole, one solid
+    kx, kd = HANG_R, KEY_DROP
+    zt = ZP + 1.0
+    key = (cyl(KEY_ENTRY_D/2, Z0 - 1.0, zt, 48, centre=(kx - kd, 0))
+           + box_lwh(kx - kd, kx, -KEY_SLOT_W/2, KEY_SLOT_W/2, Z0 - 1.0, zt)
+           + cyl(KEY_SLOT_W/2, Z0 - 1.0, zt, 32, centre=(kx, 0)))
+    body -= key
+    # screw pillars up to the deck, same places as the housing
+    pillars, holes = None, None
+    for a in B.screw_ang:
+        x, y = B.screw_r*math.cos(math.radians(a)), B.screw_r*math.sin(math.radians(a))
+        p = cyl(3.60, Z0, Z1, 40, centre=(x, y))
+        h = (cyl(SCREW_CLEAR/2, Z0 - 1.0, Z1 + 1.0, 32, centre=(x, y))
+             + cyl(SCREW_HEAD/2, Z0 - 1.0, Z0 + min(3.20, PT - 0.60), 40, centre=(x, y)))
+        pillars = p if pillars is None else pillars + p
+        holes = h if holes is None else holes + h
+    body += pillars
+    body -= holes
+    # the leads leave at 6 o'clock: a notch through the rim, pocket-deep
+    body -= box_lwh(-RB - 2.0, -RI + 2.0, -CABLE_W/2, CABLE_W/2, ZP, Z1 + 1.0)
+    return body
+
+
+def _stand_solid(B, depth, tilt):
+    """build_stand's body, parameterised on the tilt, returned in the DESK
+    frame with its flat foot. Kept separate so the stand-box can reuse it."""
+    t = tilt
+    R = B.r_body + STAND_CLR
+    y_top = -R * math.cos(math.radians(STAND_WRAP))
+    x_out = math.sqrt((R + STAND_WALL)**2 - y_top**2)
+    hw = B.r_body
+    Y_LOW = -160.0
+    h_com = STAND_LIFT + B.r_body*math.cos(math.radians(t))
+    com_back = depth/2 * math.cos(math.radians(t))
+    toe = max(0.0, math.cos(math.radians(t)) *
+              (h_com*math.tan(math.radians(STAND_TOE_TARGET))
+               - h_com*math.tan(math.radians(t)) - com_back))
+    prof = [( x_out, y_top), ( hw, y_top - STAND_FLARE), ( hw, Y_LOW),
+            (-hw, Y_LOW), (-hw, y_top - STAND_FLARE), (-x_out, y_top)]
+    s = prism(prof, -(depth + STAND_STOP_T), toe)
+    s -= cyl(R, -depth - 0.001, toe + 5.0, SEG)
+    s -= cyl(STAND_STOP_RI, -(depth + STAND_STOP_T) - 1.0, -depth, SEG)
+    crown = -(R + STAND_SHELL)
+    arch = [(-STAND_ARCH_HW, Y_LOW), (STAND_ARCH_HW, Y_LOW),
+            (STAND_ARCH_HW, crown - (STAND_ARCH_HW - 10.0)),
+            (10.0, crown), (-10.0, crown),
+            (-STAND_ARCH_HW, crown - (STAND_ARCH_HW - 10.0))]
+    s -= prism(arch, -(depth + STAND_STOP_T) - 1.0, toe + 5.0)
+    notch = box_lwh(-STAND_NOTCH_HW, STAND_NOTCH_HW, Y_LOW - 1.0, -(STAND_STOP_RI - 6.0),
+                    -(depth + STAND_STOP_T) - 1.0, -(depth - STAND_NOTCH_BACK))
+    s -= notch
+    h0 = STAND_LIFT + B.r_body * math.cos(math.radians(t))
+    xf = lambda m: m.rotate([90.0 - t, 0.0, 0.0]).translate([0.0, 0.0, h0])
+    s = xf(s) ^ box_lwh(-200, 200, -200, 200, 0.0, 400.0)
+    sec = s.slice(STAND_FOOT).offset(-STAND_FOOT_OFF, JoinType.Miter, 2.0)
+    keep = Manifold.extrude(sec, STAND_FOOT + 1.0).translate([0.0, 0.0, -1.0])
+    s = s - (box_lwh(-200, 200, -200, 200, -1.0, STAND_FOOT) - keep)
+    return s, xf(notch), h0
+
+
+def _clock_seat(B, depth, tilt, over=0.0):
+    """The clock's own pocket, in the desk frame -- the SAME cylinder that
+    _stand_solid cuts its saddle with, transformed the same way.
+
+    This exists because the stand-box got it wrong. _stand_solid cuts the seat
+    out of the cradle, and the stand-box then unions a plinth into the cradle
+    and FILLS THE SEAT BACK IN: 491 mm3 of it on the 24, 1134 on the 60, a solid
+    slab from z 30 to 34 right across the middle. No check saw it, because every
+    check treated the clock as something the stand held rather than as a part
+    that goes inside another one -- and a part that goes inside another one gets
+    a boolean against it.
+
+    So the seat is cut from the ASSEMBLED stand, once, at the end.
+
+    `over` opens the radius a little. The cradle's own seat is already cut with
+    this cylinder, so cutting the union with the identical one leaves two
+    coincident curved surfaces -- which survive in doubles and collapse when
+    finalise() quantises to float32, and the part comes out non-manifold. Two
+    tenths of a millimetre of daylight costs nothing and the mesh closes.
+    """
+    R = B.r_body + STAND_CLR + over
+    toe = 5.0
+    return (cyl(R, -depth - 0.001, toe + 5.0, SEG)
+            .rotate([90.0 - tilt, 0.0, 0.0])
+            .translate([0.0, 0.0, STAND_LIFT + B.r_body*math.cos(math.radians(tilt))]))
+
+
+def _teardrop(r, z0, z1, seg=24):
+    """A hole for printing sideways: a cylinder along z with a point on its
+    local -y side (which rotate([-90, 0, 0]) turns into +z, up). The point is
+    a pentagon: a box 0.02 wider than the circle's 45-degree chord, from
+    inside the circle down to the chord's height, then two edges to an apex
+    at 2c + 0.05 -- 47 degrees from the horizontal, so every facet of the
+    circle above the chord is inside them. A triangle with its base 0.05
+    INSIDE the circle was tried first: its edges were secants that re-entered
+    the circle, and the 240 and 255 degree facets were left outside them
+    (10.5 mm2 of 22-37 degree faces, check3)."""
+    c = r*math.cos(math.radians(45.0)) + 0.02
+    apex = 2.0*c + 0.05
+    return cyl(r, z0, z1, seg) + prism([(-c, 0.2), (-c, -c), (0.0, -apex), (c, -c), (c, 0.2)], z0, z1)
+
+
+def _rrect(hw, hd, r, seg=8):
+    """A rounded rectangle, centred on the origin, counter-clockwise.
+
+    Rounded corners are the cheapest thing that stops a printed box looking
+    like a printed box, and prism() takes a point list, so this is all it takes.
+    """
+    r = max(0.1, min(r, hw - 0.1, hd - 0.1))
+    pts = []
+    for cx, cy, a0 in ((hw - r, hd - r, 0.0), (-(hw - r), hd - r, 90.0),
+                       (-(hw - r), -(hd - r), 180.0), ((hw - r), -(hd - r), 270.0)):
+        for k in range(seg + 1):
+            a = math.radians(a0 + 90.0*k/seg)
+            pts.append((cx + r*math.cos(a), cy + r*math.sin(a)))
+    return pts
+
+
+def build_standbox(B, depth):
+    """The stand Sam picked, as ONE part with the bottom open.
+
+    Sam, 2026-09-08: "Make the base look much nicer, and the bottom can be fully
+    open, with a spot for ziptie down the ESP32 with the USB cable out he back."
+
+    "The bottom CAN be fully open" is the permission that unlocks everything
+    else. With no floor to protect there is no reason for a lid, a drawer, a
+    cradle or a seam: the base is one shell you turn over, drop the board into
+    and set down. Every join this stand grew in a day -- tray, collar, cap,
+    cradle, four pins, two screws -- is gone.
+
+    The board lies on two shelves, component side UP so its loom stands into the
+    cavity's headroom, and TWO CABLE TIES PASS RIGHT ROUND BOARD AND SHELF.
+
+    Each shelf is cut clean through at each tie, just outboard of the board's
+    edge, and that window is the whole trick: the tie comes over the board, drops
+    through the window, crosses the open bottom and comes back up the other side.
+    The first version of this had no windows -- "with the bottom open a tie can
+    loop under a shelf" -- and check6 measured the shelf as one unbroken run of
+    material from the board's edge to the wall, which is a tie with nowhere to
+    go. A groove across each shelf top joins its two windows so the tie sits
+    flush and cannot walk along the board.
+
+    The board goes in TILTED, from underneath: 30 mm of board cannot pass flat
+    through a 27 mm gap. Rolled about 31 degrees it sweeps 17 mm of height into
+    20.9 mm of headroom, comes up between the shelves, and drops flat onto them.
+
+    USB-C leaves through the back wall, on the board's own axis.
+
+    THE CEILING IS THE CLOCK. Not the plinth's roof: the clock leans INTO the
+    plinth and its rim bottoms out about 5 mm below the plinth's top face, so the
+    cavity's ceiling is the seat solid's own lowest point less STANDBOX_ROOF_MIN.
+    Taking it from H - STANDBOX_ROOF instead is what put 491 mm3 of plinth inside
+    the clock on the 24 and 1134 on the 60.
+
+    The cavity's top corners are chamfered, but only 4 mm wide, so the flat
+    ceiling runs out to |x| = 14. That is deliberate: the tall things on a dev
+    board are at its EDGES -- the headers, and the Dupont housings standing on
+    them -- so a chamfer that buys a narrower bridge takes its height exactly
+    where the loom is. 28 mm of internal bridge is cheaper than 3 mm of missing
+    headroom.
+
+    The wings either side of the cavity are hollowed to the desk as well, ribbed
+    so nothing bridges more than STANDBOX_CEIL_SPAN. Prints on its foot, no
+    support; the whole inside is ceiling, which is what a shell open to the bed
+    is, and check3 says so rather than pretending to measure it.
+    """
+    t = STANDBOX_TILT
+    s, notch, h0 = _stand_solid(B, depth, t)
+    bb = s.bounding_box()
+    tip = math.tan(math.radians(STANDBOX_TIP_TARGET))
+    y_com = (depth/2)*math.sin(math.radians(t))
+    z_com = h0 - (depth/2)*math.cos(math.radians(t))
+    toe = max(0.5, z_com*tip + bb[1] - y_com)
+    y0 = bb[1] - toe
+    y1 = max(y0 + STANDBOX_PLINTH_D + max(0.0, toe - 4.0), y_com + z_com*tip + 0.5)
+    hw = B.r_body + 0.4          # proud of the cradle's own sides, never flush:
+                                 # a box with its side on the cradle's plane
+                                 # unions into coplanar faces that come apart
+    H  = STANDBOX_PLINTH_H
+    yc, hd = (y0 + y1)/2.0, (y1 - y0)/2.0
+
+    # ---- the plinth: rounded corners, a chamfered top, a reveal at the foot -
+    C, RV, RVH = STANDBOX_CHAMF, STANDBOX_REVEAL_D, STANDBOX_REVEAL_H
+    outer = _rrect(hw, hd, STANDBOX_CORNER_R)
+    inner = _rrect(hw - RV, hd - RV, max(1.0, STANDBOX_CORNER_R - RV))
+    plinth  = prism(inner, 0.0, RVH)
+    plinth += prism(outer, RVH, H - C)
+    plinth += prism_taper(outer, H - C, H, (hw - C)/hw, (hd - C)/hd)
+    plinth = plinth.translate([0.0, yc, 0.0])
+
+    # ---- the clock's own seat, and the ceiling it leaves for the board -----
+    # The plinth is a box and the clock leans INTO it: on the 24 its rim reaches
+    # 5 mm below the plinth's top face. So the seat is cut from the assembled
+    # solid, and the cavity's ceiling is not a parameter -- it is whatever the
+    # clock leaves, less a roof. Setting it from H - STANDBOX_ROOF instead put
+    # 491 mm3 of plinth inside the clock on the 24 and 1134 on the 60.
+    seat = _clock_seat(B, depth, t, over=STANDBOX_SEAT_OVER)
+    seat_low = seat.bounding_box()[2]
+    ceil = seat_low - STANDBOX_ROOF_MIN
+    assert ceil > STANDBOX_SHELF_Z + STANDBOX_SHELF_T + 5.0, (
+        f'the clock sits at z {seat_low:.1f}; nothing like room for a board under it')
+
+    # ---- the cavity, open to the desk --------------------------------------
+    chw = STANDBOX_CAV_HW
+    cy0, cy1 = y0 + STANDBOX_WALL, y1 - STANDBOX_WALL
+    cw, chh = STANDBOX_BAY_CHAMF_W, STANDBOX_BAY_CHAMF_H
+    assert 2*(chw - cw) <= STANDBOX_CEIL_SPAN, (
+        f'cavity ceiling would bridge {2*(chw - cw):.1f} mm, '
+        f'over the {STANDBOX_CEIL_SPAN:.0f} allowed')
+    # and the flat has to reach the board's EDGES, because that is where the
+    # headers are and the loom stands on the headers
+    assert chw - cw >= BOARD2_W/2.0 - 1.5, (
+        f'the ceiling starts sloping at |x| {chw - cw:.1f}, inside the loom at '
+        f'{BOARD2_W/2.0 - 1.5:.1f}')
+    sec = [(-chw, -2.0), (chw, -2.0), (chw, ceil - chh),
+           (chw - cw, ceil), (-chw + cw, ceil), (-chw, ceil - chh)]
+    cav = prism(sec, 0.0, cy1 - cy0).rotate([90.0, 0.0, 0.0]).translate([0.0, cy1, 0.0])
+    # The plinth owns everything below H and the cradle everything above it,
+    # with a 3 mm overlap so the union has no coplanar faces to lose in float32.
+    # The seat and the cavity are cut from the PLINTH only: the cradle already
+    # has the seat, and re-cutting it left four bad edges on the 24 that only
+    # appeared after finalise() quantised.
+    plinth = plinth - seat - cav
+    plinth += s ^ box_lwh(-300, 300, -300, 300, H - STANDBOX_LAP, 400.0)
+
+    # ---- the two shelves, and the ties that hold the board to them ---------
+    bz = STANDBOX_SHELF_Z
+    by1 = cy1 - 1.0
+    by0 = by1 - BOARD2_L
+    assert by0 - cy0 >= 0.5, f'board reaches y {by0:.1f}, cavity starts at {cy0:.1f}'
+    for sx in (-1.0, 1.0):
+        x0_, x1_ = sorted((sx*STANDBOX_SHELF_XI, sx*chw))
+        plinth += box_lwh(x0_, x1_, by0 - 1.0, by1 + 1.0, bz, bz + STANDBOX_SHELF_T)
+    ties = (by0 + STANDBOX_TIE_INSET, by1 - STANDBOX_TIE_INSET)
+    for ty in ties:
+        # the seat: shallow, right across, so the tie lies flush on the shelf
+        plinth -= box_lwh(-chw - 1.0, chw + 1.0,
+                          ty - STANDBOX_TIE_GROOVE_W/2.0, ty + STANDBOX_TIE_GROOVE_W/2.0,
+                          bz + STANDBOX_SHELF_T - STANDBOX_TIE_GROOVE_D,
+                          bz + STANDBOX_SHELF_T + 1.0)
+        # and the two windows the tie actually passes through, outboard of the
+        # board's edge and clean through shelf and all
+        for sx in (-1.0, 1.0):
+            x0_, x1_ = sorted((sx*STANDBOX_TIE_WIN_XI, sx*(chw + 1.0)))
+            # +2.5 and not +1.0: the groove's cut stops at +1.0, and two cuts
+            # whose top faces land on the same plane and share an edge is the
+            # coincident-face trap again -- eight bad edges at z = 6.2, all at
+            # x = 19, the moment the shelf moved. Both cuts are into air; the
+            # only rule is that they must not agree about where they stop.
+            plinth -= box_lwh(x0_, x1_,
+                              ty - STANDBOX_TIE_WIN_W/2.0, ty + STANDBOX_TIE_WIN_W/2.0,
+                              bz - 1.0, bz + STANDBOX_SHELF_T + 2.5)
+    # the tie has to get past the board's edge to reach its window, and the
+    # window has to leave some shelf behind: both are geometry, so assert them
+    assert STANDBOX_TIE_WIN_XI >= BOARD2_W/2.0 + 0.30, (
+        f'tie window starts at {STANDBOX_TIE_WIN_XI:.2f}, inside the board edge '
+        f'at {BOARD2_W/2.0:.2f}')
+    assert chw - STANDBOX_TIE_WIN_XI >= 2.00, (
+        f'only {chw - STANDBOX_TIE_WIN_XI:.2f} mm of window to thread a tie through')
+    assert STANDBOX_TIE_WIN_W >= STANDBOX_TIE_GROOVE_W, 'window narrower than the tie'
+    # headroom, stated as what it has to hold: the board, its headers, and the
+    # LOOM standing on them -- which is the whole reason the drawer went
+    need = BOARD_T + STANDBOX_BOARD_H + STANDBOX_WIRE_H
+    assert ceil - (bz + STANDBOX_SHELF_T) >= need, (
+        f'{ceil - (bz + STANDBOX_SHELF_T):.1f} mm over the shelves, needs {need:.1f} '
+        f'(clock bottoms out at z {seat_low:.1f})')
+
+    # ---- the wings, hollowed out to the desk -------------------------------
+    # "The bottom can be fully open" is not only permission for the cavity: the
+    # plinth either side of it was a solid block 26 mm deep and the whole
+    # footprint wide, and on the 60 that is most of a kilo of filament to hold a
+    # 12 g board. With no floor to keep, the wings become cells open to the
+    # desk, ribbed so no stretch of ceiling bridges more than STANDBOX_CEIL_SPAN.
+    #
+    # One consequence, stated rather than hidden: the foot's reveal steps the
+    # OUTSIDE in by STANDBOX_REVEAL_D, so over the bottom STANDBOX_REVEAL_H the
+    # wall is W - REVEAL_D = 1.50 mm rather than 3.00. That is above check3's
+    # 1.20 minimum and it is 2.5 mm of wall in pure compression at the foot of a
+    # desk stand, so it stays -- but it is the thinnest thing in the part and it
+    # is here on purpose, not by accident.
+    W = STANDBOX_WALL
+    wing = prism(_rrect(hw - W, hd - W, max(1.0, STANDBOX_CORNER_R - W)),
+                 0.0, ceil).translate([0.0, yc, 0.0])
+    wing -= box_lwh(-(chw + W), chw + W, y0 - 1.0, y1 + 1.0, -1.0, ceil + 1.0)
+    span = (hw - W) - (chw + W)
+    n = max(1, int(math.ceil(span/STANDBOX_CEIL_SPAN)))
+    for i in range(1, n):
+        rx = (chw + W) + span*i/n
+        for sx in (-1.0, 1.0):
+            wing -= box_lwh(sx*rx - STANDBOX_RIB_T/2.0, sx*rx + STANDBOX_RIB_T/2.0,
+                            y0 - 1.0, y1 + 1.0, -1.0, ceil + 1.0)
+    plinth -= wing
+
+    # ---- USB-C, straight out of the back wall on the board's own axis ------
+    z_usb = bz + STANDBOX_SHELF_T + BOARD_T + BOARD_TALL/2.0
+    plinth -= box_lwh(-USB_WIN_W/2.0, USB_WIN_W/2.0, cy1 - 1.0, y1 + 2.0,
+                      z_usb - USB_WIN_H/2.0, z_usb + USB_WIN_H/2.0)
+
+    # ---- and the leads' way down from the clock ----------------------------
+    # the same notch solid the seat was cut with. Clipped at the BOTTOM only, so it is a hole through the roof and not a
+    # trench across the plinth. Not at the top: the plinth fills the cradle's
+    # notch through the lap band, so the cut has to run right up past it, and
+    # stopping it at H put the new cut's top edge exactly on the cradle's own
+    # notch faces -- three bad edges on the 60, and only after float32.
+    stand = plinth - (notch ^ box_lwh(-200, 200, -200, 200, ceil - 1.0, 400.0))
+    return stand ^ box_lwh(-300, 300, -300, 300, 0.0, 400.0)
+
+
+def _wall_yz(prof, x0, x1):
+    """A plate of constant thickness in x, whose SIDE PROFILE is prof, a list of
+    (y, z) in the desk frame. prism extrudes a cross-section along z, and
+    rotate([0, 90, 0]) maps local (X, Y, Z) to world (Z, Y, -X) -- verified,
+    not assumed -- so the profile goes in as (-z, y) and the extrusion axis
+    comes out as x. Winding is fixed inside prism()."""
+    return prism([(-z, y) for (y, z) in prof], x0, x1).rotate([0.0, 90.0, 0.0])
+
+
+def _tie_pad(cx, cy, length, gap, z0, z1, axis='x',
+             w=None, relief=None, relief_w=None):
+    """The solid to SUBTRACT for one cable-tie point: two parallel slots and the
+    shallow relief in the underside that joins them.
+
+    A tie threaded down one slot, along the relief and back up the other wraps
+    the strip of plate between them. The relief is what makes it usable on a
+    stand that sits on a desk: without it the loop runs across the bottom face
+    and the whole thing rocks on a 1 mm ridge of nylon.
+
+    axis is the slots' LONG direction. The tie's loop lies perpendicular to it,
+    so point the slots the same way as whatever is being tied down: the leads
+    run front to back through the gate, so those slots run in y; the USB lead
+    leaves the board's end running in x, so that one's run in x.
+
+    z0 is the plate's underside -- the relief is cut from there, not from the
+    part's own bottom, so this works on a bay floor as well as on the foot.
+    """
+    w  = BACKSTAND_TIE_W      if w      is None else w
+    rd = BACKSTAND_TIE_RELIEF if relief is None else relief
+    rw = (length + 1.0)       if relief_w is None else relief_w
+    g = None
+    for sgn in (-1.0, 1.0):
+        o = sgn*gap/2.0
+        if axis == 'x':
+            b = box_lwh(cx - length/2.0, cx + length/2.0,
+                        cy + o - w/2.0, cy + o + w/2.0, z0 - 1.0, z1)
+        else:
+            b = box_lwh(cx + o - w/2.0, cx + o + w/2.0,
+                        cy - length/2.0, cy + length/2.0, z0 - 1.0, z1)
+        g = b if g is None else g + b
+    if axis == 'x':
+        g += box_lwh(cx - rw/2.0, cx + rw/2.0,
+                     cy - gap/2.0 - w/2.0, cy + gap/2.0 + w/2.0, z0 - 1.0, z0 + rd)
+    else:
+        g += box_lwh(cx - gap/2.0 - w/2.0, cx + gap/2.0 + w/2.0,
+                     cy - rw/2.0, cy + rw/2.0, z0 - 1.0, z0 + rd)
+    return g
+
+
+def build_backstand_clamp():
+    """The bar that screws the board down, running down its length.
+
+    Sam, 2026-09-05: "Add a way for the board to be held down on the bases. I
+    think length ways, Maybe a small seperate print that gets screwed in down
+    the length of the board."
+
+    A BRIDGE, not a flat bar, and that is the whole design. The board is a dev
+    board with 3.20 mm of USB shell and WROOM module standing off its face, so a
+    bar lying across it would rest on the components and clamp nothing. This one
+    stands over them on two feet and comes down only on the bare PCB at each
+    end. Both screws land BEYOND the board, so no part of it crosses a header
+    row at any height and headers can be fitted either way up or left off.
+
+    Two planes on the feet, 0.10 mm apart:
+      seat  over the bosses, at the board's top face minus the nip
+      pad   over the PCB, level with the board's top face
+    so tightening the screws lands the bar on the board, not on its own bosses.
+
+    PRINTS FLAT WITH THE FEET UP. The first layer is the plate's own face, the
+    feet extrude upward and the screw holes are vertical: no overhang, no
+    bridge, nothing to support. It is flipped when it goes on.
+    """
+    FT   = BACKSTAND_FOOT_T
+    lz0  = FT + BACKSTAND_POST_H + BOARD_T          # the board's top face
+    seat = lz0 - BACKSTAND_CLAMP_NIP
+    top  = lz0 + BOARD_TALL + BACKSTAND_CLAMP_LIFT  # the plate's underside
+    W    = BACKSTAND_CLAMP_W / 2.0
+    # THE PLATE HAS TO FIT BETWEEN THE BUTTRESSES, and it did not. At
+    # CLAMP_SX + BOSS_R + 1.50 it is 81.5 mm wide against a bay that is 81.0,
+    # so it fouled both buttresses by 0.25 mm -- and by 0.75 in the plinth,
+    # where the collar puts back the half-millimetre the bay cut had taken. It
+    # went unseen because check7 tested the bar against the BOARD and the
+    # bosses and never against the stand itself; check9 does the boolean and
+    # check7 does it now too.
+    #
+    # A millimetre inside the buttress face, and the plate still covers the
+    # screw head with room: the clearance hole reaches x 37.65 and this is 39.0.
+    _XI  = max(BACKSTAND_WALL_XI, BACKSTAND_WALL_XI*(BODY32.r_body/BODY32.r_body))
+    X    = min(BACKSTAND_CLAMP_SX + BACKSTAND_BOSS_R + 1.50, _XI - 1.00)
+    y0   = BACKSTAND_BAY_Y0 + BACKSTAND_SLOT_W/2.0  # centred across the slot
+
+    g = box_lwh(-X, X, -W, W, top, top + BACKSTAND_CLAMP_T)
+    for sx in (-1.0, 1.0):
+        x1 = sx*X
+        x0 = sx*(BACKSTAND_BOARD_L/2.0 - BACKSTAND_CLAMP_PAD)   # inner end, on the PCB
+        xm = sx*(BACKSTAND_BOARD_L/2.0)                          # the board's end
+        lo, hi = sorted((x0, xm))
+        g += box_lwh(lo, hi, -W, W, lz0, top)                    # pad, on the board
+        lo, hi = sorted((xm, x1))
+        g += box_lwh(lo, hi, -W, W, seat, top)                   # seat, on the boss
+        g -= cyl(SCREW_CLEAR/2.0, seat - 1.0, top + BACKSTAND_CLAMP_T + 1.0, 32,
+                 centre=(sx*BACKSTAND_CLAMP_SX, 0.0))
+    # Which way up, debossed into the plate's top -- the face that prints first.
+    g -= text_prism('THIS SIDE DOWN', 3.20, (0.0, 0.0),
+                    top + BACKSTAND_CLAMP_T - 0.50, top + BACKSTAND_CLAMP_T + 0.10,
+                    family=NUM_FONT, weight=NUM_WEIGHT, fontfile=NUM_FONT_FILE)
+    # FLIPPED FOR PRINTING, and check3 is why. Built the right way up it exports
+    # feet-down, which puts the plate up in the air as a 64 mm flat roof
+    # spanning between them -- a bridge, and a first layer of only the two small
+    # feet. Rotated 180 about x the plate's own face is the first layer, the
+    # feet extrude upward, and the screw holes stay vertical: no overhang, no
+    # bridge, nothing to support. It is turned over when it goes on, which is
+    # what the debossed THIS SIDE DOWN is for.
+    #
+    # check7 undoes exactly this to compare it with the board -- if you change
+    # the transform, change it there too.
+    g = g.rotate([180.0, 0.0, 0.0])
+    return g.translate([0.0, y0, top + BACKSTAND_CLAMP_T])
+
+
+def build_backstand(B, deep=False, closed=False):
+    """The stand that is not a box. Sam, 2026-09-04: "give make a better base
+    that isn't as bulky... The base needs to be open to fit the cables, and the
+    base can go behind the clock housing with an angle."
+
+    The clock comes down onto the desk and beds BACKSTAND_SIT into a trench in
+    the foot. The trench is not modelled: the whole clock is subtracted from the
+    blank as one cylinder, so the trench walls ARE the clock's own front and
+    back faces at BACKSTAND_CLR, and the part cannot foul the clock anywhere.
+
+    Two buttresses behind it take the lean. Between them is nothing at all --
+    that is the cable route and the board bay, an open channel with no lid, no
+    tray and no screws. Every overhang is 45 degrees or steeper and the part
+    prints flat on its foot with no support.
+    """
+    th  = math.radians(BACKSTAND_TILT)
+    ct, st_, tt = math.cos(th), math.sin(th), math.tan(th)
+    R   = B.r_body
+    # THE CLOCK'S BACK FACE, and it moved. With the deep housing the ESP32 is
+    # inside the clock and the back face is at Z_DECK - PLATE - POCKET, not at
+    # the back cover. Everything in this function is derived from Zb -- the
+    # trench, the buttresses' front edge, the foot's front lip -- so the whole
+    # stand follows from this one line. Build it with the old Zb against a deep
+    # clock and the buttresses stand THROUGH the housing.
+    Zb  = (Z_DECK - (HOUSING_S3_PLATE + HOUSING_S3_POCKET) if deep
+           else Z_DECK - (BACKCOVER_PLATE + BACKCOVER_POCKET))
+    Zf  = Z_FRONT                                          # and its front face
+    C   = BACKSTAND_CLR
+    FT  = BACKSTAND_FOOT_T
+
+    # Put the clock's lowest point at (y = 0, z = BACKSTAND_SIT). Rotating the
+    # clock frame by 90 - tilt about x sends its +z axis to (0, -cos, +sin) --
+    # forwards and up -- so the lowest point of the disc is the BACK face's
+    # bottom rim, which is what a thing leaning backwards rests on.
+    z0 = BACKSTAND_SIT + R*ct - Zb*st_
+    y0 = R*st_ + Zb*ct
+    xf = lambda m: m.rotate([90.0 - BACKSTAND_TILT, 0.0, 0.0]).translate([0.0, y0, z0])
+    clock = xf(cyl(R + C, Zb - C, Zf + C, SEG))
+
+    # Where the clock's two faces sit, as a function of height. Both are planes:
+    # eliminating the in-plane coordinate from the rotation gives
+    #   y = y0 + tan(tilt)*(z - z0) - q/cos(tilt)
+    # with q the face's own z in the clock frame.
+    back  = lambda z: y0 + tt*(z - z0) - Zb/ct
+    front = lambda z: y0 + tt*(z - z0) - Zf/ct
+    # The same two planes, moved out by the clearance ALONG THE CLOCK'S AXIS --
+    # C/cos(tilt) in y, not C. Anything built to these is outside the clock at
+    # every height, so the clock subtraction never touches it and there is no
+    # feather where the rim crosses it. Only the FOOT is shaped by the clock
+    # itself, because the trench has to follow the rim: that is the seat.
+    backc  = lambda z: back(z) + C/ct
+    frontc = lambda z: front(z) - C/ct
+
+    # THE FOOTPRINT SCALES WITH THE CLOCK, the board bay does not. The numbers
+    # in params are the 32's, so k is 1 there and nothing moves. On the 60 the
+    # clock is 240 mm across and 290 g heavier: check7 measured an 86 mm foot
+    # tipping backwards at 17.5 degrees under it, which is how this got written.
+    # The floors keep the 24 -- which is SMALLER than the 32 -- from pulling the
+    # buttresses in over a board that does not shrink with it.
+    k   = B.r_body / BODY32.r_body
+    XI  = max(BACKSTAND_WALL_XI, BACKSTAND_WALL_XI*k)
+    XO  = XI + (BACKSTAND_WALL_XO - BACKSTAND_WALL_XI)*max(1.0, k)
+    SH  = BACKSTAND_SPINE_H*k
+    KH  = BACKSTAND_KERB_H*max(1.0, k)
+    BY1_ = BACKSTAND_BAY_Y0 + BACKSTAND_SLOT_W
+    Y0 = front(FT) - BACKSTAND_LIP          # the foot's front edge
+    Y1 = max(BY1_ + BACKSTAND_RAIL_T + 2.0, BACKSTAND_BACK*k)   # and its back
+    HW = max(XO + 2.5, BACKSTAND_HW*k)
+
+    # ---- the foot ----------------------------------------------------------
+    fillet = BACKSTAND_FILLET
+    foot_pts = [(-HW, Y0), (HW, Y0), (HW, Y1 - fillet)]
+    for i in range(1, 8):
+        a = math.radians(90.0*i/8.0)
+        foot_pts.append((HW - fillet + fillet*math.cos(a), Y1 - fillet + fillet*math.sin(a)))
+    foot_pts.append((-HW + fillet, Y1))
+    for i in range(1, 8):
+        a = math.radians(90.0 + 90.0*i/8.0)
+        foot_pts.append((-HW + fillet + fillet*math.cos(a), Y1 - fillet + fillet*math.sin(a)))
+    s = prism(foot_pts, 0.0, FT)
+
+    # ---- the front lip, which is the trench's front wall --------------------
+    # It runs up past where the clock's front face crosses it; subtracting the
+    # clock leaves its inner face parallel to that face, at the clearance.
+    # FROM z = 0, not from the foot's top and not buried a millimetre into it.
+    # Both were tried and both are the same mistake in different clothes. The
+    # kerb shares the foot's FRONT face at Y0 and both its side faces at HW, so
+    # it has to share the bottom one too and be a straight extension of the
+    # prism there -- otherwise the boolean leaves a T-junction along the front
+    # bottom edge, and the float32 round trip turns that into five non-manifold
+    # edges on every body. (Meeting exactly at z = FT was worse still: on the 60
+    # the kerb exported as a second body floating above the plate.)
+    # ...and INSET half a millimetre on the front, so it shares no vertical face
+    # or edge with the foot. Sharing the front face exactly left two edges with
+    # four faces on them, which float32 cannot represent.
+    #
+    # NARROWER THAN THE FOOT, and that is not cosmetic. The clock is a leaning
+    # DISC: at the kerb's top its rim has curved in to a half width of
+    # sqrt(R^2 - p^2), and a kerb wider than that has its top plane grazed
+    # tangentially by the rim, which feathers out to nothing. check3 measured
+    # 0.09 mm of it. So the kerb stops well inside the rim and the clock's front
+    # face cuts it cleanly right across.
+    KW = min(HW - 0.5, 20.0*max(1.0, k))
+    s += _wall_yz([(Y0 + 0.5, 0.0), (frontc(0.0), 0.0),
+                   (frontc(KH), KH), (Y0 + 0.5, KH)], -KW, KW)
+
+    # ---- the two buttresses ------------------------------------------------
+    # Front edge: the clock's back face, so the disc beds against the whole
+    # height of it. Back edge: a straight rake from the foot's back corner to
+    # SPINE_T behind the clock at the top -- 33 degrees off vertical, so the
+    # overhang is 57 degrees from horizontal and needs no support.
+    prof = [(backc(FT - 1.0), FT - 1.0),
+            (backc(SH), SH),
+            (backc(SH) + BACKSTAND_SPINE_T*max(1.0, k), SH),
+            # Y1 - FILLET, not Y1: the foot's back corners are radiused, so a
+            # buttress that runs all the way to the back edge overhangs the
+            # fillet at its outer corner. On the 24 that left a 1.12 mm sliver
+            # and check3 found it.
+            (Y1 - BACKSTAND_FILLET, FT - 1.0)]
+    for sgn in (-1.0, 1.0):
+        xi, xo = sorted((sgn*XI, sgn*XO))
+        s += _wall_yz(prof, xi, xo)
+
+    # ---- the board bay: two rails, and a lip on the back one ---------------
+    SW  = BACKSTAND_SLOT_W
+    BY0 = BACKSTAND_BAY_Y0
+    BY1 = BY0 + SW
+    RT = BACKSTAND_RAIL_T
+    # DERIVED, not the old flat 6.00. The front rail's job is to locate the
+    # PCB's edge and clear its top face by a fraction; with the board 4 mm lower
+    # than it used to be, a 6 mm rail is a wall beside a 1.6 mm board.
+    RH = BACKSTAND_POST_H + BOARD_T + BACKSTAND_RAIL_OVER
+    BL = BACKSTAND_BOARD_L
+    # The rails run all the way out to the buttresses and TIE THEM TOGETHER.
+    # Two 2.50 mm ribs across the foot cost nothing and stop the pair splaying
+    # under a 290 g clock leaning on them; the board only needs to reach 32.
+    # THE FRONT RAIL TIES THE BUTTRESSES TOGETHER, the back one does not. At
+    # y 7.5..10 the front rail is deep inside the buttress at every height, so
+    # it welds into it cleanly; the back rail at y 40.6..43.1 runs past the
+    # buttress's raked back edge and leaves 0.1 mm slivers where it pokes out.
+    # One tie is enough -- it is a rib across the foot, and the foot is what
+    # actually stops the pair splaying.
+    rx_f = XO - 0.50         # buried in the wall, not flush with its face:
+                             # a coincident face here cost the 60 six rounds
+                             # of float32 cleanup and then failed outright
+    rx_b = BL/2.0 + 1.50     # clear of the buttress altogether
+    rx   = max(rx_f, rx_b)   # for the cuts and the probes below
+    lz0 = FT + BACKSTAND_POST_H + BOARD_T   # the board's top face
+    rh_back = (lz0 + BACKSTAND_LIP_GAP + BACKSTAND_LIP_T) - FT
+    s += box_lwh(-rx_f, rx_f, BY0 - RT, BY0, FT - 1.0, FT + RH)        # low,
+    s += box_lwh(-rx_b, rx_b, BY1, BY1 + RT, FT - 1.0, FT + rh_back)   # carries
+    # NO POSTS UNDER THE PCB. There were four 6 mm pads lifting it
+    # BACKSTAND_POST_H off the floor so header tails had somewhere to be; Sam,
+    # 2026-09-05: "remove the 4 small cylinders on the ESP32 mount area." So the
+    # board lies flat on the bay floor and POST_H is 0.
+    #
+    # It is still a parameter and everything below is still derived from it --
+    # the rail height, the lip, the cut over the board. Put a number back in it
+    # and the whole bay lifts by that much, correctly. What it will NOT do on
+    # its own is give the tails somewhere to go: for that the posts have to come
+    # back, or the rails need an inward ledge at POST_H.
+    # The back rail's lip: slide the board's back edge under it, then drop the
+    # front edge in over the low front rail. Nothing screws down and nothing
+    # closes over the board. The lip's underside is a flat ceiling 1.50 mm wide
+    # -- a LEDGE, not a bridge, and check3 allows 2.50.
+    lo = BACKSTAND_LIP_OVER
+    s += box_lwh(-18.0, 18.0, BY1 - lo, BY1,
+                 lz0 + BACKSTAND_LIP_GAP, FT + rh_back)
+
+    # ---- and now take everything away --------------------------------------
+    s -= clock
+    # the board slot itself, and the air over it: the leads come off the top of
+    # a dev board, so nothing may close over it
+    # NOT rx. The rails run THROUGH the buttresses; this cut must stop at their
+    # inner face or it takes the top off both of them -- which is exactly what
+    # it did the first time rx was widened, and check3 is what found it.
+    cx = XI + 0.50
+    # FT + 0.50, not FT + POST_H. With the posts gone POST_H is 0 and this cut
+    # would land exactly on the foot's top face -- the coincident-plane case
+    # that cost this part two rebuilds already. Half a millimetre up is still
+    # under the board and cannot be coincident with anything.
+    #
+    # The second cut, which used to clear the space under the lip, is gone:
+    # between the foot's top and the lip there is nothing to remove, and a
+    # boolean that removes nothing is only a chance to go wrong.
+    s -= box_lwh(-cx, cx, BY0, BY1 - lo, FT + 0.50, FT + 200.0)
+    # the window through each buttress, a pentagon with a 45 degree gable
+    wy0, wy1 = BACKSTAND_WIN_Y0, BACKSTAND_WIN_Y1
+    wh, wa = FT + BACKSTAND_WIN_H, FT + BACKSTAND_WIN_APEX
+    win = [(wy0, FT - 1.0), (wy1, FT - 1.0), (wy1, wh),
+           ((wy0 + wy1)/2.0, wa), (wy0, wh)]
+    # The buttress's back edge RAKES FORWARD, so the wall behind the window is
+    # thinnest at the window's tallest back point, not at its base. At y1 = 36
+    # that left 0.98 mm and check3 found it on two bodies.
+    rake = lambda z: (Y1 - BACKSTAND_FILLET) + (backc(SH) + BACKSTAND_SPINE_T*max(1.0, k)
+                                                - (Y1 - BACKSTAND_FILLET)) * (z - (FT - 1.0)) / (SH - (FT - 1.0))
+    for wy, wz in ((wy1, FT - 1.0), (wy1, wh), ((wy0 + wy1)/2.0, wa)):
+        assert rake(wz) - wy >= 1.5, (
+            f'back-stand: {rake(wz) - wy:.2f} mm of buttress behind the window at '
+            f'y={wy:.1f}, z={wz:.1f}; move BACKSTAND_WIN_Y1 forward')
+    # ONE PER BUTTRESS. Cut across the full width and it goes through the board
+    # bay's rails and the retaining lip as well, which is exactly what the first
+    # version did.
+    for sgn in (-1.0, 1.0):
+        xi, xo = sorted((sgn*(XI - 1.0), sgn*(XO + 1.0)))
+        s -= _wall_yz(win, xi, xo)
+    # The cable gate: a channel out of the foot's top from inside the trench to
+    # inside the bay, and it takes the middle out of the front rail on the way
+    # so the leads reach the board without climbing anything. The rail's two
+    # outer sections still hold the board's front edge and still tie the
+    # buttresses together.
+    #
+    # It starts BEHIND the clock and ends INSIDE the bay on purpose. Ending it
+    # on a face that already exists -- the foot's top, the rail's top, the bay's
+    # front -- is what a boolean cannot do reliably: the first version stopped
+    # 0.001 mm above the foot and that sliver collapsed in the float32 round
+    # trip, taking the 24's manifold with it. Overlap what you cut into.
+    s -= box_lwh(-BACKSTAND_CABLE_HW, BACKSTAND_CABLE_HW,
+                 back(FT) - 2.0, BY0 + 2.0,
+                 FT - BACKSTAND_CABLE_D, FT + RH + 1.0)
+    # THE HOLD-DOWN BOSSES, AFTER THE CUTS AND NOT BEFORE. One at each end of
+    # the board, clear of it in x, sitting on the bay floor. Their tops are
+    # BACKSTAND_CLAMP_NIP below the board's top face, which is what makes the
+    # bar clamp the BOARD rather than bottoming out on them.
+    #
+    # They go on last because the cut that clears the air over the board runs
+    # from y BY0 to BY1 across the whole bay, and the bosses stand inside it:
+    # added earlier, everything above z = FT + 0.50 was taken straight off them
+    # and the screws had 1 mm of plastic to bite into. check7 found it by
+    # probing for material under each screw, which is the only reason I looked.
+    seat = lz0 - BACKSTAND_CLAMP_NIP
+    for sx in (-1.0, 1.0):
+        s += cyl(BACKSTAND_BOSS_R, FT - 1.0, seat, 32,
+                 centre=(sx*BACKSTAND_CLAMP_SX, BY0 + SW/2.0))
+        # BLIND, stopping 1 mm above the foot's underside. Drilled through it
+        # exits the bottom of the plate: a screw a size too long then stands
+        # proud and scratches whatever the stand is sitting on, and the first
+        # layer gets two holes in it for nothing. 5.5 mm of engagement is more
+        # than an M2 self-tapper needs.
+        s -= cyl(BACKSTAND_SCREW_PILOT/2.0, 1.0, seat + 1.0, 24,
+                 centre=(sx*BACKSTAND_CLAMP_SX, BY0 + SW/2.0))
+    # ---- ZIP-TIE POINTS ----------------------------------------------------
+    # NOT ON THE PLINTH. Sam, 2026-09-05: "Make the base enclosed underneath."
+    # These six slots are the only holes in the foot -- everything else down
+    # there is a blind pocket -- so skipping them makes the underside solid.
+    #
+    # They earn their place on the OPEN stand, where they are the only thing
+    # holding the board and the leads. In the plinth the box is closed and the
+    # screw-down bar does the holding, so they would be six holes into a sealed
+    # bay for no gain.
+
+    # Sam, 2026-09-05: "Add some holes for zip ties to go through to hold cables
+    # and the ESP32." Three pairs, and every one of them has its loop recessed
+    # into the underside so the stand still sits flat -- see _tie_pad.
+    #
+    # These go on AFTER the bosses and last of all, for the same reason the
+    # bosses go on after the bay cut: a cut that has to reach the underside
+    # cannot be added before something else removes the material it lands in.
+    #
+    # (a) THE BOARD. One tie at each end, crossing the board's width. The loop
+    # wraps the board and the foot between the two slots, so tightening pulls
+    # the board down onto the bay floor. Both rails are notched RIGHT THROUGH
+    # at this x first: a 2.00 slot through a 2.50 rail leaves a 0.50 mm sliver
+    # standing beside the tie, and slivers are what the float32 export round
+    # trip turns into non-manifold edges.
+    #
+    # This is an ALTERNATIVE to the screw-down bar, not a companion. The bar's
+    # plate lies right across where this tie has to go. Use one or the other.
+    if not closed:
+        tbx, tbl = BACKSTAND_TIE_BOARD_X, BACKSTAND_TIE_BOARD_L
+        tf, tb = BACKSTAND_TIE_BOARD_F, BACKSTAND_TIE_BOARD_B
+        for sx in (-1.0, 1.0):
+            cx0 = sx*tbx
+            # the two rail notches, from half a millimetre INSIDE the foot so they
+            # share no plane with its top face
+            s -= box_lwh(cx0 - tbl/2.0, cx0 + tbl/2.0, BY0 - RT - 0.5, BY0 + 0.2,
+                         FT - 0.5, FT + 20.0)
+            s -= box_lwh(cx0 - tbl/2.0, cx0 + tbl/2.0, BY1 - 0.2, BY1 + RT + 0.5,
+                         FT - 0.5, FT + 20.0)
+            s -= _tie_pad(cx0, (tf + tb)/2.0, tbl, tb - tf, 0.0, FT + 0.5, axis='x',
+                          relief_w=tbl + 1.0)
+        # (b) THE LEADS, in the strip of open foot behind the clock and outboard of
+        # the cable gate. They run front to back through the gate, so the slots do
+        # too and the loop crosses them. The front slot reaches y 3.20 and the
+        # clock's back face crosses the foot's top at y 1.01 -- 2.19 mm of margin,
+        # asserted below because it is the one number here that moves with the tilt.
+        tly = BACKSTAND_TIE_LEAD_Y - BACKSTAND_TIE_LEAD_L/2.0
+        assert tly - back(FT) >= 1.5, (
+            f'lead tie: only {tly - back(FT):.2f} mm between the slot and the trench')
+        for sx in (-1.0, 1.0):
+            s -= _tie_pad(sx*BACKSTAND_TIE_LEAD_X, BACKSTAND_TIE_LEAD_Y,
+                          BACKSTAND_TIE_LEAD_L, BACKSTAND_TIE_LEAD_G,
+                          0.0, FT + RH + 1.0, axis='y', relief_w=BACKSTAND_TIE_LEAD_L + 1.0)
+        # (c) THE USB LEAD, on the bare floor between the board's end and the
+        # buttress. It leaves the board running outward in x, so these slots run in
+        # x. Behind the hold-down boss, which ends at y 28.55, and in front of the
+        # back rail.
+        tex = BACKSTAND_TIE_END_X
+        assert tex + BACKSTAND_TIE_END_L/2.0 <= XI - 1.0, (
+            f'end tie: {XI - (tex + BACKSTAND_TIE_END_L/2.0):.2f} mm to the buttress')
+        assert BACKSTAND_TIE_END_Y - BACKSTAND_TIE_END_G/2.0 - BACKSTAND_TIE_W/2.0 - 0.5 \
+            >= BY0 + SW/2.0 + BACKSTAND_BOSS_R, 'end tie: the boss is in the way'
+        for sx in (-1.0, 1.0):
+            s -= _tie_pad(sx*tex, BACKSTAND_TIE_END_Y,
+                          BACKSTAND_TIE_END_L, BACKSTAND_TIE_END_G,
+                          0.0, FT + 1.0, axis='x', relief_w=BACKSTAND_TIE_END_L + 1.0)
+    # ---- THE PLINTH'S COLLAR AND LID SEAT --------------------------------
+    # Sam, 2026-09-05: "I like having the electronics in the base under the
+    # clock." This is that, and it is a small change because THE BAY IS ALREADY
+    # WALLED ON ALL FOUR SIDES -- front rail, back rail, two buttresses. What it
+    # has never had is a lid.
+    #
+    # The buttresses rake forward as they rise, so above about z = 9 they stop
+    # reaching the back rail: at the lid height they span y to 32.7 on the 24
+    # and the bay needs 43.1. The collar is what carries all four walls up to
+    # one flat plane, and it is drawn as a solid block with the bay hollowed out
+    # of it rather than as four walls butted together -- four boxes meeting on
+    # shared planes is the coincident-face case this file keeps relearning.
+    if closed:
+        lid_z = FT + PLINTH_LID_Z
+        # HOLLOW FROM BELOW THE FLOOR, not from FT + 0.50. The first version
+        # took the void from half a millimetre above the foot's top and so left
+        # a 1.50 mm slab of new material lying across the whole bay -- it buried
+        # the hold-down bosses and lifted the board. The collar is a RING OF
+        # WALLS and nothing else; the floor is the foot's, already there.
+        col = box_lwh(-XO, XO, BY0 - RT - 2.0, BY1 + RT + 2.0,
+                      FT - 1.0, lid_z + PLINTH_LID_T)
+        # XI + 0.50, matching the bay cut above. At XI the collar puts back the
+        # half millimetre that cut had taken out, so the plinth's bay came out
+        # narrower than the open stand's -- two parts that are meant to hold the
+        # same board disagreeing by half a millimetre.
+        col -= box_lwh(-(XI + 0.50), XI + 0.50, BY0, BY1,
+                       FT - 2.0, lid_z + PLINTH_LID_T + 1.0)
+        # the windows go through the collar too -- they are the USB's way out
+        # and the bay's ventilation, and a sealed box round a dev board is not
+        # a thing anyone wants
+        for sgn in (-1.0, 1.0):
+            xi, xo = sorted((sgn*(XI - 1.0), sgn*(XO + 1.0)))
+            col -= _wall_yz(win, xi, xo)
+        s += col
+        # ---- what the lid sits on -----------------------------------------
+        # Two ledges hanging off the side walls, and the back wall's own top.
+        for sx in (-1.0, 1.0):
+            x0, x1 = sorted((sx*(XI - 3.0), sx*XI))
+            s += box_lwh(x0, x1, BY0, BY1, lid_z - PLINTH_LID_T, lid_z)
+        # ---- and how it is held --------------------------------------------
+        # TWO SCREWS, AT THE BACK ONLY. Not four: at the front the side walls
+        # are buttress all the way to z = 48, so a vertical pilot there comes
+        # out inside solid material -- the first version drilled two blind holes
+        # that no screwdriver could ever reach, and they exported as sealed
+        # voids, which is how they were found. The front edge slides into a slot
+        # in the front wall instead, which costs nothing and holds better.
+        for sx in (-1.0, 1.0):
+            s -= cyl(PLINTH_SCREW_PILOT/2.0, lid_z - 9.0, lid_z + PLINTH_LID_T + 1.0,
+                     24, centre=(sx*PLINTH_BOSS_X, BY1 + RT + 2.0 - PLINTH_BOSS_INSET))
+        s -= box_lwh(-PLINTH_TONGUE_HW, PLINTH_TONGUE_HW,
+                     BY0 - PLINTH_TONGUE_L, BY0 + 0.10,
+                     lid_z - 0.20, lid_z + PLINTH_LID_T + 0.30)
+        # AND THE BACK WALL HAS TO COME DOWN TO THE LID'S OWN HEIGHT. The
+        # collar is drawn to lid_z + LID_T so the FRONT wall can roof the
+        # tongue's slot; left at that height all the way round, the back wall
+        # stands exactly where the lid's back edge goes -- 768 mm3 of
+        # interference, which is the whole back of the lid. The front is a
+        # slot, the back is a seat, and they cannot be the same height.
+        s -= box_lwh(-XI, XI, BY1, BY1 + RT + 3.0,
+                     lid_z, lid_z + PLINTH_LID_T + 1.0)
+    # and anything that ended up under the desk
+    s -= box_lwh(-500, 500, -500, 500, -500.0, 0.0)
+    return s
+
+
+def build_plinth_lid(B, deep=False):
+    """The lid that closes the bay. Four M2 x 8 self-tappers into the collar's
+    side walls, and it comes off without disturbing the clock.
+
+    It sits ON the collar rather than in a rebate. A rebate would have to take
+    2 mm off the inside of every wall, and the front and back walls are only
+    2.50 thick -- it would leave 0.50 mm of lip holding a lid that people will
+    lever off with a fingernail.
+
+    Prints flat, face down, no support: it is a plate with four holes in it.
+    Exported lying on the bed at z = 0.
+    """
+    th  = math.radians(BACKSTAND_TILT)
+    k   = B.r_body / BODY32.r_body
+    XI  = max(BACKSTAND_WALL_XI, BACKSTAND_WALL_XI*k)
+    XO  = XI + (BACKSTAND_WALL_XO - BACKSTAND_WALL_XI)*max(1.0, k)
+    BY0 = BACKSTAND_BAY_Y0
+    BY1 = BY0 + BACKSTAND_SLOT_W
+    RT  = BACKSTAND_RAIL_T
+    C   = PLINTH_LID_CLR
+    # It spans the BAY, not the collar. The collar's side-wall tops are buried
+    # under buttress at the front, so a lid as wide as the collar could not be
+    # put on at all.
+    g = box_lwh(-XI + C, XI - C, BY0 - PLINTH_TONGUE_L + C,
+                BY1 + RT + 2.0 - C, 0.0, PLINTH_LID_T)
+    # the tongue is the FRONT of the plate itself -- it slides into the slot in
+    # the front wall, so the front needs no screws and no ledge
+    # BY0 + C, not BY0 - C. The collar's front wall is solid all the way to
+    # y = BY0, so a plate that goes full width from BY0 - C leaves a 0.30 mm
+    # strip of itself standing inside that wall -- 7 mm3 a side, which is small
+    # and is still a lid that will not go on.
+    g -= box_lwh(-XI - 1.0, -PLINTH_TONGUE_HW + C, BY0 - PLINTH_TONGUE_L - 1.0,
+                 BY0 + C, -1.0, PLINTH_LID_T + 1.0)
+    g -= box_lwh(PLINTH_TONGUE_HW - C, XI + 1.0, BY0 - PLINTH_TONGUE_L - 1.0,
+                 BY0 + C, -1.0, PLINTH_LID_T + 1.0)
+    for sx in (-1.0, 1.0):
+        cxy = (sx*PLINTH_BOSS_X, BY1 + RT + 2.0 - PLINTH_BOSS_INSET)
+        g -= cyl(SCREW_CLEAR/2.0, -1.0, PLINTH_LID_T + 1.0, 24, centre=cxy)
+        # countersunk, so nothing stands proud of a lid that faces the desk
+        g -= cyl(SCREW_HEAD/2.0, PLINTH_LID_T - 1.60, PLINTH_LID_T + 1.0, 32,
+                 centre=cxy)
+    return g
+
+
+# =============================================================================
+# THE DOCK — a clean sheet. Sam: "I hate the stand. Start again."
+# =============================================================================
+def _dock_frame(B):
+    """Everything both dock parts need to agree about, worked out once.
+
+    Returns the clock's placing transform and the box's own extents. Both parts
+    are built from THIS and never from each other's numbers -- the plinth's bay
+    ended up half a millimetre narrower than the stand's because two places
+    computed the same edge differently."""
+    th = math.radians(DOCK_TILT)
+    ct, st_, tt = math.cos(th), math.sin(th), math.tan(th)
+    R  = B.r_body
+    Zb = Z_DECK - (BACKCOVER_PLATE + BACKCOVER_POCKET)
+    Zf = Z_FRONT
+    sit = DOCK_H - DOCK_BED
+    z0 = sit + R*ct - Zb*st_
+    y0 = R*st_ + Zb*ct
+    xf = lambda m: m.rotate([90.0 - DOCK_TILT, 0.0, 0.0]).translate([0.0, y0, z0])
+    front = lambda z: y0 + tt*(z - z0) - Zf/ct
+    back  = lambda z: y0 + tt*(z - z0) - Zb/ct
+    hw = max(46.0, R - 8.0)                    # narrower than the clock, always
+    # THE FOOTPRINT SCALES WITH THE CLOCK, and the 60 is why. At the 32's tail
+    # the 240 mm body -- 1.1 kg of it, with its centre of mass 125 mm up --
+    # tipped backwards at 12.9 degrees. The floor at 1.0 leaves the 24 and the
+    # 32 exactly where they were, because both already clear 29 degrees.
+    k = max(1.0, R / BODY32.r_body)
+    y_f = front(DOCK_H) - DOCK_LIP*k
+    y_b = back(DOCK_H) + DOCK_TAIL*k
+    return dict(xf=xf, front=front, back=back, hw=hw, y_f=y_f, y_b=y_b,
+                Zb=Zb, Zf=Zf, ct=ct)
+
+
+def _dock_screws(F):
+    """The two back screws: through the tray's rim, into the cap's own slab."""
+    z = DOCK_CAP_Z + DOCK_RIM/2.0
+    return [(sx*DOCK_SCREW_X, z) for sx in (-1.0, 1.0)]
+
+
+def build_dock(B):
+    """The tray: floor, four walls, the board's bay, and a rim the cap sits in.
+
+    Prints open-side-up. There is not one overhang in it -- every wall is
+    vertical, the floor is flat, and the only ceiling is the cap, which is a
+    separate part for exactly that reason.
+    """
+    F = _dock_frame(B)
+    hw, y_f, y_b = F['hw'], F['y_f'], F['y_b']
+    W = DOCK_WALL
+    # walls stand DOCK_RIM proud of the cap's underside, so the cap drops into
+    # a rebate rather than balancing on the wall tops
+    g = box_lwh(-hw, hw, y_f, y_b, 0.0, DOCK_CAP_Z + DOCK_RIM)
+    g -= box_lwh(-hw + W, hw - W, y_f + W, y_b - W, DOCK_FLOOR, DOCK_CAP_Z + DOCK_RIM + 1.0)
+
+    # ---- the board, centred, long axis across ------------------------------
+    # Centred on purpose: the hold-down bar that already exists is drawn for a
+    # centred board with its bosses at |x| = BACKSTAND_CLAMP_SX, and reusing a
+    # part Sam has already printed beats a new one that does the same job.
+    by = DOCK_BOARD_Y
+    sw = BACKSTAND_SLOT_W
+    for sy in (-1.0, 1.0):
+        y = by + sy*(sw/2.0 + DOCK_RAIL_T/2.0)
+        g += box_lwh(-BOARD2_L/2.0 - 4.0, BOARD2_L/2.0 + 4.0,
+                     y - DOCK_RAIL_T/2.0, y + DOCK_RAIL_T/2.0,
+                     DOCK_FLOOR - 0.5, DOCK_FLOOR + BOARD_T + 0.40)
+    seat = DOCK_FLOOR + BOARD_T - BACKSTAND_CLAMP_NIP
+    for sx in (-1.0, 1.0):
+        g += cyl(BACKSTAND_BOSS_R, DOCK_FLOOR - 0.5, seat, 32,
+                 centre=(sx*BACKSTAND_CLAMP_SX, by))
+        # BLIND. A pilot through the floor is a hole in the underside, which is
+        # the whole thing Sam asked to be rid of.
+        g -= cyl(BACKSTAND_SCREW_PILOT/2.0, DOCK_FLOOR + 0.80, seat + 1.0, 24,
+                 centre=(sx*BACKSTAND_CLAMP_SX, by))
+
+    # ---- the USB tunnel, out of the left wall ------------------------------
+    # It IS a tunnel: the board's end is at |x| = 32 and the wall is further
+    # out, so a plug has to reach. Sized for an OVERMOULD rather than for the
+    # connector, which is the mistake the rear housing's own mount made.
+    g -= box_lwh(-hw - 4.0, -BOARD2_L/2.0 + 2.0,
+                 by - DOCK_USB_W/2.0, by + DOCK_USB_W/2.0,
+                 DOCK_FLOOR + 0.60, DOCK_FLOOR + 0.60 + DOCK_USB_H)
+
+    # ---- the two back screws ----------------------------------------------
+    for (px, pz) in _dock_screws(F):
+        g -= box_lwh(px - SCREW_CLEAR/2.0, px + SCREW_CLEAR/2.0,
+                     y_b - W - 1.0, y_b + 1.0, pz - SCREW_CLEAR/2.0, pz + SCREW_CLEAR/2.0)
+        # a counterbore so the head sits inside the rim rather than proud of it
+        g -= box_lwh(px - SCREW_HEAD/2.0, px + SCREW_HEAD/2.0,
+                     y_b - 1.60, y_b + 1.0, pz - SCREW_HEAD/2.0, pz + SCREW_HEAD/2.0)
+    return g
+
+
+def build_dock_cap(B):
+    """The cap: a plain slab with the clock's own seat cut out of its top.
+
+    The seat is the CLOCK, subtracted -- so its walls are the clock's own faces
+    at the clearance and it cannot foul the clock anywhere. That is the one
+    thing about the old trench that was right, and it is kept.
+
+    Prints SEAT UP, flat side on the bed. The seat is a valley open to the sky:
+    no ceiling, no bridge, no support, and nothing hanging off the underside --
+    which is why the locating rim is on the TRAY and not here.
+    """
+    F = _dock_frame(B)
+    hw, y_f, y_b = F['hw'], F['y_f'], F['y_b']
+    W, C = DOCK_WALL, DOCK_FIT
+    g = box_lwh(-hw + W + C, hw - W - C, y_f + W + C, y_b - W - C,
+                DOCK_CAP_Z, DOCK_H)
+    # the seat
+    g -= F['xf'](cyl(B.r_body + DOCK_CLR, F['Zb'] - DOCK_CLR, F['Zf'] + DOCK_CLR, SEG))
+    # the wire drop, the full length of the seat
+    g -= box_lwh(-DOCK_DROP_HW, DOCK_DROP_HW,
+                 F['front'](DOCK_H) + 2.0, F['back'](DOCK_H) - 2.0,
+                 DOCK_CAP_Z - 1.0, DOCK_H + 1.0)
+    # the two back screws thread into the slab itself -- 20 mm of it, so there
+    # is no need for a boss and nothing to hang off the printed face
+    for (px, pz) in _dock_screws(F):
+        g -= box_lwh(px - DOCK_PILOT/2.0, px + DOCK_PILOT/2.0,
+                     y_b - W - C - 12.0, y_b + 1.0,
+                     pz - DOCK_PILOT/2.0, pz + DOCK_PILOT/2.0)
+    return g
+
+
+def make_body(n, ring_od, ring_id, tag=None):
+    """A clock of another size: give it the LED count and the ring's outer and
+    inner diameter, measured, and every other radius follows the rules the 32
+    was derived by. Sam: "Add more options to change the size of the clock."
+    No preset for a ring nobody has measured -- the numbers come from the
+    part in your hand.
+    """
+    r_ring_i = ring_id/2 - 0.50
+    r_ring_o = ring_od/2 + 0.50
+    r_body   = r_ring_o + 3.50
+    r_lip_i  = r_body - 2.00
+    screw_r  = r_ring_i - 3.50
+    assert r_ring_i > DIFF_BORE_RI + 6.0, (
+        f'a {ring_id} mm ring does not clear the {2*DIFF_BORE_RI:.1f} mm screen window')
+    return Body(tag if tag is not None else f'-{n}', n, ring_od, ring_id, r_body,
+                r_ring_i, r_ring_o, r_lip_i, DECK_RI, screw_r,
+                [60, 120, 240, 300], [80, 105, 255, 280])
+
+
+def parts_for(B, sam, full=True):
+    """Everything one body needs. full=False skips the bar variants."""
+    tg = B.tag
+    cover_depth = Z_FRONT - (Z_DECK - (BACKCOVER_PLATE + BACKCOVER_POCKET))
+    standbox = build_standbox(B, cover_depth)
+    parts = [
+        (assemble_base(B, sam),          f'mini-round-clock-base{tg}',      True),
+        (build_rear_housing(
+             POCKET_DEEP if B.n == 24 else HOUSING_DEEP_BIG - PLATE_T_BIG,
+             B.r_body, B.r_inner,
+             vent_ang=B.vent_ang, screw_ang=B.screw_ang, screw_r=B.screw_r,
+             plate_t=None if B.n == 24 else PLATE_T_BIG),
+                                         f'mini-round-clock-housing{tg}',   True),
+        (build_rear_housing_s3(B),       f'mini-round-clock-housing{tg}-deep', True),
+        (build_backcover(B),             f'mini-round-clock-backcover{tg}', True),
+        (build_diffuser(B),              f'mini-round-clock-diffuser{tg}',  True),
+        (build_diffuser(B, numerals_on=False),
+                                         f'mini-round-clock-diffuser{tg}-plain', True),
+        (build_stand(B, Z_FRONT - (Z_DECK - HOUSING_DEEP)),
+                                         f'mini-round-clock-deskstand{tg}', True),
+        (standbox,                       f'mini-round-clock-standbox{tg}',  True),
+        (build_backstand(B),             f'mini-round-clock-backstand{tg}', True),
+        (build_backstand(B, deep=True),  f'mini-round-clock-backstand{tg}-deep', True),
+        (build_backstand(B, closed=True), f'mini-round-clock-plinth{tg}',      True),
+        (build_dock(B),                  f'mini-round-clock-dock{tg}',         True),
+        (build_dock_cap(B),              f'mini-round-clock-dock{tg}-cap',     True),
+        (build_plinth_lid(B),            f'mini-round-clock-plinth{tg}-lid',   True),
+        (build_backstand_clamp(),        f'mini-round-clock-backstand-clamp', True),
+        (build_numerals(B),              f'mini-round-clock-numerals{tg}',  False),
+    ]
+    # the flange only where there is a trough to fill: the 60's diffuser
+    # already runs out to its lip
+    if (B.r_lip_i - DIFF_FLANGE_CLR) - B.diff_outer >= DIFF_FLANGE_MIN:
+        parts += [
+            (build_diffuser(B, flange=True), f'mini-round-clock-diffuser{tg}-flange', True),
+            (build_diffuser(B, numerals_on=False, flange=True),
+                                             f'mini-round-clock-diffuser{tg}-flange-plain', True),
+        ]
+    else:
+        print(f'  diffuser{tg}-flange SKIPPED: the diffuser reaches r {B.diff_outer:.2f} and '
+              f'the lip is at {B.r_lip_i:.2f}; there is no trough to fill')
+    if full and B.n != 24 and B.n in (32, 60):
+        parts += [
+            (assemble_base(B, sam, bar=True),
+             f'mini-round-clock-base{tg}-bar', True),
+            (build_diffuser(B, bar=True),
+             f'mini-round-clock-diffuser{tg}-bar', True),
+            (build_diffuser(B, bar=True, numerals_on=False),
+             f'mini-round-clock-diffuser{tg}-bar-plain', True),
+        ]
+    return parts
+
+
 # =============================================================================
 if __name__ == '__main__':
+    import argparse
+    ap = argparse.ArgumentParser(description='mini-round-clock parts')
+    ap.add_argument('--custom', nargs=3, type=float, metavar=('N', 'RING_OD', 'RING_ID'),
+                    help='build one body of another size: LED count, ring outer '
+                         'and inner diameter in mm, measured off the ring')
+    ap.add_argument('--tag', default=None, help='file suffix for a custom body, e.g. -45')
+    ap.add_argument('--only', default=None, help='build only this body tag ("", -32, -60)')
+    args = ap.parse_args()
     print(summary())
     print('building...')
     sam = load_sams_base()
     parts = []
-    for B in (BODY24, BODY32, BODY60):
-        tg = B.tag
-        parts += [
-            (assemble_base(B, sam),          f'mini-round-clock-base{tg}',      True),
-            (build_rear_housing(POCKET_DEEP, B.r_body, B.r_inner,
-                                vent_ang=B.vent_ang, screw_ang=B.screw_ang,
-                                screw_r=B.screw_r),
-                                             f'mini-round-clock-housing{tg}',   True),
-            (build_diffuser(B),              f'mini-round-clock-diffuser{tg}',  True),
-            (build_stand(B, Z_FRONT - (Z_DECK - HOUSING_DEEP)),
-                                             f'mini-round-clock-deskstand{tg}', True),
-            (build_numerals(B),              f'mini-round-clock-numerals{tg}',  False),
-        ]
-        # -bar: the same base with the rectangular relief for the 1.9" ST7789.
-        # Only the 32 and 60 get one. On the 108 mm body the module's corners
-        # reach r 34.22 against a ring pocket that starts at 35.11, which would
-        # leave 0.89 mm of wall -- see BUILD-LOG. Everything else about a bar
-        # clock is the round parts: same housing, same diffuser, same numerals,
-        # same stand.
-        if B.n != 24:
-            parts += [
-                (assemble_base(B, sam, bar=True),
-                 f'mini-round-clock-base{tg}-bar', True),
-                (build_diffuser(B, bar=True),
-                 f'mini-round-clock-diffuser{tg}-bar', True),
-            ]
+    if args.custom:
+        n, od, idm = int(args.custom[0]), args.custom[1], args.custom[2]
+        B = make_body(n, od, idm, args.tag)
+        print(f'  custom body: {n} LEDs, ring {od} / {idm}, body {2*B.r_body:.2f} mm, '
+              f'tag "{B.tag}"')
+        parts += parts_for(B, sam, full=False)
+    else:
+        for B in (BODY24, BODY32, BODY60):
+            if args.only is not None and B.tag != args.only:
+                continue
+            # -bar: the same base with the rectangular relief for the 1.9"
+            # ST7789. Only the 32 and 60 get one. On the 108 mm body the
+            # module's corners reach r 34.22 against a ring pocket that starts
+            # at 35.11, which would leave 0.89 mm of wall -- see BUILD-LOG.
+            parts += parts_for(B, sam)
     # The battery shelves only mean anything if a battery fits, and at
     # HOUSING_DEEP = 25.00 one does not. Emitting the part anyway would put a
     # file in the folder that cannot be used, so it is skipped and said out loud.
@@ -1456,20 +2632,14 @@ if __name__ == '__main__':
         print(f'  battery shelves SKIPPED: a {BAT_T:.2f} mm cell needs a '
               f'{BATTERY_MIN_HOUSING:.2f} mm housing and this one is '
               f'{HOUSING_DEEP:.2f}. No internal battery in this build.')
-    # The legend brim, one per body. Additive: the plain diffusers above are
-    # untouched, so a build that does not want a 150 mm disc simply does not
-    # print these.
-    for _B in (BODY24, BODY32, BODY60):
-        _tg = _B.tag
-        parts.append((build_legend_diffuser(_B),
-                      f'mini-round-clock-diffuser{_tg}-legend', True))
-
-    parts.append((build_light_guides(BODY60), 'mini-round-clock-light-guides-60', True))
-    parts.append((build_collar_gauges(), 'mini-round-clock-collar-gauges', False))
-    parts.append((build_board_clamp(), 'mini-round-clock-board-clamp', True))
-    parts.append((build_board_gauge(), 'mini-round-clock-board-gauge', True))
+    if not args.custom and args.only in (None, '-60'):
+        parts.append((build_light_guides(BODY60), 'mini-round-clock-light-guides-60', True))
+    if not args.custom and args.only is None:
+        parts.append((build_collar_gauges(), 'mini-round-clock-collar-gauges', False))
+        parts.append((build_board_clamp(), 'mini-round-clock-board-clamp', True))
+        parts.append((build_board_gauge(), 'mini-round-clock-board-gauge', True))
     for man, fn, strict in parts:
         t = csg.finalise(man, fn, strict=strict)
-        t.export(fn + '.stl')
-        t.export(fn + '.3mf')
+        t.export(csg.part_out(fn + '.stl'))
+        t.export(csg.part_out(fn + '.3mf'))
     print('done')

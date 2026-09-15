@@ -1,3 +1,6 @@
 # Never commit real credentials. secrets.yaml lives on the HA box, in
 # /config/esphome/secrets.yaml, and is referenced from the configs via !secret.
 secrets.yaml
+
+# esphome build cache, written by `esphome config`/`run`
+.esphome/

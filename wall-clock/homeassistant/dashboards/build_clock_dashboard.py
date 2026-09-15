@@ -37,25 +37,100 @@ import json, io, sys
 # label : what you see in the picker. Free text; rename freely, it is only a
 #         label. Changing `slug` means renaming the device in ESPHome and
 #         reflashing, because it is the entity id.
+# tier : which firmware is on it, because they do not expose the same entities.
+#        "full"  = mini-round-clock-with-display.yaml -- 17 switches, 13 selects,
+#                  23 numbers. Gets every card.
+#        "basic" = mini-round-clock.yaml / test-clock-d1mini.yaml /
+#                  wall-clock.yaml -- Display, Mode, Brightness, Night
+#                  brightness, and a Backlight on the ones that have a panel.
+#                  Handing these the full card set is what produces a screen of
+#                  "Entity not found": the entities are not missing, they were
+#                  never compiled in.
+# THE NAMES ARE SAM'S CHILDREN'S, and the slugs are not. A slug is the ESPHome
+# entity prefix and changing it means a reflash; a label is free text and is
+# what the picker shows. So the devices stay mini_round_clock_3 and _4 -- which
+# is also what keeps every generated card working -- and only the labels moved.
+# They match the device names in Home Assistant, renamed there with name_by_user
+# on 2026-09-05, which likewise does not disturb entity ids.
+#
+# ...EXISTING entity ids. An entity that a LATER firmware adds is named by Home
+# Assistant after the device's friendly name at the moment it first appears, so
+# the 2026-09-15 flash produced `switch.zac_s_clock_grow_clock_night_sky`, not
+# `switch.mini_round_clock_3_grow_clock_night_sky`, and every row below for the
+# new controls read "Entity not found". The dashboard keeps one prefix per
+# clock on purpose; the ids are made to agree with it instead. After any flash
+# that adds entities run `python ../normalise_entity_ids.py` -- it renames the
+# strays back under the slug (that is all Settings -> Entities -> rename does)
+# and needs no regeneration here. The label must equal the device's name in
+# Home Assistant for it to find the device.
+#
+# THREE, not four. Sam, 2026-09-05: "There are not 2 screens there are 3." The
+# two dead entries (Mini Round Clock, Mini Round Clock 2 -- boards that have not
+# answered since 2026-08-31) were deleted from Home Assistant, and the D1 mini
+# test clock has never existed as a device. What is left is two flashed clocks
+# and one Sam has yet to flash.
 CLOCKS = [
-    {"slug": "mini_round_clock", "label": "Mini Round Clock"},
-    # The second clock, flashed 2026-08-27. Its ESPHome device name is
-    # `mini-round-clock-2`, so its entity prefix is `mini_round_clock_2`. It has
-    # a 32-LED ring rather than 24, but nothing here depends on that -- LED
-    # count is a runtime number, not a dashboard concern.
-    # `label` must match an option in input_select.wall_clock_target exactly
-    # (packages/wall_clock_ui.yaml); the visibility condition compares the
-    # picker's state against this string.
-    {"slug": "mini_round_clock_2", "label": "Mini Round Clock 2"},
-    # {"slug": "kitchen_clock",  "label": "Kitchen"},
+    # 24 LED. COM11, 192.168.1.69, ac:27:6e:a3:3b:ac.
+    {"slug": "mini_round_clock_3", "label": "Zac's Clock", "tier": "full",
+     "backlight": True},
+    # 32 LED. COM10, 192.168.1.68, ac:27:6e:a3:de:6c -- the rewired Flight Deck.
+    {"slug": "mini_round_clock_4", "label": "Jake's Clock", "tier": "full",
+     "backlight": True},
+    # NOT FLASHED YET. Sam, 2026-09-05: "Their is a third clock that I will
+    # flash at a later stage." It costs nothing to list: every card is gated on
+    # binary_sensor.mini_round_clock_status, so until the board is on the
+    # network the picker offers it and the "not connected" notice is all that
+    # renders. The slug is the bare prefix because deleting the two dead config
+    # entries freed it -- flash the third board with `-s device_name
+    # mini-round-clock` and it lands here with no further edits.
+    # Rename the label when it has a name.
+    {"slug": "mini_round_clock", "label": "Third Clock", "tier": "full",
+     "backlight": True},
 ]
 
 PICKER = "input_select.wall_clock_target"
 
+# How many columns the Settings view is laid out in, and how tall a card is
+# reckoned to be when balancing them. The height is an estimate on purpose:
+# what matters is the ORDER cards go into columns, and a row count gets that
+# right without pretending to know the rendered pixel height of a slider on
+# whatever phone is being used.
+MAX_COLS = 3
 
-def vis(label):
-    """Show a card only while the picker is on this clock."""
-    return [{"condition": "state", "entity": PICKER, "state": label}]
+
+def card_rows(c):
+    if c.get("type") == "entities":
+        return 1 + len(c.get("entities", []))
+    if c.get("type") == "markdown":
+        return max(3, len(c.get("content", "")) // 90)
+    return 2
+
+
+def vis(label, slug=None):
+    """Show a card only while the picker is on this clock AND the clock is there.
+
+    The second condition is what stops this dashboard filling with yellow
+    "Entity not found" boxes. A clock that has never been flashed, or that is
+    off the network, has no entities for these cards to bind to -- and an
+    entities card renders one error row per missing entity, which looks like
+    twenty faults instead of one absent device.
+
+    `binary_sensor.<slug>_status` comes from `platform: status` in the clock's
+    firmware. It is NOT created automatically -- an earlier version of this
+    docstring said the ESPHome integration makes one for every adopted device,
+    and that is wrong (ESPHome docs, checked 2026-09-03: the status binary
+    sensor is opt-in). It matters because the failure is silent: the condition
+    on a missing entity is false, so a firmware without it renders this whole
+    view BLANK rather than filling it with "Entity not found" rows. Any clock
+    added to CLOCKS must be running firmware that declares it. The status line
+    at the top of the view is NOT gated this way, so there is always something
+    on screen saying why the rest is missing.
+    """
+    c = [{"condition": "state", "entity": PICKER, "state": label}]
+    if slug:
+        c.append({"condition": "state",
+                  "entity": "binary_sensor.%s_status" % slug, "state": "on"})
+    return c
 
 
 def row(entity, name):
@@ -66,9 +141,75 @@ def section(label):
     return {"type": "section", "label": label}
 
 
+def absent_card(slug, label):
+    """Shown INSTEAD of a clock's controls when that clock is not there.
+
+    Gating the controls on `binary_sensor.<slug>_status` stops a page full of
+    yellow "Entity not found" rows, which is what Sam asked for -- but on its
+    own it replaces them with nothing at all, and a clock that silently
+    vanishes from its own picker is its own kind of wrong. The bench session
+    raised exactly this when it declined to paste the gated view over the live
+    one: clocks 1 and 2 would disappear rather than read as unavailable.
+
+    So each clock gets this, on the opposite condition. `state_not` is true
+    both when the sensor exists and is off (flashed, off the network) and when
+    the entity does not exist at all (never flashed) -- a missing entity has
+    no state, and no state is not "on". That second case is the one that
+    matters for clocks 1 and 2 today, and it is the case I can least verify
+    from here, so if it turns out that a missing entity renders nothing, this
+    card is no worse than the blank it replaces.
+    """
+    return {
+        "type": "markdown",
+        "visibility": [
+            {"condition": "state", "entity": PICKER, "state": label},
+            {"condition": "state", "entity": "binary_sensor.%s_status" % slug,
+             "state_not": "on"},
+        ],
+        "content": (
+            "### %s is not connected\n\n"
+            "Its controls are hidden because the device is not on the network, "
+            "so every one of them would read *Entity not found*.\n\n"
+            "If it is powered and on wifi, it needs flashing with firmware that "
+            "declares the status sensor (`binary_sensor: platform: status`) "
+            "before this page can tell it apart from a clock that is simply "
+            "absent." % label
+        ),
+    }
+
+
+def basic_cards(slug, label, backlight):
+    """Everything a `basic` firmware actually exposes, and nothing it does not.
+
+    mini-round-clock.yaml, test-clock-d1mini.yaml and wall-clock.yaml compile
+    four controls between them. Listing more would not "reveal" anything -- the
+    entity does not exist on the device, and the card says so in yellow.
+    """
+    e = lambda domain, suffix: "%s.%s_%s" % (domain, slug, suffix)
+    v = vis(label, slug)
+    ents = [row(e("switch", "display"), "Display"),
+            row(e("select", "mode"), "Mode"),
+            section("Brightness"),
+            row(e("number", "brightness"), "Day brightness"),
+            row(e("number", "night_brightness"), "Night brightness")]
+    if backlight:
+        ents.insert(2, row(e("light", "backlight"), "Backlight"))
+    return [
+        {"type": "entities", "title": "%s" % label, "show_header_toggle": False,
+         "state_color": True, "visibility": v, "entities": ents},
+        {"type": "markdown", "visibility": v,
+         "content": (
+             "This clock runs the **basic** firmware, which compiles these four "
+             "controls and no more. The face, colour, timer and status cards "
+             "belong to `mini-round-clock-with-display.yaml`; flashing that "
+             "firmware onto this device is what makes them appear."
+         )},
+    ]
+
+
 def clock_cards(slug, label):
     e = lambda domain, suffix: "%s.%s_%s" % (domain, slug, suffix)
-    v = vis(label)
+    v = vis(label, slug)
 
     ring = {
         "type": "entities", "title": "%s — Ring" % label,
@@ -78,6 +219,9 @@ def clock_cards(slug, label):
             row(e("number", "twelve_o_clock_offset"), "Twelve o'clock offset"),
             row(e("select", "mode"), "Mode"),
             row(e("switch", "ring_leds"), "Ring LEDs on"),
+            # The ring's current budget in mA. On a PC USB port keep it near
+            # 350; on a proper 5 V 2 A supply it can go to 1500 and never bite.
+            row(e("number", "ring_current_limit"), "Current limit"),
             section("Hands"),
             row(e("select", "second_hand_style"), "Second hand"),
             row(e("switch", "ring_second_hand"), "Show second hand"),
@@ -156,6 +300,14 @@ def clock_cards(slug, label):
         "entities": [
             row(e("switch", "display"), "Everything on (master)"),
             row(e("switch", "screen_on"), "Screen on"),
+            # Type anything here and it lands on the grow face, in the star
+            # row's place. Stored on the clock, so it shows even with HA down.
+            section("A message on the screen"),
+            row(e("text", "message"), "Message"),
+            row(e("switch", "show_the_message"), "Show it"),
+            section("The board's own LED"),
+            # Off at every boot whatever HA last said. On for a bench check.
+            row(e("light", "board_led"), "Board LED"),
             row(e("select", "screen"), "Which panel"),
             row(e("select", "face"), "Face"),
             row(e("select", "screen_hour_markers"), "Hour markers"),
@@ -167,19 +319,9 @@ def clock_cards(slug, label):
             section("While a timer runs"),
             row(e("select", "screen_during_a_timer"), "Screen shows"),
             section("Subtitle lines"),
-            row(e("select", "subtitle_text_size"), "Subtitle size"),
             row(e("switch", "show_date"), "Date"),
             row(e("switch", "show_day_of_week"), "Day of week"),
             row(e("switch", "show_weather"), "Weather"),
-            # The extras line is bar-panel only -- the round face has no spare
-            # line for it. Left visible on both so the controls do not appear
-            # and vanish when the panel is switched, which reads as a bug.
-            section("Weather extras (bar panel)"),
-            row(e("switch", "show_rain"), "Rain"),
-            row(e("switch", "show_humidity"), "Humidity"),
-            row(e("switch", "show_wind"), "Wind"),
-            row(e("switch", "show_uv_index"), "UV index"),
-            row(e("switch", "show_weather_in_words"), "Weather in words"),
             section("Background"),
             row(e("number", "weather_tint_strength"), "Weather tint"),
         ],
@@ -225,62 +367,217 @@ def clock_cards(slug, label):
         ],
     }
 
-    return [ring, ring_note, colour_note, colour, screen, alert, alert_note, bright]
+    # ---- Grow clock ------------------------------------------------------
+    # One switch turns the whole clock into a child's sleep-training clock;
+    # everything else here only matters while it is on. Times are hour +
+    # minute pairs because a slider is easier on a phone than a time string.
+    # SPLIT INTO THREE, and the reason is layout rather than taste. As one
+    # card this was 56 rows -- longer than everything else on the page put
+    # together -- and in a sections view one enormous card forces a single
+    # tall column with the rest of the width left empty. That empty width is
+    # the gap Sam is looking at. Three cards of comparable height let the
+    # grid put them side by side. The split is along the seams the card
+    # already had: when it happens, what it looks like, how bright it is.
+    grow = {
+        "type": "entities", "title": "%s — Grow clock: times" % label,
+        "show_header_toggle": False, "state_color": True, "visibility": v,
+        "entities": [
+            row(e("switch", "grow_clock"), "Grow clock on"),
+            row(e("sensor", "grow_clock_state"), "Right now it is"),
+            section("Wake up"),
+            row(e("number", "grow_clock_wake_hour"), "Hour"),
+            row(e("number", "grow_clock_wake_minute"), "Minute"),
+            row(e("number", "grow_clock_almost_time_minutes"), "\"Almost time\" before wake"),
+            section("Weekends"),
+            row(e("switch", "grow_clock_weekend_times"), "Different times at weekends"),
+            row(e("number", "grow_clock_weekend_wake_hour"), "Weekend hour"),
+            row(e("number", "grow_clock_weekend_wake_minute"), "Weekend minute"),
+            section("Bedtime"),
+            row(e("number", "grow_clock_bed_hour"), "Hour"),
+            row(e("number", "grow_clock_bed_minute"), "Minute"),
+            row(e("number", "grow_clock_bedtime_warning_minutes"), "Warning before bed"),
+            section("Right now"),
+            row(e("button", "grow_clock_wake_now"), "Wake now"),
+            row(e("button", "grow_clock_sleep_now"), "Sleep now"),
+            row(e("button", "grow_clock_start_nap"), "Start a nap"),
+            row(e("number", "grow_clock_nap_minutes"), "Nap length"),
+            row(e("button", "grow_clock_cancel_nap"), "Cancel the nap"),
+            row(e("button", "grow_clock_five_more_minutes"), "Five more minutes"),
+            row(e("number", "grow_clock_snooze_minutes"), "...which is how many"),
+            row(e("button", "grow_clock_back_to_schedule"), "Back to the schedule"),
+            row(e("switch", "grow_clock_holiday"), "Holiday: weekend times every day"),
+            row(e("switch", "grow_clock_clock_by_day"), "Ordinary clock by day"),
+            row(e("number", "grow_clock_wake_hold_minutes"), "...this long after wake"),
+            row(e("sensor", "grow_clock_minutes_to_wake"), "Minutes to wake"),
+        ],
+    }
+    grow_look = {
+        "type": "entities", "title": "%s — Grow clock: look" % label,
+        "show_header_toggle": False, "state_color": True, "visibility": v,
+        "entities": [
+            row(e("select", "grow_clock_sleep_colour"), "Sleep colour"),
+            row(e("select", "grow_clock_almost_colour"), "\"Almost time\" colour"),
+            row(e("select", "grow_clock_wake_colour"), "Wake colour"),
+            row(e("select", "grow_clock_bedtime_colour"), "Bedtime colour"),
+            row(e("select", "grow_clock_face"), "Face"),
+            # One dial for the whole face. 100% is the size it has always
+            # been; the range stops at 120 because above that the eyes run
+            # past the edge of the fixed window the anti-flicker fix draws in.
+            row(e("number", "grow_clock_size"), "Size of everything"),
+            row(e("switch", "grow_clock_stars"), "Stars until morning"),
+            row(e("number", "grow_clock_star_count"), "How many stars"),
+            row(e("select", "grow_clock_star_shape"), "Star shape"),
+            # Scattered, gently twinkling stars behind the face at night.
+            # Separate from the star row above, which counts down the night.
+            row(e("switch", "grow_clock_night_sky"), "Twinkling night sky"),
+            row(e("switch", "grow_clock_night_sky_at_bedtime"), "...from bedtime, not just sleep"),
+            row(e("number", "grow_clock_night_sky_stars"), "How many in the sky"),
+            row(e("number", "grow_clock_night_sky_brightness"), "How bright"),
+            row(e("number", "grow_clock_night_sky_star_size"), "Biggest star"),
+            row(e("number", "grow_clock_night_sky_twinkle_speed"), "Twinkle speed"),
+            # The whole field — positions, sizes, twinkle phases — comes out of
+            # one stored number, so this moves all of it at once.
+            row(e("button", "grow_clock_new_night_sky"), "Shuffle the sky now"),
+            row(e("switch", "grow_clock_new_night_sky_each_night"), "A new sky every night"),
+            row(e("switch", "grow_clock_animate"), "Animate the eyes"),
+            # The dial that settles the flicker on this panel: how often
+            # the face may be redrawn. Sat next to the switch it belongs to.
+            row(e("number", "grow_clock_animation_interval"), "Animation interval"),
+            # A/B for the repaint fix: off (default) repaints the panel when
+            # the picture changes; on restores the old 1 Hz full repaint.
+            # The decisive one: stops ALL writes to the panel. If it still
+            # flickers with this on, nothing the firmware draws is the cause.
+            # OFF (default) = every repaint is a full frame, the arrangement
+            # the first working build had. ON restores the partial redraw.
+            # Draws the moon and star row with straight edges only. If the
+            # flicker follows the SHAPE, it is the panel's inversion/VCOM.
+            # The proposed fix if the flat-art test confirms: pixel-art
+            # crescent and crossed-bar sparkles. Default off.
+            row(e("switch", "grow_clock_blocky_art"), "Blocky art"),
+            row(e("switch", "grow_clock_flat_art_test"), "Flat art (test)"),
+            row(e("switch", "grow_clock_partial_redraw"), "Partial redraw (test)"),
+            row(e("switch", "screen_freeze_test"), "Screen freeze (test)"),
+            row(e("switch", "grow_clock_repaint_every_second"), "Repaint every second (test)"),
+            row(e("switch", "grow_clock_freeze_the_eyes_test"), "Freeze the eyes (test)"),
+            row(e("sensor", "grow_clock_frame_time"), "Frame time"),
+            # Which build is actually on the clock. Read this BEFORE reporting
+            # a symptom — several flicker reports were made against firmware
+            # that predated the fix being discussed.
+            row(e("sensor", "firmware_built"), "Firmware built"),
+            # Reboots into WiFi + OTA only and waits ten minutes for an image.
+            # Use it before an OTA you are unsure of, or to rescue a clock
+            # whose firmware is running but wedged. Not a restart button.
+            row(e("button", "restart_into_safe_mode"), "Restart into safe mode"),
+            row(e("switch", "grow_clock_show_time"), "Show the time"),
+            row(e("switch", "grow_clock_show_countdown"), "Show the minutes to go"),
+            row(e("select", "grow_clock_wake_effect"), "Wake-up effect on the ring"),
+            row(e("number", "grow_clock_wake_effect_minutes"), "Wake-up effect for"),
+            row(e("select", "grow_clock_expression"), "Force an expression (demo)"),
+        ],
+    }
+    grow_bright = {
+        "type": "entities", "title": "%s — Grow clock: brightness and sound" % label,
+        "show_header_toggle": False, "state_color": True, "visibility": v,
+        "entities": [
+            row(e("switch", "grow_clock_dim_at_night"), "Dim at night"),
+            row(e("number", "grow_clock_ring_night_brightness"), "Ring at night"),
+            row(e("number", "grow_clock_ring_day_brightness"), "Ring by day"),
+            row(e("number", "grow_clock_screen_night_brightness"), "Screen at night"),
+            row(e("number", "grow_clock_screen_day_brightness"), "Screen by day"),
+            row(e("number", "grow_clock_sunrise_fade_minutes"), "Sunrise fade"),
+            section("Sound"),
+            row(e("switch", "grow_clock_respond_to_sound"), "Respond to sound"),
+            row(e("number", "grow_clock_sound_response_seconds"), "Respond for"),
+            row(e("sensor", "grow_clock_sound_events"), "Sound events since boot"),
+            row("input_boolean.wall_clock_grow_sound", "Test: pretend a sound"),
+        ],
+    }
 
+    grow_note = {
+        "type": "markdown", "visibility": v,
+        "content": (
+            "**How the grow clock reads.** Sleep colour with stars that go out one by "
+            "one through the night; amber and a half-awake face for *almost time*; "
+            "the wake colour and a smile when it is fine to get up; a yawn in the "
+            "warning before bed. The eyes are Deskimon-style and move on their own — "
+            "looks, blinks, smiles, yawns when it is late; *Animate the eyes* off "
+            "leaves them still. While it is on, this clock shows nothing else — no "
+            "hands, timers or status.\n\n"
+            "**Sound.** The clock has no microphone. *Test: pretend a sound* is the "
+            "same helper anything in Home Assistant can pulse — a Voice PE hearing "
+            "its wake word, a baby monitor, a noise sensor. See "
+            "`packages/wall_clock_grow.yaml` for a ready-made example. During sleep "
+            "it brightens in the **sleep** colour and says *shh*; it never shows the "
+            "wake colour for a noise, because that would reward calling out.\n\n"
+            "**Overrides** last until the schedule next changes on its own, so "
+            "*Wake now* at 6:40 lets go by itself at bedtime."
+        ),
+    }
 
-# -----------------------------------------------------------------------------
-# SECTIONS, AND WHY THE VIEW IS NOT MASONRY
-# -----------------------------------------------------------------------------
-# A masonry view (the default) packs cards into columns by HEIGHT, not by the
-# order they are listed in. Two clocks with byte-identical card lists therefore
-# render in different visual orders as soon as their cards differ in height at
-# all -- and they do, because an offline clock's rows draw differently to a
-# live one's. The cards were identical and the layouts still did not match.
-#
-# A `sections` view lays each section out as a grid in list order, so the same
-# card list always produces the same arrangement. Every clock gets the SAME
-# three groups below, which is what makes two clocks look alike.
-#
-# Indices into the list returned by clock_cards(), named so the grouping is
-# readable rather than three bare slices:
-#   0 ring   1 ring_note   2 colour_note   3 colour
-#   4 screen 5 alert       6 alert_note    7 bright
-SECTION_GROUPS = [
-    ("Ring", [0, 1]),
-    ("Colour", [2, 3]),
-    ("Screen, alert and brightness", [4, 5, 6, 7]),
-]
-
-
-def clock_sections(slug, label):
-    """One grid section per group, in a fixed order, for a single clock."""
-    cards = clock_cards(slug, label)
-    out = []
-    for _name, idxs in SECTION_GROUPS:
-        out.append({
-            "type": "grid",
-            "visibility": vis(label),
-            "cards": [cards[i] for i in idxs],
-        })
-    return out
+    return [ring, ring_note, colour_note, colour, screen, grow, grow_look,
+            grow_bright, grow_note, alert, alert_note, bright]
 
 
 def build():
     cards = [
+        # WHICH CLOCK YOU ARE EDITING, made obvious rather than inferred.
+        # This used to be a markdown paragraph over a dropdown row, which told
+        # you the picker's entity id but not which clock was live, and took
+        # three taps to change. Now: the name in a heading, one button per
+        # clock, and the device's own status underneath so you can see you are
+        # editing something that is actually on the network.
         {
             "type": "markdown",
             "content": (
-                "### Which clock\n"
-                "Pick a clock and every card below switches to it. The picker is "
-                "`input_select.wall_clock_target`.\n\n"
-                "Adding another clock: give it a different `name:` in ESPHome (that "
-                "sets its entity prefix, hostname and OTA target), add it to `CLOCKS` "
-                "in `build_clock_dashboard.py`, and to the options of the input_select."
+                "# {{ states('input_select.wall_clock_target') }}\n"
+                "Everything below is this clock. Tap another button to switch."
+            ),
+        },
+        {
+            "type": "horizontal-stack",
+            "cards": [
+                {
+                    "type": "button",
+                    "name": c["label"],
+                    "icon": "mdi:clock-outline",
+                    "show_state": False,
+                    "tap_action": {
+                        "action": "perform-action",
+                        "perform_action": "input_select.select_option",
+                        "target": {"entity_id": PICKER},
+                        "data": {"option": c["label"]},
+                    },
+                }
+                for c in CLOCKS
+            ],
+        },
+        # The status line degrades rather than erroring: a device that has never
+        # been adopted has no *_status entity at all, and a dashboard that shows
+        # "unknown" is more use than one that shows a red error card.
+        {
+            "type": "markdown",
+            "content": "".join(
+                "{%% set s = 'binary_sensor.%s_status' %%}"
+                "{%% if is_state('%s', '%s') %%}"
+                "**%s** &mdash; "
+                "{%% if is_state(s, 'on') %%}online"
+                "{%% elif is_state(s, 'off') %%}**offline** (changes will not reach it)"
+                "{%% else %%}status unknown &mdash; not adopted yet?{%% endif %%}"
+                "{%% endif %%}" % (c["slug"], PICKER, c["label"], c["label"])
+                for c in CLOCKS
             ),
         },
         {
             "type": "entities", "show_header_toggle": False,
             "entities": [row(PICKER, "Customising")],
+        },
+        {
+            "type": "markdown",
+            "content": (
+                "Adding another clock: give it a different `name:` in ESPHome (that "
+                "sets its entity prefix, hostname and OTA target), add it to `CLOCKS` "
+                "in `build_clock_dashboard.py`, and to the options of the input_select."
+            ),
         },
         # Timers are Home Assistant's, not any one clock's — the pool is shared,
         # so this card is deliberately outside the per-clock switching.
@@ -293,36 +590,12 @@ def build():
         },
     ]
     for c in CLOCKS:
-        cards += clock_cards(c["slug"], c["label"])
+        cards.append(absent_card(c["slug"], c["label"]))
+        if c.get("tier") == "basic":
+            cards += basic_cards(c["slug"], c["label"], c.get("backlight", False))
+        else:
+            cards += clock_cards(c["slug"], c["label"])
     return cards
-
-
-def build_view():
-    """The whole Settings view as a `sections` view.
-
-    The first three cards from build() are the shared header (intro, picker,
-    timers) and are not per-clock, so they go in their own always-visible
-    section. Everything after that is regrouped per clock by clock_sections().
-    """
-    shared = build()[:3]
-    # column_span 3: the header is short, and in a sections view a short section
-    # sitting in column one leaves a tall dead gap beside the clock's sections.
-    # Spanning it full width puts it across the top instead, so the three clock
-    # sections below start level and fill the row.
-    sections = [{"type": "grid", "column_span": 3, "cards": shared}]
-    for c in CLOCKS:
-        sections += clock_sections(c["slug"], c["label"])
-    return {
-        "title": "Settings",
-        "path": "settings",
-        "icon": "mdi:tune",
-        "type": "sections",
-        "max_columns": 3,
-        # Let a short section be backfilled rather than reserving a full-height
-        # column for it -- the three clock sections are very different heights.
-        "dense_section_placement": True,
-        "sections": sections,
-    }
 
 
 if __name__ == "__main__":
@@ -333,16 +606,136 @@ if __name__ == "__main__":
     cards = build()
     io.open("wall-clock-settings-cards.json", "w", encoding="utf-8",
             newline="\n").write(json.dumps(cards, indent=2))
+    if "--view" in sys.argv:
+        # A paste-ready Settings view for the dashboard's raw configuration
+        # editor: the cards above wrapped in the view header, as YAML.
+        import yaml
+        out = sys.argv[sys.argv.index("--view") + 1]
+        # SECTIONS, not masonry. Sam's dashboard was rebuilt on Home
+        # Assistant's sections layout, and a masonry view pasted over it
+        # reverts that -- the bench session spotted that and refused to paste,
+        # which was the right call. `--masonry` still emits the old shape.
+        if "--masonry" in sys.argv:
+            view = [{"title": "Settings", "path": "settings",
+                     "icon": "mdi:tune-variant", "cards": cards}]
+        else:
+            # GROUPED, one section per clock rather than one per card.
+            # Sam: "condense the wall clock settings page so that there are no
+            # gaps." A sections view lays each section out as its own column,
+            # so a section per card gives a page of short ragged columns with
+            # whitespace between them. Grouping every card belonging to one
+            # clock into a single section lets the grid pack them, and it also
+            # lets the picker-and-status condition be carried ONCE on the
+            # section instead of repeated on each card inside it.
+            #
+            # Each clock gets two sections on opposite conditions -- its
+            # controls, and the "not connected" notice -- so exactly one of
+            # them ever renders and neither leaves a hole.
+            #
+            # "And move the text boxes to the bottom of the page": the
+            # explanatory markdown goes last. The absent-clock notice is
+            # markdown too but stays with its clock, because it is not an
+            # explainer -- it is what stands in for the controls that are
+            # hidden, and at the bottom of the page it would be describing
+            # something the reader is no longer looking at.
+            # NO GAPS MEANS BALANCING WHAT IS ON SCREEN, NOT WHAT IS IN THE
+            # FILE. A sections view lays each section out as a column and packs
+            # them left to right; a short column leaves the space under it
+            # empty. The previous arrangement emitted a 17-row header section
+            # next to 49-row control sections, so the top of the page was one
+            # narrow strip with two thirds of the width blank -- which is the
+            # gap Sam is pointing at.
+            #
+            # Only ONE clock is ever selected, so the page that actually renders
+            # is: the header, that clock's cards, and the shared timers.
+            # Everything else is hidden and collapses. So balance those, and
+            # balance them in two rows that each fill the width:
+            #
+            #   row 1   header + picker + shared timers, over MAX_COLS sections
+            #   row 2   the selected clock's controls and prose, over MAX_COLS
+            #
+            # PROSE SITS AT THE FOOT OF ITS COLUMN, which is what "text boxes at
+            # the bottom" means on a grid: putting every explainer below every
+            # control would give three short columns of text under three tall
+            # ones, and reintroduce the gap from the other end.
+            # The two markdown cards that are NOT prose: the heading that
+            # names the clock being edited, and the online/offline status line.
+            # A filter that only asked "is it markdown" swept both to the foot
+            # of the page, which put the title and the liveness indicator below
+            # three screens of sliders. Sam asked for the TEXT BOXES at the
+            # bottom -- the ones that explain things, not the ones that say what
+            # you are looking at and whether it is switched on.
+            head = [c for c in cards
+                    if c.get("type") == "markdown" and "visibility" not in c
+                    and ("{{ states(" in c.get("content", "")
+                         or "binary_sensor." in c.get("content", ""))]
+            picker = [c for c in cards
+                      if c.get("type") == "entities" and "visibility" not in c
+                      and not c.get("title")]
+            buttons = [c for c in cards if c.get("type") == "horizontal-stack"]
+            top = head[:1] + buttons + head[1:] + picker
+            secs = []
+            def grid(cs, vis=None):
+                g = {"type": "grid", "cards": cs}
+                if vis:
+                    g["visibility"] = vis
+                return g
+            def strip(c):
+                c = dict(c)
+                c.pop("visibility", None)
+                return c
+            def spread(items, vis=None, tail_items=()):
+                """Longest first into the shortest column, then the prose under
+                whatever column ended up shortest, so the text lands low."""
+                cols = [[] for _ in range(MAX_COLS)]
+                hs = [0] * MAX_COLS
+                for x in sorted(items, key=card_rows, reverse=True):
+                    i = hs.index(min(hs))
+                    cols[i].append(strip(x)); hs[i] += card_rows(x)
+                for x in sorted(tail_items, key=card_rows, reverse=True):
+                    i = hs.index(min(hs))
+                    cols[i].append(strip(x)); hs[i] += card_rows(x)
+                for col in cols:
+                    if col:
+                        secs.append(grid(col, vis))
 
-    # The sections view is what actually gets installed; the flat card list
-    # above is kept because the BUILD-LOG's jq recipe still refers to it. Both
-    # come from clock_cards(), so they cannot drift apart.
-    view = build_view()
-    io.open("wall-clock-settings-view.json", "w", encoding="utf-8",
-            newline="\n").write(json.dumps(view, indent=2))
+            # ---- row 1: the always-visible header, and the shared timers
+            shared = [c for c in cards
+                      if c.get("type") == "entities" and c.get("title") == "Timers (shared)"]
+            notes = [c for c in cards
+                     if c.get("type") == "markdown" and "visibility" not in c
+                     and c not in head]
+            # The heading and the buttons stay together and stay first: they are
+            # what tells you which clock you are editing and how to change it.
+            spread(top[:2], None, top[2:] + shared + notes)
 
-    print("clocks: %d   cards: %d   sections: %d"
-          % (len(CLOCKS), len(cards), len(view["sections"])))
+            # ---- row 2: the selected clock
+            for c in CLOCKS:
+                mine = [x for x in cards
+                        if any(cond.get("state") == c["label"]
+                               for cond in x.get("visibility", []))]
+                ctrl = [x for x in mine
+                        if not any(cond.get("state_not") for cond in x["visibility"])]
+                away = [x for x in mine
+                        if any(cond.get("state_not") for cond in x["visibility"])]
+                body  = [x for x in ctrl if x.get("type") != "markdown"]
+                prose = [x for x in ctrl if x.get("type") == "markdown"]
+                if body or prose:
+                    spread(body, ctrl[0]["visibility"], prose)
+                if away:
+                    secs.append(grid([strip(x) for x in away], away[0]["visibility"]))
+
+            view = [{"title": "Settings", "path": "settings",
+                     "icon": "mdi:tune-variant", "type": "sections",
+                     "max_columns": 3, "sections": secs}]
+        head = ("# Paste into the dashboard's Raw configuration editor, replacing the existing\n"
+                "# Settings view in the `views:` list. This is a SECTIONS view, matching the\n"
+                "# layout the dashboard already uses; pass --masonry for the older shape.\n#\n"
+                "# Generated by homeassistant/dashboards/build_clock_dashboard.py --view -- do\n"
+                "# not hand-edit; edit CLOCKS in that script and re-run it.\n")
+        io.open(out, "w", encoding="utf-8", newline="\n").write(
+            head + yaml.safe_dump(view, sort_keys=False, allow_unicode=True, width=1000))
+        print("view: %s" % out)
+    print("clocks: %d   cards: %d" % (len(CLOCKS), len(cards)))
     for c in CLOCKS:
-        print("  %-22s -> %s   (%d sections)"
-              % (c["label"], c["slug"], len(SECTION_GROUPS)))
+        print("  %-22s -> %s" % (c["label"], c["slug"]))

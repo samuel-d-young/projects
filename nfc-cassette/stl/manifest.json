@@ -1,0 +1,82 @@
+{
+ "cassette_tray": {
+  "name": "cassette_tray",
+  "triangles": 1612,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 15310.87,
+  "brep_volume_mm3": 15310.92,
+  "volume_drift": 3e-06,
+  "extents_mm": [
+   100.4,
+   63.8,
+   10.4
+  ],
+  "fits_build_volume": true,
+  "mass_g_pla": 10.2,
+  "orientation": "open side up",
+  "supports": "none",
+  "note": "glue the lid in",
+  "errors": []
+ },
+ "cassette_lid": {
+  "name": "cassette_lid",
+  "triangles": 1548,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 8464.5,
+  "brep_volume_mm3": 8464.42,
+  "volume_drift": 9e-06,
+  "extents_mm": [
+   98.3,
+   61.7,
+   1.6
+  ],
+  "fits_build_volume": true,
+  "mass_g_pla": 5.6,
+  "orientation": "dimples up",
+  "supports": "none",
+  "note": "",
+  "errors": []
+ },
+ "player_base": {
+  "name": "player_base",
+  "triangles": 6762,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 48697.57,
+  "brep_volume_mm3": 48698.75,
+  "volume_drift": 2.4e-05,
+  "extents_mm": [
+   118.4,
+   91.1,
+   22.0
+  ],
+  "fits_build_volume": true,
+  "mass_g_pla": 32.4,
+  "orientation": "open side up",
+  "supports": "none",
+  "note": "electronics drop in from above",
+  "errors": []
+ },
+ "player_top": {
+  "name": "player_top",
+  "triangles": 5388,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 42320.3,
+  "brep_volume_mm3": 42319.68,
+  "volume_drift": 1.5e-05,
+  "extents_mm": [
+   118.4,
+   89.6,
+   8.6
+  ],
+  "fits_build_volume": true,
+  "mass_g_pla": 28.1,
+  "orientation": "bay side up",
+  "supports": "none",
+  "note": "4 x M3 x 10 pan head from the top",
+  "errors": []
+ }
+}

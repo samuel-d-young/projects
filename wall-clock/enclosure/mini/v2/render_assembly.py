@@ -2,12 +2,13 @@
 """Exploded and assembled views — the picture that makes the build obvious."""
 import sys; sys.path.insert(0,'.')
 import numpy as np, trimesh, matplotlib
+import csg
 matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from render import render, VIEWS
 from params import *
 
 def shift(fn, dz, dy=0.0, mirror_y=False):
-    m = trimesh.load(fn, process=False); m.merge_vertices()
+    m = trimesh.load(csg.part(fn), process=False); m.merge_vertices()
     if mirror_y:
         m.apply_transform(np.diag([1.0,-1.0,1.0,1.0])); m.invert()
     m.apply_translation([0, dy, dz]); return m

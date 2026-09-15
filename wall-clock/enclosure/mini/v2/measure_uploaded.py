@@ -11,12 +11,13 @@ if he sends new files, and diff the output against params.py.
 import math
 import numpy as np
 import trimesh
+import csg
 
 
 # --------------------------------------------------------------------------- io
 def load(path):
     """Largest volumetric shell, recentred on the outer circle. z is untouched."""
-    m = trimesh.load(path, process=False)
+    m = trimesh.load(csg.part(path), process=False)
     m.merge_vertices()
     m.update_faces(m.nondegenerate_faces())
     m.remove_unreferenced_vertices()

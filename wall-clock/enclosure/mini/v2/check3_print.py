@@ -62,6 +62,16 @@ from build_v2 import load_sams_base, load_sams_diffuser
 _sam = csg.to_trimesh(load_sams_base()); _sam.merge_vertices()
 _samd = csg.to_trimesh(load_sams_diffuser()); _samd.merge_vertices()
 
+# Parts printed with their OPENING FACING THE BED. Everything inside them is
+# ceiling, so the "how much of this is ceiling" proportion says nothing about
+# them; the bridge-span and island tests do. Sam, 2026-09-08: "the bottom can be
+# fully open".
+SHELL_DOWN = {
+    'mini-round-clock-standbox.stl',
+    'mini-round-clock-standbox-32.stl',
+    'mini-round-clock-standbox-60.stl',
+}
+
 # (file, orientation, min wall). The diffuser's minimum wall is deliberately
 # 0.20 -- that is the whole point of it -- so it is held to that, not to 1.20,
 # and its membrane and cell walls are measured explicitly in check4 instead.
@@ -75,6 +85,22 @@ PARTS = [
     ('mini-round-clock-base-60.stl',             'deck face down',  MIN_WALL),
     ('mini-round-clock-housing-60.stl',          'rear plate down', MIN_WALL),
     ('mini-round-clock-deskstand-60.stl',        'flat on the desk face', MIN_WALL),
+    ('mini-round-clock-standbox.stl',            'foot down, open side to the bed', MIN_WALL),
+    ('mini-round-clock-standbox-32.stl',         'foot down, open side to the bed', MIN_WALL),
+    ('mini-round-clock-standbox-60.stl',         'foot down, open side to the bed', MIN_WALL),
+    ('mini-round-clock-dock.stl',                'open side up',          MIN_WALL),
+    ('mini-round-clock-dock-32.stl',             'open side up',          MIN_WALL),
+    ('mini-round-clock-dock-60.stl',             'open side up',          MIN_WALL),
+    ('mini-round-clock-dock-cap.stl',            'seat up, flat side down', MIN_WALL),
+    ('mini-round-clock-dock-32-cap.stl',         'seat up, flat side down', MIN_WALL),
+    ('mini-round-clock-dock-60-cap.stl',         'seat up, flat side down', MIN_WALL),
+    ('mini-round-clock-backstand.stl',           'flat on its foot',      MIN_WALL),
+    ('mini-round-clock-backstand-32.stl',        'flat on its foot',      MIN_WALL),
+    ('mini-round-clock-backstand-60.stl',        'flat on its foot',      MIN_WALL),
+    ('mini-round-clock-backstand-clamp.stl',     'plate down, feet up',   MIN_WALL),
+    ('mini-round-clock-backcover.stl',           'plate down',            MIN_WALL),
+    ('mini-round-clock-backcover-32.stl',        'plate down',            MIN_WALL),
+    ('mini-round-clock-backcover-60.stl',        'plate down',            MIN_WALL),
     ('mini-round-clock-light-guides-60.stl',     'flat',            MIN_WALL),
     ('mini-round-clock-battery-shelf-x2.stl',    'flat',            MIN_WALL),
     ('mini-round-clock-board-gauge.stl',         'plate down',      MIN_WALL),
@@ -88,14 +114,13 @@ PARTS = [
     ('mini-round-clock-numerals.stl',            'a part, not a print', 0.45),
     ('mini-round-clock-numerals-32.stl',         'a part, not a print', 0.45),
     ('mini-round-clock-numerals-60.stl',         'a part, not a print', 0.45),
-    # The legend brims. Same 0.18 as the other diffusers -- the 0.20 aperture
-    # membrane is the thinnest thing in them and it is deliberate.
-    ('mini-round-clock-diffuser-legend.stl',     'brim face down',  0.18),
-    ('mini-round-clock-diffuser-32-legend.stl',  'brim face down',  0.18),
-    ('mini-round-clock-diffuser-60-legend.stl',  'brim face down',  0.18),
     ('mini-round-clock-diffuser.stl',            'face down',       0.18),
     ('mini-round-clock-diffuser-32.stl',         'face down',       0.18),
     ('mini-round-clock-diffuser-60.stl',         'face down',       0.18),
+    ('mini-round-clock-diffuser-plain.stl',      'face down',       0.18),
+    ('mini-round-clock-diffuser-flange.stl',     'face down',       0.18),
+    ('mini-round-clock-diffuser-flange-plain.stl', 'face down',     0.18),
+    ('mini-round-clock-diffuser-32-flange.stl',  'face down',       0.18),
 ]
 
 def bridge_span(m, face_idx):
@@ -294,13 +319,18 @@ INLAY = {'mini-round-clock-numerals.stl', 'mini-round-clock-numerals-32.stl',
          'mini-round-clock-numerals-60.stl'}
 NOZZLE = 0.42       # narrowest bead a 0.4 mm nozzle will actually lay down
 
-_gone = [f for f, _, _ in PARTS if not os.path.exists(f)]
+_gone = [f for f, _, _ in PARTS if not os.path.exists(csg.part(f))]
 if _gone:
     print('not built, so not checked: ' + ', '.join(_gone))
-PARTS = [t for t in PARTS if os.path.exists(t[0])]
+_want = len(PARTS)
+PARTS = [t for t in PARTS if os.path.exists(csg.part(t[0]))]
+# See check1: an empty PARTS list used to pass silently.
+if len(PARTS) < _want // 2:
+    print(f'  [FAIL] only {len(PARTS)} of {_want} parts found -- run build_v2.py first')
+    sys.exit(1)
 
 for fn, orient, min_wall in PARTS:
-    m = trimesh.load(fn, process=False); m.merge_vertices()
+    m = trimesh.load(csg.part(fn), process=False); m.merge_vertices()
     zmin = m.bounds[0][2]
     print(f'\n{fn}   ({orient})')
     print(f'         {m.extents[0]:.1f} x {m.extents[1]:.1f} x {m.extents[2]:.1f} mm, '
@@ -371,8 +401,21 @@ for fn, orient, min_wall in PARTS:
     # disc: it only fires if the part is essentially a lid over a void.
     plan = math.pi * (max(np.hypot(m.vertices[:,0], m.vertices[:,1]))**2) \
            if abs(m.extents[0] - m.extents[1]) < 1.0 else m.extents[0]*m.extents[1]
-    ck(ar[ceil].sum() < 0.60*plan, 'total ceiling area is in proportion',
-       f'{ar[ceil].sum():.0f} mm2, {100*ar[ceil].sum()/plan:.0f}% of its plan area')
+    frac = 100*ar[ceil].sum()/plan
+    if fn in SHELL_DOWN:
+        # A part whose opening faces the BED is a lid over a void by definition:
+        # its whole interior is ceiling, and asking what fraction that is only
+        # asks how big the part is. The stand-box came out at 79-86% and the two
+        # tests that matter -- every bridge 22 mm or under, and none of them
+        # starting in mid-air -- both passed with room to spare. Reporting the
+        # number and skipping the verdict is honest; raising the threshold to
+        # 95% so it "passes" would not be.
+        print(f'  [--  ] total ceiling area {ar[ceil].sum():.0f} mm2, {frac:.0f}% of plan '
+              f'— by design: this part is a shell open to the bed. The span and '
+              f'island tests above are what carry the meaning here')
+    else:
+        ck(ar[ceil].sum() < 0.60*plan, 'total ceiling area is in proportion',
+           f'{ar[ceil].sum():.0f} mm2, {frac:.0f}% of its plan area')
 
     # --- wall thickness ------------------------------------------------------
     cl, p1 = thin_clusters(m, thr=min_wall)

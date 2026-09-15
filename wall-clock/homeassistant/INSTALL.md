@@ -31,10 +31,24 @@ Restart is opt-in and defaults to no.
 <summary>Doing it by hand instead</summary>
 
 ```bash
-cp packages/wall_clock.yaml /config/packages/wall_clock.yaml
+cp packages/wall_clock.yaml        /config/packages/wall_clock.yaml
+cp packages/wall_clock_timers.yaml /config/packages/wall_clock_timers.yaml
+cp packages/wall_clock_ui.yaml     /config/packages/wall_clock_ui.yaml
+cp packages/wall_clock_grow.yaml   /config/packages/wall_clock_grow.yaml
 ha core check
 ```
 </details>
+
+> **`install.sh` installs `wall_clock.yaml` only.** It carries that one package
+> inline and knows nothing about the other three. They have to be copied by
+> hand, as above, and this is exactly how a box ended up running the timers
+> package from before v18 with three helpers missing
+> (`input_button.wall_clock_timer_dismiss`,
+> `input_number.wall_clock_alert_repeat_max`,
+> `input_number.wall_clock_alert_repeat_seconds`) while the dashboard asked for
+> them. After copying: `homeassistant.reload_all` is enough for `_ui` and
+> `_grow`; `_timers` introduces `timer:` and `intent_script:` on a first
+> install and wants a restart.
 
 ## 2. Fill in the entity IDs
 

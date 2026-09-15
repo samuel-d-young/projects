@@ -55,6 +55,43 @@ things stop it — the dismiss button, saying *stop the timer*, or starting anot
 one. The **clock** shows the alert for 15 s by default (`Clock shows it for`, 0 =
 for as long as it sounds); a cancel clears the lights instantly either way.
 
+### Grow clock
+
+One switch — **Grow clock** — turns the whole clock into a child's
+sleep-training clock, the Gro-Clock idea on this hardware. The ring and the
+panel show a *sleep* colour until it is time to get up and a *wake* colour
+after, with an *almost time* window before wake and a warning before bed, each
+in a colour of its own. The ring is the stars: they go out one by one through
+the night, so "how long until morning" is something a child can count. The
+panel draws two big Deskimon-style eyes glowing in the state colour on black —
+flat bars asleep, half-lidded when morning is close, happy arches awake, heavy
+drooping lids at bedtime, and they look around, blink, smile and yawn on their
+own — with the digital time along the bottom. The default face, *eyes and
+sky*, adds a sun or a moon above the eyes and the stars beneath; the same eyes
+on a field of the colour, a sun and moon, or the colour alone are the other
+faces.
+
+The dials, every one of them an entity that lands in Home Assistant by itself:
+weekday and weekend wake times, bedtime, the almost and bedtime warnings,
+**ring and screen brightness on separate numbers** for night and day, a
+sunrise fade, star count and shape, a minutes-to-go countdown, naps, *wake
+now* / *sleep now*, *five more minutes*, holiday mode, a wake-up rainbow or
+sparkle on the ring, and *clock by day*, which hands the panel back to the
+ordinary clock an hour after wake and takes it back for the bedtime warning.
+`esphome/preview/grow_faces.py` renders every face and state to a PNG from
+the same coordinates the firmware draws, so a layout can be looked at before
+it is flashed.
+
+**It has no microphone.** *Respond to sound* is real, but the clock is told
+about sound by Home Assistant — `packages/wall_clock_grow.yaml` ships the
+helper and an example wired to a Voice PE's wake word. During sleep the clock
+brightens in the **sleep** colour and says *shh*; it never shows the wake
+colour for a noise, because that would reward calling out.
+
+While grow mode is on the clock shows nothing else — no hands, timers or
+status. A nursery clock that lights up because the kitchen timer finished is a
+bug, not a feature.
+
 ## Status
 
 All six phases drafted. Nothing bought, nothing cut, nothing flashed —

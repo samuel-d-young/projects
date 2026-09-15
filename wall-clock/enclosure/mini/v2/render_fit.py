@@ -12,6 +12,7 @@ so it is the geometry being printed and not an illustration of it.
 """
 import sys, math; sys.path.insert(0, '.')
 import numpy as np, trimesh, matplotlib
+import csg
 matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 from matplotlib.patches import Rectangle, Circle
@@ -32,7 +33,7 @@ def segs(m, z):
     return np.array(o) if o else np.zeros((0, 2, 2))
 
 
-H = trimesh.load('mini-round-clock-housing.stl'); H.merge_vertices()
+H = trimesh.load(csg.part('mini-round-clock-housing.stl')); H.merge_vertices()
 ZP = Z_DECK - (PLATE_T + POCKET_DEEP) + PLATE_T      # pocket floor
 HW = BOARD_W / 2
 x_tip  = BRD_X0 + BRD_FING_X0

@@ -17,7 +17,7 @@ def ck(c, msg, d=''):
     if not c: FAIL.append(msg)
 
 def load(f):
-    m = trimesh.load(f, process=False); m.merge_vertices(); return m
+    m = trimesh.load(csg.part(f), process=False); m.merge_vertices(); return m
 
 SEG = BV.SEG
 SAM = BV.load_sams_base()
@@ -114,7 +114,7 @@ for B, tg in BODIES:
        f'interference, {wall_clr/max(2*COLLAR_RIB_H,1e-9):.0f}x -- the ribs stand '
        f'{R_DISP_BORE + COLLAR_RIB_H - COLLAR_OD:.2f} mm proud and can crush most '
        f'of that before anything else touches')
-    ck(os.path.exists('mini-round-clock-collar-gauges.stl')
+    ck(os.path.exists(csg.part('mini-round-clock-collar-gauges.stl'))
        and min(GAUGE_HS) <= COLLAR_RIB_H <= max(GAUGE_HS),
        '...and a printed gauge brackets the figure being shipped',
        f'gauges at {", ".join(f"{h:.2f}" for h in GAUGE_HS)}, '
@@ -137,7 +137,14 @@ for B, tg in BODIES:
     ck((BASE ^ tab).volume() < 1e-6, 'the tab clears the slot', f'{(BASE ^ tab).volume():.5f} mm3')
 
     print('\n5. The S3 is actually HELD, and the frame can be printed')
-    ZP = Z_DECK - (PLATE_T + POCKET_DEEP) + PLATE_T
+    # PER BODY, not the 24's numbers for everything. The 32 and 60 have a
+    # shallower box on a thinner plate now (PLATE_T_BIG / HOUSING_DEEP_BIG), so
+    # their pocket floor is at a different z -- and testing their housings
+    # against the 24's floor made every probe in this section miss by 1.10 mm
+    # and report the board as fouled in 1961 mm3 of thin air.
+    PT   = PLATE_T if B.n == 24 else PLATE_T_BIG
+    PD   = POCKET_DEEP if B.n == 24 else HOUSING_DEEP_BIG - PLATE_T_BIG
+    ZP = Z_DECK - (PT + PD) + PT
     zt   = ZP + BRD_POST_H                  # PCB underside
     ztp  = zt + BOARD_T                     # PCB top
     zlip = ZP + BRD_LIP_Z0
@@ -272,8 +279,8 @@ for B, tg in BODIES:
     # It is built and printed lying on its top face, so nothing had ever
     # measured it against the thing it bolts to. Load the STL, turn it over,
     # drop it on its bosses, and check the assembly rather than the drawing.
-    if os.path.exists('mini-round-clock-board-clamp.stl'):
-        cm = trimesh.load('mini-round-clock-board-clamp.stl', process=False)
+    if os.path.exists(csg.part('mini-round-clock-board-clamp.stl')):
+        cm = trimesh.load(csg.part('mini-round-clock-board-clamp.stl'), process=False)
         cm.merge_vertices()
         X0c = BRD_X0 + BRD_CLAMP_PAD0 - 1.50
         X1c = BRD_CLAMP_SX + BRD_CLAMP_BOSS/2 + 1.50
@@ -415,14 +422,14 @@ for B, tg in BODIES:
        'and their outside diameters match', f'{2*B.r_body:.2f} mm')
     ck(abs(DEPTH - (Z_FRONT - Z_DECK + HOUSING_DEEP)) < 1e-6,
        'the clock is as deep as Sam asked for and no deeper',
-       f'housing {HOUSING_DEEP:.1f} mm, pocket {POCKET_DEEP:.1f} clear, '
+       f'housing {PT + PD:.1f} mm, pocket {PD:.1f} clear, '
        f'clock {DEPTH:.1f} overall (was 74.4)')
-    plenum = POCKET_DEEP - BRD_RAIL_TOP
+    plenum = PD - BRD_RAIL_TOP
     ck(plenum > 10.0, 'with the board and its frame in, the cables still have room',
        f'{plenum:.2f} mm of clear plenum above the frame, for the display ribbon '
        f'and the ring leads')
     ck(HOUSING_DEEP < BATTERY_MIN_HOUSING
-       and not os.path.exists('mini-round-clock-battery-shelf-x2.stl'),
+       and not os.path.exists(csg.part('mini-round-clock-battery-shelf-x2.stl')),
        'and no battery shelf is shipped, because no battery fits',
        f'a {BAT_T:.2f} mm cell needs a {BATTERY_MIN_HOUSING:.2f} mm housing; '
        f'this one is {HOUSING_DEEP:.2f}')
@@ -526,10 +533,10 @@ for B, tg in BODIES:
 # that the claim survives contact with the built parts.
 for tg in ('-32', '-60'):
     fn = f'mini-round-clock-base{tg}-bar.stl'
-    if not os.path.exists(fn):
+    if not os.path.exists(csg.part(fn)):
         continue
     print(f'\n8. The bar-screen base {fn}')
-    bm = trimesh.load(fn, process=False); bm.merge_vertices()
+    bm = trimesh.load(csg.part(fn), process=False); bm.merge_vertices()
     BB = csg.to_manifold(bm)
     hl, hw = BAR_L/2, BAR_W/2
 
@@ -577,6 +584,61 @@ for tg in ('-32', '-60'):
     frac = (BB ^ land).volume() / land.volume()
     ck(frac > 0.60, '...and the face still has a land to rest on',
        f'{100*frac:.1f}% of the annulus survives the two ears')
+
+# =============================================================================
+# The screen's wires go STRAIGHT OUT THE BACK
+# =============================================================================
+# Sam, 2026-09-05: "Make sure there is a hole on the under side of the screen
+# wires, There is currently a bottom on it where it needs to go straight
+# through." There was one: a 1.40 mm plate right across the tab opening at the
+# very back of the base, left behind when tab_slot_walls() was taken down to
+# Z_DECK and tab_slot_keep() was not taken down with it.
+#
+# Nobody drew that floor and nothing was looking for it, because every existing
+# test asked whether the TAB fits -- and the tab stops at z = 10.20, ten
+# millimetres above it. This asks the question the WIRES ask instead: from
+# behind the display, is there a clear line out of the back of the base?
+#
+# It sweeps the whole corridor rather than one ray. A floor with a hole in it
+# passes a single probe and is still a floor.
+print(f'\n{"="*70}\nThe screen wires: straight through, or not')
+for B, tg in BODIES:
+    base = load(f'mini-round-clock-base{tg}.stl')
+    xs = np.arange(R_BORE + 2.0, 40.0, 0.50)
+    ys = np.arange(-TAB_SLOT_HW + 1.0, TAB_SLOT_HW - 0.9, 0.50)
+    zs = np.arange(Z_DECK - 0.9, 9.0, 0.50)
+    gx, gy, gz = np.meshgrid(xs, ys, zs, indexing='ij')
+    pts = np.column_stack([gx.ravel(), gy.ravel(), gz.ravel()])
+    hit = base.contains(pts)
+    ck(not hit.any(), f'{B.n}-LED: the base is open right through under the tab',
+       f'{hit.sum()} of {hit.size} probes hit material'
+       + (f', lowest at z = {pts[hit][:, 2].min():.2f}' if hit.any() else ''))
+    # and specifically at the back plane, which is where the floor was
+    gx2, gy2 = np.meshgrid(xs, ys, indexing='ij')
+    zb = Z_DECK + 0.30
+    back_hit = base.contains(np.column_stack([gx2.ravel(), gy2.ravel(),
+                                              np.full(gx2.size, zb)]))
+    ck(not back_hit.any(), f'{B.n}-LED: and open at the base\'s own back face',
+       f'{back_hit.sum()} of {back_hit.size} probes at z = {zb:.2f}')
+
+    # The cover and the housing behind it are NOT open across the whole
+    # corridor and are not meant to be -- they carry a cable port, not a slot.
+    # What matters is that the port is in the same quadrant the wires arrive in
+    # and is big enough for the bundle, so check that rather than pretending a
+    # closed back is a fault.
+    for nm in ('backcover', 'housing'):
+        m = load(f'mini-round-clock-{nm}{tg}.stl')
+        z = m.bounds[0][2] + 0.30
+        px = np.arange(20.0, 56.0, 0.25)
+        py = np.arange(-22.0, 22.0, 0.25)
+        mx, my = np.meshgrid(px, py, indexing='ij')
+        open_ = ~m.contains(np.column_stack([mx.ravel(), my.ravel(),
+                                             np.full(mx.size, z)]))
+        area = open_.sum()*0.0625
+        wide = (my.ravel()[open_].max() - my.ravel()[open_].min()) if open_.any() else 0.0
+        ck(area >= 40.0 and wide >= 7.0,
+           f'{B.n}-LED: the {nm} has a cable port for the wires to leave by',
+           f'{area:.0f} mm2, {wide:.1f} mm across')
 
 print()
 if FAIL:

@@ -12,7 +12,7 @@ def check(cond, msg, detail=''):
     if not cond: FAIL.append(msg)
 
 # how much Sam's own uploaded diffuser disagrees with itself, measured, not assumed
-_src = trimesh.load('diffuser_in.stl', process=False); _src.merge_vertices()
+_src = trimesh.load(csg.part('diffuser_in.stl'), process=False); _src.merge_vertices()
 SOURCE_AMBIGUITY = abs(to_manifold(_src).volume() - _src.volume) / _src.volume * 100
 
 # the numeral inlays are twelve separate solids (and the two-digit ones are two
@@ -22,7 +22,13 @@ MULTI = {'mini-round-clock-numerals.stl',
          'mini-round-clock-numerals-32.stl',
          'mini-round-clock-numerals-60.stl'}
 
-PARTS = [('mini-round-clock-base.stl', True),
+PARTS = [('mini-round-clock-dock.stl', True),
+         ('mini-round-clock-dock-32.stl', True),
+         ('mini-round-clock-dock-60.stl', True),
+         ('mini-round-clock-dock-cap.stl', True),
+         ('mini-round-clock-dock-32-cap.stl', True),
+         ('mini-round-clock-dock-60-cap.stl', True),
+         ('mini-round-clock-base.stl', True),
          ('mini-round-clock-housing.stl', True),
          ('mini-round-clock-diffuser.stl', True),
          ('mini-round-clock-deskstand.stl', True),
@@ -38,17 +44,46 @@ PARTS = [('mini-round-clock-base.stl', True),
          ('mini-round-clock-numerals.stl', True),
          ('mini-round-clock-numerals-32.stl', True),
          ('mini-round-clock-numerals-60.stl', True),
-         ('mini-round-clock-battery-shelf-x2.stl', True)]
+         ('mini-round-clock-battery-shelf-x2.stl', True),
+         # 2026-09-03: the stand-box and its tray, the flat back cover, and
+         # the diffuser variants (plain = no numerals, flange = to the base edge)
+         ('mini-round-clock-standbox.stl', True),
+         ('mini-round-clock-backcover.stl', True),
+         ('mini-round-clock-diffuser-plain.stl', True),
+         ('mini-round-clock-diffuser-flange.stl', True),
+         ('mini-round-clock-diffuser-flange-plain.stl', True),
+         ('mini-round-clock-standbox-32.stl', True),
+         ('mini-round-clock-backstand.stl', True),
+         ('mini-round-clock-backstand-32.stl', True),
+         ('mini-round-clock-backstand-60.stl', True),
+         ('mini-round-clock-backstand-clamp.stl', True),
+         ('mini-round-clock-backcover-32.stl', True),
+         ('mini-round-clock-diffuser-32-plain.stl', True),
+         ('mini-round-clock-diffuser-32-flange.stl', True),
+         ('mini-round-clock-diffuser-32-flange-plain.stl', True),
+         ('mini-round-clock-diffuser-32-bar-plain.stl', True),
+         ('mini-round-clock-standbox-60.stl', True),
+         ('mini-round-clock-backcover-60.stl', True),
+         ('mini-round-clock-diffuser-60-plain.stl', True),
+         # no -60-flange: the 60's diffuser already runs out to its lip
+         ('mini-round-clock-diffuser-60-bar-plain.stl', True)]
 # Parts that the build deliberately did not emit -- at HOUSING_DEEP = 25.00 no
 # battery fits, so there are no shelves to check. Say which, do not skip quietly.
-_gone = [f for f, _ in PARTS if not os.path.exists(f)]
+_gone = [f for f, _ in PARTS if not os.path.exists(csg.part(f))]
 if _gone:
     print('  not built, so not checked: ' + ', '.join(_gone))
-PARTS = [(f, k) for f, k in PARTS if os.path.exists(f)]
+_want = len(PARTS)
+PARTS = [(f, k) for f, k in PARTS if os.path.exists(csg.part(f))]
+# LOUD, NOT SILENT. Moving the meshes into stl/ emptied this list and the whole
+# pass went green having checked nothing at all. A checker that checks nothing
+# must fail, not congratulate you.
+if len(PARTS) < _want // 2:
+    print(f'  [FAIL] only {len(PARTS)} of {_want} parts found -- run build_v2.py first')
+    sys.exit(1)
 
 for name, strict in PARTS:
     print(f'\n{name}' + ('' if strict else '   [derived from Sam\'s mesh - relaxed]')) 
-    m = trimesh.load(name, process=False)
+    m = trimesh.load(csg.part(name), process=False)
     m.merge_vertices()
     if strict: check(m.is_watertight, 'watertight (no holes in the surface)')
     check(m.is_winding_consistent, 'winding consistent')

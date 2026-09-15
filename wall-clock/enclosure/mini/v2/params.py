@@ -97,6 +97,49 @@ Z_SEAT_BAR = Z_SEAT + DISP_T - BAR_T                       # 7.50
 # DXF_ESP32-S3-DevKitC-1_V1_20210312CB.pdf
 # =============================================================================
 BOARD_L, BOARD_W, BOARD_T = 63.27, 28.19, 1.60
+
+# --- SAM'S BOARD, measured 2026-09-03 -----------------------------------------
+# "The width of the board is 32mm, and the length is 64mm. The height is 14mm
+# but wires stick out the top because it is a dev board."
+#
+# That is 3.81 mm WIDER than the board every mount in this file was derived
+# from (28.19, off Espressif's DevKitC-1 v1.1 drawing, and asserted since v14
+# with BOARD_W_MAX = 28.40). A 3.8 mm disagreement is not a caliper slip: it is
+# a different board, or a board with something on it the drawing does not have.
+# Either way his calipers win over my drawing -- the board is in his hand.
+#
+# It is kept SEPARATE rather than overwriting BOARD_W, because the rear housing
+# and its snap fingers are derived from that drawing's pad rows and USB shells
+# and are verified against it; silently moving BOARD_W would move all of that
+# to fit a board nobody has a drawing for. The stand-box, which holds the board
+# by its OUTLINE and nothing else, uses these.
+#
+# 14.00 is the whole stack, not the PCB: board plus whatever stands on it. The
+# wires above it are why the stand-box becomes an open box -- see Sam's
+# instruction, and why there is no roof height here to fit them under.
+# CORRECTED by Sam minutes later: "The ESP32 is 29mm wide." So 29.00, not the
+# 32.00 he first gave. That lands 0.81 mm off the drawing's 28.19 rather than
+# 3.81 -- the difference between "a different board" and "calipers over a
+# drawing, across whatever stands proud of the edge". His number is still the
+# one that governs; the drawing does not have to be wrong for the part in his
+# hand to be 29.00.
+#
+# AND IT MAKES THE GAUGE MATTER MORE, not less. The tray as shipped puts its
+# rails 28.99 apart: on a 29.00 board that is a zero-clearance fit, which is
+# not a fit. A 0.81 mm error in the direction that closes a slot is exactly
+# the kind that a drawing cannot catch and a printed channel settles in a
+# minute.
+BOARD2_W, BOARD2_L, BOARD2_H = 30.00, 64.00, 14.00
+# The gauge brackets the slot, because a printed 32.40 mm slot is not 32.40 --
+# it is that minus the elephant's foot and the wall's own squish, and this
+# printer's number for that is unknown. Four channels, 0.40 apart, and the one
+# that takes the board without force is the one the stand is built to.
+# Bracketed around 29.00 + FDM_SLOT_UNDER: a nominal 29.40 slot prints about
+# 29.00, which is the board itself and will not go in; 29.80 gives 0.40 of
+# real clearance, 30.20 gives 0.80. So the answer is almost certainly the
+# middle pair, and the outer two are there to prove it.
+BOARD2_GAUGE_SLOTS = (30.20, 30.60, 31.00, 31.40)
+BOARD2_GAUGE_LEN   = 30.00   # a section of channel, not the whole 64
 BOARD_CLR   = 0.45          # per side, in the pocket
 BOARD_LIFT  = 1.20          # pads under the PCB, so header tails have somewhere to go
 BOARD_TALL  = 3.20          # tallest thing on top (USB-C shell ~3.2, WROOM ~3.1)
@@ -126,6 +169,25 @@ Z_DECK      = -DECK_T       # -2.40, the new flat mating face of the base
 WALL_T      = 3.00                    # outer wall
 R_INNER     = R_BODY - WALL_T         # 50.99  usable interior radius
 PLATE_T     = 3.50                    # rear plate; also what the keyhole cuts through
+# ...but 3.50 on a 234 mm disc is 150 cm^3, which is 71% of the 60-LED housing
+# and is another thin plate that prints ~100% solid. The big bodies drop to 2.40
+# (twelve layers) and pick up ribs instead. The keyhole still bears on it: the
+# screw shank presses on 4.6 x 2.40 mm, which under a 560 g clock is 0.50 MPa
+# against PLA's ~50 MPa yield -- a 100x margin, down from 200x.
+# The 24 keeps 3.50: nothing about it needed changing and Sam may have printed
+# one already.
+PLATE_T_BIG = 2.40
+# Depth follows the board rather than a round number. The board stack is 8.80 mm
+# above the pocket floor (4.00 posts + 1.60 PCB + 3.20 tallest part), and the
+# plenum over it carries the display ribbon and the ring leads. 6.00 of plenum
+# is enough for those and takes the 60's housing from 25.00 mm deep to 17.00.
+#
+# 17.00 WAS TOO SHALLOW AND check2 SAID SO: it leaves 7.20 mm of plenum above
+# the board frame against a 10.00 mm floor that exists because the display's
+# ribbon and the ring's leads both have to cross that space. Not relaxing the
+# floor to fit a number I picked -- the cables are real. 20.00 gives 10.20 mm of
+# plenum and is the shallowest box that clears it.
+HOUSING_DEEP_BIG = 20.00
 # Two variants, because the battery decision is genuinely a trade and it is
 # Sam's to make. Nothing else about the housing changes between them.
 #   slim    - no battery, or a flat cell + charger board. Clock 44.4 mm deep.
@@ -244,6 +306,9 @@ def summary():
   diffuser press fit    {2*COLLAR_RIB_H:.2f} mm on diameter at {COLLAR_RIB_N} collar ribs, INSIDE
   outer wall            {-2*DIFF_FIT:.2f} mm of clearance on diameter -- it grips nothing
   desk stand            clock {STAND_LIFT:.0f} mm off the desk, leaning back {STAND_TILT:.0f} deg
+  stand-box             the S3 under the clock in a {STANDBOX_PLINTH_H:.0f} mm plinth, leaning back {STANDBOX_TILT:.0f} deg,
+                        with a {BACKCOVER_PLATE + BACKCOVER_POCKET:.1f} mm back cover instead of the housing
+  diffuser flange       flush with the face, {DIFF_FLANGE_D:.2f} deep, out to the lip less {DIFF_FLANGE_CLR:.2f}
 """
 
 
@@ -414,10 +479,40 @@ DIFF_OPAQUE_T = 2.00
 # If a genuinely long line is what is wanted, the mechanism that delivers it is
 # the 60-LED body's perspex light guides, which read 30 mm. An aperture alone
 # cannot outrun its own cell.
-TICK_W          = 1.40      # tangential width. Narrower as well as longer -- a
-                            # line is thin -- and 1.40 is still 3.5 bead widths.
-TICK_CELL_MARGIN = 0.70     # cell wall left standing at each end of the tick
-TICK_L_MAX      = 7.00      # ceiling, so a big cell cannot make a silly mark
+# --- v19: ONE aperture, on every flat body, and it is the die ----------------
+# Sam, 2026-09-03: "make sure each of the plain diffusers have the same size LED
+# hole for the LED to shine through. They are not even at the moment. And they
+# can be slightly larger, each of the holes."
+#
+# He is right, and it is measured: on the built plain diffusers the opening at
+# the membrane was 4.74 x 1.43 mm on the 24 and 4.44 x 1.43 on the 32. They
+# differed because each body solved for the longest tick IT could carry, and
+# the two bodies are bound by different things -- the 24 by the screen window
+# inboard of it, the 32 by its own cell. "As long as this one can manage" is a
+# reasonable rule per part and the wrong rule across a set: two clocks on one
+# wall want one mark.
+#
+# So the length is now a CONSTANT, and it is the emitter: a 5050 die is 5.00 mm
+# across, so a 5.00 mm tick is exactly as long as the lit thing behind it. That
+# is the only length with a reason -- shorter wastes die, longer is spill
+# (TICK_SPILL_MAX), and it lands between the two lengths it replaces, so it is
+# "slightly larger" on the 32 and on the 24 alike... in width, where the growth
+# he asked for actually shows: 1.40 -> 1.80.
+#
+# What it costs, and it is paid where he cannot see it: the 32's cell has only
+# 6.02 mm between its ribs, so a 5.00 tick leaves 0.40 of standing rib at the
+# ends rather than 0.70, and the tick is centred on the CELL rather than on the
+# LED (they are 0.10 apart -- a tenth of a millimetre on a five-millimetre die).
+# On the 24 the numerals give way instead: they are solved down from NUM_H_24
+# until they clear the tick, which is the lever this file already named as the
+# one to pull. check4 measures every one of these on the built mesh.
+LED_DIE_W       = 5.00      # a 5050 emitter, across. The aperture IS this.
+APER_L          = LED_DIE_W # every flat body, every diffuser, one length
+TICK_W          = 1.80      # tangential width. 1.40 was 3.5 bead widths and
+                            # read thin; 1.80 is 4.5 and is what "slightly
+                            # larger" means here.
+TICK_CELL_MARGIN = 0.40     # cell wall left standing at each end of the tick.
+                            # 0.70 on the 32 would cap the tick at 4.42.
 TICK_SPILL_MAX  = 1.00      # how far a tick may run past the 5.00 mm die at each
                             # end. Past this the end of the mark is lit by spill
                             # alone and reads as a gradient, not as a line, which
@@ -425,7 +520,7 @@ TICK_SPILL_MAX  = 1.00      # how far a tick may run past the 5.00 mm die at eac
                             # and no more. (unverified: an optical judgement --
                             # nothing has been printed to look at yet.)
 TICK_MARK_GAP   = 0.40      # clear space between the tick and the minute marks
-TICK_END_R      = 0.70      # radiused ends, half the width
+TICK_END_R      = TICK_W/2  # radiused ends, half the width
 # ...AND A SECOND LIMIT, WHICH IS THE ONE THAT ACTUALLY BINDS ON THE 24.
 # The tick grows inward as well as outward, and everything inboard of it -- the
 # hour marks, then the numerals -- gets pushed toward the screen window as it
@@ -1231,10 +1326,90 @@ MARK60_RI_MAJ, MARK60_RO_MAJ = 70.30, 73.50
 NUM60_R       = 72.00
 NUM60_H       = 5.00
 # --- and the 240 mm annulus has to be hollow, or it is a kilogram of PLA ------
-HOLLOW_FLOOR  = 3.00         # floor plate under the whole annulus
+# --- v19: LESS MATERIAL, AND THE REASON THE CUTS ARE WHERE THEY ARE ----------
+# Sam: "Update the 60LED stl files so that they use less material when printing.
+# Remember the basic principals of 3D printing."
+#
+# THE PRINCIPLE THAT DECIDES WHERE TO CUT, and it is not "make everything
+# thinner": a slicer does not print model volume, it prints perimeters, top and
+# bottom skins, and sparse infill. So a mm^3 removed is worth very different
+# amounts depending on where it is:
+#
+#   a THIN PLATE (under about 2x the skin thickness) prints ~100% SOLID, because
+#   the top and bottom skins meet in the middle with no room for infill. Every
+#   mm^3 taken out of it is a mm^3 of filament saved, 1:1.
+#
+#   a TALL THIN WALL prints as two perimeters and a sliver. It is already near
+#   the minimum; thinning it saves almost nothing and costs stiffness.
+#
+#   a THICK BLOCK prints as skins plus sparse infill, so removing it saves maybe
+#   15-20% of its volume in filament.
+#
+# The 60-LED base was 520 cm^3, and the largest single item in it was a FLOOR
+# THAT WAS BUILT TWICE: the deck (2.40 mm, r 30..120) stacked directly under the
+# base's own floor plate (3.00 mm, same annulus). 5.40 mm of solid across
+# 42,412 mm^2 -- 229 cm^3, 44% of the part, and every bit of it in the "thin
+# plate, prints solid" category. That is the cut worth making.
+#
+# What was NOT cut, deliberately: the outer wall (r 116.5..120, 24.4 tall). It
+# looks like 64 cm^3 of fat and it is not -- at 3.5 mm wide it is already just
+# perimeters, so thinning it would buy a few grams and give back the rim's
+# stiffness on a 240 mm part that has to stay round.
+HOLLOW_FLOOR  = 2.00         # floor plate under the whole annulus. 3.00 -> 2.00:
+                             # ten layers at 0.20, and it is not spanning air --
+                             # twelve radial ribs, two circumferential ribs and
+                             # the pocket walls all land on it.
 HOLLOW_RIBS   = 12           # radial ribs tying floor to walls
 HOLLOW_RIB_W  = 3.00
 HOLLOW_WALL   = 2.50         # either side of the ring pocket
+
+# ONE FLOOR PLATE, NOT TWO -- AND THE FIRST ATTEMPT AT THIS WAS WRONG.
+#
+# The 32 and 60 had the deck (2.40 mm, z -2.40..0) stacked directly under the
+# base's own floor (3.00 mm, z 0..3.00). 5.40 mm of plate across 42,412 mm^2.
+#
+# The obvious cut -- stop the deck at KEEP_R32 and let the base's floor close
+# the rest -- IS WRONG, and check3 caught it in one line:
+#
+#     [FAIL] every flat ceiling bridges <= 25 mm   worst 69.1 mm at z=-0.0
+#
+# The part prints deck-face-down. Taking the deck away outboard of r=47 did not
+# remove a redundant plate, it removed THE BOTTOM LAYER: the whole r 47..120
+# annulus then began at z=0 with nothing under it, 2.40 mm up in the air, a
+# 69 mm bridge. The island test still passed -- it was connected at the outer
+# wall, so it was not floating, just unsupported over a span no printer bridges.
+# "Connected" and "printable" are different questions and it takes both checks.
+#
+# What is actually right is to keep ONE plate and put it at the BOTTOM: the base
+# annulus now starts at Z_DECK on the big bodies instead of Z_BACK, so the part
+# has a single bottom plane at -2.40 and a single 2.00 mm floor above it. That
+# removes 3.40 mm of the 5.40, across the full annulus, and removes nothing that
+# was holding anything up. The deck still runs full width on the 24 -- the 24 IS
+# Sam's mesh and has no floor of its own -- and on the big bodies it shrinks to
+# Sam's inner region only, where it is still the bottom layer.
+#
+# Nothing structural goes with it: the deck carried no bosses, and the four
+# screws tap into hollow()'s own 5.50 mm pillars.
+DECK_RO_BIG   = 47.00        # = KEEP_R32 + 1.00, buried in the base's own floor
+
+# THE CABLE GAP AT THE BOTTOM. Sam: "at the bottom the spacing for the 2.1inch
+# screen doesn't allow for the cables. Make the gap at the bottom gap wider to
+# fit the cables that come down under the ESP 32." 40.00 chosen by him.
+#
+# This is the opening through the DECK, not the tab slot itself. The tab slot
+# stays 31.15 mm for a 30.55 mm tab -- widening that is what caused "it doesn't
+# stay upright" in the first place, and the walls that fixed it are staying. The
+# deck's own opening under it was only 20.00 mm wide, which is what the ribbon
+# and the wire bundle actually have to get through.
+DECK_CABLE_W  = 40.00
+TAB_CABLE_RO  = TAB_WALL_RO + 1.00      # 44.50 -- the full radial run of the
+                                        # opening, same as before; only its
+                                        # WIDTH changes. Whether the tab-slot
+                                        # walls end up undermined by that is a
+                                        # question for check3's island sweep,
+                                        # not for a comment: they stand at
+                                        # r 31.00..43.50 and this cuts through
+                                        # that band.
 
 
 # =============================================================================
@@ -1272,6 +1447,12 @@ NUM_MARGIN      = 1.20        # clear space between a numeral and the dots
 # face against the Echo's 3.2% of a 203 mm one, and a small clock needs the
 # proportionally bigger numeral anyway. The band inboard of the ticks runs
 # 30.95..37.55, so 5.00 still leaves 2.55 mm clear of the collar.
+# NOMINAL heights. On a body where the aperture leaves too little room inboard
+# of it, the numerals are solved DOWN from these until they clear it by
+# NUM_MARGIN -- the aperture is hardware and the typography is not. NUM_H_24 at
+# 5.00 does not fit a 5.00 tick and is reduced; the floor at which a stem is
+# still two clean 0.40 mm beads is 4.40, and check4 asserts it is not crossed.
+NUM_H_MIN       = 4.40
 NUM_H_24        = 5.00
 NUM_H_32        = 6.00
 NUM_H_60        = 9.00
@@ -1282,87 +1463,568 @@ NUM_H_60        = 9.00
 # register with no moving about.
 NUM_INLAY_T     = NUM_DEPTH   # 0.50 -- at 0.20 mm layers that is 2 layers +.5
 
-# =============================================================================
-# THE LEGEND FLANGE
-# =============================================================================
-# Sam: "make this be the diffuser, but it sits a little outside of the width of
-# the wall clock to fit in the text."
+# --- 6. the stand-box, the back cover, the flange, and custom sizes ---------
+# Sam, 2026-09-03: "create the back of the clock to house the ESP32 S3. It
+# could be housed at the bottom of the clock in the stand. Make the clock lean
+# back a bit though." So: the S3 leaves the clock and lives in a box under the
+# cradle; the clock gets a flat BACK COVER instead of the 25 mm housing, and
+# the stand leans a little further than the plain cradle.
+STANDBOX_TILT     = 12.00    # degrees back from vertical; the cradle alone is 10
+BACKCOVER_POCKET  = 6.50     # clear depth behind the deck: room for the leads to
+                             # turn the corner, nothing else lives in here
+BACKCOVER_PLATE   = 2.40     # the plate itself, like PLATE_T_BIG
+STANDBOX_PLINTH_H = 34.00   # 34, not 32: the clock leans INTO the plinth, and
+                            # the deeper it sinks the lower its underside sits
+                            # over the board. 34 puts the clock's rim 5 mm below
+                            # the top face and still leaves 26.0 of cavity
+                             # is STAND_LIFT - STAND_SHELL = 30 at the front, so
+                             # this stays 1 mm under it and never lands ON it
+STANDBOX_PLINTH_D = 72.00    # front to back. The bay is 67.4 deep and needs a
+                             # 3 mm front wall; the rest is footprint, which is
+                             # stability -- see check6
+STANDBOX_FLOOR    = 2.00     # under the bay
+STANDBOX_ROOF     = 4.00     # over it, bridged: the widest span is the bay
+STANDBOX_WALL     = 3.00     # around the bay and the outside
+STANDBOX_BAY_CLR  = 0.60     # tray to bay, per side: FDM_SLOT_UNDER + 0.20
+STANDBOX_TRAY_T   = 2.00     # the tray's floor
+STANDBOX_RAIL_T   = 2.00     # its side rails
+STANDBOX_RAIL_H   = 6.00     # above the tray floor -- 0.40 over the board's top
+STANDBOX_BAR_W    = 3.00     # the two hooks over the board's far corners: how
+                             # far along the board they reach
+STANDBOX_HOOK_W   = 5.00     # and how far in from each rail. Two hooks, not one
+                             # bar: a bar between the rails is a 26 mm flat
+                             # ceiling, and check3 draws the line at 25
+STANDBOX_LID_T    = 2.50     # the lid IS the tray's end plate
+STANDBOX_LID_LIP  = 8.00     # and overlaps the back face by this each side,
+                             # far enough to carry the two screws: the holes
+                             # are at bay_w/2 + 4.5 and 2.3 across, and 6
+                             # left 0.35 mm of lid outside them (check3)
+STANDBOX_BOSS_R   = 3.00     # bosses behind the back wall for the screws to
+STANDBOX_BOSS_L   = 8.00     # bite into -- the wall alone is 3 mm
+STANDBOX_SCREW_PILOT = 1.60  # M2 self-tapper, into the plinth's back face
+STANDBOX_SCREW_CLEAR = 2.30  # through the lid
+# Both are HORIZONTAL holes in parts printed flat, so both are teardrops: a
+# round hole's ceiling is a run of near-flat facets, and check3 flags them at
+# 22-37 degrees. A 45-degree point on top prints clean and the screw does
+# not care. The point stands r*sqrt(2) above the centre.
+STANDBOX_CEIL_SPAN = 28.00   # the stand-box's cavity ceiling, flat and bridged.
+                             # 28 and not CELL_MAX's 24, because the chamfer
+                             # that would have bought those 4 mm eats the
+                             # headroom exactly where the loom's Dupont housings
+                             # stand -- at the board's EDGES, |x| 11 to 15 --
+                             # and the ceiling is the clock's underside, which
+                             # cannot be raised. A 28 mm flat bridge across an
+                             # internal, invisible roof is a thing the printer
+                             # does; 17.5 mm of headroom where 20.6 is needed is
+                             # not. So the chamfer is 4 mm wide, the flat runs
+                             # out to |x| = 14, and the bridge is 28.
+STANDBOX_CELL_MAX = 24.00    # widest unsupported roof span in the lightening
+                             # pockets; wider gets a 2 mm rib. 24 because check3
+                             # allows a 25 mm bridge and nothing here is exempt
+STANDBOX_RIB_T    = 2.00
+STANDBOX_TIP_TARGET = 21.0   # tipping design angle, forward AND back; check6
+                             # wants 20 measured. Forward it sets the toe; back
+                             # it sets how far behind the clock the plinth runs,
+                             # which on the 60 is more than STANDBOX_PLINTH_D
+# The bay is 34.19 wide, and its roof would be a 34 mm bridge. So its two top
+# corners are chamfered: STANDBOX_BAY_CHAMF_W in from each wall, rising
+# STANDBOX_BAY_CHAMF_H, which is 54.5 degrees from the horizontal (steeper than
+# check3's 45) and leaves a 23.8 mm flat in the middle (inside its 25). The
+# corners it takes are above the rails, where the board's pin headers are not.
+# ---- THE BOARD THE STAND-BOX IS ACTUALLY BUILT FOR ---------------------------
+# The tray used to take its width from BOARD_W = 28.19, the number off the
+# drawing, which put the rails 28.99 apart. Sam's board measures 29.00. That is
+# not a tight fit, it is a negative one -- the part could never have taken his
+# board, and no amount of print tuning would have saved it.
 #
-# So the diffuser grows a flat brim OUTBOARD of the body, standing proud of the
-# face, and the ambient-pixel names are debossed into it. It is a separate part
-# file rather than a change to the diffuser everyone already has: the plain one
-# is verified and fitted, and a clock with no legend should not have to print a
-# 150 mm disc.
+# These are Sam's measurements, and they govern the stand-box only. The base's
+# own board mount keeps BOARD_W/BOARD_L, because those parts already fit and
+# there is no reason to disturb them.
 #
-# WHY IT STANDS PROUD RATHER THAN SITTING FLUSH
-# The diffuser is modelled with its visible face at z = 0 and everything else
-# behind it at z > 0. Behind the face, between the diffuser's own outer edge
-# and the body wall, is where the body's front rim is -- so a brim grown into
-# z > 0 would be trying to occupy the rim. Grown the other way it lies ON the
-# rim, which also gives it something to bear on all the way round instead of
-# cantilevering off the diffuser's edge alone.
-#
-# LEGEND_BAND is measured from the BODY, not from the diffuser, because what
-# "sits a little outside the width of the clock" means is a fixed overhang past
-# the body wall on every size.
-# 18.00, not 15.00, and the number is forced rather than chosen. Every name is
-# UPRIGHT, so at 3 and 9 o'clock a name's WIDTH lies radially and the brim has
-# to be deep enough to hold the longest one that lands there. DRIVEWAY at 9 is
-# 8 characters; at LEGEND_TXT_H it needs 16.9 mm plus a margin each side, and
-# the 15.00 brim gave 18.7 mm total. It did not fit, and the render showed it
-# reading "RIVEW" off the edge of the part.
-LEGEND_BAND     = 20.00       # radial overhang past the body wall
-LEGEND_T        = 2.00        # brim thickness, 10 layers at 0.20
-# 3.40: the largest that lets DRIVEWAY sit radially in the brim above while
-# keeping the stem over two 0.4 mm beads (3.40 x 0.185 = 0.63 mm). Bigger text
-# means a wider brim, and it is already 156 mm across on the 32.
-LEGEND_TXT_H    = 3.40        # cap height
-LEGEND_TXT_D    = 0.50        # deboss depth, = NUM_DEPTH so the same inlay
-                              # trick works if you want it in a second colour
-LEGEND_TXT_R_F  = 0.55        # where the text sits across the brim, 0 = inner
-                              # edge, 1 = outer. 0.55 keeps it clear of both
-                              # the body seam and the outer rim
-# The four presence names sit on ADJACENT LEDs -- 11.25 deg apart on the 32,
-# about 13 mm of arc out here, and AMANDA is wider than that. They alternate
-# between two radii this far apart so that any two neighbours are two steps
-# apart on their own ring instead of one. 2.4 x cap height leaves 4.8 mm of
-# clear space between the rings; at 1.35 the render showed ZAC touching AMANDA.
-LEGEND_TXT_STAGGER = 2.40
-LEGEND_TICK_W   = 0.80        # one radial tick per LED, on the brim's inner
-LEGEND_TICK_L   = 2.60        # edge, so a name lines up with its own pixel
-LEGEND_TICK_D   = 0.40
+# 30.60, was 30.20. Sam, 2026-09-04: "the width of the board is 30mm" -- the
+# 29.00 this was cut for was a mis-measure, and 30.20 against a 30.00 board is
+# 0.10 a side NOMINAL, which a printed slot eats before the board arrives. At
+# 30.60 the worst case is 30.20 across and the fit is 0.10 a side; the typical
+# case is a 0.30 slip fit. The gauge brackets it either way.
+# If it IS sloppy, set this to 30.20 and re-run -- one number, one re-slice.
+STANDBOX_SLOT_W   = 30.60
+STANDBOX_BOARD_W  = BOARD2_W   # 30.00, Sam's, not the drawing's 28.19
+STANDBOX_BOARD_L  = BOARD2_L   # 64.00, Sam's, not the drawing's 63.27
+STANDBOX_BOARD_H  = BOARD2_H   # 14.00 over the PCB, headers included
+# "the heigt is 14mm but wires stick out the top because it is a dev board" --
+# so the bay has to clear the board AND leave air above it for the leads.
+STANDBOX_WIRE_H   = 5.00
 
-# ---- letting the LEDs through the brim ---------------------------------------
-# Sam: "make the LED light be seem through it."
-#
-# The brim is part of the DIFFUSER, not a separate collar, so it is already
-# optically continuous with the band the LEDs fire into -- light entering at an
-# aperture can travel outward through the material. What stops it showing is
-# 2.00 mm of PLA: plenty to hide a 5050 at this distance.
-#
-# So each letter is relieved from BEHIND as well as debossed in front, leaving
-# a membrane. That is the same trick the LED apertures already use at 0.20 mm,
-# only thicker, because these are read in daylight too and a 0.20 mm wall is
-# translucent enough to look grubby when it is not lit.
-#
-#   front deboss   LEGEND_TXT_D    0.50   visible unlit, and a paint/inlay key
-#   back relief    the rest                so the letter is the thinnest path
-#   membrane       LEGEND_MEMBRANE 0.45    what actually glows
-#
-# UNVERIFIED, and it is the one number here that wants a test print: how far
-# light actually carries radially through 2 mm of PLA is a property of the
-# filament, not of the geometry. White or natural will carry it; black will
-# not, and on black this is just a deboss. Print the 24 first -- it is the
-# cheapest of the three and its brim is the shallowest.
-LEGEND_MEMBRANE = 0.45
+# 6.00, was 5.20. The bay got 1.21 mm wider when the tray was cut for Sam's
+# real board, and that pushed the roof's flat bridge to 25.3 mm -- over
+# check3's 25. Widening the chamfer takes the span back to 23.40. The slope
+# drops from 54.5 to 50.6 degrees, still comfortably over the 45 minimum, and
+# the chamfer only narrows the bay ABOVE the rails so the tray still passes.
+STANDBOX_BAY_CHAMF_W = 4.00
+STANDBOX_BAY_CHAMF_H = 7.30
 
-# ---- the key to the moving lights --------------------------------------------
-# The positional names say what a given DOT means. They cannot say what the
-# orange one is, because the hands move. The key does that, in the diagonals
-# the positional names leave empty.
+# The diffuser can carry a FLANGE out to the base's rim. Sam: "larger on the
+# outside to fit to the edge of the base." What he sees is the trough around
+# the diffuser: the base's front recess floor at Z_RECESS is 2.93 below the
+# diffuser's face, and it is exposed from the band's outer wall at r_ring_o
+# out to the lip at r_lip_i -- 5.6 mm of it on his 108 mm clock. The flange
+# fills that trough, FLUSH with the face, DIFF_FLANGE_D deep so it stops
+# DIFF_FLANGE_CLR above the recess floor and the face still seats on the wall
+# crest as before. It is built as one disc with the face, not a ring in front
+# of it: the first version stood 1.60 proud, which would have hit the lip
+# (0.07 short of the face, not 1.60 behind it -- 211 mm3 of overlap on the
+# 24, measured), and would have put the whole face 1.6 mm off the print bed.
+# It cannot go OVER the lip for the same reason: face down is the only way
+# the 0.20 mm membrane prints, and face down means the face is the lowest
+# thing. The 60's diffuser already reaches its lip and gets no flange.
+DIFF_FLANGE_D     = DIFF_SEAT_Z - Z_RECESS - 0.30    # 2.63, behind the face
+DIFF_FLANGE_CLR   = 0.30     # radial, to the lip's inner wall
+DIFF_FLANGE_CHAMF = 0.60     # on its front outer edge
+DIFF_FLANGE_MIN   = 1.00     # narrower than this and there is nothing to add
+
+
+# --- 7. the back-stand -------------------------------------------------------
+# Sam, 2026-09-04: "give make a better base that isn't as bulky. Also the width
+# of the board is 30mm. The base needs to be open to fit the cables, and the
+# base can go behind the clock housing with an angle."
 #
-# Smaller than a name and set further in, so it reads as a key rather than as
-# another label pointing at a pixel.
-LEGEND_KEY_H    = 2.60        # cap height for the key
-LEGEND_KEY_R_F  = 0.42        # where it sits across the brim, inboard of the
-                              # names at 0.55
+# So the plinth goes. The stand-box lifted the clock 32 mm on a closed box with
+# a lid, two screws and a slide-in tray: 196.6 cm3 of plastic to hold a 12 g
+# board. This does the same job with a quarter of that, and it is open on every
+# side that does not have to carry something.
+#
+# The clock comes down to the desk and beds 4 mm into a trench in the foot, so
+# the trench walls -- which are the clock's own front and back faces, cut by
+# subtracting the clock -- set the lean. Two buttresses behind it take the
+# weight of the lean; everything between them is air, which is where the leads
+# and the board live. Nothing is enclosed, so nothing needs a lid.
+BACKSTAND_TILT    = 14.00    # degrees back from vertical. The stand-box was 12
+BACKSTAND_SIT     =  1.00    # the clock's lowest point, above the desk
+BACKSTAND_FOOT_T  =  5.00    # the foot plate, so the trench is 4 mm deep
+BACKSTAND_CLR     =  0.50    # everywhere the stand meets the clock
+BACKSTAND_LIP     =  5.00    # foot in front of where the clock's front face
+                             # crosses the foot's top -- the front of the trench
+BACKSTAND_KERB_H  = 15.00    # and how high that front lip climbs
+BACKSTAND_KERB_T  =  4.00    # its thickness at the top
+BACKSTAND_BACK    = 48.00    # the foot's back edge. Sets tipping backwards and
+                             # has to clear the board bay, which ends at 42.6
+BACKSTAND_HW      = 43.00    # half width of the foot
+BACKSTAND_FILLET  =  4.00    # on the foot's back corners
+# 40.00, was 34.00. Sam, 2026-09-05: "Add a way for the board to be held down on
+# the bases... a small seperate print that gets screwed in down the length of the
+# board." At 34 there was 2 mm between the board's end and the buttress -- nowhere
+# to put an M2 boss, which needs 6.5. Moving the buttresses out to 40 buys 8 mm a
+# side and costs 12 mm of stand width (86 -> 98), which still sits inside the
+# clock: 98 against Zac's 108 and Jake's 120, so nothing shows from the front.
+BACKSTAND_WALL_XI = 40.00    # the buttresses: inner face, |x|. Outboard of the
+BACKSTAND_WALL_XO = 46.50    # board, which is 64 long and centred. THIS IS AN
+                             # ABSOLUTE FACE, NOT A THICKNESS: moving XI out to
+                             # 40 and leaving this at 40.50 gave 0.5 mm walls.
+                             # Keep XO - XI at 6.50.
+BACKSTAND_SPINE_H = 48.00    # how far up the clock's back they reach
+BACKSTAND_SPINE_T =  8.00    # material behind the clock's back face up there
+# The window through each buttress: the board's connector end looks straight at
+# it from 2 mm away, and the leads want a way out. A pentagon with a 45-degree
+# gable, so there is no flat roof to bridge and no support to pick out of it.
+BACKSTAND_WIN_Y0  = 14.00
+BACKSTAND_WIN_Y1  = 32.00    # 32, not 36: at 36 only 0.98 mm of buttress
+                             # was left behind it where the back rake comes
+                             # forward. build_backstand asserts the margin now
+BACKSTAND_WIN_H   = 12.00    # height of the straight sides, above the foot
+BACKSTAND_WIN_APEX= 23.50    # the gable's apex, above the foot. The gable is 52
+                             # degrees: at exactly 45 it lands on the wrong side
+                             # of check3's flatter-than-45 test
+# The board bay: an open channel, no lid, no tray, no screws.
+BACKSTAND_SLOT_W  = 30.60    # for a 30.00 board. A printed slot loses up to
+                             # FDM_SLOT_UNDER = 0.40 across, so the worst case
+                             # is 30.20 -- still 0.10 a side, and the fit gauge
+                             # brackets it at 30.20 / 30.60 / 31.00 / 31.40
+BACKSTAND_BOARD_L = BOARD2_L
+BACKSTAND_BOARD_H = BOARD2_H
+BACKSTAND_BAY_Y0  = 10.00    # front face of the slot
+BACKSTAND_POST_H  =  0.00    # PCB underside above the foot's top face. Was 4.00
+                             # on four small pads; Sam asked for them out, so the
+                             # board lies flat. Everything downstream -- the rail
+                             # height, the lip, the cut over the board -- is
+                             # still derived from this, so putting a number back
+                             # lifts the whole bay correctly. It will not on its
+                             # own make room for header tails: that needs the
+                             # posts back, or a ledge along the rails.
+BACKSTAND_RAIL_T  =  2.50
+BACKSTAND_RAIL_OVER =  0.40  # how far the front rail clears the board's top
+                             # face. The rail height is derived from this and
+                             # POST_H now, not set flat -- see build_backstand.
+BACKSTAND_LIP_OVER=  1.50    # the rear rail's lip, over the board's top face
+BACKSTAND_LIP_T   =  1.60
+BACKSTAND_LIP_GAP =  0.20    # over the board's top face, so it is held not gripped
+BACKSTAND_CABLE_HW=  9.00    # the channel from the trench back to the bay
+BACKSTAND_CABLE_D =  3.00    # how deep it is cut into the foot
+
+# --- the hold-down bar ------------------------------------------------------
+# A bridge, not a flat bar. The board is a dev board: 3.20 mm of USB shell and
+# WROOM module stand off its face, so anything lying across it would rest on the
+# components. This stands OVER them on two feet and comes down only on the bare
+# PCB at each end, with both screws beyond the board entirely.
+#
+# It prints flat with the feet pointing UP -- first layer is the plate's own
+# face, the feet extrude upward, the screw holes are vertical. Flipped in use.
+# No overhang, no bridge, no support.
+BACKSTAND_CLAMP_W    = 20.00  # across the board. Inboard of both header rows on
+                              # a 30 mm board, so it never touches a pad
+BACKSTAND_CLAMP_T    =  3.00  # the plate
+BACKSTAND_CLAMP_FOOT = 12.00  # how far each foot runs along the board
+BACKSTAND_CLAMP_PAD  =  4.00  # of that, how much lands on the PCB
+BACKSTAND_CLAMP_SX   = 36.00  # screw centres, |x|: past the board's end at 32,
+                              # inside the buttress at 40
+BACKSTAND_CLAMP_LIFT =  0.60  # air between the plate and the tallest component
+BACKSTAND_CLAMP_NIP  =  0.10  # the pad sits this far BELOW the boss seat, so
+                              # tightening lands the bar on the BOARD rather than
+                              # bottoming it on its own bosses. 0.10 of flex in a
+                              # 3 mm bar is a few newtons -- it cannot crack FR4
+                              # and it takes any board from 1.50 to 1.70 thick
+BACKSTAND_BOSS_R     =  3.25  # the bosses the screws bite into
+BACKSTAND_SCREW_PILOT = 1.60  # M2 self-tapper, same as the stand-box's
+
+# --- zip-tie points ---------------------------------------------------------
+# Sam, 2026-09-05: "Add some holes for zip ties to go through to hold cables
+# and the ESP32."
+#
+# THE HARD PART IS THAT THE STAND SITS ON A DESK. A pair of slots straight
+# through the foot is the obvious answer and the wrong one: the tie's loop then
+# runs across the underside and the stand rocks on it. So every pad here is two
+# slots PLUS a shallow relief milled into the underside joining them, deep
+# enough that the tie lies below the foot's bottom face. The foot keeps
+# FOOT_T - TIE_RELIEF of material over the relief, and the relief is a 6-7 mm
+# bridge on the first layers, which is nothing.
+#
+# The tie loop always lies PERPENDICULAR to the slots' long axis, so the slots'
+# direction is chosen by which way the thing being held runs.
+BACKSTAND_TIE_W      =  2.00  # slot width. A 2.5 x 1.0 mm tie goes through a
+                              # 2.00 printed slot, which comes out 1.6-2.0
+BACKSTAND_TIE_RELIEF =  1.20  # the underside relief: deeper than the tie is
+                              # thick (1.00), so the loop is recessed and the
+                              # foot still sits flat
+# The board tie: one at each end, crossing the board's width, so the loop wraps
+# the board AND the foot between the two slots. This is an ALTERNATIVE to the
+# screw-down bar, not a companion -- the bar's plate lies across the same
+# ground. Use one or the other.
+BACKSTAND_TIE_BOARD_X =  26.00  # |x|. 26, not 22: at 22 the rail notch left a
+                                # 0.40 mm island of front rail between it and
+                                # the lead tie's outer slot. Everything that
+                                # interrupts the front rail has to be spaced so
+                                # what is left between them is a segment, not a
+                                # sliver -- at 26 the shortest is 2.20 mm
+BACKSTAND_TIE_BOARD_L =   5.00  # slot length, along the board
+BACKSTAND_TIE_BOARD_F =   8.40  # the front slot's centre, y. Inside the front
+BACKSTAND_TIE_BOARD_B =  41.80  # rail; and the back one inside the back rail.
+                                # Both rails are notched right through at this
+                                # x so the tie comes up beside the board rather
+                                # than over the top of a rail -- a 2.00 slot
+                                # through a 2.50 rail would leave a 0.5 mm
+                                # sliver, which is what check3 exists to catch
+# The lead tie: beside the cable gate, in the strip of open foot behind the
+# clock. The ring and power leads run front-to-back here, so the slots run
+# front-to-back too and the loop crosses them.
+BACKSTAND_TIE_LEAD_X  =  16.00  # |x|, outboard of the gate's 9
+BACKSTAND_TIE_LEAD_Y  =   6.55  # centre. The slots reach y 2.90, and the clock's
+                                # back face is at y 1.01 where it crosses the
+                                # foot's top: 1.89 mm of margin
+BACKSTAND_TIE_LEAD_L  =   7.30  # long enough to swallow the front rail whole at
+                                # these two x. Stopping short of it left a
+                                # 0.30 mm wall between slot and rail; stopping
+                                # level with its back face put a boolean on a
+                                # coincident plane, which this part has already
+                                # been rebuilt twice for
+BACKSTAND_TIE_LEAD_G  =   4.20  # slot centres apart, so the rib is 2.20
+# The end tie: on the bare floor between the board's end and the buttress, for
+# the USB lead, which leaves the board running outward in x -- so these slots
+# run in x and the loop crosses them.
+BACKSTAND_TIE_END_X   =  35.50  # |x|. Clear of the boss at 36 in y, not in x
+BACKSTAND_TIE_END_Y   =  34.00  # behind the boss, which ends at y 28.55, and in
+                                # front of the back rail at 40.60
+BACKSTAND_TIE_END_L   =   5.50  # 1.25 mm of floor left before the buttress
+BACKSTAND_TIE_END_G   =   4.20
+
+
+
+
+# =============================================================================
+# v10 — THE DEEP REAR HOUSING: the ESP32 lives INSIDE the clock
+# =============================================================================
+# Sam, 2026-09-05: "The current back stand doesn't work. The placement of the
+# ESP32 is too close to the wires coming out from the screen... I want the clock
+# to be enclosed... The ESP32 could sit under the clock housing." Then: "I like
+# the deeper housing idea. It could be up to 85mm deep."
+#
+# WHY THE STAND FAILED, measured rather than guessed. Mapping the housing's
+# cable port through the transform the back-stand places the clock with puts its
+# mouth at x = +41, z 49.5 (24) / 56.5 (32) in the stand frame, while the
+# buttresses stand at |x| 40.0..46.5 up to z 48. The screen's wires come out
+# SIDEWAYS, level with the top of a buttress, 50 mm above the board, with the
+# buttress in between. No amount of cable management fixes that; the board has
+# to be somewhere else.
+#
+# Inside the clock, the wires never leave at all -- which is why this is the fix
+# and not a workaround.
+#
+# 28.00, not 85. Sam offered up to 85 mm and it is not needed: the board is
+# 4.80 mm tall lying flat and the loom wants a bend radius, not a hall. 28 gives
+# 23 mm of clear plenum over the board and keeps the whole clock at 55.9 mm
+# deep, which still reads as a disc rather than a tin. Raise this one number if
+# a battery goes back in -- BATTERY_MIN_HOUSING is 43.29.
+HOUSING_S3_POCKET = 28.00    # clear depth inside, above the plate
+HOUSING_S3_PLATE  = 3.50     # the rear plate, same as PLATE_T
+HOUSING_S3_POST_H =  0.00    # PCB underside above the pocket floor. 0 because
+                             # Sam had the stand's four posts removed -- his
+                             # board has no header tails to clear. Put 4.00 back
+                             # if that changes; everything below derives from it
+# THE BOARD LIES ALONG y, NOT x, AND THE KEYHOLE IS WHY. The wall-hanger's
+# keyhole is cut through the rear plate at x 34..46, y +-4.5. A board along x
+# would want its hold-down bosses at |x| = 36, y = 0 -- straight through it.
+# Along y the board occupies |x| <= 15.3 and the keyhole is 19 mm clear.
+HOUSING_S3_SLOT_W = 30.60    # rails, for a 30.00 board. Same rule as the
+                             # back-stand: a printed slot loses up to
+                             # FDM_SLOT_UNDER, so the worst case is 30.20
+HOUSING_S3_RAIL_T =  2.50
+HOUSING_S3_RAIL_OVER = 0.40  # how far the rail clears the board's top face
+HOUSING_S3_LIP_OVER  = 1.50  # the far-end lip, over the board's top
+HOUSING_S3_LIP_T     = 1.60
+HOUSING_S3_LIP_GAP   = 0.20
+# THE USB END GOES AGAINST THE WALL. A centred 64 mm board leaves 19 mm between
+# its connector and the inner wall, and a USB-C plug cannot bridge that -- the
+# original board_mount accepted it and it is the reason nobody could plug this
+# in. The board is pushed out until its end is HOUSING_S3_USB_GAP from the wall
+# AT THE RAIL CORNERS, which is where the cylinder bites first.
+HOUSING_S3_USB_GAP  =  1.60  # board end to inner wall, at |x| = SLOT_W/2
+HOUSING_S3_USB_W    = 13.00  # the window: wide enough for a USB-C overmould
+HOUSING_S3_USB_H    =  8.50  # and tall enough to clear the shell on the board
+# The far end is held by a lip; the middle by two cable ties, the same recessed
+# pattern as the back-stand's -- two slots joined by a relief in the underside,
+# so the tie's loop never stands proud of the wall-mount face.
+HOUSING_S3_TIE_X    = 11.00  # |x| of the two slots in each pair
+HOUSING_S3_TIE_L    =  6.00  # slot length, along y
+HOUSING_S3_TIE_W    =  2.00
+HOUSING_S3_TIE_RELIEF = 1.20
+HOUSING_S3_TIE_Y    = (-14.0, 14.0)   # where the two ties cross the board
+# The gate the screen's tail and the ring leads come through, in from the base's
+# own port at +x. Nothing is cut for it: the plenum IS the gate. This is only
+# the clear height asserted in the build.
+HOUSING_S3_PLENUM_MIN = 12.00
+
+
+# =============================================================================
+# v11 — THE PLINTH: the same stand, with a lid on the bay
+# =============================================================================
+# Sam, 2026-09-05: "Actually, change of plans. I like having the electronics in
+# the base under the clock."
+#
+# This is option B from DESIGN-BRIEF, and it turned out to be a much smaller
+# change than the write-up implied. THE BAY IS ALREADY WALLED ON ALL FOUR SIDES:
+# the front rail, the back rail and the two buttresses. What it has never had is
+# a lid. So the plinth is the back-stand plus a collar that carries the walls up
+# to a lid height, plus the lid.
+#
+# 14.00 above the foot's top face, which is 12.40 of clear air over the board.
+# Not 8: a Dupont shell on a header is about 10 mm tall, and a lid that fouls
+# the plugs is a lid nobody fits twice. The clock is nowhere near it -- its back
+# face crosses y = 7.50 at z = 29, and the collar's front wall tops out at 16.50.
+PLINTH_LID_Z   = 14.00   # lid underside, above the foot's top
+PLINTH_LID_T   =  2.50
+PLINTH_LID_CLR =  0.30   # per side, lid to collar
+PLINTH_BOSS_R  =  3.25   # the screw bosses, sunk INTO the side walls so they
+                         # take nothing away from the bay
+PLINTH_BOSS_INSET = 3.50 # from the back wall's outer face
+PLINTH_BOSS_X  = 30.00   # |x| of the two screws. 30, not 43: at |x| >= 40 the
+                         # side wall is buttress all the way to z = 48, so a
+                         # vertical pilot there is a blind hole inside solid
+                         # material -- no screwdriver reaches it, and it exports
+                         # as a sealed void, which is how it was found
+PLINTH_TONGUE_HW = 30.00 # the lid's front tongue, half width
+PLINTH_TONGUE_L  =  4.00 # how far it slides into the front wall
+PLINTH_SCREW_PILOT = 1.60
+
+
+# =============================================================================
+# v12 — THE DOCK. A clean sheet, because the stand was patched one time too many
+# =============================================================================
+# Sam, 2026-09-05: "I hate the stand. Start again. I want it enclosed."
+#
+# The back-stand had been through five generations -- open A-frame, 30 mm board,
+# zip ties, a hold-down bar, a bolted-on collar and lid -- and every one of them
+# was a patch on the one before. It is a skeleton with a box grafted to it. This
+# is not that.
+#
+# THE DOCK IS TWO PARTS AND BOTH PRINT WITH NO SUPPORT, which is the whole
+# reason for the split:
+#
+#   tray   walls and a floor, open at the top. Prints open-side-up: every
+#          surface in it is a vertical wall or a flat floor.
+#   cap    a slab with the clock's own seat cut into its top. Prints seat-up:
+#          the seat is a VALLEY, open to the sky, so it has no ceiling to
+#          bridge and no overhang anywhere.
+#
+# Every other arrangement of a closed box with a seat on top needs support. A
+# one-piece box hollowed from below has to bridge its whole ceiling; printed
+# upside down the seat becomes a 90 mm cavern. The seam is a horizontal line a
+# third of the way up, which reads as deliberate rather than as a repair.
+DOCK_TILT   = 14.00   # unchanged from the stand: proven on the desk, and the
+                      # one thing about the old part Sam never complained about
+DOCK_H      = 40.00   # total height, desk to the top of the cap
+DOCK_BED    = 14.00   # how far the clock sinks into the seat
+DOCK_CAP_Z  = 20.00   # the cap's underside. 6 mm of cap under the seat's
+                      # lowest point, and 17 mm of clear tray beneath that
+DOCK_FLOOR  =  3.00
+DOCK_WALL   =  2.50
+DOCK_CLR    =  0.40   # clock to seat, all round
+DOCK_LIP    =  9.00   # cap in front of where the clock's front face crosses
+                      # the top -- the visible lip under the dial
+DOCK_TAIL   = 36.00   # and behind the back face. This is what stops it tipping
+                      # backwards; check10 measures the angle rather than
+                      # trusting it
+DOCK_FIT    =  0.25   # cap to tray, per side
+# THE CAP DROPS INTO A RIM ON THE TRAY, AND IS SCREWED FROM THE BACK. Both of
+# those are forced, not chosen:
+#   * the cap prints SEAT UP with its flat underside on the bed, so it cannot
+#     have a spigot, a skirt or a boss hanging off that face -- they would be
+#     under the build plate. The locating rim therefore belongs to the tray.
+#   * screwing down through the cap would put four heads in the seat, under the
+#     clock, where a screwdriver cannot go; screwing up from below puts four
+#     counterbores in the underside, and Sam has already said what he thinks of
+#     holes underneath. Two screws through the BACK of the rim solve both: the
+#     floor stays solid and the top stays clean.
+DOCK_RIM    =  4.00   # how far the tray's walls stand above the cap's underside
+DOCK_SCREW_X = 25.00  # |x| of the two back screws
+DOCK_PILOT  = 1.60
+# The wire drop: one slot the whole length of the seat, so it does not matter
+# WHERE round the rim the clock's port ends up. That is not laziness -- the port
+# sits at 12 o'clock in the model and Sam turns the clock to suit, and a design
+# that has to know which way up he fits it is a design that will be wrong.
+DOCK_DROP_HW = 7.00
+# The board: centred, long axis across, so the hold-down bar that already exists
+# fits it unchanged.
+DOCK_BOARD_Y = 20.00  # centre of the board, front to back
+DOCK_RAIL_T  =  2.50
+DOCK_USB_W   = 14.00
+DOCK_USB_H   =  9.00
+
+
+# =============================================================================
+# v13 — the stand-box, closed underneath
+# =============================================================================
+# Sam, 2026-09-05, choosing between four bases: "B, I like the stand box." And
+# before that: "I want it enclosed" and "Make the base enclosed underneath."
+#
+# The stand-box was already the enclosed one -- a plinth with the bay opening
+# at the BACK, closed by a tray that is also the lid and carries the USB-C
+# window. The one thing against it was the pair of lightening pockets, open at
+# the bottom, 19 x 66 mm each: by far the biggest holes in anything in this set.
+#
+# They are gone. They saved model volume and nothing else -- the slicer hollows
+# a solid plinth with infill just as well, and print time barely moves. What
+# they cost was the one property Sam has now asked for three times.
+STANDBOX_POCKETS = False
+
+
+# =============================================================================
+# v14 — no tray. The board drops in from ABOVE
+# =============================================================================
+# Sam, 2026-09-05: "Remove the sliding tray. Because it is a dev board, wires
+# stick out the top. Design another way to mount the ESP32."
+#
+# He is right and the fault is structural, not dimensional. A drawer only works
+# if the board and everything attached to it can pass through the opening. A dev
+# board with a Dupont loom on its headers is 5 mm of board and 15 mm of wire,
+# and the leads it is being connected to come DOWN through the roof at the far
+# end -- so fitting it meant feeding a loom through a 67 mm tunnel and hoping.
+# No clearance number fixes that.
+#
+# So the bay becomes a WELL, open at the top, closed on all four sides and
+# underneath, and the cradle is the lid. Board goes in from above with the loom
+# already on it, leads drop through the cradle's own notch, cradle goes on.
+# Nothing is threaded through anything.
+STANDBOX_WELL_CLR  = 0.60   # well to board, per side, on top of the slot rule
+STANDBOX_PIN_R     = 2.00   # locating pins on the plinth's top face. On the
+                            # PLINTH, because the cradle prints saddle-up with
+                            # its underside on the bed and cannot carry a pin
+                            # there -- it would be under the build plate
+STANDBOX_PIN_H     = 4.00
+STANDBOX_PIN_CLR   = 0.25
+STANDBOX_LID_SCREW_Y = 6.00 # the two screws, in from the back face
+
+
+# =============================================================================
+# v16 — one part, open underneath, and made to look like something
+# =============================================================================
+# Sam, 2026-09-08: "Make the base look much nicer, and the bottom can be fully
+# open, with a spot for ziptie down the ESP32 with the USB cable out he back."
+#
+# "The bottom CAN be fully open" is a permission, and it is the one that unlocks
+# the rest. With no floor to protect there is no reason for a lid, a drawer, a
+# cradle or a seam: the base goes back to being ONE PART, a shell you turn over,
+# drop the board into and set down. Every join this stand has grown in a day --
+# tray, collar, cap, cradle, four pins, two screws -- disappears.
+#
+# The looks are three moves, all of them cheap:
+STANDBOX_CORNER_R  = 6.00   # rounded vertical corners
+STANDBOX_CHAMF     = 2.50   # a chamfer round the top edge, so it reads as
+                            # drawn rather than sawn
+STANDBOX_REVEAL_D  = 1.50   # and a reveal at the foot: the bottom 2.5 mm steps
+STANDBOX_REVEAL_H  = 2.50   # IN, so the plinth appears to float rather than to
+                            # sit in a puddle of its own plastic
+# The cavity, open to the desk. Its top corners are chamfered so the ceiling is
+# a 28 mm bridge and not a 36 mm one -- the same trick the old bay used, and the
+# reason STANDBOX_CEIL_SPAN exists. Only 4 mm of chamfer, though: see the note
+# on STANDBOX_CEIL_SPAN for why the last 4 mm of bridge is cheaper than the
+# headroom the chamfer would take.
+STANDBOX_LAP       =  3.00  # how far the cradle reaches down past the plinth's
+                            # top face. Butting them at H would union two
+                            # coplanar faces; 3 mm of overlap is a solid join
+STANDBOX_SEAT_OVER =  0.20  # the stand-box cuts the clock's seat out of the
+                            # WHOLE assembled solid, and the cradle inside it
+                            # already has that seat: identical curved surfaces
+                            # survive in doubles and go non-manifold in float32,
+                            # so the plinth's cut is opened two tenths
+STANDBOX_ROOF_MIN  =  2.50  # material between the board's cavity and the clock's
+                            # seat, at the one point where they come closest.
+                            # A bridge, so 2.5 is generous
+STANDBOX_CAV_HW    = 18.00  # the ceiling's flat span is 2*(CAV_HW-BAY_CHAMF_W)
+                            # = 28, which is STANDBOX_CEIL_SPAN exactly. The
+                            # build asserts both that and "the flat reaches the
+                            # board's edges", rather than leaving either to
+                            # check3. Measured worst bridge: 13.2 / 15.1 / 22.0
+# The board lies on two shelves and is held by two cable ties that pass right
+# round board and shelf together.
+#
+# The first version of this said "NO SLOTS: with the bottom open a tie can loop
+# under a shelf". That was wrong, and the check caught it: the shelf runs from
+# the board's edge OUT TO THE WALL, so a tie coming over the board and down past
+# its edge lands on shelf, and the only way past is the wall. A tie can loop
+# under a shelf only where there is a hole to get under it through. So each
+# shelf is cut clean through at each tie, just outboard of the board's edge --
+# four windows, and the tie drops through one, crosses the open bottom and comes
+# up the other.
+#
+# The gap between the shelves is the other thing the check found. The board is
+# 30 mm wide and has to reach a shelf top it cannot pass through flat, so it goes
+# in tilted, and the tilt it needs is acos(gap / 30): at an 11 mm inner edge that
+# is 43 deg and 20.4 mm of swept height in 22 mm of headroom, which is not a
+# thing to ask of someone holding a soldered loom. At 13.5 it is 31-32 deg and
+# 17.3 mm, measured against the mesh at every half-millimetre of the lift.
+STANDBOX_SHELF_XI  = 13.50  # inner edge: 1.5 mm of ledge under the board's edge,
+                            # and a 27 mm gap so the board tilts in at 30 deg
+STANDBOX_SHELF_Z   =  3.20  # 3.2, not 6: the ceiling is not the plinth's roof, it
+STANDBOX_SHELF_T   =  2.00  # is the CLOCK, which leans into the plinth and
+                            # bottoms out at z 29.1. STANDBOX_ROOF_MIN off that
+                            # puts the ceiling at 26.2, and the board and its loom
+                            # want 20.6 of it. The 5.4 mm left over is spent
+                            # DOWNWARDS, on what hangs under the board: a shelf
+                            # top at 5.2 clears a 4 mm header tail off the desk by
+                            # 1.2 and leaves 3.2 mm for the tie's loop to pass
+                            # under the shelf. 0.3 mm of headroom in hand.
+STANDBOX_TIE_GROOVE_W = 3.60   # a groove across each shelf so the tie has a
+STANDBOX_TIE_GROOVE_D = 0.80   # place to sit and cannot walk along the board
+STANDBOX_TIE_INSET = 14.00     # from each end of the board
+STANDBOX_TIE_WIN_W  = 4.00     # and the window through the shelf at each tie:
+STANDBOX_TIE_WIN_XI = 15.40    # 4 mm along the shelf, starting 0.4 mm outboard
+                               # of the board's own edge (BOARD2_W/2 = 15) so the
+                               # tie clears the board on its way down

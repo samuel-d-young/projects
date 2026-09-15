@@ -3870,3 +3870,2691 @@ the ESP32-S3 framework notice.
   was not before, so the next attempt should get as far as compiling.
 * `Face -> colour test` is the first thing to look at afterwards.
 
+---
+
+## 2026-08-27 (later still) — The firmware has now been through a compiler. It did not survive the first pass
+
+Sam asked for a prompt to run on the PC the ESP is plugged into. Before handing it
+over I finished the compile here, because a build failure on his machine is a round
+trip and one on mine is not. Two more defects, both invisible to `esphome config`.
+
+### 1. A select's `.state` is a std::string, not a bool (verified)
+
+`mini-round-clock-with-display.yaml:2605`, in the bar panel's display lambda:
+
+```cpp
+if (id(timer_screen).state) {
+```
+
+`timer_screen` is a **select**. Its `.state` is a `std::string`, and the compiler
+refuses it outright — *"could not convert std::string to bool"*. It was wrong on the
+merits too: the options are `keep clock` and `countdown`, and only the second wants
+that branch. The round panel had it right all along, so the two now agree:
+
+```cpp
+if (id(timer_screen).current_option().str() == "countdown") {
+```
+
+Swept every other `id(<select>).state` in the file — 13 selects, one other use
+(`panel_choice`), assigned to a `std::string`, correct.
+
+**The thing worth carrying: `esphome config` PASSES this file with that bug in it.**
+Validation checks the YAML schema and never compiles the lambdas, so a type error
+inside one only appears at `esphome compile`. Two entries ago this log said the
+config "validates clean, exit 0" — true, and weaker than it sounded. **Validating is
+not building.** For a config whose logic lives almost entirely in lambdas, `config`
+is close to a syntax check on the parts that matter least.
+
+### 2. `Select::state` is deprecated and disappears in a version that does not exist yet
+
+```
+warning: 'esphome::select::Select::state' is deprecated:
+         Use current_option() instead of .state. Will be removed in 2026.7.0
+```
+
+The remaining use at line 1283 — the panel dispatcher — still built, but 2026.7.0 is
+the release *after* the newest one that exists, so this was a hard build failure
+scheduled for Sam's next ESPHome update, months from now, with nothing obviously
+connecting it back here. Fixed while it was cheap.
+
+### The build
+
+```
+RAM:   [==        ]  17.7% (used 58000 bytes from 327680 bytes)
+Flash: [======    ]  60.0% (used 1100731 bytes from 1835008 bytes)
+[SUCCESS] Took 50.21 seconds
+INFO Successfully compiled program.
+```
+
+Zero errors, zero warnings from this file. 1.17 MB factory image. The 253 KB
+framebuffer is not in that RAM figure — `buffer_size: 0.125` means partial
+buffering, and the PSRAM is what carries it.
+
+Getting here needed one environment fix worth writing down: PlatformIO could not
+fetch the ESP-IDF toolchain through this container's proxy, failing with
+`CERTIFICATE_VERIFY_FAILED`. Setting `SSL_CERT_FILE` / `REQUESTS_CA_BUNDLE` fixed
+*some* downloads but not the IDF tarball. What actually worked was appending the
+proxy CA to **certifi's own bundle**, in both the ESPHome venv and PlatformIO's
+separate `penv` — those two interpreters trust certifi, not the environment.
+
+### Open
+
+* Still not flashed, but the firmware is now known to **compile**, which is a much
+  stronger claim than the one made two entries ago.
+* `Face -> colour test` remains the first thing to look at afterwards.
+
+
+---
+
+## 2026-08-27 — Home Assistant moved to 192.168.1.66
+
+Samuel: *"Update everywhere that has the old HASS address to the new one."*
+
+| | old | new |
+|---|---|---|
+| Home Assistant | `192.168.1.79:8123` (Raspberry Pi, supervised) | **`192.168.1.66:8123`**, hostname `hass` |
+| MQTT broker | `192.168.1.79:1883` | moves with it — `192.168.1.66:1883` |
+
+The mapping is not a guess: it is recorded in the second brain's LAN map note,
+verified 2026-08-26, which named `.66` as the destination, noted that `fmv105` was
+being renamed to `hass` for it, and said in as many words *"when the move happens,
+re-point everything that hard-codes .79"*. This is that.
+
+**What changed, and what deliberately did not.**
+
+`HANDOFF.md` is a live document, so both operational references moved to `.66` — the
+paste-ready prompt for a local session, and the prose about what a LAN session can
+reach.
+
+The connection-test block at the top of `HANDOFF.md` was **left verbatim**:
+
+```
+curl http://192.168.1.79:8123/   -> timed out after 6s
+/dev/tcp/192.168.1.79/8123       -> no route
+```
+
+That is a recorded measurement. Rewriting it to `.66` would turn evidence into
+fiction — the cloud session never tried `.66`, and the conclusion it supports (a
+cloud session has no route to this LAN) does not depend on which address it failed
+to reach. A one-line note beside it says the address has since changed.
+
+**Every earlier entry in this log is likewise unchanged.** Four of them mention
+`.79`, and all four are dated statements of what was true at the time — including
+one recording that a `curl` to `.79:8123` timed out. This log is append-only; a
+history edited to agree with the present is not a history. The three files under
+`homeassistant/` and `esphome/` hard-code no address at all, so nothing there needed
+touching — the clock finds Home Assistant over the native API and mDNS, not by IP.
+
+**One thing to re-check rather than assume:** `homeassistant.local` resolved to the
+Pi. Whether mDNS now follows Home Assistant to `.66` depends on how it was installed
+there — a supervised install advertises itself, a bare container may not. Nothing in
+this project depends on that name, but Agent Deck's choice to address HA by IP
+rather than hostname is the right instinct and worth copying if anything here ever
+needs a host.
+
+*(The move itself is Samuel's report, not something verified from here — this
+session has no route to either address.)*
+
+---
+
+## 2026-08-27 — v19. Less material on the 60, a wider cable gap, and numerals that stay on the face
+
+Five things, one of them a correction Sam should not have had to ask for.
+
+### The numerals were hanging over the window (verified)
+
+> *"Make sure that the numbers fit in the diffuser and don't stick out. I
+> shouldn't have to remind you."*
+
+He was right, and the assertion that existed was measuring the wrong thing.
+Measured on the built STL, the 24-LED numerals reached **r 27.069** against a bore
+at **27.633** — 0.56 mm of numeral over the hole — while two checks passed.
+
+The cause: **the numerals are upright.** They are not rotated to face outward, so
+a glyph at 10 o'clock presents a **corner** to the middle of the dial, not an
+edge, and the corner reaches further in than the edge does. Both checks used the
+nominal band `num_r ± num_h/2`, which is the right band only for radial text.
+
+The number that actually drives it is the **width**: the widest numeral is
+**7.2 mm across at 5 mm cap height**, and it is that half-width, swung around by
+the placement angle, which pushes the corner inward. Placement is now solved from
+the real glyph outlines and check4 measures the built inlay — innermost point,
+outermost point, and that every glyph lands on the face at all. The 24 now clears
+the hole by **+1.31 mm**.
+
+**Found while fixing it: the twelve hour marks are never drawn.** `mark_ri` and
+`mark_ro` exist on every Body and nothing in `build_diffuser` reads them; they
+only ever positioned the numerals. That band was reserving **3.20 mm for geometry
+that does not exist**, and it was squeezing the tick. `TICK_MARK_GAP` went with
+it: with no marks between them, it and `NUM_MARGIN` were one gap under two names.
+
+### Less material, and where a mm^3 is actually worth something
+
+> *"Update the 60LED stl files so that they use less material when printing.
+> Remember the basic principals of 3D printing."*
+
+The principle that decides where to cut is not "make everything thinner". A
+slicer prints perimeters, skins and sparse infill, so:
+
+* a **thin plate** (under about 2x the skin thickness) prints ~100% solid. Every
+  mm^3 out of it is a mm^3 of filament, 1:1.
+* a **tall thin wall** is already two perimeters. Thinning it buys grams and
+  costs stiffness.
+
+So the cuts went where the thin plates were:
+
+| part | was | now | |
+|---|---:|---:|---|
+| base-60 | 520.6 | **449.3** cm^3 | one floor instead of two stacked |
+| housing-60 | 211.5 | **152.9** cm^3 | 2.40 mm plate, 20 mm deep |
+| **60-LED set** | **901.0** | **771.1** cm^3 | **161 g saved** |
+| housing-32 | 66.4 | 49.6 cm^3 | same treatment |
+
+The base's fat was a **floor built twice**: the deck (2.40 mm) stacked under the
+base's own floor (3.00 mm) across a 42,412 mm^2 annulus. The big bodies' annulus
+now starts at `Z_DECK` and carries the only floor, at 2.00 mm.
+
+**The first attempt was wrong and check3 caught it in one line:**
+
+```
+[FAIL] every flat ceiling bridges <= 25 mm   worst 69.1 mm at z=-0.0
+```
+
+Stopping the deck short did not remove a redundant plate, it removed the part's
+**bottom layer** — the whole r 47..120 annulus then began 2.4 mm in the air. The
+island test still passed, because it was connected at the rim, just unsupported.
+**Connected and printable are different questions and it takes both checks.**
+
+The housing's bulk was the same story: a 234 mm plate at 3.50 mm is 150 cm^3,
+71% of the part, and prints solid. 2.40 on the big bodies; the 24 keeps 3.50.
+Depth 25 -> 20, not the 17 first tried: at 17 the plenum over the board frame is
+7.20 mm against a 10.00 floor that exists because the display ribbon and the ring
+leads both cross it. The floor was not relaxed to fit a number I picked.
+
+### The cable gap at the bottom
+
+> *"the spacing for the 2.1inch screen doesn't allow for the cables. Make the gap
+> at the bottom gap wider."* 40 mm, chosen by Sam.
+
+The real pinch was that the deck's opening was **20.00 mm under a slot 31.15 mm
+wide** — the deck was narrower than the slot above it, so the ribbon met a step.
+A flat 40 mm undercut the tab-slot walls (6 mm^3 of self-overlap, and those walls
+are what stopped the display tilting), so the opening is stepped — 40.00 inboard
+and outboard of the walls, 32.35 through them — and the walls now run down to
+`Z_DECK` and stand on the build plate themselves.
+
+### The ESP32 does not fit in the 60's ring cavities (verified)
+
+Sam: *"the ESP32 can fit in the base."* There is plenty of volume, but not in a
+usable shape, and the arithmetic is worth recording so nobody tries again:
+
+A straight 63.27 mm board laid tangentially in an **annular** cavity needs more
+radial room than its own width, because of the chord bulge. With rails it needs
+**38–40 mm**. The two cavities are **28.0 mm** (inner) and **25.0 mm** (outer).
+It does not fit at any radius in either. The centre is occupied by the display.
+
+So the board stays in the rear part — but that part is now a 20 mm cover on a
+2.40 mm plate rather than a 25 mm box on 3.50, which is where the saving came
+from. The USB-C also keeps working, which it would not if the board moved inboard:
+on a 240 mm clock the connector cannot reach the rim from any cavity.
+
+### The 1.9" bar screen
+
+Already done — `-bar` bases and diffusers exist for the 32 and the 60. The 24
+cannot take it: the module's corners land **0.35 mm** from its ring pocket wall
+(the 32 leaves 12.74, the 60 leaves 42.74). Sam chose to leave the 24 on the
+round panel.
+
+### Verification
+
+Five passes, three bodies, 23 parts, 0 failures. check2 gained a body-aware
+pocket floor — it was testing every housing against the 24's numbers, which made
+the 32 and 60 report a fouled board in 1961 mm^3 of thin air.
+
+### Open
+
+* **deskstand-60 is still 1002.9 cm^3**, by far the largest part in the set. It
+  is untouched because its mass is what stops a 240 mm clock tipping, and
+  check5's tip-over angle is derived from the geometry. Worth doing, needs the
+  stability check re-derived rather than assumed.
+
+---
+
+## 2026-08-27 — Correction: Home Assistant is on 192.168.1.75, not .66
+
+The entry two above this one said the move was to `192.168.1.66`. **That was
+wrong**, and it is corrected here rather than edited above.
+
+| | what it actually is |
+|---|---|
+| `192.168.1.75` | **Home Assistant.** HA OS 18.2 / Core 2026.8.3, running as the libvirt/KVM guest `haos`. |
+| `192.168.1.66` | the **hypervisor** that hosts it, hostname `hass`. Not Home Assistant. |
+| `192.168.1.42` | the NUC, `voice-core` — Agent Deck, Whisper and Piper. Unrelated. |
+
+`192.168.1.79`, the Pi, is dead — no ping, no ARP entry.
+
+**How I got it wrong, because the shape of the mistake is the useful part.** The
+second brain's LAN map, verified 2026-08-26, named `.66` as the destination and
+said *"when the move happens, re-point everything that hard-codes .79"*. When
+Sam asked for exactly that re-point, I took the verified **plan** as a verified
+**outcome**. It wasn't: the plan came true one layer of indirection away from
+itself — HA OS went on as a *VM on* `.66` and answers on `.75`, which the plan
+could not have predicted and I did not check.
+
+**A destination verified as planned is not an outcome.** The distinction is
+cheap to make and I did not make it: nothing in this session had reached either
+address, so "verified" was doing work it had not earned.
+
+The evidence for `.75` is in the vault note and is worth repeating because it is
+good: the `haos` guest NIC's MAC (`52:54:00:17:23:1d`) matches the ARP entry for
+`.75`, and `binary_sensor.rpi_power_status` still exists with `restored: true`
+and state `unavailable` — an orphan of hardware that no longer exists, which is
+what shows the instance was restored from the Pi's backup rather than rebuilt.
+
+`HANDOFF.md` now says `.75` in both operational places and carries the
+three-address table, since `.66` and `.75` are one digit apart and both real.
+The connection-test block still says `.79` — it is still a recorded measurement.
+
+**Still outstanding, from the vault:** `.75` is a **DHCP lease, not a
+reservation**. Reserve it, or this correction gets to happen again.
+
+---
+
+## 2026-08-27 — The dashboard's two "Entity not found" boxes were my renames
+
+Sam sent a screenshot of the Settings view with two yellow boxes in the Ring
+card, and asked for the other clocks to show as well.
+
+### The errors
+
+They are the two entities **v18 renamed**, still being asked for by the dashboard
+JSON installed on his box:
+
+| the card asked for | v18 renamed it to |
+|---|---|
+| `switch.mini_round_clock_second_hand` | `..._ring_second_hand` and `..._screen_second_hand` |
+| `select.mini_round_clock_hour_markers` | `..._ring_hour_markers` and `..._screen_hour_markers` |
+
+The screenshot also settles a question I had left open: **v18 is flashed.** The
+Countdown style select reads `seconds`, and that option did not exist before v18.
+So the firmware moved and the dashboard did not — the regenerated JSON in this
+repo has had the new names since the v18 commit; it was never installed.
+
+Worth being straight about: I flagged the entity churn as a cost when I made the
+renames, and this is that cost arriving. The split was still right — one control
+driving both surfaces is what Sam asked to be rid of — but the dashboard should
+have gone over in the same breath as the firmware.
+
+### An absent clock now hides instead of erroring
+
+The deeper problem is that an entities card renders **one yellow row per missing
+entity**, so a clock that is off the network, or that was never flashed, looks
+like twenty faults rather than one absent device. Every per-clock card is now
+gated on `binary_sensor.<slug>_status` being `on` — the entity the ESPHome
+integration creates for any device it adopts. If the device is not there the
+condition is false and the card does not render.
+
+The status line at the top is deliberately **not** gated, so there is always
+something on screen saying *why* the rest is missing: online, **offline**, or
+"status unknown — not adopted yet?".
+
+That also makes it safe to list a clock in the picker before building it.
+
+### Which clocks are listed, and one that is not
+
+The repo has four ESPHome configs but they are not four devices:
+
+| config | device `name:` | |
+|---|---|---|
+| `mini-round-clock-with-display.yaml` | `mini-round-clock` | the full firmware — 17 switches, 13 selects, 23 numbers |
+| `mini-round-clock.yaml` | `mini-round-clock` | same device, ring-only fallback build |
+| `test-clock-d1mini.yaml` | `test-clock` | header says **SUPERSEDED** |
+| `wall-clock.yaml` | `wall-clock` | header says **not yet compiled or flashed** |
+
+So the dashboard now carries **two tiers**, because the basic configs compile
+four controls between them and handing them the full card set is precisely how
+you manufacture a screen of "Entity not found":
+
+* **full** — every card, for `mini-round-clock`.
+* **basic** — Display, Mode, Brightness, Night brightness (plus Backlight where
+  there is a panel), and a line saying what the other cards belong to.
+
+**`wall-clock` is deliberately not listed**, and the second reason is the one
+that matters. It has never been flashed, so it is not a device. And a device
+named `wall-clock` would put its entities in the same `wall_clock_*` namespace
+as every helper in the Home Assistant package — `timer.wall_clock_1`,
+`sensor.wall_clock_timer_slots`, `input_button.wall_clock_timer_dismiss`.
+Nothing would actually collide, but telling which half of that namespace an
+entity belonged to would be guesswork forever. **If that firmware is ever
+flashed, give the device a different `name:`.**
+
+### The check that should have existed
+
+There is now one that validates every row in the generated JSON against **that
+clock's own firmware**, not against any firmware — 70 rows, 0 dangling,
+`mini_round_clock` using 55 of the 55 it exposes and `test_clock` 4 of 4. The
+earlier version of this check only proved a row matched *something*, which is
+why it passed while the two renamed rows were broken.
+
+---
+
+## 2026-08-27 — Corrections from the bench. Three of my claims were wrong, one of them shipping a boot loop
+
+A local session with the hardware in front of it sent a handoff. It corrects
+this log in three places, and I am recording the corrections next to what they
+replace rather than editing the earlier entries.
+
+### 1. The `psram:` block boot-loops this hardware — REMOVED
+
+This is the one that mattered, because the file I have been telling Sam to flash
+still declared it. Measured on the bench, one variable per build:
+
+| | result |
+|---|---|
+| `psram: octal @ 80MHz` | panics ~5 s after wifi associates |
+| `psram: octal @ 40MHz` | same |
+| `psram: quad` | "PSRAM chip is not connected", still panics, 0 renders |
+| **no psram block** | **stable** |
+
+The PSRAM on these modules does not work, whatever the R8 suffix implies. Both
+framebuffers come out of internal SRAM: this container's build without the block
+reports **RAM 17.5% (57,364 B)** against **17.7% (58,000 B)** with it — the
+displays use partial buffering, not full frames, so they were never leaning on
+PSRAM in the first place.
+
+The symptom is now written into the file, because it is a trap: **"Interrupt wdt
+timeout on CPU0" with BOTH cores idle**. That reads like a hung SPI transfer.
+It is a stalled external RAM access. Misreading it cost the bench session hours.
+
+The old header note claiming ESPHome would refuse a config without PSRAM is true
+of the `ST77916` model and irrelevant here — this config is `model: CUSTOM`.
+
+### 2. "There is no ESPHome 2026.8.0" — wrong
+
+Two entries above, this log says the newest ESPHome in existence is 2026.6.5 and
+that 2026.7 and 2026.8 do not exist. **They do.** The bench has **2026.8.1**
+installed and flashing.
+
+What I actually did was query a package index through this container's proxy and
+report **what it served** as **what exists**. Those are different claims and I
+did not distinguish them. The rule this earns: *an index is a source about
+itself.* "The registry I can reach offers X" is evidence; "X is all there is"
+needs a second source, and I had none.
+
+### 3. "`channel_colors` is not a key at all" — wrong
+
+It exists. On 2026.8.x `rgb_order` is **Optional and deprecated** in favour of
+it, with removal scheduled for **2027.3.0**.
+
+What held up: on 2026.6.5 `cv.Required(CONF_RGB_ORDER)` really is required and
+`channel_colors` really is unknown there, so a file using it fails on that
+version. That part was read correctly out of installed source. The error was
+generalising one version's schema into a statement about the software.
+
+**`rgb_order: GRB` stays**, and now for a stated reason rather than a wrong one:
+it is the only spelling that validates on both 2026.6.5 and 2026.8.x. It emits a
+deprecation warning on the newer one and works. Swap when 2027.3.0 is close.
+
+### Confirmed from the bench, not changed
+
+* **`color_order: rgb` on `face_lcd` is correct.** The `colour test` face was run
+  on real hardware and showed each word on its own colour. The reasoning in the
+  v18 entry held.
+* `allow_other_uses` on GPIO13, and the `0x36`/`0x3A` bytes never reaching the
+  panel — both confirmed.
+
+### Clock #2 was missing from the dashboard
+
+There are two clocks, not one: `mini-round-clock` (24 LED, 192.168.1.23) and
+`mini-round-clock-2` (32 LED, 192.168.1.64), flashed from the same file with
+`-s device_name mini-round-clock-2 -s num_leds 32`. Added to the generator and
+the picker. 125 rows across three clocks, 0 dangling.
+
+### The branch has diverged
+
+The bench session's commits (`8ea31a8`, `c044da5`, `7c1e3f3`) are **not on
+origin** — they are local to `K:\Claude\projects`. My pushes have been landing on
+the same branch name, so both sides now have work the other does not. Whoever
+pushes second merges; nothing is lost, but it is not automatic.
+
+### Open, from the bench
+
+1. **Clock #2's screen is backlit but blank.** *Resolved 2026-09-03: after
+   the grow-eyes flash Sam reports "screen works fine"; cause not
+   established, a reseated FPC is the likeliest — see that entry's "Bench
+   outcome".* Already ruled out: panel
+   selection, the switches, brightness, firmware, and the strap. The firmware IS
+   rendering (432 render events in its boot log). Suspect order: **RST GPIO14**,
+   then CS GPIO10, DC GPIO13, then SCL/SDA. The FPC order is
+   TE SDO BL CS DC RST SDA SCL VCC GND — BL is pin 3 and VCC/GND are 9-10, so a
+   skewed connector powers the panel while leaving signals open. **Fastest
+   isolation: swap the panel and cable with clock #1.**
+2. **Three HA helpers still missing on the box** —
+   `input_button.wall_clock_timer_dismiss`,
+   `input_number.wall_clock_alert_repeat_max`,
+   `input_number.wall_clock_alert_repeat_seconds`. They exist in
+   `packages/wall_clock_timers.yaml` as of v18; HA is running the pre-v18 copy.
+3. **Clock #1's GPIO18 strap is faulty** — reads `on` with the round panel
+   fitted. Worked around by pinning Screen to "round 360x360" (persists in NVS).
+   Needs a continuity check to GND on that cable.
+
+---
+
+## 2026-09-03 — Grow clock: a toddler sleep-training clock on the same hardware
+
+Sam: *"I want to create a 'grow clock' feature for my son so that it changes
+colour when to wake up etc. Add an option to change the screen to a kids grow
+clock. Add options like, what time to change colour, facial expressions, dim at
+night, respond to sound, and any features consumer grow clocks have."*
+
+### What it does
+
+One switch, **Grow clock**, and the whole device becomes the child's clock —
+ring, panel and backlight follow a sleep/wake schedule and show **nothing
+else**. No hands, timers or status pixels: a nursery clock lighting up because
+the kitchen timer finished is a bug. Off, every earlier behaviour is untouched.
+
+| state | when | ring | panel |
+|---|---|---|---|
+| **sleep** | bed → wake | sleep colour, stars going out | closed eyes, *z z z* |
+| **almost** | `almost time minutes` before wake | amber, breathing | half-lidded eyes, small smile |
+| **awake** | wake → bedtime warning | wake colour | wide eyes, big smile, sun |
+| **bedtime** | `bedtime warning minutes` before bed | amber, breathing | drooping eyes, yawn |
+| **nap** | after *Start nap* | as sleep, counting the nap | as sleep |
+
+Everything a consumer grow clock has, mapped onto what this hardware can do:
+
+* **Colour at a time** — wake hour/minute, bed hour/minute, separate weekend
+  wake time behind a switch. Times are hour + minute pairs because a slider is
+  easier on a phone than a time string.
+* **Stars until morning** — the Gro-Clock's best idea. The ring *is* the stars:
+  lit count = ceil(N × fraction of the night left), going out anticlockwise
+  from 12 so the last one standing is at the top where the sun comes up. On a
+  60-LED ring that is one star every ~10 min over a ten-hour night. The panel
+  shows a row of eight.
+* **Facial expressions** — `Grow clock face`: *expressions* (above), *sun and
+  moon* (the Gro-Clock picture), *colour only* for a child who finds faces too
+  exciting. `Grow clock expression` forces a state for demos and daylight
+  checks.
+* **Dim at night** — its own night/day brightness, applied to the ring AND the
+  panel backlight, overriding the ordinary auto-dim while grow mode is on.
+* **Nap** — *Start nap* runs `nap minutes` with its own countdown and ends
+  itself. *Cancel nap*.
+* **Overrides** — *Wake now* / *Sleep now* hold until the schedule next changes
+  by itself, then let go. Nothing has to be remembered to be undone. *Back to
+  the schedule* clears everything.
+* **Show the time** — off for a toddler; on for a child matching "7:00" to the
+  sun coming up.
+* **Sleep colour** blue (Gro-Clock's), red (what sleep consultants recommend —
+  least melatonin suppression), purple, or *off* for the child who sleeps
+  better with nothing lit. **Wake colour** yellow, green or white.
+* **State to HA** — `sensor.<clock>_grow_clock_state` publishes
+  sleep/almost/awake/bedtime/nap on change, so a night light can follow the
+  clock.
+
+### "Respond to sound", honestly
+
+**This board has no microphone**, and consumer grow clocks that respond to
+sound have one. So the sound input is a Home Assistant entity,
+`input_boolean.wall_clock_grow_sound`, shipped in the new
+`packages/wall_clock_grow.yaml` with an automation that pulses it back off, so
+anything in HA that hears the room — a Voice PE catching its wake word, a baby
+monitor, a noise sensor — can drive it. An example wired to a Voice PE is in
+the package, disabled, because it names an entity Sam may not have.
+
+What the clock does with it is deliberate: during **sleep** it brightens to at
+least 60% and pulses **in the sleep colour**, and the face says *shh*, for
+`sound response seconds`. It never shows the wake colour for a noise — the
+point is to answer "is it morning yet?" with a clear *no*, not to reward
+calling out. Events are counted to `sensor.<clock>_grow_clock_sound_events` so
+a parent can see in the morning whether the clock was being talked to at 5 a.m.
+
+Also not here, for the same reason: a sound machine / white noise. No speaker.
+
+### How it is built
+
+The state is resolved **once a second in the dispatcher** and stored in
+globals (`grow_st`, `grow_frac`, `grow_sched`), so the ring at 20 fps, both
+panels and the HA sensor all read the same answer rather than each computing
+its own. Windows are half-open on a 1440-minute circle, so the sleep window
+crossing midnight — and the *almost* window crossing it for anyone who wakes
+within `almost time minutes` of it — is the same code path as any other.
+
+The backlight is set from the dispatcher only when the wanted level **changes**,
+so grow mode does not fight the Backlight light entity every second; leaving
+grow mode puts it back to full once and then leaves it alone.
+
+Both panels' grow branches sit **before the night-blank check**, on purpose: a
+grow clock's whole job is to be visible at night.
+
+### Verification
+
+`esphome config` and a full `esphome compile` on the edited file:
+
+```
+RAM:   [==        ]  18.3% (used 59812 bytes from 327680 bytes)
+Flash: [======    ]  60.2% (used 1103887 bytes from 1835008 bytes)
+```
+
+Up from 17.5% / 59.5% before the grow clock — 2.4 KB of RAM for the
+globals and the extra entities, 0.7% of flash for the drawing code.
+
+0 errors; 0 warnings from this file. All new lambda code — the state
+machine, the ring branch, two panel branches with the arc/face drawing, five
+button handlers — went through the compiler, which is the check that mattered
+after the `Select::state` lesson earlier in this log.
+
+Dashboard: a **Grow clock** card per full-tier clock, 184 rows across three
+clocks, 0 dangling against each clock's own firmware. The validator now maps
+ESPHome `text_sensor` to HA's `sensor` domain, which it did not before.
+
+`homeassistant/INSTALL.md` now lists all four packages. `install.sh` installs
+`wall_clock.yaml` only, which is exactly how a box ended up with the pre-v18
+timers package and three helpers missing.
+
+### Open
+
+* Not flashed. The face geometry — where the eyes and smile land on a 360 mm
+  round panel — has been checked against the panel's circle only by
+  arithmetic (the star row at y = CY+128 has 126 px of half-width, which an
+  8 × 30 px row fits). It wants a look on the real thing.
+* Entity ids are new, so the dashboard JSON has to be reinstalled for the card
+  to resolve.
+
+
+## 2026-09-03 — Grow clock faces: Deskimon eyes, a 20-minute animation programme, the time along the bottom
+
+Sam asked to see the faces, wanted eyes like **Deskimon** (CreativeChance's
+3D-printed desk robots on a round ESP32-S3 AMOLED), the digital time at the
+bottom of the face, and then — while that was being drawn — animations: eyes
+that randomly look around, smile, yawn when it is late, "a full 20 minutes
+worth". And to flash it to the clock on his PC.
+
+### Showing the faces before flashing them
+
+There was no way to *look* at the faces short of a flash, and the first
+version had been reviewed by the compiler alone. So the first thing built was
+`esphome/preview/`: a stand-in for ESPHome's `Display` drawing API on a PIL
+canvas (`esphome_canvas.py`, same call names and argument order, the same
+Roboto TTF ESPHome downloaded for the build), and `grow_faces.py`, which draws
+every face and state from the **same coordinates as the lambdas** into one
+sheet. It is a mirror, not the source of truth — the YAML runs, the preview
+only shows — and every number in it has to be kept in step by hand, which the
+file says at the top. The as-shipped faces went to Sam as one image, the
+redraw as another, both before the YAML changed.
+
+### What Deskimon's eyes are
+
+Four photos from the Thangs and CircuitDigest pages, since the text on those
+pages describes nothing about the face: black screen, two big glowing
+rounded-rectangle eyes about a fifth of the screen wide each, no mouth, and
+every expression is an eyelid — flat bars asleep, a straight lid cutting the
+eye to a half when sleepy, arches when happy. That is the whole design
+language, and it suits a toddler's clock better than the cartoon face it
+replaced: it reads from across a room.
+
+### The redraw
+
+- **`eyes`** (the new default): black field, everything in the state colour.
+  Eye 80 x 112 with 28 px corners, centres 60 px either side, 34 px above
+  centre so the stars and the time fit beneath inside the circle. Sleep: bars
+  80 x 16. Almost: a lid over 45%. Bedtime: a lid over 55% with the outer
+  corner drooping 14 px (tired, not sad). Awake: open with a gentle smile.
+- **`eyes on colour`**: the same eyes in dark ink on a field of the state
+  colour, for a room where the whole panel should read as the colour.
+- `sun and moon` and `colour only` stay.
+- A rounded rectangle is two rectangles and four circles; there is no such
+  primitive in `Display` and no bitmap. Lids and smiles are painted over an
+  open eye *in the field colour*, which is only sound because nothing is ever
+  drawn behind the eyes — and is why the yawn's mouth and the "shh" had to be
+  placed clear of them.
+- **The time along the bottom**, 48 px at CY + 120 where the chord is still
+  249 px wide. `grow_show_time` now defaults ON. The stars moved up under the
+  eyes (CY + 72, 28 px pitch).
+
+### The animator
+
+An eye can only do so much, so the animation is a **clip library and a
+scheduler**, not key-framed footage:
+
+- Eighteen clips: blink, double blink, look, look around, smile, wink, bounce,
+  wide eyes, squint, eye roll, wiggle, yawn, slow blink, peek, drift, nod off,
+  twitch, happy dance. Each is an envelope over a normalised time `u` that
+  sets the frame's numbers: gaze (x, y), a lid share per eye, a smile, an eye
+  height scale, a mouth.
+- Each state has its own weighted table and idle gap. Awake looks around,
+  blinks and smiles with the odd wink, bounce, eye roll and dance, 1.5–5 s
+  apart. Almost-morning is slow blinks, peeks, drifting lids and yawns.
+  Bedtime is mostly yawns and nodding off. Sleep is closed eyes, three z's
+  rising and fading on a 3 s cycle, and a twitch every 12–30 s — a sleeping
+  face must not look around, or the child learns the clock is awake.
+- The next clip, its length within a range, and its gaze targets come from a
+  32-bit LCG (Numerical Recipes constants), stirred once with `millis()` at
+  the first pick so two clocks do not blink in step. The sequence period is
+  2^32 draws. Simulated over 20 minutes: awake plays about 225 clips with no
+  two identical, almost 185, bedtime 179, sleep 60 twitches. "Twenty minutes
+  worth" is therefore not a loop of that length but a programme that does not
+  repeat within it, or within a lifetime.
+- `preview/grow_anim.py` is the same engine — constants, tables, envelopes,
+  generator — and renders 40 s GIFs per state and an 8-frame strip of every
+  clip, which is what Sam was sent. That is the check: the C++ was transcribed
+  from a Python that had been watched.
+- `switch.grow_clock_animate` (default on) stills the face.
+
+### Frame rate, and the flush that made it possible
+
+The panel is redrawn once a second by the dispatcher. Eyes need 10 fps. The
+SPI bus is 20 MHz (`data_rate`, proven on the bench; xboot runs 50) and a full
+360 x 360 x 16-bit frame is 104 ms of blocking write — 10 fps would be the
+whole loop. Reading the installed `mipi_spi.h`: the driver tracks a dirty
+window (`x_low_ .. y_high_`) and `update()` flushes **only that rectangle** —
+but `Display::do_update_()` calls `clear()` first when `auto_clear_enabled`,
+which fills the buffer and marks it all dirty, so in practice every update was
+a full flush. So:
+
+- `auto_clear_enabled: false` on both panels, and `if (!id(an_partial))
+  it.fill(Color::BLACK);` as the first line of both lambdas — exactly what
+  auto-clear used to do, on full frames.
+- A 100 ms `interval:` runs the animator, then, if grow mode is on, animation
+  is on, the panel is on, the face is an eyes face and the clock face is not
+  the colour test, sets `an_partial`, updates the active panel, clears it. The
+  lambda, seeing `an_partial`, repaints only the eye box (248 x 184 on the
+  round panel, 184 x 116 on the bar) and returns; the driver flushes only that.
+  36 ms per frame on the round panel at 20 MHz instead of 104. Everything an
+  eye can reach — gaze, the yawn's mouth, the z's, the "shh" — is inside the
+  box; the stars and the time are below it and belong to full frames.
+- The ring effect's 50 ms interval gets jittered by the flush. Invisible: in
+  grow mode the ring is a solid colour, a breathe or the stars, never a
+  sweeping second hand.
+
+The alternative, raising the SPI clock, would have changed a bench-proven
+setting in the same flash as a large feature; if the screen then misbehaved,
+nothing would say which. Left at 20 MHz, noted as the lever if 10 fps is ever
+not enough.
+
+### Flashing
+
+The board is on Sam's PC, not on any network this session can reach, so the
+flash is a hands step; the exact PowerShell recipe is now in `HANDOFF.md`
+("Flashing from the bench"), with the IDF prefix, the COM ports and the
+no-`tail` rule the bench session paid for.
+
+### Verification
+
+`esphome config` clean, then a full `esphome compile` (2026.6.5 here; the
+bench runs 2026.8.1) of the final file:
+
+```
+RAM:   [==        ]  18.4% (used 60404 bytes from 327680 bytes)
+Flash: [======    ]  60.5% (used 1109663 bytes from 1835008 bytes)
+```
+
+0 errors, 0 warnings from this file. The first compile of the animator
+failed — `partial` was declared in the round lambda and used in the bar's,
+which `esphome config` cannot see; the second passed. Up from 18.3% / 60.2%
+with the still faces: 600 bytes of RAM for the animator's globals, 5.8 KB of
+flash for the clips and the eye drawing on two panels.
+
+The dashboard regained the new switch (*Animate the eyes*); the generator
+checks its 186 entity references for the main clock against the names the
+firmware creates — 0 dangling — and now writes the paste-ready Settings view
+itself (`--view`), so the header that claims it is generated is true.
+
+**Not verified: the panel.** Nothing here has been flashed. The three things
+only the hardware can answer are whether the partial flush leaves any seam at
+the edge of the eye box, whether 10 fps at 20 MHz feels smooth or stutters
+when the ring effect and the API share the loop, and whether a 1-frame blink
+reads as a blink on a TFT that ghosts. The preview cannot tell; the first
+flash will.
+
+### Bench outcome, the same day
+
+Both boards were flashed from the cloud after all — not by this session,
+which has no serial port, but by handing the job to the Claude Code
+**Remote Control** session already running on Sam's PC (`claude
+remote-control`, bridge to his machine). The hand-off is a poke-only Routine
+bound to that session (`create_trigger` with `persistent_session_id`, then
+`fire_trigger`), carrying the full recipe as its prompt. Two things learned
+about that mechanism, both the expensive way:
+
+* **Cross-session messaging cannot reach a Remote Control session from
+  here** (`SendMessage` by name or id: "not reachable"); the Routine is the
+  only path, and it works.
+* **Firing a Routine at a session that is busy does not queue: it spawns a
+  fresh cloud session in the Routine's environment**, with no serial port,
+  and starts running the flash prompt there. One got as far as a minute of
+  work before it was interrupted. The rule now: check the target is IDLE
+  before firing, and delete a poke-only Routine the moment its firing has
+  landed, so nothing can re-fire it.
+
+Results, as reported by Sam:
+
+* **Clock #2 (`mini-round-clock-2`, 32 LEDs, COM12): "Screen works fine."**
+  This closes the "backlit but blank" fault open since 2026-08-27. Why it
+  is fixed is NOT known. The bench had already ruled the firmware out — the
+  08-27 log showed it rendering, 432 render events — so this is not the
+  PSRAM or safe-mode disguise from the corrections entry, and the two checks
+  on the open list (RST on GPIO14, a panel swap) were never made. What did
+  change is that the board was handled and plugged in again; the open
+  list's own top suspect was a skewed 10-pin FPC that powers the panel (BL
+  pin 3, VCC/GND pins 9–10) while leaving the signal pins open, and a
+  reseat is exactly what would clear that. Likely, not proven. If it goes
+  blank again, the connector is the first thing to look at, not the code.
+* **Clock #1 (24 LEDs, COM7):** flashed first, at 09:40 UTC. The three
+  questions the preview could not answer — a seam at the eye-box edge,
+  smoothness at 10 fps, whether the one-frame blink reads — are still
+  waiting on a look at the panel.
+
+The "Open, from the bench" list above is amended: clock #2's blank screen is
+resolved; its RST and panel-swap checks are dropped.
+
+## 2026-09-03 — Grow clock, round three: brightness apart, a flicker, the sky, and every dial a grow clock has
+
+Sam, with both clocks running the eyes: *"the LEDs are too bright, and the
+screen flickers a little. Add an option to change the LED brightness alone,
+or even the screen brightness. The screen is too low and the LED is too
+bright. Also, make it have the face and also the stars/moon or sun on the
+screen. Add as many options as you can think of for a kids grow clock.
+Automatically add them into HASS."*
+
+### Why one number could never fix it
+
+Grow mode drove the ring and the backlight from the SAME two numbers
+(`grow_night_bright`, `grow_day_bright`). A WS2812 ring at 10% is a lamp; a
+TFT backlight at 10% through the light's default gamma of 2.8 is a duty of
+0.16%, which is off in all but name. So the ring was too bright and the
+screen too dim at the same setting, and no value of that setting could have
+been right for both. Now:
+
+- **Screen** keeps the two ids, renamed *screen night/day brightness*, with
+  `gamma_correct: 1.0` on the backlight so a percentage is a duty. Night
+  default 20.
+- **Ring** gets *ring night/day brightness*, defaults 12 and 45.
+- **The flicker** was the PWM: ESPHome's `ledc` defaults to 1 kHz, and a
+  backlight at low duty on 1 kHz is visible flicker to a sideways glance and
+  to any phone camera. `frequency: 5000 Hz`; the S3 keeps 13 bits at that.
+  Not measured on the panel yet; the reasoning is in the YAML comment.
+
+### The sky
+
+`grow_face` gains **eyes and sky**, now the default: the Deskimon eyes, a
+moon above them at night and bedtime, a sun by day, half a sun on the horizon
+when it is almost morning, and the stars beneath. The icon sits at CY − 138,
+above the animation box, which moved from y = 60 to 66 to make room; the
+z's still clear it. Full frames only, since it never moves.
+
+### Every dial a grow clock has
+
+Each is an ESPHome entity, so it appears in Home Assistant by itself; the
+dashboard builder gained a row for each.
+
+| Option | Entity |
+|---|---|
+| Almost colour (amber / yellow / green / white), bedtime colour (orange / red / purple / blue) | two selects |
+| Star count 3–12, star shape (dots / four-point sparkles) | number, select |
+| Minutes-to-go countdown under the eyes in the almost and bedtime windows | switch, plus `sensor.…_minutes_to_wake` |
+| Sunrise fade: ring and screen ramp from night to day level over N minutes after wake | number |
+| Wake-up effect on the ring for the first N minutes: solid, rainbow, sparkle | select, number |
+| Five more minutes: a snooze button that starts a short nap | button, number |
+| Holiday: weekend times every day | switch |
+| Clock by day: after N minutes of the wake window the ordinary clock comes back until the bedtime warning | switch, number |
+
+The last one changes the shape of the state machine slightly: a
+`grow_daytime` flag, resolved by the dispatcher, gates every grow branch
+(ring, both panels, the animator, the partial-frame interval, the backlight
+follower). A forced expression clears it, so a demo always shows the face.
+
+### Verification
+
+`esphome config` clean on the full file; the compile is recorded below when
+it finishes. The dashboard generator's 218 entity references for the main
+clock check against the 46 grow-clock entities the firmware now creates:
+0 dangling. The preview sheet was re-rendered with the sky and the stars
+before the C++ was written, and one thing it caught: the countdown sat on
+top of the sun-and-moon picture, so on that face it goes to the top of the
+panel instead.
+
+Full compile of the final file (2026.6.5 here):
+
+```
+RAM:   [==        ]  18.8% (used 61740 bytes from 327680 bytes)
+Flash: [======    ]  60.8% (used 1115731 bytes from 1835008 bytes)
+```
+
+0 errors, 0 warnings from this file. Up 1.3 KB of RAM and 6 KB of flash on
+the animator build. Not flashed; the flicker fix and the brightness defaults
+are the two things to look at on the panel first.
+
+## 2026-09-03 — Enclosure v15: the S3 moves into the stand, the clock leans back, the diffuser reaches the lip
+
+Sam, in the same message as the firmware round: *"create the back of the
+clock to house the ESP32 S3. It could be housed at the bottom of the clock
+in the stand. Make the clock lean back a bit though."* Then: *"update the
+diffuser to be larger on the outside to fit to the edge of the base. Add
+more options to change the size of the clock too."* And: *"Create a diffuser
+that doesn't have numbers on it for the clock too."*
+
+### What was built
+
+Seven new parts per body, all from `build_v2.py`, all through the same
+`finalise` and the same checks as everything else:
+
+| Part | What it is |
+|---|---|
+| `-backcover` | A flat 8.9 mm back (2.4 plate + 6.5 pocket for the leads to turn in), the housing's screw pillars and keyhole, a notch through the rim at 6 o'clock. Replaces the 25 mm housing when the S3 lives in the stand. The clock is 33.3 deep with it on, not 49.4 |
+| `-standbox` | The desk stand's cradle at **12°** (the stand alone is 10°) on a 29 mm plinth with a bay for the board tray, lightening pockets, two screw pillars, and the cradle's 6 o'clock notch cut again through the plinth's roof — the same solid through the same transform, so the leads' way down cannot miss |
+| `-standbox-tray` | The board on the housing's pads and rails, hooks over its far corners, and an end plate that *is* the lid: it closes the bay, carries the USB-C window, and takes two M2 × 8 into the plinth |
+| `-diffuser-plain` | The diffuser with the numerals filled in (+66 mm³ on the 24, measured) |
+| `-diffuser-flange` / `-flange-plain` | The face carried out to 0.30 short of the base's lip, filling the 5.6 mm trough Sam sees around the diffuser. Not on the 60, whose diffuser already reaches its lip |
+| `--custom N OD ID` | `make_body` derives every radius from a measured ring the way the 32 was derived. No preset for a ring nobody has measured |
+
+The plinth's depth is not a parameter. It is whatever tipping needs, both
+ways, with the clock's centre where the back cover puts it: the toe in front
+from the forward angle, the back edge from the backward one, each to 21°,
+and 78 mm is only the floor. On the 108 and 120 mm clocks the floor governs;
+on the 240 the centre is 137 mm up and the plinth runs 106 mm deep, or it
+tips back at 10.5° — which is what the first build did, and check6 said so.
+
+### What the checks caught, in the order they caught it
+
+This round's checker is `check6_standbox.py`, measuring the built STLs the
+way check2 does. It failed five times before it passed, and every failure
+was a real fault in a part that would otherwise have been sent:
+
+1. **NotManifold on the 32 and 60 stand-boxes.** Bisected to the plinth's
+   sides sitting on the same planes as the cradle's sides. Two solids whose
+   faces are coplanar union into one face that comes apart again when the
+   STL is written in float32. The plinth is 0.4 mm wider than the cradle
+   each side now, and built from below the desk plane and cut at it with
+   everything else so the bottom is one face. Same lesson as the collar
+   ribs and the inner face fill: bury, do not butt.
+2. **1.2 cm³ of the cradle's stop wall was hanging inside the bay**, and a
+   fin of it in each pocket with nothing under it to print on. The bay and
+   the pockets had been cut from the plinth before the cradle was added.
+   They are cut from the assembled solid now.
+3. **The forward tip was 18.5°.** The first toe was a fixed 4 mm. It is
+   derived from the tipping angle now, and check6 measures 21.0° on all
+   three.
+4. **The 60 tipped back at 10.5°** (above), and its **notch probe reported
+   the roof blocked** — that one was the check's fault, not the part's: it
+   probed a fixed spot in the bay, and the 60's notch is 4 mm further
+   forward. The check takes the cradle's notch solid from the generator now
+   and probes the roof where the notch actually is; the bay was already
+   under it.
+5. **The screw bosses were gone.** Fix 2 cut the pockets after the bosses
+   had been unioned in, so the pockets took them away, and the check had
+   nothing that would have noticed: the pilots ran through 3 mm of wall and
+   air. They are pillars now, desk to roof in the pockets' back corners,
+   added after the cut, and check6 measures 10 mm of pilot with 100% solid
+   around it.
+
+Then check3, which the new parts were added to, found three more:
+
+6. **The bay's roof was a 34 mm bridge** and the tray's cross bar a 26 mm
+   one, against the 25 the checker has always held every part to. The bay's
+   top corners are chamfered 5.2 in and 7.3 up (54.5°, steeper than the 45°
+   rule) leaving a 24.1 mm flat; the bar is two 5 mm hooks over the board's
+   far corners. `STANDBOX_CELL_MAX` went from 40 to 24 for the same reason,
+   though no body's pockets reach it.
+7. **The lid ran 2 mm below the tray's floor** to hide the plinth's floor
+   lip — printed flat, that is a part standing on its lid on air. It stops
+   at the floor plane; the plinth's floor shows under it and is what the
+   lid lands on.
+8. **The lid was 0.35 mm thick beside its screw holes** (6 mm of lip past a
+   bay, a hole 2.3 across at 4.5 past the bay's edge), and **both horizontal
+   holes had ceilings of 22–37° facets**. The lip is 8 mm; both holes are
+   teardrops with a 45° point on top.
+
+### The flange, and the version that would have hit the base
+
+The first flange stood **1.6 mm proud of the face** to cover the base's
+lip. Placed at its seat the way check2 places every diffuser, it overlapped
+the base by **211 mm³** on the 24 and 233 on the 32: the lip is 0.07 mm
+short of the face, not behind it. And face-down printing — the only way the
+0.20 mm membrane prints — would have put the whole face 1.6 mm off the bed.
+So it fills the trough instead: the face's front plane carries on outward
+as one disc, 2.63 deep, to 0.30 short of the lip and 0.30 above the recess
+floor, and nothing on it stands in front of the face. Inside the band it is
+the numbered diffuser to the last triangle (0.00 mm³ of difference,
+measured, membrane included). It stops at the lip and cannot go over it,
+for the printing reason alone; that is why the answer to *"to the edge of
+the base"* is *"to the lip"*, and the lip stays a hairline rim around it.
+
+One probe of my own was wrong here too: the seated-overlap test first
+reported 1.16 mm³ on the flange diffuser — and exactly 1.16 on the plain
+numbered one. It was the collar's crush ribs biting the bore, which is the
+press fit, and check2's number to own. The test looks only outboard of the
+band now.
+
+### Verification
+
+Full rebuild through `python3 build_v2.py` (every part, all three bodies,
+every one manifold and clean), then `./runchecks.sh` — all six passes,
+all three bodies:
+
+```
+check1_topology.py     PASS 1: all topology checks clean
+check2_fit.py          PASS 2: every fit and clearance check holds, on all three bodies
+check3_print.py        PASS 3: prints without support in the stated orientation
+check4_v3.py           CHECK 4: the diffuser checks out on all three bodies
+check5_stand.py        CHECK 5: the clock sits in the stand and can be plugged in on a desk
+check6_standbox.py     CHECK 6: the S3 lives in the stand, the clock leans back, the covers and diffusers fit
+```
+
+check6's numbers, measured on the STLs: bay 34.2 × 67.4 × 23.0 clear;
+roof flat span 24.1 mm at 54.5° chamfers; tray 50.19 wide, sits on z = 0
+with the lid reaching 27.00; 1.20 mm total bay clearance against 0.80
+needed; both rails and both 5 mm hooks; USB window open; notch through the
+roof with 0.0 mm³ in the way on every body; both pilots 10.0 deep with
+100% solid around; tips forward past 21.0° and back past 34.7 / 31.5 /
+21.2°; back cover 8.90 deep, notch open; plain = numbered + 66 / 95 / 215
+mm³; flange 0.30 short of the lip, front at the face plane, 2.63 deep,
+0.00 mm³ of overlap with the base seated, 0.00 mm³ different inside the
+band. Solid volumes: stand-box 172 / 213 / 902 cm³, tray 9.9, back cover
+28 / 34 / 123, flange diffuser 19 / 25.
+
+Not verified: nothing printed. The 120 mm lead figure is from the model;
+the M2-in-PLA pilot of 1.60 is the M3 rule scaled, not tested; a 24 mm
+bridge and a 47° teardrop are the checker's rules, which have held on
+every part so far but are rules, not prints. The renders
+(`render_*.py`) do not draw the stand-box yet.
+
+## 2026-09-03 — The dashboard was gated on an entity that does not exist, and clock 3
+
+Sam: *"Flash the new firmware to both clocks now. Only clock 3 is plugged in
+to my computer at the moment."* Then: *"Then update HASS with the settings
+I've asked to add."*
+
+### The gate
+
+Every card in the generated Settings view carries a visibility condition on
+`binary_sensor.<device>_status`, added a week ago so that a clock which is
+absent hides its rows instead of drawing twenty "Entity not found" boxes.
+The generator's own docstring said, in as many words, that this entity is
+"the entity the ESPHome integration creates for every device it adopts".
+
+It is not. `platform: status` is an opt-in ESPHome component (its
+documentation page, checked today), and nothing in either firmware declared
+it. So the entity never existed, and a `condition: state` on a missing
+entity is false — meaning the whole Settings view would have rendered
+**blank**. The mechanism that was supposed to hide one absent clock would
+have hidden all of them, including the two that work.
+
+Worth naming the shape, because it is the second time this project has been
+bitten by it: the failure is silent and total, and it is *downstream of a
+safety feature*. A gate that fails closed hides the thing it was protecting
+as thoroughly as it hides the fault. The give-away was not on the panel —
+the view has never been opened since the gate was added — it was a
+generated-file validator that resolves every entity reference in the cards
+against the entities the firmware actually creates. It had reported "0
+dangling" before only because I had exempted the three `_status` refs as
+"created by the integration". An exemption in a checker is a claim, and this
+one was never verified.
+
+Fixed by making the docstring true: the firmware declares
+
+```yaml
+binary_sensor:
+  - platform: status
+    name: "Status"
+    entity_category: diagnostic
+```
+
+which gives exactly `binary_sensor.${device_name}_status`, and the
+docstring now says where the entity comes from and that any clock added to
+`CLOCKS` needs firmware that declares it.
+
+### Clock 3
+
+There is a third board on Sam's bench and nothing in this repo has ever
+mentioned it, so the flash job sent to the bench session identifies the
+board before writing to it: read the boot banner, and flash as clock #1 or
+#2 if it names itself one of those, otherwise as `mini-round-clock-3` /
+"Mini Round Clock 3" with `num_leds 24`. The 24 is only a compile-time
+default — the ring size is a runtime number in Home Assistant with a
+ceiling of 60 — so a wrong guess there costs a dropdown, not a reflash.
+
+It is listed in `CLOCKS` and in the `input_select` options now. Listing a
+clock that may not exist costs nothing precisely *because* the gate works:
+its cards do not render until the device is on the network.
+
+### Verification
+
+`esphome config` valid on the full file (2026.6.5 in a throwaway venv here;
+the bench runs 2026.8.1). The status sensor resolves with `device_class:
+connectivity`. The generated view is 38 cards over 4 clocks, and all 303
+clock entity references in it check against the 102 entities the firmware
+creates: **0 dangling, with no exemptions**.
+
+Not verified: the view has still not been opened in a browser. The flash of
+round three was in flight when this was found, so the boards need one more
+pass to pick the status sensor up — OTA, and queued behind the running job.
+
+## 2026-09-03 — One aperture, on both clocks, and it is the die
+
+Sam: *"Update the diffuser for the 32 and 24 clocks and make sure each of the
+plain diffusers have the same size LED hole for the LED to shine through. They
+are not even at the moment. And they can be slightly larger, each of the
+holes."*
+
+He is right, and it was measurable on the built files before anything was
+changed — the opening at the membrane, taken off the mesh:
+
+| | before | now |
+|---|---|---|
+| 24-LED | 4.74 × 1.43 mm | 5.02 × 1.82 mm |
+| 32-LED | 4.44 × 1.43 mm | 5.02 × 1.82 mm |
+
+They differed because each body solved for the longest tick **it** could
+carry, and the two are bound by different things: the 24 by the screen window
+inboard of the mark, the 32 by its own light-tight cell. "As long as this one
+can manage" is a reasonable rule for one part and the wrong rule across a set.
+Two clocks on one wall want one mark.
+
+So the length is a constant now, and it is the emitter: a 5050 die is 5.00 mm
+across, so the slot is exactly as long as the lit thing behind it. That is the
+only length with a reason — shorter wastes die, longer is spill — and it lands
+between the two it replaces. The growth Sam asked for is in the width, 1.40 →
+1.80, where it actually shows.
+
+**What gives way instead.** The mark is hardware and the typography is not, so
+the causality is inverted from before: the tick is placed first, and the
+numerals are solved DOWN from their nominal height until they clear it by
+`NUM_MARGIN`. On the 24 that takes them from 5.00 to 4.92 mm — the floor where
+a stem is still two clean 0.40 mm beads is 4.40, and it is an assert, not a
+clamp. On the 32 nothing moves: its numerals were never the binding
+constraint.
+
+**What it costs on the 32**, and it is paid where it cannot be seen: its cell
+has 6.02 mm between the ribs, so a 5.00 mm mark leaves 0.40 of standing rib at
+each end rather than 0.70.
+
+### The check earned its keep twice in ten minutes
+
+check4 failed the first build, on two counts, and only one was the part's
+fault.
+
+- **"and centred on the LED circle"** — I had centred the tick on the CELL
+  rather than the LED, to buy 0.10 mm of rib on the 32's tight side. The check
+  was right to refuse it: a 5.00 mm slot over a 5.00 mm die is only exactly as
+  long as the lit thing if the two share a centre, and that was the entire
+  argument for the length. The tenth was not worth it. Centred on the LED, the
+  rib is 0.61 inboard and 0.41 outboard, both over the floor.
+- **"r=48.76 is 2.90 mm, outside the tick" — measured 4.556** — this one was
+  the check's fault. It asked for *exactly* the face thickness at a point 0.60
+  mm past the tick's end, and on the 32 that point now lands on the standing
+  rib, which is thicker. What the assertion means is "the thinning is confined
+  to the tick", and thicker does not violate it. It reads `>=` now, with the
+  reason written next to it, and the rib's own continuity is checked
+  separately two lines below so nothing is lost.
+
+### Verified
+
+All six checks pass on all three bodies. check4 measures the mark on the built
+mesh: 5.00 radial × 1.80 tangential on both flat bodies, centred on the LED
+circle, spill +0.00 at each end, membrane 0.200 mm inside it and full face
+thickness outside, all 24 and all 32 cells present, cell walls continuous. The
+opening measured independently off the STL section is 5.02 × 1.82 on every
+diffuser variant of both clocks, numbered and plain alike.
+
+## 2026-09-03 — Correction: the partial flush never drew anything, and that is the "slight screen flashing"
+
+Sam: *"Update the clock to fix the slight screen flashing too."*
+
+### What I got wrong last week
+
+The build-log entry above, and a note in the vault, say that turning
+`auto_clear_enabled` off gives the grow-clock eyes a 36 ms partial flush
+instead of a 104 ms full one, and that this "is the difference between 10 fps
+eyes and none". The dirty-window half of that is true. The conclusion is not,
+and the eyes have never animated on the panel.
+
+`mipi_spi` with a partial buffer does not run the display lambda once per
+frame. It runs it **once per band** — six times down a 360-line panel at
+`buffer_size` 1/6 — flushing each band's dirty rectangle as it goes. And when
+a band comes back with nothing drawn in it, the driver does not skip that band:
+
+```cpp
+for (this->start_line_ = 0; this->start_line_ < this->get_height_internal();
+     this->start_line_ = this->end_line_) {
+  ...
+  (*this->writer_)(*this);
+  if (this->x_low_ > this->x_high_ || this->y_low_ > this->y_high_)
+    return;                       // <-- the whole frame, not this band
+```
+
+An animation frame draws only the eye box, at y 66..244. The first band is
+y 0..59. It came back empty, and `update()` returned before a single pixel
+reached the panel. **Every partial frame was thrown away.** The face changed
+only on the once-a-second full frame, which sweeps the panel band by band —
+and a face that jumps once a second in a top-to-bottom sweep is exactly what
+"the screen flashes a little" describes.
+
+Verified on the version the clock actually runs: esphome **2026.8.1**,
+`components/mipi_spi/mipi_spi.h`, read from the tag on GitHub, because this
+container's Python is too old to install that release. The 2026.6.5 source in
+a local venv says the same thing.
+
+### The fix
+
+One column of pixels at x = 0, the full height of the panel, drawn in the
+**field colour**, on partial frames only:
+
+```cpp
+if (partial) {
+  it.filled_rectangle(0, 0, 1, 360, field);
+  it.filled_rectangle(CX - 124, 66, 248, 178, field);
+}
+```
+
+Every band now has something in it, so no band aborts the frame. It costs 360
+pixels and is invisible: x = 0 is the extreme edge of the panel, and it is
+painted in the field's own colour rather than black — which matters, because
+the "eyes on colour" face has a field that is not black, and a black column
+there would have been a hairline down the left of the screen. The bar panel
+gets the same, 170 tall.
+
+The flush grows from the eye box (248 px wide) to x 0..304 in the bands the
+eyes occupy, and one pixel wide in the bands they do not. That is about 23%
+more than the box alone and roughly a third of a full frame.
+
+### What this says about the earlier claim
+
+The mistake was reading one half of a function and stopping at the part that
+confirmed what I wanted. `update()` was read for its dirty-window logic, found
+to have exactly the optimisation the design needed, and closed. The band loop
+is nine lines above it. **A source read that stops when it finds the answer
+it went looking for is a search, not a reading** — and the note it produced
+was filed as "verified by reading the source", which is how it then got
+believed twice.
+
+### Verification
+
+`esphome config` valid, and a full compile is recorded below. Not verified on
+the panel: nobody has yet seen the eyes animate, which is the whole point of
+the change, and it is the first thing to look at after the next flash.
+
+## 2026-09-03 — Three clocks, one of them new; the panel in sections; and the LED that is a lamp
+
+A long round with the bench session, and most of what it produced was
+corrections to things this log already asserted.
+
+### There are three boards, and the one on the desk is not clock #2
+
+The board Sam plugged in tonight identified itself, was flashed as
+`mini-round-clock-2`, and **Home Assistant refused to adopt it**: the MAC did
+not match the one already registered under that name (new `ac:27:6e:a3:3b:ac`
+against the existing `ac:27:6e:a4:cd:98`). It is a third physical board. It
+was reflashed as `mini-round-clock-3` and adopted cleanly — 192.168.1.69, 32
+LEDs, 102 entities, status sensor on.
+
+Which means **the entry above claiming both boards were flashed and clock #2's
+blank screen was resolved cannot be corroborated**. Clock #2 has been
+unavailable in Home Assistant since 2026-08-31T23:53Z. Whatever was flashed
+that day, the bench cannot reach it now.
+
+**And the recorded addresses are dangerous.** 192.168.1.23 was clock #1; it
+now answers on MAC `C4-E7-AE-16-6B-A6` with port 80 open and 3232/6053 closed.
+Another device holds that lease. Flashing at a remembered address would have
+pushed clock firmware at a stranger's hardware, and the bench was right to
+refuse. HANDOFF.md now carries the addresses as dead, with the rule: check the
+MAC or the mDNS name before an OTA, never the address alone.
+
+### The gate I was so pleased with was not in the live view at all
+
+The entry above says the settings view would have rendered blank because every
+card is gated on a status sensor nothing declared. True of **this** repo's
+generator. The live dashboard is a different one: when the bench ported the
+grow-clock cards into Sam's sections layout it deliberately left `vis()`
+behind, having spotted that gating would hide everything. So the live view has
+42 visibility conditions and not one of them mentions the status sensor. The
+"Entity not found" icons Sam is seeing are two offline clocks with nothing
+hiding them, which is a different fault with the same fix.
+
+### And the fix needed a second half
+
+Gating alone replaces a page of yellow rows with **nothing**, and the bench
+declined to paste it for exactly that reason: clocks 1 and 2 would vanish from
+their own picker rather than read as unavailable. It was right, and the
+refusal was worth more than compliance. Each clock now gets an `absent_card()`
+on the opposite condition, saying it is not connected and why. Whether it
+renders for a clock whose status entity does not exist *at all* is the one
+thing that cannot be checked from here; the bench is looking.
+
+### An instruction of mine inverted between writing and reading
+
+I told the bench: if the two generators collide, keep yours and delete mine.
+By the time it got there I had pushed a generator that was ahead of its own —
+a real sections view, 39 card groups against 14 — so obeying me would have
+deleted the better work. It read the diff, saw that, and stopped. Taken
+literally it would also have dropped the `tier` mechanism and the Test Clock
+entry, which only my side had.
+
+The rule I should have written, and the one it acted on: **keep the layout
+that is live, keep every feature either side has, and never resolve a
+collision by deleting work you have not read.** An instruction about a merge
+is written before you can see the merge.
+
+### The LED is a lamp, and the number says so
+
+*"The LED is too bright!"* — three times now. The ring brightness is a linear
+multiplier straight onto the emitter, so 45 really is 45% of a 32-LED ring at
+full tilt, which in a bedroom is a lamp and not a night light. Day 45 → 25,
+grow ring day 45 → 25, grow ring night 12 → 7, and the step is 1 rather than 5
+with the floor at 1: at 5% steps there were three positions below a quarter.
+
+`restore_value` is true on all of them, so this is what a **fresh flash**
+ships with. A clock already running keeps its stored value, which is why the
+answer to "it is too bright right now" is the device page in Home Assistant,
+not a reflash.
+
+### Still open, and none of it can be settled from here
+
+- **The flicker is on the ring AND the screen.** That is new information and it
+  points away from the backlight PWM, which cannot affect the ring, and toward
+  the 5 V rail: a 32-LED ring at 45% is ~0.9 A on top of the panel and the
+  radio, and the build notes have the board powered from its own USB port. The
+  decisive test is one click — switch the ring off and watch the screen.
+- **The eye animation has still never been seen.** The band fix is flashed
+  nowhere yet.
+- **The packages cannot be installed.** 192.168.1.75 has 22 and 445 closed and
+  only 8123 open, and the REST API has no file-write endpoint. It needs the
+  Terminal & SSH or Samba add-on enabled, which is Sam's to do. Until then the
+  clock picker's options are set at runtime and die at the next restart.
+
+## 2026-09-04 — The repaint that had nothing to repaint
+
+Sam, once the band fix was on the panel: *"The screen is now flickering the
+graphics."*
+
+That is mine. The band fix did not cause it, it **uncovered** it: while every
+animation frame was being discarded by the driver, the panel only ever redrew
+on the once-a-second full frame, and the second fault could not show. The
+moment those frames started arriving, it did.
+
+The 100 ms animation interval repainted **whether or not anything had moved**.
+The animator spends far longer holding a resting pose in an idle gap than it
+does inside a clip, so most of those repaints drew the identical eye box over
+the identical eye box — six lambda passes and four banded flushes each time,
+roughly 60 ms of SPI, ten times a second, to change nothing. On the panel that
+is the graphics flickering.
+
+The frame is skipped now unless the pose has actually changed: gaze, both
+lids, the smile, the height scale, the yawn, and the z-drift quantised to 8
+steps a cycle so it does not tick on its own ten times a second. Thresholds
+are below what a pixel can show. Through an idle gap nothing is drawn at all;
+inside a clip it runs at the full rate.
+
+Two details that are easy to get wrong and are worth the words:
+
+- The recorded pose is set **after** the update, not before, so a frame that
+  never reached the panel is not recorded as shown.
+- A **full** frame records it too. A full frame repaints the eye box as well,
+  so the next partial frame is correctly skipped — and recording it means
+  that staying correct does not depend on anyone remembering that.
+
+```
+RAM:   [==        ]  18.9% (used 61924 bytes from 327680 bytes)
+Flash: [======    ]  60.9% (used 1116707 bytes from 1835008 bytes)
+```
+
+0 errors. Up 128 bytes of RAM on the previous build, which is the eight
+globals. Not seen on the panel yet. The immediate workaround, and it is a
+real one, is the **Grow clock animate** switch: off, there are no partial
+frames at all.
+
+**Not a bug, reported the same minute:** the grow clock handing the panel back
+to the ordinary clock during the wake window is `Grow clock clock by day`
+doing exactly what it says. It defaults off. Sam found the switch himself
+before this could be read out of the code.
+
+### The shape of both of these
+
+Both faults were one layer below where the symptom pointed, and the second was
+hidden behind the first. A driver that silently discarded work made a wasteful
+caller invisible; fixing the driver made the caller's waste the loudest thing
+on the panel. Worth expecting the pattern rather than being surprised by it:
+**when a fix reveals a new symptom immediately, the first suspect is not the
+fix but whatever the old behaviour was masking.** The instinct to revert would
+have restored a screen that was calm because it was broken.
+
+## 2026-09-04 — The drawing ran outside the region it declared
+
+Sam, after the dirty check: *"It still flickers on the animations."*
+
+Which was the right report, because the dirty check only stops repaints when
+nothing has moved. During an actual clip it still repaints, and the flicker
+was in the repaint itself.
+
+**The smile is a circle that bites the eye from below.** Radius 0.9 of the
+eye's width, centre *below* the eye, so most of the circle falls outside it:
+
+| pose | circle spans | eye box | on the panel at those rows |
+|---|---|---|---|
+| awake resting, smile 0.35 | y 172 – **316** | 66 – 243 | countdown at 252, **time at 300** |
+| full grin, smile 1.0 | y 115 – 259 | 66 – 243 | countdown at 252 |
+
+The animation frame declares the eye box, `CX-124, 66, 248, 178`, and then
+drew 73 px past the bottom of it in field colour. So every animation frame
+erased part of the countdown and the digital time, and the once-a-second full
+frame put them back. The time was being blanked and repainted at the
+animation rate. The bar panel had it too, over its own time readout.
+
+The bite is drawn as horizontal spans clipped to the eye now, so it cannot
+reach past what it is biting. `std::max(cy - h/2, yc - Rb)` to
+`std::min(cy + h/2, yc + Rb)`, one `filled_rectangle` per row.
+
+### Three faults, one shape
+
+This is the third in a row and they are all the same mistake wearing
+different clothes:
+
+1. The driver discarded any frame with an empty band — **a promise about what
+   would be drawn, silently broken by the caller.**
+2. The animation repainted when nothing had changed — **a claim that
+   something needed drawing, which was not true.**
+3. The smile drew 73 px outside the box the frame declared — **a region
+   declared to the driver and then not respected by the drawing.**
+
+Every one is the boundary between "what I said I would draw" and "what I
+drew", and nothing in the code was checking that boundary. The eye box is a
+promise to the driver, and until tonight it was only ever a comment. If
+anything still flickers, that is where to look next: for anything else the
+animation draws outside the rectangle it names.
+
+**And the ordering mattered.** Faults 2 and 3 were both invisible while fault
+1 was discarding the frames. Fixing the driver did not cause them; it
+published them. A fix that immediately produces a new symptom is usually a
+fix that has stopped hiding something.
+
+Verified: `esphome config` valid, and a full compile:
+
+```
+RAM:   [==        ]  18.9% (used 61924 bytes from 327680 bytes)
+Flash: [======    ]  60.9% (used 1116983 bytes from 1835008 bytes)
+```
+
+0 errors. RAM unchanged and 276 bytes of flash for the span loop, replacing
+one `filled_circle` call with a bounded one. Not seen on the panel yet.
+
+## 2026-09-04 — Third diagnosis, and the first one that came from the driver rather than the screen
+
+Sam, after the smile clip was flashed: *"The animation still flickers and so
+does the time."*
+
+Two wrong diagnoses preceded this one, and both were argued from what the
+panel looked like. The backlight PWM could not have been it, because the ring
+flickers too. The smile overdraw was real — it genuinely drew outside its box
+— but it was not the cause. This one came from reading
+`draw_absolute_pixel_internal` and `fill` in `mipi_spi.h`, and the tell that
+it is right is that it explains the detail the other two could not: **why the
+TIME flickered rather than the eyes.**
+
+### The mechanism
+
+The driver tracks a dirty rectangle widened one pixel at a time, and flushes
+**that whole rectangle** out of the buffer. The buffer is one band tall,
+reused for all six bands of a frame, and with `auto_clear_enabled: false` it
+is never cleared. So every pixel inside the flushed rectangle that was not
+written on this pass is sent to the panel as whatever the buffer held — which
+is a *different horizontal slice of the screen* from the previous pass. Not a
+stale copy of the same region. The wrong region.
+
+**A dirty rectangle is a bounding box, not a set.** Draw two small things far
+apart and you have promised the driver everything between them.
+
+And the thing that carried this onto Sam's clock face was my own fix from two
+hours earlier. The one-pixel marker column at x = 0, added to stop the driver
+abandoning frames on an empty band, forced `x_low_` to 0 on every band. On the
+band that straddles the bottom of the eye box, the flush then ran from x 0 to
+the box's right edge and from y 240 down to 299 — across the top of the
+digital time at y 300 with its 48-pixel font. Every animation frame wrote
+garbage over the top of the time; the once-a-second full frame put it back.
+
+### Why drawing more carefully cannot fix it
+
+Every candidate ran into the same wall. Keeping the empty bands alive requires
+drawing *something* in them, and anything drawn outside the region of interest
+widens the box past what was drawn. Making the drawn set equal its own
+bounding box means drawing a full-width strip — and then there is nothing
+partial left to save. When every repair widens the same contradiction, the
+optimisation is unsound rather than buggy.
+
+### So animation frames are full frames
+
+`it.fill()` writes every pixel of the band and sets the box to the whole band,
+so nothing stale can survive. What pays for it:
+
+- **the dirty check** — nothing is drawn at all unless the pose has moved, and
+  the animator holds still between clips;
+- **a 200 ms floor** between repaints, while the animator keeps stepping at
+  100 ms so the interpolation stays smooth.
+
+The guards that read `an_partial` are left in place and the global carries the
+whole reasoning, so the next person to have this idea finds the note attached
+to the thing they would touch.
+
+```
+RAM:   [==        ]  18.9% (used 61924 bytes from 327680 bytes)
+Flash: [======    ]  60.9% (used 1116943 bytes from 1835008 bytes)
+```
+
+0 errors. **Not flashed at time of writing, deliberately** — Sam has already
+spent one flash on a wrong fix of mine, and the ring-off test (switch the ring
+off, watch the screen) is still unrun and still the fastest way to find out
+whether any of this is the display at all.
+
+## 2026-09-04 — Animate off is clean, so the sweep is the whole story
+
+Sam ran the discriminating test at last: **"Turned animate off, doesn't
+flicker."** Two things follow, and between them they close the diagnosis.
+
+**A redraw of unchanged pixels is invisible.** With animate off the dispatcher
+still repaints the entire panel every second — the 1 s interval calls
+`component.update` unconditionally, which my animation throttle never
+controlled and which is why turning that dial to 2000 ms changed nothing.
+Sixty full repaints a minute, and the screen is steady. So the six-strip
+write is not visible in itself.
+
+**What is visible is the changed region, and how long it takes to arrive.**
+Any change to the face is written to the glass in six strips, top to bottom.
+At 20 MHz a 360 x 360 frame is 104 ms of SPI before the drawing is counted,
+so an eye that moves takes the better part of a fifth of a second to finish
+moving, in strips. Frequent small changes read as constant sweeping; the
+2000 ms throttle made each change bigger and more abrupt instead, which is
+worse, not better — at that rate a blink is never caught in the act, only
+jumped over.
+
+So the earlier "frames are overlapping" story was wrong twice over: the
+frames were not overlapping, and the 1 Hz repaint I did not know about was
+doing more redrawing than the animation ever did.
+
+### The only lever left, and it is a one-liner
+
+`data_rate` on the round panel was **20MHz**, with a comment on it reading
+"50MHz is what xboot uses; 20 is a safe first pass". It has been the safe
+first pass since August. The **bar panel on the same bus has run at 40MHz
+since the day it was added**, and the vendor driver drives this controller at
+50. Raising the round panel to 40 halves every flush and therefore halves the
+sweep.
+
+That is a mechanism rather than a hope, and the revert is the same line back
+to 20MHz if the panel garbles or the boot banner repeats.
+
+```
+RAM:   [==        ]  18.9% (used 62012 bytes from 327680 bytes)
+Flash: [======    ]  60.9% (used 1117091 bytes from 1835008 bytes)
+```
+
+0 errors.
+
+### What is actually fixed, and what is a limit
+
+Fixed and confirmed on the panel: the backlight flicker (PWM 1 kHz to 5 kHz),
+the digital time being erased every animation frame (the stale-pixel bug), and
+the eye animation never drawing at all (the band-abort). **Not a bug:** a face
+that changes takes a visible moment to change on a panel with no working PSRAM
+and a sixth of a frame in memory. 40 MHz halves it. Nothing in software
+removes it.
+
+The honest fallback, and it works today: **Grow clock animate** off gives a
+still face and everything else — the sky, the stars, the countdown, the
+colours, the time — with no flicker at all.
+
+---
+
+## 2026-09-04 — The supply, at last: a 32-LED ring on a PC USB port
+
+Six firmware theories about the flicker, five of them wrong, and the thing
+none of them touched was the wall socket. Asked what was powering the board,
+Sam answered: **"It's plugged into a USB port on my PC."**
+
+That is not a detail. Here is the arithmetic that should have been done on day
+one, and was not:
+
+| draw | current |
+| --- | --- |
+| WS2812B, per lit channel at full | 20 mA |
+| ...so one pixel at full white | 60 mA |
+| **32 pixels, full white** | **1920 mA** |
+| 32 pixels, white, at the shipped 25% brightness | ~480 mA |
+| ESP32-S3, WiFi associated, average | ~100 mA |
+| ESP32-S3, WiFi transmit burst (~1 ms) | 350–500 mA |
+| Panel backlight at full | ~60–120 mA |
+
+Against that: a **USB 2.0 port is specified at 500 mA**, a USB 3.0 port at
+900 mA. A dev board also drops ~0.3 V across its input protection diode, and a
+thin 1 m USB cable drops more again under load. So the rail at the ring can be
+well under 4.5 V while the port is still nominally "working" — ports sag long
+before their polyfuse trips.
+
+A sagging rail does not look like a power fault. It looks like **the ring and
+the screen dimming together, in step with whatever is drawing most at that
+moment** — which, on this clock, is an animation frame: a 40 MHz SPI burst and
+a fresh set of pixels at the same instant.
+
+This is a *hypothesis*, not a finding, and it is written down as one. What
+makes it worth acting on is that it is the only candidate never excluded, it
+explains the one thing no renderer theory ever did (why the **LED ring**
+flickers too), and it is falsifiable in ten seconds with no hardware.
+
+### The two tests, cheapest first
+
+1. **Turn off "Ring LEDs" in Home Assistant** and watch the animation. That
+   drops the ring from a few hundred mA to its quiescent ~32 mA and changes
+   nothing else. Screen steadies → the rail. Screen still flickers → not the
+   ring's current, and the freeze switch from the previous build says whether
+   it is the content or the act of writing.
+2. **Move the board off the PC to a 5 V 2 A supply** (a phone charger, same
+   cable) and re-check with animate on.
+
+### The limiter, which the clock should have had regardless
+
+Independently of how the tests land, a ring that can ask for 1.9 A with no
+notion of a budget is a defect. Added a **"Ring current limit"** number, in mA,
+default 400, 0 to disable. Every frame, immediately before the lambda returns,
+`cap()` sums the channels it is about to write, converts at 20 mA per channel,
+and if the total is over budget scales the whole ring by one multiply. Same
+idea as WLED's automatic brightness limiter.
+
+It reads the strip back rather than the compositing buffer, because grow mode
+writes `it[]` directly and never touches `buf` — the buffer is not the whole
+truth. Three call sites: the wake-effect return, the grow-plain return, and the
+end of the face path. Quiescent draw is left out of the sum on purpose: it
+cannot be scaled away, so counting it would only clamp harder for nothing.
+
+Suggested budgets: **350 mA on a PC USB 2.0 port, 600 on USB 3.0, 1500+ on a
+proper supply.** Note that at 25% brightness an ordinary clock face is nowhere
+near any of these — the limiter only bites when the ring goes bright and wide,
+which is exactly the grow clock's wake sparkle.
+
+```
+RAM:   [==        ]  19.0% (used 62276 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1118671 bytes from 1835008 bytes)
+```
+
+0 errors. Compiled, not just `esphome config`-ed — the change is in a lambda,
+and `config` never compiles lambdas.
+
+---
+
+## 2026-09-04 (later) — "The eyes aren't flickering, but the sun and clock are"
+
+That sentence falsifies the supply theory in one line. A sagging 5 V rail dims
+the whole panel through a single backlight PWM channel; it cannot pick out the
+sun and leave the eyes alone. **Spatially selective flicker is content.** The
+limiter from earlier today stays — a ring that can ask for 1.9 A with no budget
+is still a defect — but it is not the flicker, and the build log should not
+pretend otherwise.
+
+### Reading the driver instead of guessing again
+
+Checked, in 2026.6.5 source, every step of the partial path:
+
+* `start_clipping(left, top, right, bottom)` → `Rect(56, 0, 248, 244)`, so the
+  clip is x 56–303, y 0–243. CX/CY are 180, the sun sits at (180, 42) with rays
+  to r=22, the eyes at y 90–202. **Both are inside the clip.**
+* `mipi_spi::fill()` **is** overridden — but it checks `get_clipping().is_set()`
+  and falls back to `display::Display::fill()` when a clip is active. So a
+  clipped fill really does touch only the clip.
+* `draw_pixel_at` rejects out-of-band pixels *before* widening the watermark, so
+  each band's dirty rectangle is honest.
+* The band abort (`x_low_ > x_high_ → return`) fires only on band 5, which is
+  last, so nothing is lost.
+
+The partial path is sound. Which means the renderer cannot be treating the sun
+and the eyes differently, and I could not explain the symptom from it. Six
+theories in, that is the point to stop theorising.
+
+### What the reading did turn up, and it is not small
+
+The 1 s dispatcher ended with an **unconditional** `component.update`. Every
+second. Always. And a full frame has no clip, so `fill()` takes its fast path:
+wipe the band buffer, mark the **entire band** dirty. So every one of those
+pushed the whole panel down the bus — **259,200 bytes, ~52 ms at 40 MHz, at a
+panel that refreshes in about 16** — sixty times a minute, on a screen where
+between one second and the next almost nothing changes.
+
+It is also **the only path that draws the time**, since the time sits below the
+animation clip. Sam reports the time flickering. That is at minimum a strong
+coincidence, and at best the whole answer.
+
+### Repaint on change, not on the tick
+
+The dispatcher now hashes everything a full frame draws that an animation frame
+does not — field colour, the star row (the *count* lit, not `grow_frac`, which
+slides every second), the countdown, the digital time — and repaints only when
+that key moves. The eyes, z's, sky and "shh" are deliberately **not** in the
+key: they are inside the clip and the partial frames own them, so hashing them
+would repaint the whole panel on every blink, which is the behaviour being
+removed.
+
+Gated in grow mode only — the ordinary face has a second hand and has earned
+its second. A **10 s floor** underneath: if the key is ever missing an input the
+panel goes stale for ten seconds rather than forever. A bounded bug instead of
+an unbounded one.
+
+In grow mode this takes the panel from **60 full repaints a minute to about 1**.
+
+### The A/B, so this is a test and not another assertion
+
+New switch **"Grow clock repaint every second"**, default off (= the fix), on
+= the old behaviour. Flip it and compare on the glass in a few seconds, no
+reflash. Together with "Freeze the eyes" and the "Frame time" sensor already
+flashed, that is a 2×2 that isolates full frames from partial frames:
+
+| animate | repaint every second | what it means if it flickers |
+| --- | --- | --- |
+| off | on | full frames alone |
+| on | off | partial frames alone |
+| on | on | current behaviour |
+| off | off | neither — something outside the renderer |
+
+```
+RAM:   [==        ]  19.1% (used 62460 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1119603 bytes from 1835008 bytes)
+```
+
+0 errors, compiled.
+
+---
+
+## 2026-09-04 (later still) — "I feel like the first version worked"
+
+Sam's best clue of the whole saga, and it is a bisect rather than a theory. So
+I went and read the first version instead of inventing a ninth explanation.
+
+`7776635`, the first animator, drew its animation frame as:
+
+```cpp
+if (partial) it.filled_rectangle(CX - 124, 60, 248, 184, field);
+```
+
+**Starting at y = 60.** Band 0 is y 0–59. So band 0 always came back empty, and
+`mipi_spi::update()` **returns from the whole frame** on the first empty band.
+Not one animation frame ever reached the glass.
+
+That is why the first version worked. The panel was repainted **once a second,
+by one path, cleanly**, and the eyes moved at 1 fps. It also had no sky: the
+face styles were `"eyes"` and `"eyes on colour"` — `"eyes and sky"` did not
+exist yet. There was no sun to flicker.
+
+Everything since has been me adding a second writer to a panel that was only
+ever quiet because the second writer was broken.
+
+### The asymmetry, at last
+
+I could not explain from the code why the sun flickered and the eyes did not,
+because **mechanically it doesn't** — both sat inside the animation clip and
+both were erased and repainted identically. The difference is not in the
+driver, it is perceptual:
+
+> **Repainting something that has not changed is what reads as a flicker.**
+
+The eyes get away with it because they are supposed to move — an erase and a
+repaint reads as animation. The sun does not move. Erasing it to the field
+colour and painting it back about twice a second, forever, reads as a fault.
+Same for the digital time, which the 1 s full frame was rewriting unchanged
+sixty times a minute.
+
+Every previous fix asked "is the repaint correct?" — and after the clip work,
+it was. The right question was "why is it repainting at all?"
+
+### The fix
+
+The animation box now starts **below the sky**, and the sky is drawn by full
+frames only:
+
+* `it.filled_rectangle(CX - 124, 68, 248, 176, field)` — was the whole clip
+  from y = 0.
+* `if (sky && !partial)` — an animation frame neither erases nor repaints the
+  sun, so it just stays on the glass. It changes only when the state does, and
+  `st` is in the full frame's content key, so the change still lands at once.
+
+**y = 68 is derived, not chosen.** The sun's lowest ink is a ray tip at y = 64
+and the half-sun's eraser rectangle reaches y = 67. The highest the eye can
+ever reach is y = 72 — gaze −9, squash 1.15, less the one-pixel lid overhang.
+68 is the only clean lane between them, with 4 px of margin over the eye.
+
+**Band 0 still has to be kept alive**, or we are back to the first version
+silently discarding every frame. One pixel does it:
+`it.draw_pixel_at(CX - 124, 0, field)`. A single pixel, so that band's dirty
+box is that pixel and nothing else — unlike the marker *column* I tried in
+`6702d52`, which forced `x_low` to 0 on every band and dragged the flush across
+the clock's time. (56, 0) is 219 px from the centre of a 360 circle, so it is
+off the visible glass entirely.
+
+**And `filled_rectangle`, not `fill()`.** `Display::fill()` is
+`filled_rectangle(0, 0, w, h)`, so under a clip it walks all 129,600 pixels of
+the panel and discards seven eighths of the work — per band, six times a frame.
+The rectangle walks 43,648 and keeps them. Same change on the bar panel.
+
+```
+RAM:   [==        ]  19.1% (used 62460 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1119643 bytes from 1835008 bytes)
+```
+
+0 errors, compiled.
+
+### What is now repainted, and how often
+
+| | before today | now |
+| --- | --- | --- |
+| digital time | 60 x / min | on the minute |
+| sun / moon | ~100 x / min | on a state change |
+| star row, countdown | 60 x / min | on change |
+| eyes | ~100 x / min | ~100 x / min (they move) |
+
+Nothing on that screen is now redrawn unless it has changed.
+
+---
+
+## 2026-09-04 (06:05) — The instrument I should have built first, and a revert
+
+Sam: "The sun and the clock are still flickering." Before writing another line
+I checked what was actually on the clock. The bench session had not moved since
+05:53:57 — `c635533` probably had not finished flashing and `fd8efee` certainly
+had not. **He was reporting on firmware that predated the fix being discussed,
+and neither of us had any way to know.**
+
+That has now happened at least twice, and it is not a display bug. It is a
+missing instrument, and it is mine to have missed.
+
+### Firmware built
+
+A `text_sensor` publishing `__DATE__ " " __TIME__` — filled in by the compiler,
+so it cannot drift from the binary the way a hand-maintained version string
+can. It appears in Home Assistant as **"Firmware built"** and is on the
+settings page. **Read it before reporting a symptom.**
+
+### The round panel goes back to 20 MHz
+
+And on the flicker itself, the strongest remaining lead is a revert, not an
+addition. `6c5e232` raised the round panel from **20MHz to 40MHz** as a
+speculative flicker fix. Every build Sam remembers as working ran at 20.
+
+The symptom profile fits a marginal SPI clock better than anything else I have
+considered:
+
+* **Fine detail corrupts visibly.** The sun's rays are 1 px lines; the time's
+  digits are thin strokes. A dropped or mistimed bit shows immediately.
+* **Solid blocks do not.** A wrong pixel inside an 80×112 eye is one wrong
+  pixel in a field of identical ones. Invisible.
+* Which is precisely "the eyes aren't flickering, but the sun and clock are" —
+  the one detail no rendering theory ever explained, and the reason I kept
+  looking for a *structural* difference between the sun and the eyes when the
+  real difference is that **one is drawn in thin strokes and the other isn't.**
+
+My argument for 40 was that the bar panel runs at 40 and xboot drives this
+controller at 50. Both true; neither is evidence about **this link**. Signal
+integrity is a property of the wiring, not the chip, and this is a dev board on
+jumper wires with a GC9B72 init sequence that was reverse-engineered rather
+than taken from a datasheet. There was never a spec basis for 40.
+
+Now a substitution, so it is one flag to A/B without editing:
+
+```
+esphome run ... -s lcd_hz 40MHz     # back to the fast one
+```
+
+Default is `20MHz`. The bar panel keeps its own 40 — different controller,
+different flex, and it has never been reported as flickering.
+
+```
+RAM:   [==        ]  19.1% (used 62524 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1119923 bytes from 1835008 bytes)
+```
+
+0 errors, compiled.
+
+### The order to test in
+
+1. Check **"Firmware built"** matches the build being discussed. If it does not,
+   stop — the report is about something else.
+2. Sun and time steady at 20 MHz with animation on? Then it was the SPI clock
+   and everything since `6c5e232` was chasing a hardware margin with software.
+3. Still flickering? Then `-s lcd_hz 40MHz` to confirm it makes no difference
+   either way, and the clock is exonerated.
+
+### Verified: 40 MHz was double the tested ceiling
+
+Rather than leave "no spec basis for 40" as a hunch, went and looked. The
+**Arduino_GC9B72** library — written for this exact panel, a 2.1-inch 360×360
+round SPI TFT — says, verbatim:
+
+> "The controller handles fast SPI (tested up to ~20 MHz on short leads); if you
+> use long/breadboard jumpers and see **speckle**, lower the clock via
+> `gfx->begin(<hz>)`."
+>
+> — https://github.com/MaliosDark/Arduino_GC9B72
+
+Three things fall out of that:
+
+1. **~20 MHz is the ceiling on SHORT leads.** I ran it at 40 — double — on a dev
+   board with jumper wires.
+2. **For jumper wiring the advice is to go BELOW 20, not above.** So if 20 still
+   misbehaves on Sam's wiring, the next step is *down*: 10 MHz.
+3. **The named failure mode is "speckle."** Scattered wrong pixels. That erases
+   1 px sun rays and eats the thin strokes of digits, and is invisible inside an
+   80×112 solid eye. It is the symptom, described by someone else, before I ever
+   saw it.
+
+This reframes the whole day. `6c5e232` is not a fix that failed to help — it is
+a change that made the panel worse, shipped in the middle of a hunt for why the
+panel was misbehaving, on an argument ("the bar runs at 40, xboot uses 50") that
+was about other hardware entirely. Every subsequent renderer theory was
+explaining a symptom I had introduced two commits earlier.
+
+The rule this earns: **when a knob has a documented safe range, find the
+documentation before turning it, not after the symptom fails to go away.** And
+when the argument for a change is "something else runs at this speed", that is
+not evidence about the link in front of you.
+
+---
+
+## 2026-09-04 (13:40) — 20 MHz did not fix it. Stop theorising, freeze the panel.
+
+Sam flashed c491474 and the flicker is unchanged. So the SPI clock is not it
+either — or at least not on its own. Two things follow, and the second matters
+more than the first.
+
+**First, the record.** The library figure was real and worth acting on: 40 MHz
+was double the documented ceiling for this panel and should never have been
+set. Reverting it was correct. It was not the flicker. Both of those are true
+at once and the build log should not quietly drop the second half.
+
+**Second, I checked the one piece of flush arithmetic I had never read.**
+`round_buffer(size)` is `ceil(size/ROUNDING)*ROUNDING`, and this config sets
+`draw_rounding: 1`, so it is the identity. There is no alignment expansion
+turning a small dirty box into a large one. That kills the last structural
+theory I had.
+
+### The state of the evidence
+
+| observation | kills |
+| --- | --- |
+| eyes steady, sun + time flicker | anything uniform (supply, backlight) |
+| ring off, still flickers | ring current |
+| 40 MHz flickers, 20 MHz flickers | SPI clock alone |
+| sun no longer drawn on animation frames, still flickers | the animation frame drawing it |
+| `round_buffer` is the identity | dirty-box expansion |
+| partial path verified line by line in the driver | the partial flush |
+
+Nine theories. Three real bugs fixed, one real mistake of mine reverted, and
+the flicker is exactly where it started. At that point another theory is not
+worth having.
+
+### Screen freeze
+
+New switch, **"Screen freeze (test)"**. With it on the dispatcher stops calling
+`component.update` on the panel entirely — no full frames, no animation frames,
+not one byte down the SPI bus. The last picture drawn stays on the glass.
+
+* **Still flickers with it on** → nothing the firmware draws is responsible,
+  because nothing is being drawn. It is the panel, the wiring or the backlight,
+  and I stop editing the renderer for good.
+* **Goes still** → it is in what we write, and the frame-time sensor and the
+  repaint switch narrow it from there.
+
+It overrides everything, including the 10 s floor and the non-grow path that is
+otherwise never gated. Leave it off for normal use: with it on the clock never
+updates again.
+
+This should have existed nine theories ago. Every instrument I have added today
+— the freeze, the frame timer, the build stamp — has been worth more than the
+fix it was attached to, and each one was added late, after another round of
+guessing had already been spent.
+
+```
+RAM:   [==        ]  19.1% (used 62596 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1120059 bytes from 1835008 bytes)
+```
+
+### Two tests that need no flash at all
+
+Both use switches already on the clock:
+
+1. **"Grow clock use the ordinary clock by day"** — if that is ON and it is
+   daytime, the screen is showing the ORDINARY clock face, there are no eyes on
+   it at all, and the panel gets an **unconditional full 360x360 repaint every
+   second**. At 20 MHz that is ~104 ms of SPI per second, sweeping the glass.
+   The content-key gate from `c635533` only covers grow mode, so this path was
+   never gated — and dropping to 20 MHz **doubled** its cost. Turn it off and
+   look again.
+2. **"Grow clock animate"** off, on the eyes-and-sky face. A completely static
+   picture. If that flickers, the renderer is already exonerated before the
+   freeze switch arrives.
+
+---
+
+## 2026-09-04 (14:30) — "The zzz's don't flicker, neither do the eyes or time"
+
+The best diagnostic sentence of the whole build, because it is a list of what
+is *working*. Line that list up against the panel's six bands:
+
+| element | band | repainted each animation frame? | flickers |
+| --- | --- | --- | --- |
+| eyes | 1–3 | yes, inside a filled rectangle | no |
+| z's | 1–2 | yes, inside a filled rectangle | no |
+| time | 5 | no — and band 5 is drawn on not at all, so the driver aborts it cleanly | no |
+| **sky** | **0** | **no — band 0 got ONE lone marker pixel** | **yes** |
+
+The sun/moon is the only element in band 0, and band 0 was the only band doing
+a degenerate 1×1 window write on every animation frame. Everything that
+survives is repainted inside a rectangle that is exactly its own bounding box.
+The one element left to persist on its own is the one element that flickers.
+
+### fd8efee had it backwards, and this reverses it
+
+That commit's reasoning was "repainting something that has not changed is what
+reads as a flicker", so it pulled the sky out of the animation box and left it
+to persist between full frames. It sounded right. It is wrong on this panel:
+with an uncleared shared band buffer, **the safe state is a full, honest
+rectangle per band — persistence is the fragile thing, not repaint.**
+
+* `filled_rectangle(CX - 124, 0, 248, 244, field)` — the whole clip again, so
+  band 0 is entirely covered by drawn pixels.
+* The lone marker pixel is **gone**. It is not needed once band 0 is genuinely
+  painted, and it was the only thing making band 0 unlike every other band.
+* `if (sky)` — the sky is repainted every frame, exactly like the z's and the
+  eyes, the two things confirmed steady.
+
+Bands 1–3 carry the eyes, band 4 takes the last four rows, band 5 stays
+untouched so the time below is safe. That is the arrangement the working
+elements already had; the sky now shares it.
+
+```
+RAM:   [==        ]  19.1% (used 62596 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1120023 bytes from 1835008 bytes)
+```
+
+0 errors, compiled.
+
+### The lesson worth keeping
+
+I spent the day asking "what is wrong with the thing that is broken?" The
+answer came from asking the opposite: **what do the working parts have in
+common, and is the broken one arranged the same way?** It was not. Three
+elements shared a treatment and behaved; one had its own treatment — which I
+had given it, that morning, as a fix — and misbehaved.
+
+---
+
+## 2026-09-04 (14:40) — "The moon and bottom dots still flicker"
+
+Second list, and it completes the pattern. Against `7dfc108`'s geometry:
+
+| element | y range | inside the repainted box (0–243)? | flickers |
+| --- | --- | --- | --- |
+| eyes | 90–202 | yes | no |
+| z's | 82–106 | yes | no |
+| moon | 26–58 | yes, as of `7dfc108` | reported |
+| **stars** | **243–261** | **no — a few px below the edge** | **yes** |
+| time | 276–324 | no, and band 5 is never drawn on at all | no |
+
+The star row sits at `CY + 72 = 252`. Pointy stars reach y 243–261 and the
+countdown text about 240–264 — a handful of pixels **below** where the box
+stopped. So after the sky was brought back in, the stars were the last element
+still left to persist on its own, and they behave exactly as the sky did.
+
+The rule holds in both directions now, which is what makes it a rule rather
+than a story:
+
+> **Inside the repainted rectangle → steady. Left to persist → flickers.
+> Untouched entirely, so the driver aborts the band → also steady.**
+
+The time is the proof of the third case. It is *outside* the box and it does
+not flicker, because band 5 receives no drawn pixels at all and `mipi_spi`
+abandons it cleanly. The danger is never "not repainting"; it is **partially**
+touching a band whose buffer nobody cleared.
+
+### The change
+
+* Box and clip go from y 243 to **y 267**, taking the star row and the
+  countdown in with 4 px to spare.
+* The stars and countdown blocks move **above** the `if (partial) return`, so
+  they are drawn on every animation frame like the eyes and z's.
+* The time stays below at 276 and keeps its 8 px of clearance. It must — band 5
+  being wholly untouched is exactly why the time is steady, and that is not
+  something to disturb while it is working.
+
+```
+RAM:   [==        ]  19.1% (used 62596 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1120051 bytes from 1120051 bytes)
+```
+
+0 errors, compiled.
+
+### Caveat worth stating
+
+Sam may not have `7dfc108` on the clock — the bench swallowed a third poke and
+the "Firmware built" sensor exists precisely so this can be checked before a
+report is trusted. If the moon was already fixed by `7dfc108` and only the
+stars remained, this build finishes it. If the moon still flickers *after* this
+one, then the rectangle rule is not the whole story and the freeze switch
+settles it: no bytes to the panel at all, and if it still flickers the renderer
+is out of the picture.
+
+---
+
+## 2026-09-04 (15:00) — Stand-box rebuilt for the board Sam actually has
+
+Printing tonight, so this is decided rather than gated on the fit gauge.
+
+### The defect, and it was fatal rather than tight
+
+The tray took its width from `BOARD_W = 28.19` — the number off the drawing —
+which put the rails **28.99 apart**. Sam's board measures **29.00**. That is
+not a tight fit, it is a negative one: the part could never have accepted his
+board, and no amount of print tuning would have rescued it. The same applied
+to the length: the tray was cut for 63.27 against a 64.00 board.
+
+`STANDBOX_SLOT_W`, `STANDBOX_BOARD_W/L/H` now govern the stand-box and come
+from Sam's measurements. The base's own board mount still uses `BOARD_*` —
+those parts already fit and there is no reason to disturb them.
+
+### The fit, chosen without the gauge
+
+**30.20**, the third of the four gauge channels, deliberately the loose one of
+the middle pair. The params model reckons it prints to about 0.80 mm of real
+clearance, 0.40 a side, which is an ordinary FDM slip fit; the corner hooks
+hold the board down anyway. A board that rattles slightly is a nuisance, a
+board that will not go in wastes the whole print. **If it is sloppy, set
+`STANDBOX_SLOT_W = 29.80` and re-run — one number, one re-slice.**
+
+Measured off the built STL rather than asserted: rails at x ±15.10 inner,
+±17.10 outer, so the channel is **30.20** and the rail wall **2.00**.
+
+### Room for the leads
+
+"the heigt is 14mm but wires stick out the top because it is a dev board", so
+the bay headroom is now stated as what it must hold rather than a bare number:
+tray floor 2.00 + pads 4.00 + board 14.00 + **5.00 of air for the leads** =
+26.00, asserted. Plinth height 29 → **32** to provide it.
+
+### Smaller where it was safe to be
+
+Plinth depth **78 → 72**. It could not go to 70 — the assert caught the bay
+running into the front wall once the tray grew for the 64 mm board, which is
+the check doing its job. Envelope now **120.7 × 72.0 × 61.4 mm**.
+
+### One real check failure, and six stale ones
+
+`check6` came back with 21 failures, 7 distinct across 3 bodies.
+
+* **Real:** the wider bay pushed the roof's flat bridge to **25.3 mm**, over
+  check3's 25. Fixed in the *part*: `STANDBOX_BAY_CHAMF_W` 5.20 → **6.00**,
+  taking the span to 23.40. The slope drops 54.5° → 50.6°, still well over the
+  45° minimum, and the chamfer only narrows the bay above the rails so the
+  tray still passes.
+* **Stale:** the other six were `check6` recomputing the tray from `BOARD_W`,
+  `BOARD_L` and `BRD_RAIL_Y` — so once the tray was cut for the real board the
+  check was measuring the *previous* design and reporting its own staleness as
+  failures. Pointed at `STANDBOX_SLOT_W` / `STANDBOX_BOARD_L`, the same
+  parameters the builder uses.
+
+This is the third time a check has failed because it re-derived geometry from
+its own copy of the design instead of from the shared parameter. **A checker
+that recomputes what it is checking is not independent, it is a duplicate that
+can drift.**
+
+```
+check1_topology  PASS   check4_v3        PASS
+check2_fit       PASS   check5_stand     PASS
+check3_print     PASS   check6_standbox  PASS
+```
+
+All parts manifold and clean.
+
+---
+
+## 2026-09-04 (15:00) — Sam's plan: the first version's arrangement, with the fix that stopped the time
+
+> "The first time you flashed the animations worked. Try that again but with
+> the fix that stopped the flicker on the eyes and clock."
+
+Better than anything I proposed today, and worth being exact about why.
+
+### What the first version actually did
+
+`7776635` drew its animation frame as
+`filled_rectangle(CX - 124, 60, 248, 184)` — starting at **y = 60**. Band 0 is
+y 0–59, so band 0 always came back empty, and `mipi_spi` **returns from the
+whole frame** on the first empty band. **Not one animation frame ever reached
+the glass.** The panel was repainted by exactly one path, the full frame, and
+every band was painted in full every time.
+
+That is the safest arrangement there is over a buffer nobody clears: there is
+no such thing as a partially-touched band, so there is nothing for stale pixels
+to leak into. It "worked" by accident, but the accident was a good design.
+
+### And the other half of his sentence
+
+The time stopped flickering at `c635533` — the content key, which repaints when
+the picture changes rather than when the clock ticks. That is what stops
+"every repaint is a full frame" from meaning "a 104 ms sweep every second".
+
+**The two together are exactly what he asked for**, and they are not the same
+as `6702d52`, which also made animation frames full frames and did not settle
+it. At that point the unconditional 1 Hz repaint was still running as well, so
+two full-frame paths at different rates were walking down the glass over each
+other. With the key in place there is only one.
+
+### The change
+
+* **`grow_partial`** — "Grow clock partial redraw (test)", default **OFF**. The
+  animation frame now sets `an_partial` from this switch instead of hard-coding
+  it true. Off, every repaint is a full frame. On, the partial path returns, so
+  the two can be compared on the glass without a reflash. The partial machinery
+  is still there and still correct; it is simply not what this panel wants.
+* **An animation frame resets `grow_paint_at`.** It has just repainted the
+  whole panel, so the 1 s dispatcher must not turn round and do it again a few
+  milliseconds later. This is precisely what `6702d52` got wrong.
+* **`grow_anim_ms` minimum 100 → 250.** A full frame is 259,200 bytes, about
+  104 ms at the panel's 20 MHz, plus six passes of the drawing lambda. Below
+  ~250 ms the frames overlap and the glass never shows one whole picture —
+  which is the flicker this whole exercise is about. The first working version
+  repainted once a **second**; 600 ms is still more than twice as smooth.
+
+```
+RAM:   [==        ]  19.1% (used 62668 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1120155 bytes from 1835008 bytes)
+```
+
+0 errors, compiled.
+
+### What this predicts
+
+Everything on the screen — moon, stars, eyes, z's, time — is now drawn by one
+path, at one rate, with every band fully painted. If the flicker is anything to
+do with partial band writes, it goes away entirely. If it does not, then no
+arrangement of the renderer will fix it and the freeze switch says so in ten
+seconds.
+
+The user's own memory of when it worked turned out to be better evidence than
+nine of my theories. **Ask what was different when it worked, before asking
+what is wrong now.**
+
+---
+
+## 2026-09-04 (15:15) — 773e1e2 exonerates the renderer
+
+Sam flashed it. **The moon and stars still flicker; the eyes, z's and time do
+not.**
+
+That is the most informative result of the day, because of what `773e1e2`
+removed. With the partial path off, there is no clipping, no rectangle, no
+`an_partial`. Every repaint is a full frame: `fill()` takes its fast path,
+memsets the whole band buffer and marks the whole band dirty, so **every band
+is painted in full, every time**. There is no such thing as a partially-touched
+band, and nothing for a stale pixel to leak into.
+
+So the moon, the stars, the eyes, the z's and the time are now drawn:
+
+* by the same code path,
+* in the same frame,
+* at the same rate,
+* from the same buffer state,
+* with identical inputs frame to frame (the moon depends only on `st`; the star
+  count on `lit`, which moves a few times a night).
+
+**A deterministic renderer cannot make two of those flicker and three of them
+not.** Whatever is happening is downstream of the pixels we hand to the driver.
+
+### What this retires
+
+Everything in the partial-buffer family, which is nine theories' worth: the
+band abort, the dirty-rectangle bounding box, the marker pixel, the clip
+extent, band 0, band 4, the repaint rate, the content key, the sky's exemption.
+All of it was real engineering and some of it fixed real bugs — the time and
+the eyes are steady now and were not before — but none of it is the flicker
+that remains.
+
+### The one test left, and it is already on the clock
+
+**"Screen freeze (test)"**, from `f088709`. It stops `component.update` on the
+panel entirely: no full frames, no animation frames, not one byte down the SPI
+bus. The last picture stays on the glass.
+
+* **Still flickers frozen** → nothing the firmware draws is responsible, because
+  nothing is being drawn. It is the panel, the flex, the jumper wiring or the
+  backlight.
+* **Goes still frozen** → it is in the act of writing rather than in what is
+  written, and the next question is whether the flicker follows the *content*
+  or the *location* on the glass.
+
+No flash needed. One toggle.
+
+### If it survives the freeze
+
+Hardware, in order of likelihood on a dev board with jumper leads:
+
+1. Reseat the panel's flex connector, and reseat every jumper on the SPI lines
+   (SCK, MOSI, CS, DC, RST). Intermittent contact on SCK or MOSI corrupts
+   scattered pixels, which is what "speckle" is.
+2. Shorten the leads, or swap for a known-good set. The GC9B72 library warns
+   about exactly this: "if you use long/breadboard jumpers and see speckle,
+   lower the clock".
+3. `-s lcd_hz 10MHz`. Already a substitution, one flag.
+
+**No further renderer changes.** Nine theories and one clean exoneration is
+enough; a tenth would be guessing against the evidence rather than from it.
+
+---
+
+## 2026-09-04 (15:30) — The freeze test had a hole in it, and the backlight had a defect
+
+"Still flickers." Before sending Sam to the wiring on the strength of that, I
+went and checked the one subsystem I had never looked at. Two findings, and the
+first is a correction to my own instrument.
+
+### The freeze test did not prove what I said it proved
+
+`screen_freeze` stops `component.update` on the panel, so no **pixels** go down
+the SPI bus. It never stopped the dispatcher's backlight block. So "still
+flickers while frozen" did **not** establish that the hardware is at fault —
+the backlight was being driven the whole time.
+
+I built that switch to be decisive and then read a result off it that it could
+not support. Fixed: frozen now means no pixels **and** no backlight changes.
+
+### And the backlight has been ramping over a whole second, all along
+
+The `monochromatic` light never set `default_transition_length`, so it has been
+inheriting ESPHome's default of **1 second**. The ring sets `0s` and explains
+why; the backlight was simply missed. Every brightness change on that panel has
+been a one-second ramp rather than a step — and anything that nudges the level
+repeatedly (the sunrise fade moves it every second, by design) has been
+continuously modulating the backlight.
+
+**Backlight modulation on an LCD is most visible on small bright features
+against a flat dark field** — a 32 px moon, a row of 6 px dots — and least
+visible inside a large solid block like an eye. That is the symptom profile,
+arrived at from a different direction entirely.
+
+This is not a claim that it *is* the flicker. It is a real defect, in the one
+place I never looked, with a matching profile, and it costs nothing to remove.
+`default_transition_length: 0s`.
+
+```
+RAM:   [==        ]  19.1% (used 62668 bytes from 327680 bytes)
+Flash: [======    ]  61.0% (used 1120167 bytes from 1835008 bytes)
+```
+
+0 errors, compiled.
+
+### The lesson, which is the same one twice
+
+I spent the day inside the renderer because that is where I had been working.
+The backlight is four lines away in the same file and I never read them.
+**A test that "rules out" a subsystem only rules out what it actually stops** —
+and an instrument you build yourself deserves the same scepticism as a theory
+you build yourself.
+
+---
+
+## 2026-09-04 (overnight) — The shape test, and why not VCOM
+
+### The discriminator was never size or position
+
+Sam's two lists, sorted by what each element is **drawn as** rather than where
+it sits or how big it is:
+
+| element | drawn as | flickers |
+| --- | --- | --- |
+| eyes | rounded rectangles — straight edges | no |
+| z's, time | text glyphs — straight strokes | no |
+| **moon** | `filled_circle` ×2 — staircase edges | **yes** |
+| **stars** | `filled_circle` / `filled_triangle` — staircase edges | **yes** |
+
+It is **not size**: the z's are small, bright and steady. It is **not
+position**: the star row and part of the digital time both live in band 4. What
+is left is **edge structure**.
+
+A rasterised circle's run-length changes row to row. That fine row-to-row
+structure is what beats against an LCD's polarity-inversion scheme when VCOM is
+slightly off — the textbook cause of shimmer that hits patterned regions and
+leaves flat blocks alone. It is the first hypothesis of the whole build that
+accounts for **every** data point, the steady z's included.
+
+It also explains why nothing in the renderer ever helped: the renderer is
+producing exactly the pixels asked of it. The panel is displaying them
+imperfectly.
+
+### The test
+
+**"Grow clock flat art (test)"** draws the moon and the star row with
+axis-aligned rectangles only. Same positions, same colours, same code path,
+same frame — **only the edge structure changes**. If the flicker follows the
+shape, the cause is the panel's inversion/VCOM and not one line of firmware.
+
+### Why not just tune VCOM
+
+Because it cannot be done responsibly. Researched both public GC9B72 sources:
+
+* **xboot** `fb-gc9b72.c` — the origin of our init table.
+* **MaliosDark/Arduino_GC9B72** `src/Arduino_GC9B72.h` — the independent port.
+
+The Arduino header defines names only for the standard DCS commands
+(`SWRESET`, `SLPOUT`, `INVOFF/INVON`, `COLMOD`, `MADCTL`, …). For the vendor
+registers it has **no names and no comments at all**:
+
+```
+WRITE_C8_D8, 0x7C, 0xB6, 0x29,
+WRITE_C8_D8, 0xC3, 0x1A,
+WRITE_C8_D8, 0xC4, 0x24,
+WRITE_C8_D8, 0xC9, 0x2F,
+```
+
+There is no public GC9B72 datasheet. So I do not know which of those is VCOM,
+what its range is, or what a wrong value does to the panel. Poking undocumented
+analogue drive registers on Sam's hardware is not a test, it is a risk — and
+the shape test settles the same question for free.
+
+### If the shape test confirms it
+
+The flat art *is* the fix, and it can be made to look deliberate rather than
+like a fallback — a crescent built from straight segments, and a sparkle made
+from two crossed rectangles, which is fully axis-aligned and reads as a star.
+That work is worth doing **after** the test says it is the answer, not before.
+
+### If it does not
+
+Then edge structure is out too, and what remains is the hardware itself:
+reseat the panel flex and every SPI jumper, shorter leads, `-s lcd_hz 10MHz`.
+
+### Looked at the flat art before shipping it, and it was wrong
+
+Rendered it through `preview/grow_faces.py` rather than trusting the code, and
+the first version was **broken as art and invalid as a test**.
+
+Keeping the crescent by subtracting an offset square rendered as an **"L"** —
+and an L is two widths stacked, so its run-length still changes row to row.
+It would have carried exactly the structure the test is trying to remove, and a
+null result would have proved nothing.
+
+Corrected: in flat mode the moon is a **plain square, no bite**, and the sun's
+rays are suppressed — they are diagonal lines, which are staircases too. The
+requirement is a shape whose width is **constant down every row**, and only a
+plain rectangle satisfies it.
+
+It does not look like a moon. It is not meant to: it is an instrument, and it
+goes back off after the reading. `preview/shape-round.png` and
+`preview/shape-flat.png` show both, and the preview now honours a `FLAT` flag
+mirroring the firmware switch.
+
+**A test whose control condition still contains the variable is not a test.**
+I nearly shipped one, and the only reason I did not is that I rendered it and
+looked.
+
+### And the fix, ready in advance: blocky art
+
+If the shape test confirms, Sam should not have to wait a day for art that
+looks deliberate. **"Grow clock blocky art"**, default OFF, is that art.
+
+I over-stated the constraint in my own overnight notes. I wrote that a crescent
+from stacked bars "will not do — that reintroduces the row-to-row change".
+Too strict. A rasterised circle changes its run-length at **every** row, about
+forty of them for this moon. **Seven bands change it six times.** The
+hypothesis is about fine, *repeated* row-to-row structure, not about any change
+anywhere, so a chunky shape keeps nearly all the benefit and none of the
+ugliness.
+
+Two iterations, both caught by rendering rather than reasoning:
+
+1. Hand-picked bars read as **the letter C**, not a moon.
+2. So the crescent is now **stepped from the real geometry** — outer disc,
+   bite disc offset right and up, sampled at each band's centre, exactly the
+   shape the round version draws. That reads as a moon.
+
+Stars become a sparkle from two crossed bars, which is fully axis-aligned and
+looks like a star rather than a compromise.
+
+Precedence: flat (test) → blocky → round. `preview/shape-round.png`,
+`shape-flat.png` and `shape-block.png` show all three, and `grow_faces.py`
+carries `FLAT` and `BLOCK` flags mirroring the two switches.
+
+```
+RAM:   [==        ]  19.2% (used 62812 bytes from 327680 bytes)
+Flash: [======    ]  61.1% (used 1120879 bytes from 1835008 bytes)
+```
+
+---
+
+## 2026-09-08 — the stand-box becomes one part, open underneath
+
+Sam: *"Make the base look much nicer, and the bottom can be fully open, with a
+spot for ziptie down the ESP32 with the USB cable out he back."*
+
+### What shipped
+
+`mini-round-clock-standbox{tag}` is now **one part**, and the only part of the
+base. The lid, the cradle, the sliding tray, the four locating pins and the two
+M2 screws are gone — "the bottom can be fully open" removed the requirement all
+of them existed to satisfy.
+
+|  | 24 | 32 | 60 |
+|---|---|---|---|
+| stand-box | 108.8 × 72.0 × 58.7 | 120.7 × 72.0 × 61.4 | 240.8 × 105.7 × 88.8 mm |
+| model volume | 136 cm³ | 155 cm³ | 566 cm³ |
+| the same shell, wings solid | 234 | 274 | 1037 cm³ |
+
+* **Open underneath**: 23.6 cm² under the 24, 35.5 under the 60, plus the wings
+  either side of the board's cavity hollowed to the desk and ribbed so no
+  ceiling bridges more than `STANDBOX_CEIL_SPAN` = 28 mm.
+* **The zip-tie spot**: two shelves 27 mm apart, tops 5.2 mm up, each cut clean
+  through at each tie just outboard of the board's edge, with a shallow groove
+  across the shelf top joining the two windows.
+* **USB-C out the back**, on the board's own axis.
+* **Looks**: 6 mm corner radii, a 2.5 mm top chamfer, a 1.5 mm foot reveal.
+
+### Two faults found in work already called finished
+
+1. **The cable tie had nowhere to pass.** The shelf ran unbroken from the
+   board's edge out to the wall — measured as one run of material from y −25.6
+   to 43.9 at x = 16. A tie can loop under a shelf only where there is a hole to
+   get under it through.
+2. **The plinth's roof was inside the clock**: 491 mm³ on the 24, 559 on the 32,
+   1134 on the 60. `_stand_solid` cuts the seat out of the *cradle*; the
+   stand-box unioned a plinth into it and filled the seat back in. Present since
+   the stand-box was first built, and invisible to seven checks because **all of
+   them measured the stand alone.** A part that goes inside another one gets a
+   boolean against it.
+
+Both now have tests. check6 walks the tie's whole path — over the board, down
+through the window, across the open bottom, up the other side — and booleans the
+real clock (base + back cover, in the stand's own transform) against the real
+base. That reads 0.0 mm³ on all three.
+
+### The ceiling is the clock
+
+Fixing (2) exposed that the cavity's ceiling had been taken from
+`H - STANDBOX_ROOF`, the plinth's own top face. But the clock leans *into* the
+plinth and bottoms out at z 29.1, five millimetres below it. The ceiling is now
+derived from the seat solid's bounding box, less `STANDBOX_ROOF_MIN` = 2.5.
+
+That cost 8 mm of headroom. It came back from dropping the shelves to a top at
+z 5 and narrowing the cavity's top chamfer from 6 mm to 4, so the flat ceiling
+reaches |x| = 14 — because **the tall things on a dev board are at its edges**,
+and a chamfer that buys a narrower bridge takes its height exactly where the
+Dupont housings stand. check6 now measures the flat ceiling and the board's edge
+separately, and probes each thing over the width it occupies.
+
+### Two float32 traps
+
+Both appeared as `Error.NotManifold` from a part that was watertight in doubles,
+because `finalise()` quantises before it checks:
+
+* cutting the assembled stand with the same cylinder the cradle's seat was cut
+  with — two coincident curved surfaces. `STANDBOX_SEAT_OVER` = 0.20 fixes it;
+* clipping the leads' notch at z = H, which put the new cut's top edge exactly
+  on the cradle's inherited notch faces. Run the cut past instead.
+
+**Do not create a face where one already is.**
+
+### Checks
+
+`check1` and `check3` lost the `standbox-cradle` entries; `check7` compared the
+back-stand against *plinth + tray* and broke the moment the tray stopped
+existing — it compares one part to one part now. `check6` is rewritten around
+journeys: the bottom being open, the board's tilted way in (30° roll, verified
+against the mesh at every 0.5 mm of lift), the tie's way round, the USB lead's
+way out, the clock into its seat.
+
+### Unverified, flagged for Sam
+
+The ties cross the **top** of the board 14 mm in from each end. On a DevKitC-1
+that is the middle third, clear of the USB shells and the antenna keep-out, but
+there is no verified component map for the board in his hand. The windows are
+4 mm long so a tie can be nudged; `STANDBOX_TIE_INSET` moves them properly.
+
+## 2026-09-15 — Both clocks "not connected" on the dashboard: the picker, not the clocks
+
+Samuel reported Zac's and Jake's clocks missing from the Wall Clock dashboard. Both were
+online the whole time **(verified)**: ESPHome entries *Mini Round Clock 3* (Zac's) and
+*Mini Round Clock 4* (Jake's) loaded, both `_status` binary sensors `on`, 111 entities each,
+**none unavailable** (an earlier note in this session said seven were; they were buttons,
+which read `unknown`. Wrong, withdrawn).
+
+**Cause (verified):** the copy of `packages/wall_clock_ui.yaml` on the HA box still listed one
+option, *Mini Round Clock*. Every generated card is gated on the picker reading *Zac's Clock*
+/ *Jake's Clock*, so nothing could show. The repo fixed this in `e35b1ea` (2026-09-05) but
+`install.sh` was never re-run afterwards.
+
+**Fix, live:** the branch's `wall_clock_ui.yaml` installed to `/config/packages/` through the
+File editor add-on's ingress API (`/api/save`; previous copy kept beside it as `.bak-<stamp>`
+and in `home-assistant/backups/ha-config-2026-09-15/`), `ha core check` clean,
+`input_select.reload`. Picker now offers Zac's / Jake's / Third Clock natively. A stop-gap
+automation that re-applied the options at every start was deployed first and then deleted
+once the package was in.
+
+**OTA prepared, not run.** `esphome/ha-device-configs/zacs-clock.yaml` and `jakes-clock.yaml`
+now sit in `/config/esphome/` on the box; the Device Builder lists `mini-round-clock-3` and
+`mini-round-clock-4`. What the wall runs is the 2026-09-05 15:20 / 16:49 AEST build; the
+branch head adds the `safe_mode` button, the message-from-HA text and its *Show the message*
+switch, and the board-LED-off change (none of those entities exist in HA yet **(verified)**).
+Install → Wirelessly pulls the branch at build time. The README's two caveats stand: the
+box's `wall_clock_ota_password` and `wall_clock_api_key` must equal what the 09-05 build was
+compiled with, and that build came from a different machine's `secrets.yaml`. A wrong OTA
+password is refused harmlessly; a wrong API key flashes fine and then HA asks for the new
+key on the ESPHome integration.
+
+**This checkout is diverged.** Local branch `claude/home-assistant-wall-clock-om42v2` is
+ahead 11 (the late-August legend work) and behind 84 (everything from 2026-09-03 to 09-09:
+grow clock, dashboard with real names, HA-side flashing, the stand-box). The firmware on the
+wall comes from the remote side. Merge or rebase before touching `esphome/` here; this log
+will conflict at the end and both sides should be kept.
+
+The dashboard lives as the **Wall Clock** tab of `/projects-hub` in HA (copied live from
+`/wall-clock-build`, hidden from the sidebar but still the source — rebuild it as before,
+then re-run `home-assistant/tools/publish_projects_dashboard.py`).
+
+## 2026-09-15 (night) — Zac's clock flashed over WiFi from the branch
+
+`esphome run zacs-clock.yaml --device 192.168.1.24` from this machine: branch cloned at build
+time, 1,142,288-byte image, **OTA successful**, clock back in HA within seconds reporting
+`2026.8.1 (2026-09-15 21:07:43 +1000)`, status on, grow clock still in *sleep*, 112 registry
+entries as before **(verified)**. Jake's followed at 21:31 with the same command and `jakes-clock.yaml`,
+`--device 192.168.1.25`: OTA successful, `2026.8.1 (2026-09-15 21:31:46 +1000)`, 126
+entities, 14 of them new under `jake_s_clock_*`, grow clock asleep, board LED off **(verified)**.
+Both per-clock files are here (untracked) and on the HA box in `/config/esphome/`.
+
+**Three traps, in the order they bit:**
+
+1. **Never build ESP-IDF from Git Bash.** Under MSYS the IDF tooling prints *"MSys/Mingw is no
+   longer supported"*, produces no `build/` directory, and ESPHome still says *Successfully
+   compiled program* before failing on the missing `.bin`. Run `esphome` from PowerShell or
+   cmd. The August builds were done that way, which is why this never showed before.
+2. **The toolchain path is too long for Windows** when ESPHome's default cache
+   (`%LOCALAPPDATA%\esphome\Cache\idf`) is used: `bits/c++config.h: No such file`. Set
+   `ESPHOME_ESP_IDF_PREFIX=C:\ESPHome\idf` — that directory already exists from 26 August
+   with the 5.5.5 framework and tools in it.
+3. **Secrets:** the box's `/config/esphome/secrets.yaml`, this repo's gitignored
+   `esphome/secrets.yaml`, and the API key HA holds for both clocks all agree (compared by
+   hash, values never printed). So either machine can flash, and the Device Builder's
+   Install → Wirelessly will authenticate too.
+
+The exact command that worked, from PowerShell:
+
+```
+cmd /c "set ESPHOME_ESP_IDF_PREFIX=C:\ESPHome\idf&& cd /d K:\Claude\projects\wall-clock\esphome && K:\Claude\projects\.esphome-venv\Scripts\esphome.exe run zacs-clock.yaml --device 192.168.1.24 --no-logs"
+```
+
+Compile takes about 6 minutes on the workbench.
+
+**The new entities exist, under a different prefix.** The device now exposes 125 entities
+(126 in HA with the disabled frame-time sensor). The 14 new ones — *Restart into safe mode*,
+*Message* + *Show the message*, *Board LED* (off, as intended), *Firmware* update, *Grow clock
+size*, and the night-sky switches, numbers and button — registered as `*.zac_s_clock_*`, not
+`*.mini_round_clock_3_*`: Home Assistant derives ids for **new** ESPHome entities from the
+device's friendly name, and only the 112 older ones keep the old slug. Anything in
+`build_clock_dashboard.py` that addresses the new controls by the `mini_round_clock_3` slug
+will read *Entity not found* until the ids are renamed or the generator learns the second
+prefix. Same will happen on Jake's (`jake_s_clock_*`).
+
+## 2026-09-15 (late) — The two checkouts reconciled
+
+The workbench checkout at `K:\Claude\projects` had eleven commits of its own from
+2026-08-27/28 (legend collars and diffuser, print-cost audit, a weather package, the Select
+API migration, the psram removal, bar-panel controls, the sections layout) plus uncommitted
+screen-colour and bar-band work, and had never seen the 85 commits from 3–9 September that
+the clocks actually run. Merged tonight, **taking this branch's side for every file both
+touched** (`mini-round-clock-with-display.yaml`, `build_clock_dashboard.py`,
+`wall_clock_ui.yaml`, `enclosure/mini/v2/params.py` and `build_v2.py`, every generated
+3mf/stl/json output). Kept from the local line: `enclosure/legend/`,
+`enclosure/mini/v2/print_audit.py`, `mini-round-clock-diffuser-legend.stl`,
+`packages/wall_clock_weather.yaml`.
+
+**Caveats.** The legend scripts were written against the August `params.py` and have not
+been run against this one; the uncommitted screen-colour/bar-band firmware work was never
+flashed and is not in this yaml. Both survive exactly as they were on branch
+`backup/wall-clock-local-2026-09-15` (local only: the eleven commits plus a WIP commit).
+The `pi-rack/` folder stays untracked on purpose: `roles/canary/bootstrap.sh` carries a
+literal password value that Sam should look at before it goes into a repo.
+
+**Workbench builds:** `esphome run` needs the per-clock file beside `esphome/secrets.yaml`,
+so copy `ha-device-configs/zacs-clock.yaml` (or Jake's) up one level first; the copies made
+tonight were deleted rather than committed twice.
+
+## 2026-09-15 — Both clocks flashed from this branch; the new controls needed their ids back
+
+Zac's (21:07) and Jake's (21:31) were flashed over WiFi from the workbench with
+`esphome run zacs-clock.yaml --device 192.168.1.24` (and `jakes-clock.yaml`, `.25`), the
+package pulling this branch at build time. OTA successful both times **(verified)**; both
+clocks report `2026.8.1 (2026-09-15 21:07:43 / 21:31:46 +1000)` and 126 entities.
+
+**The 14 entities each flash added arrived under the wrong prefix.** Home Assistant names a
+NEW ESPHome entity after the device's friendly name at the moment it first appears, so the
+night-sky controls, *Message* + *Show the message*, *Board LED*, *Restart into safe mode*,
+*Grow clock size* and the *Firmware* update entity registered as `*.zac_s_clock_*` and
+`*.jake_s_clock_*` — while the older 112 kept `mini_round_clock_3_*` / `_4_*`, which is what
+every row in `build_clock_dashboard.py` addresses. Rows for the new controls read *Entity not
+found* **(verified)**.
+
+**Fix: `homeassistant/normalise_entity_ids.py`.** Finds each clock in CLOCKS by its device
+name, renames every entity on that device that is not under the slug back to
+`<kind>.<slug>_<rest>` (the WebSocket registry call; what Settings → Entities → rename
+does), `--dry-run` to look first. 28 renamed tonight, second pass finds nothing. Run it after
+any flash that adds entities. The generator keeps one prefix per clock on purpose — teaching
+it two would mean knowing which entity arrived when.
+
+**Dashboard regenerated and installed.** The `/wall-clock-build` Settings view on the box
+predated the night-sky work (no `night_sky`, `board_led` or `restart_into_safe_mode` rows).
+`build_clock_dashboard.py --view` from this branch, the `settings` view replaced over the
+WebSocket API (previous copy in `home-assistant/backups/dashboards-2026-09-15/`), every
+`mini_round_clock_3/4` id it references present in HA **(verified)** except the two
+*Frame time* sensors Sam disabled himself, and the Projects dashboard's Wall Clock tab
+re-copied from it. One stale key in the generator fixed on the way: the firmware's switch is
+*Grow clock partial redraw* (`grow_clock_partial_redraw`), the row asked for
+`grow_clock_partial_redraw_test`.
+
+**Two build traps on Windows**, both now in the home-assistant STATUS and memory: ESP-IDF
+refuses to build under Git Bash and ESPHome still says *Successfully compiled*; and the
+default toolchain cache path is too long — `ESPHOME_ESP_IDF_PREFIX=C:\ESPHome\idf`.
+
+Also done tonight from the other checkout of this repo (a stale one, 84 commits behind this
+branch, whose BUILD-LOG carries the fuller write-up): the box's `wall_clock_ui.yaml` package
+was two weeks behind this branch and hid every clock's cards; installed from here via the
+File editor add-on's API and reloaded. Picker offers Zac's / Jake's / Third Clock again.
+`ha-device-configs/*.yaml` are in `/config/esphome/` on the box, so Device Builder
+Install → Wirelessly works as the README says; secrets verified equal by hash.

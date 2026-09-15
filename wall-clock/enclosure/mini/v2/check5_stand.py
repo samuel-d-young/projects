@@ -7,6 +7,7 @@
 import sys, math; sys.path.insert(0, '.')
 import numpy as np, trimesh
 from csg import box_lwh, cyl, tube, wedge, to_manifold, to_trimesh
+import csg
 from params import *
 import build_v2 as BV
 
@@ -16,7 +17,7 @@ def ck(c, msg, d=''):
     if not c: FAIL.append(msg)
 
 def load(f):
-    m = trimesh.load(f, process=False); m.merge_vertices(); return m
+    m = trimesh.load(csg.part(f), process=False); m.merge_vertices(); return m
 
 SEG   = BV.SEG
 DEPTH = Z_FRONT - (Z_DECK - HOUSING_DEEP)

@@ -71,6 +71,61 @@ substitutions:
   device_name: mini-round-clock
   friendly_name: Mini Round Clock
 
+  # Round panel SPI clock. BACK TO 20MHz, which is what it was for every build
+  # Sam remembers as working. I raised it to 40 in 6c5e232 as a speculative
+  # flicker fix and never verified the panel is stable there -- and the symptom
+  # he reports is exactly what a marginal SPI clock looks like: FINE DETAIL
+  # corrupts visibly (the sun's 1 px rays, the thin strokes of the time digits)
+  # while big solid blocks do not (a wrong pixel inside an 80x112 eye is one
+  # wrong pixel in a field of identical ones -- invisible).
+  #
+  # The argument I used for 40 was that the bar panel runs at 40 and xboot
+  # drives this controller at 50. Both are true and neither is evidence about
+  # THIS link: signal integrity is a property of the wiring, not the chip, and
+  # this is a dev board on jumper wires. The GC9B72 init here was
+  # reverse-engineered rather than taken from a datasheet, so there is no spec
+  # basis for 40 at all.
+  #
+  # VERIFIED 2026-09-04, and it is worse than "unproven": 40 was DOUBLE the
+  # tested ceiling. The Arduino_GC9B72 library, written for this exact panel
+  # (2.1-inch 360x360 round SPI TFT), says verbatim:
+  #
+  #   "The controller handles fast SPI (tested up to ~20 MHz on short leads);
+  #    if you use long/breadboard jumpers and see speckle, lower the clock via
+  #    gfx->begin(<hz>)."
+  #
+  #   -- https://github.com/MaliosDark/Arduino_GC9B72
+  #
+  # So ~20 MHz is the ceiling on SHORT leads, and the advice for jumper wiring
+  # is to go BELOW it, not above. The named failure mode is "speckle", which is
+  # exactly what wrecks 1 px rays and thin digit strokes while leaving an
+  # 80x112 solid eye looking perfect.
+  #
+  # If 20MHz still speckles on Sam's wiring, the next step is DOWN: 10MHz.
+  # Override on the command line to A/B without editing:  -s lcd_hz 40MHz
+  lcd_hz: 20MHz
+
+  # THE ROUND PANEL'S BUFFER, AND THE BAND HEIGHT THAT FALLS OUT OF IT. These
+  # three must agree, and the lambda cannot check them: mipi_spi runs the
+  # display writer once per BAND and gives it no way to ask which band it is
+  # in, so the band index is counted and the height is taken from here.
+  #
+  #   lcd_buffer  what ESPHome is asked for. It takes the first divisor of 360
+  #               small enough, so 17% -> 1/6.
+  #   lcd_bands   360 / lcd_band_h. What the counter wraps at.
+  #   lcd_band_h  the band height the animation box is aligned to.
+  #
+  # ON A BOARD WITH WORKING PSRAM this becomes one band and the whole six-band
+  # problem goes away -- no counter, no marker column, no alignment:
+  #
+  #   -s lcd_buffer 100% -s lcd_bands 1 -s lcd_band_h 360
+  #
+  # plus a `psram:` block. Do not do that on the clock modules: their PSRAM
+  # fails its hardware probe outright -- see the note under esp32: below.
+  lcd_buffer: 17%
+  lcd_bands: "6"
+  lcd_band_h: "60"
+
   # The render reads the real LED count from the strip at runtime, so this
   # only has to be right for the light component itself.
   # Default ring size, and the initial value of the runtime "Ring LED count"
@@ -85,6 +140,22 @@ substitutions:
 
   # ---- LED ring ------------------------------------------------------------
   led_pin: GPIO5              # keep clear of the QSPI pins below
+
+  # THE DEV BOARD'S OWN RGB LED. Sam, 2026-09-05: "turn off the ESP32 built in
+  # light on both of them." Nothing in this config was driving it, and that is
+  # exactly why it was lit: a WS2812 holds whatever was last clocked into it,
+  # so an undriven one keeps whatever the bootloader, a previous firmware or
+  # power-on noise left there, forever. The fix is not to stop driving it --
+  # it is to drive it, once, to black.
+  #
+  # GPIO48 on an ESP32-S3-DevKitC-1 and most N16R8 clones. A few put it on
+  # GPIO38 instead. If the light does not go out, try:  -s board_led_pin GPIO38
+  # Both pins are otherwise unused here, so a wrong guess costs nothing.
+  #
+  # IF IT IS A PLAIN RED LED IT CANNOT BE TURNED OFF FROM SOFTWARE AT ALL. The
+  # power LED on these boards is wired across the 3V3 rail through a resistor
+  # and has no GPIO behind it. Tape, or lift the resistor. Nothing to try here.
+  board_led_pin: GPIO48
 
   # Which physical LED sits at 12 o'clock. Run Mode = "test chase", see where
   # the red pixel lands, put the offset here. Positive rotates clockwise.
@@ -125,19 +196,7 @@ substitutions:
   night_end_hour: "7"
 
   # ---- your Home Assistant weather entity ----------------------------------
-  # CORRECTED 2026-08-27: this said `weather.home`, which does not exist on
-  # this instance -- so weather_temp and weather_condition were permanently
-  # unavailable and every weather feature on both panels silently did nothing.
-  # The real entity is the met.no one the default HA onboarding creates.
-  # Check yours with: curl .../api/states | grep '"weather\.'
-  weather_entity: weather.forecast_home
-
-  # Rain needs a sensor of its own: a weather entity carries no current
-  # precipitation attribute (it lives in the forecast, which only a service
-  # call can reach). packages/wall_clock_weather.yaml defines this one from
-  # weather.get_forecasts. If it is absent the clock just never shows rain --
-  # the switch is there, the line stays empty, nothing breaks.
-  rain_entity: sensor.wall_clock_rain_today
+  weather_entity: weather.home
 
 esphome:
   name: ${device_name}
@@ -162,36 +221,49 @@ esp32:
   # Not set by default because the right board id depends on your module and a
   # wrong one is worse than the auto-selected default. (unverified)
 
-# NO psram BLOCK, DELIBERATELY. This is the fix for a boot loop, and it is not
-# an oversight -- do not "restore" it without re-reading this.
+# =============================================================================
+# THERE IS DELIBERATELY NO `psram:` BLOCK. DO NOT "RESTORE" IT.
+# =============================================================================
+# On an N16R8 the missing block reads as an oversight. It is not: declaring PSRAM
+# in ANY mode boot-loops this hardware, and removing it is what fixed it.
 #
-# The PSRAM on this module does not work. Measured on the real board 2026-08-27,
-# one variable per build:
+# MEASURED on the bench, one variable per build:
 #
-#   mode: octal, 80MHz -> panic ~5s after wifi associates, every boot
-#   mode: octal, 40MHz -> same panic, so not a timing/speed problem
-#   mode: quad,  80MHz -> "quad_psram: PSRAM chip is not connected, or wrong
-#                         PSRAM line mode" + "esp_psram: PSRAM enabled but
-#                         initialization failed. Bailing out." Still panics,
-#                         and the screen never draws at all (0 renders).
-#   no psram block     -> 0 panics, screen renders, wifi associates, API up,
-#                         Home Assistant reconnects all 101 entities.
+#   psram octal @ 80MHz   panics ~5 s after wifi associates
+#   psram octal @ 40MHz   same
+#   psram quad            "PSRAM chip is not connected", still panics, 0 renders
+#   NO psram block        stable
 #
-# The failure mode under `octal` is the nasty one: init appears to SUCCEED and
-# then the first real access stalls the cache, which shows up as
-# "Interrupt wdt timeout on CPU0" with loopTask asleep and BOTH cores idle --
-# it reads like a hung SPI transfer or a scheduler bug, and is neither. It is
-# not an ESPHome regression either: 2026.8.0 and 2026.8.1 panic identically.
+# So the PSRAM on these particular modules does not work, whatever the R8 suffix
+# says it should be.
 #
-# Declaring psram in ANY mode is worse than omitting it, because CONFIG_SPIRAM
-# then expects memory the board cannot supply.
+# CHALLENGED 2026-09-05, AND IT SURVIVED -- worth writing down because it will
+# be challenged again. Sam's Flight Deck, an ESP32-S3 on the same 2.1in GC9B72
+# panel sitting on the same bench, logs "PNG decoder 45604 bytes in PSRAM, free
+# heap 188k" and allocates six frame buffers. PSRAM plainly works on THAT board.
 #
-# Nothing here needs it. Both framebuffers -- 360x360x2 = 253 KB for face_lcd
-# and 320x170x2 = 108 KB for bar_lcd -- allocate fine in internal SRAM, with no
-# "Buffer allocation failed" and no measurable cost.
+# It does not follow that it works here, and the line that settles it is the
+# quad-mode result above: "PSRAM chip is not connected" is the chip failing to
+# answer a hardware probe, not a configuration being rejected. A module whose
+# PSRAM does not answer does not have working PSRAM, whatever its neighbour on
+# the desk manages.
 #
-# If a future board has genuinely working PSRAM, re-enable it there and confirm
-# it survives wifi association before trusting it.
+# If anyone wants to re-open it -- and there is a real prize, since a full
+# 259200-byte framebuffer would delete the entire six-band partial-buffer
+# architecture and every bug that has come out of it -- the test is one build
+# and one boot log, and safe_mode recovers a boot loop. Do it on a bench, not
+# on the clock in the child's room. Both framebuffers (253 KB round + 108 KB bar) come out of
+# internal SRAM with no allocation failure -- `buffer_size` on the displays is
+# partial buffering, not a full frame, which is what makes that possible.
+#
+# THE SYMPTOM IF YOU PUT IT BACK, so nobody has to rediscover it: "Interrupt wdt
+# timeout on CPU0" with BOTH cores idle. That reads like a hung SPI transfer and
+# it is not -- both cores idle means a stalled external RAM/cache access. That
+# misreading cost the bench session hours.
+#
+# The header note further up says ESPHome's ST77916 model declares
+# requires={"psram"} and would refuse a config without it. True, and irrelevant
+# here: this config uses `model: CUSTOM`, which carries no such requirement.
 
 logger:
   hardware_uart: UART0   # CH343 USB-UART bridge on this board (VID 1A86), NOT native USB-JTAG
@@ -230,6 +302,41 @@ api:
 ota:
   - platform: esphome
     password: !secret wall_clock_ota_password
+
+# -----------------------------------------------------------------------------
+# SAFE MODE — the thing that makes a wall-mounted clock safe to flash over WiFi
+# -----------------------------------------------------------------------------
+# Sam, 2026-09-05, asked whether updates can go over WiFi. They can, and have
+# been able to all along. What was missing was the recovery path: without this
+# block, a build that boot-loops can only be fixed over USB, which for a clock
+# screwed to a wall in a child's room means getting it down.
+#
+# HOW IT ACTUALLY WORKS, read off the component rather than remembered:
+# a counter in flash preferences goes up on every boot. If the device stays up
+# longer than boot_is_good_after the counter is cleared. If it reaches
+# num_attempts first, the next boot brings up WiFi and OTA ONLY -- no display,
+# no LED ring, no lambdas -- and waits reboot_timeout for a new image before
+# trying the main firmware again.
+#
+# So the only thing that can put a clock into safe mode is a boot loop, and the
+# only thing that gets it out is a working firmware. It costs nothing on a
+# healthy device.
+safe_mode:
+  id: clock_safe_mode
+  # 5, not the default 10. Five consecutive failed boots is already
+  # unambiguous, and this display panics about seven seconds in, so ten
+  # attempts is over a minute of a dark clock before recovery starts. Nothing
+  # is gained by waiting longer: a device that boots and runs for a minute
+  # clears the counter completely.
+  num_attempts: 5
+  boot_is_good_after: 1min
+  # 10min, not the default 5. This is how long it waits in safe mode with the
+  # radio up before rebooting to try the main firmware again -- in other words,
+  # the window you have to notice the clock is dark, get to a machine and start
+  # an OTA. Ten minutes is a realistic version of that; five is not. If the
+  # window is missed it simply re-enters safe mode after five more attempts,
+  # so a longer wait costs nothing either.
+  reboot_timeout: 10min
 
 wifi:
   ssid: !secret wifi_ssid
@@ -296,6 +403,12 @@ output:
   - platform: ledc
     pin: ${lcd_backlight}
     id: backlight_out
+    # Sam: "the screen flickers a little". ESPHome's ledc default is 1 kHz,
+    # and a TFT backlight at a low duty on a 1 kHz PWM is visible flicker to a
+    # sideways glance and to every phone camera. 5 kHz is above anything an
+    # eye or a rolling shutter resolves, and the S3 still gets 13 bits of
+    # resolution at that rate.
+    frequency: 5000 Hz
 
 # -----------------------------------------------------------------------------
 # STATE IMPORTED FROM HOME ASSISTANT
@@ -350,32 +463,51 @@ sensor:
     entity_id: ${weather_entity}
     attribute: temperature
 
-  # ---- the rest of the weather entity's attributes -------------------------
-  # All four are plain attributes of the same entity, so they cost one HA
-  # subscription each and nothing else. Verified present on met.no's entity:
-  # humidity, wind_speed, pressure and uv_index are all published.
-  - platform: homeassistant
-    id: weather_humidity
-    entity_id: ${weather_entity}
-    attribute: humidity
+  # Grow clock: how many sound events since boot. Mostly so a parent can see in
+  # the morning whether the clock was being talked to at 5 a.m.
+  # Minutes until the scheduled wake, for an automation or a bedside card.
+  # HOW LONG A FRAME ACTUALLY TAKES, published rather than reasoned about.
+  # Every number I have used for this all night has been arithmetic off the
+  # byte count. This is the measured wall-clock time of one component.update,
+  # which is the drawing plus every band's flush.
+  - platform: template
+    id: grow_frame_ms
+    name: "Grow clock frame time"
+    entity_category: diagnostic
+    unit_of_measurement: "ms"
+    accuracy_decimals: 0
+    icon: mdi:timer-outline
+    update_interval: never
 
-  - platform: homeassistant
-    id: weather_wind
-    entity_id: ${weather_entity}
-    attribute: wind_speed
-
-  - platform: homeassistant
-    id: weather_uv
-    entity_id: ${weather_entity}
-    attribute: uv_index
-
-  # Rain is NOT an attribute -- see rain_entity in the substitutions. Stays
-  # NaN when that sensor does not exist, and every use below guards for it.
-  - platform: homeassistant
-    id: weather_rain
-    entity_id: ${rain_entity}
+  - platform: template
+    id: grow_minutes_to_wake
+    name: "Grow clock minutes to wake"
+    icon: mdi:timer-sand
+    unit_of_measurement: "min"
+    accuracy_decimals: 0
+    update_interval: never
+  - platform: template
+    id: grow_sound_events
+    name: "Grow clock sound events"
+    icon: mdi:ear-hearing
+    accuracy_decimals: 0
+    update_interval: never
 
 text_sensor:
+  # WHICH BUILD IS ACTUALLY ON THIS CLOCK. Four flicker reports in a row came
+  # back "still flickering" and at least one of them was against firmware that
+  # predated the fix being discussed, with nothing on either end able to tell.
+  # That is not a display bug, it is a missing instrument. __DATE__ and
+  # __TIME__ are filled in by the compiler, so this cannot drift from the
+  # binary the way a hand-maintained version string can.
+  - platform: template
+    id: fw_built
+    name: "Firmware built"
+    entity_category: diagnostic
+    icon: mdi:chip
+    update_interval: 60s
+    lambda: 'return {std::string(__DATE__ " " __TIME__)};'
+
   - platform: homeassistant
     id: weather_condition
     entity_id: ${weather_entity}      # the entity STATE is the condition slug
@@ -385,8 +517,28 @@ text_sensor:
   - platform: homeassistant
     id: timer_label
     entity_id: sensor.wall_clock_timer_label   # name of the next timer, or empty
+  # Grow clock: sleep / almost / awake / bedtime / nap. Published on change, so
+  # an automation can act on it -- a night light that follows the clock, say.
+  - platform: template
+    id: grow_state
+    name: "Grow clock state"
+    icon: mdi:baby-face-outline
+    update_interval: never
 
 binary_sensor:
+  # IS THE CLOCK THERE. Home Assistant does NOT create a connection-status
+  # entity for an ESPHome device by itself -- checked against the ESPHome docs
+  # 2026-09-03, `platform: status` is opt-in and there is no automatic one.
+  # The Settings dashboard gates every card on binary_sensor.<device>_status,
+  # so a device that never declared this renders NOTHING: the condition is
+  # false for a missing entity, and the whole view comes up blank rather than
+  # filling with "Entity not found" rows. Declaring it here is what makes that
+  # gate true. `name: Status` gives exactly binary_sensor.${device_name}_status
+  # because the object id is the name slugged onto the device prefix.
+  - platform: status
+    name: "Status"
+    entity_category: diagnostic
+
   - platform: homeassistant
     id: timer_alert
     entity_id: binary_sensor.wall_clock_timer_alert
@@ -396,6 +548,19 @@ binary_sensor:
     # frame, and no timer is involved in that direction.
     on_press:
       - lambda: 'id(alert_since) = millis();'
+  # THE SOUND INPUT for the grow clock. Point this at whatever hears the room:
+  # the package ships input_boolean.wall_clock_grow_sound and an automation that
+  # pulses it, so any trigger in HA -- a Voice PE, a baby monitor, a noise
+  # sensor -- turns it on and the clock sees a rising edge. The board itself has
+  # no microphone, and this file does not pretend otherwise.
+  - platform: homeassistant
+    id: grow_sound_in
+    entity_id: input_boolean.wall_clock_grow_sound
+    on_press:
+      - lambda: |-
+          id(grow_sound_since) = millis();
+          id(grow_sound_count) += 1;
+          id(grow_sound_events).publish_state(id(grow_sound_count));
   - platform: homeassistant
     id: bin_night
     entity_id: binary_sensor.wall_clock_bin_night
@@ -492,10 +657,18 @@ number:
     name: "Brightness"
     entity_category: config
     unit_of_measurement: "%"
-    min_value: 5
+    min_value: 1
     max_value: 100
-    step: 5
-    initial_value: 45
+    step: 1
+    # 45 was too bright, reported three times. This is a LINEAR multiplier on
+    # the emitter, not a perceptual one, so 45 really is 45% of a 5050 at full
+    # tilt and in a bedroom that is a lamp. 25, and the step is 1 rather than 5
+    # so the bottom of the range is actually usable -- at 5% steps the useful
+    # night range was three positions.
+    # NOTE: restore_value is true, so this only applies to a clock that has
+    # never stored a value. On a clock already running, the number has to be
+    # set -- from Home Assistant, or by whoever is at the bench.
+    initial_value: 25
     optimistic: true
     restore_value: true
   - platform: template
@@ -585,6 +758,42 @@ number:
     max_value: 100
     step: 5
     initial_value: 100
+    optimistic: true
+    restore_value: true
+
+  # ---- Ring current budget --------------------------------------------------
+  # A WS2812 draws about 20 mA per lit channel, so 60 mA at full white. Thirty
+  # two of them is 1.9 A, and the clock has been running off a USB port on a PC
+  # -- 500 mA on a USB 2.0 port, 900 mA on a USB 3.0 one, shared with the S3's
+  # WiFi bursts and the panel backlight. Over that budget the 5 V rail sags
+  # instead of the port cutting out, and a sagging rail shows up as the ring
+  # AND the screen dimming together on whatever is drawing most at that moment.
+  #
+  # So the ring gets an explicit budget rather than an implicit one. Every frame
+  # sums the channels it is about to write, converts to mA, and if the total is
+  # over this number scales the whole ring down by one multiply. It is the same
+  # idea as WLED's automatic brightness limiter, and it is a limit this clock
+  # should have had from the first ring: nothing else in the firmware knows or
+  # cares how much current a frame costs.
+  #
+  # This is the RING only -- the board and the panel are on top of it. Budget
+  # roughly: 350 mA here for a PC USB 2.0 port, 600 for USB 3.0, and 1500+ once
+  # it is on a proper 5 V 2 A supply. Set it to 0 to disable the limiter.
+  #
+  # Note that at the shipped brightness (25%) an ordinary clock face is nowhere
+  # near this, so raising or lowering it changes nothing you can see until the
+  # ring goes bright and wide -- the grow clock's wake sparkle, or a white ring.
+  - platform: template
+    id: ring_ma
+    name: "Ring current limit"
+    entity_category: config
+    icon: mdi:current-dc
+    unit_of_measurement: "mA"
+    mode: box
+    min_value: 0
+    max_value: 2000
+    step: 50
+    initial_value: 400
     optimistic: true
     restore_value: true
 
@@ -796,6 +1005,421 @@ number:
     optimistic: true
     restore_value: true
 
+  # ===========================================================================
+  # GROW CLOCK -- a toddler sleep-training clock, on the same hardware
+  # ===========================================================================
+  # Sam: "I want to create a 'grow clock' feature for my son so that it changes
+  # colour when to wake up etc." The Gro-Clock / Hatch Rest idea: the clock is
+  # one colour while it is still sleep time and another when it is OK to get
+  # up, so a child who cannot read a clock can still read this one. Everything
+  # below is what a consumer grow clock does, minus two things this hardware
+  # does not have -- a microphone and a speaker. The sound response is real but
+  # it is fed from Home Assistant (see grow_sound_in), not from a mic.
+  #
+  # Times are hour + minute pairs rather than a single "07:30" text field,
+  # because ESPHome's number entity is a slider or a box and either is easier
+  # on a phone than typing a time string. Minutes step in fives.
+  - platform: template
+    id: grow_wake_h
+    name: "Grow clock wake hour"
+    entity_category: config
+    icon: mdi:weather-sunset-up
+    min_value: 0
+    max_value: 23
+    step: 1
+    initial_value: 7
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_wake_m
+    name: "Grow clock wake minute"
+    entity_category: config
+    icon: mdi:weather-sunset-up
+    min_value: 0
+    max_value: 55
+    step: 5
+    initial_value: 0
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_wake_h_wknd
+    name: "Grow clock weekend wake hour"
+    entity_category: config
+    icon: mdi:calendar-weekend
+    min_value: 0
+    max_value: 23
+    step: 1
+    initial_value: 8
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_wake_m_wknd
+    name: "Grow clock weekend wake minute"
+    entity_category: config
+    icon: mdi:calendar-weekend
+    min_value: 0
+    max_value: 55
+    step: 5
+    initial_value: 0
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_bed_h
+    name: "Grow clock bed hour"
+    entity_category: config
+    icon: mdi:weather-night
+    min_value: 0
+    max_value: 23
+    step: 1
+    initial_value: 19
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_bed_m
+    name: "Grow clock bed minute"
+    entity_category: config
+    icon: mdi:weather-night
+    min_value: 0
+    max_value: 55
+    step: 5
+    initial_value: 0
+    optimistic: true
+    restore_value: true
+  # "Almost time": the amber window before wake, so a child who wakes at 6:50
+  # sees that morning is CLOSE without seeing that it is here. 0 turns it off.
+  - platform: template
+    id: grow_warn_min
+    name: "Grow clock almost time minutes"
+    entity_category: config
+    icon: mdi:timer-sand
+    min_value: 0
+    max_value: 60
+    step: 5
+    initial_value: 15
+    optimistic: true
+    restore_value: true
+  # The same idea at the other end of the day: a warning colour before bed.
+  - platform: template
+    id: grow_bed_warn_min
+    name: "Grow clock bedtime warning minutes"
+    entity_category: config
+    icon: mdi:timer-sand
+    min_value: 0
+    max_value: 60
+    step: 5
+    initial_value: 10
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_nap_min
+    name: "Grow clock nap minutes"
+    entity_category: config
+    icon: mdi:power-sleep
+    min_value: 10
+    max_value: 180
+    step: 5
+    initial_value: 90
+    optimistic: true
+    restore_value: true
+  # Brightness in the sleep states and in the awake ones, SCREEN and RING
+  # apart. Sam: "the LEDs are too bright and the screen is too low" -- one
+  # number for both could only ever get one of them right. These override the
+  # clock's ordinary day/night brightness while grow mode is on.
+  - platform: template
+    id: grow_night_bright
+    name: "Grow clock screen night brightness"
+    entity_category: config
+    icon: mdi:brightness-3
+    unit_of_measurement: "%"
+    min_value: 1
+    max_value: 100
+    step: 1
+    initial_value: 20
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_day_bright
+    name: "Grow clock screen day brightness"
+    entity_category: config
+    icon: mdi:brightness-7
+    unit_of_measurement: "%"
+    min_value: 10
+    max_value: 100
+    step: 1
+    initial_value: 80
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_ring_night_bright
+    name: "Grow clock ring night brightness"
+    entity_category: config
+    icon: mdi:led-strip-variant
+    unit_of_measurement: "%"
+    min_value: 1
+    max_value: 100
+    step: 1
+    initial_value: 7           # was 12; a night light, not a lamp
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_ring_day_bright
+    name: "Grow clock ring day brightness"
+    entity_category: config
+    icon: mdi:led-strip-variant
+    unit_of_measurement: "%"
+    min_value: 5
+    max_value: 100
+    step: 1
+    initial_value: 25          # was 45; see the note on day_brightness
+    optimistic: true
+    restore_value: true
+  # Sunrise: the wake colour fades up from the night level to the day level
+  # over this many minutes after wake time, ring and screen. 0 is a hard cut.
+  - platform: template
+    id: grow_fade_min
+    name: "Grow clock sunrise fade minutes"
+    entity_category: config
+    icon: mdi:weather-sunset-up
+    unit_of_measurement: "min"
+    min_value: 0
+    max_value: 60
+    step: 1
+    initial_value: 10
+    optimistic: true
+    restore_value: true
+  # HOW BIG EVERYTHING IS. Sam: "Give options to change the size of everthing
+  # on the screen."
+  #
+  # 120 IS THE CEILING AND IT IS NOT ARBITRARY. The animation box is the window
+  # an animation frame repaints, it runs y 60..239, and it CANNOT be widened at
+  # will: both edges have to land on a 60-row band boundary or the driver sends
+  # a band holding pixels it never wrote. So the face has to fit inside a fixed
+  # window, and what binds first is the eyes' width -- CX + 100*scale <= 301
+  # gives 1.21. The yawn was second at 1.09 until it moved up 4 px; it is 1.25
+  # now. Everything else has more room than that.
+  #
+  # So: 70 to 120. Above 120 the face would start being clipped by the very
+  # thing that stopped the flicker, and a dial that silently breaks the display
+  # is worse than one that stops.
+  - platform: template
+    id: grow_scale
+    name: "Grow clock size"
+    entity_category: config
+    icon: mdi:relative-scale
+    unit_of_measurement: "%"
+    min_value: 70
+    max_value: 120
+    step: 5
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+    mode: slider
+
+  # A NIGHT SKY, scattered and gently twinkling. Sam: "Add some random stars
+  # around the clock when it's sleep time. These stars can twinkle slightly."
+  #
+  # They are drawn INSIDE THE ANIMATION BOX, and that is the whole reason this
+  # is safe. Twinkling means repainting, and repainting is exactly what caused
+  # the flicker -- but only for pixels that do NOT change. A star whose
+  # brightness moves every frame reads as motion, and the box is already being
+  # repainted at the animation rate, so the twinkle costs nothing at all: no
+  # extra frames, no extra SPI, no new band arithmetic.
+  #
+  # Putting them over the whole panel instead would mean repainting the whole
+  # panel to twinkle them, which is the 269 ms full frame that made the moon
+  # and the star row blink for two days. Not worth it for ambience.
+  #
+  # They are drawn FIRST, before the eyes, so no exclusion zone is needed --
+  # the eyes and the z's simply paint over any star behind them.
+  #
+  # 0..60, was 0..24. CHANGING A NUMBER'S RANGE DISCARDS ITS STORED VALUE and
+  # takes initial_value instead -- verified by controlled comparison in one
+  # flash. initial_value here is 12, which is what it was set to, so nothing
+  # visibly moves; if you had changed it, it comes back as 12 after this build.
+  - platform: template
+    id: grow_night_star_count
+    name: "Grow clock night sky stars"
+    entity_category: config
+    icon: mdi:star-shooting
+    min_value: 0
+    max_value: 60
+    step: 1
+    initial_value: 12
+    optimistic: true
+    restore_value: true
+    mode: box
+
+  # How bright the sky is against the face colour. A star's twinkle already
+  # swings between 0.35 and 1.00 of the face colour; this scales that whole
+  # range, so 30% gives a sky you can only just see in a dark room -- which is
+  # the point of it at 3am.
+  - platform: template
+    id: grow_night_star_bright
+    name: "Grow clock night sky brightness"
+    entity_category: config
+    icon: mdi:brightness-6
+    unit_of_measurement: "%"
+    min_value: 10
+    max_value: 100
+    step: 5
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+    mode: slider
+
+  # The biggest a star may be, in pixels of arm length. Each star picks 1..this
+  # out of the seed, so raising it makes the sky more varied, not just bigger.
+  # 4 is the ceiling because a star is drawn as a plus and a 5th pixel of arm
+  # starts reading as a cross rather than a point of light.
+  - platform: template
+    id: grow_night_star_size
+    name: "Grow clock night sky star size"
+    entity_category: config
+    icon: mdi:arrow-expand-all
+    min_value: 1
+    max_value: 4
+    step: 1
+    initial_value: 2
+    optimistic: true
+    restore_value: true
+    mode: box
+
+  # How fast they twinkle, as a percentage of the base 6.9 s cycle. Every star
+  # has its own phase out of the seed, so they never pulse together whatever
+  # this is set to. Below about 40% it reads as "still"; above 200% it reads as
+  # "blinking", which is precisely the thing this whole build spent two days
+  # getting rid of, so that is the ceiling.
+  - platform: template
+    id: grow_night_twinkle
+    name: "Grow clock night sky twinkle speed"
+    entity_category: config
+    icon: mdi:speedometer
+    unit_of_measurement: "%"
+    min_value: 20
+    max_value: 200
+    step: 10
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+    mode: slider
+
+  # How many stars the screen counts down through the night.
+  - platform: template
+    id: grow_star_count
+    name: "Grow clock star count"
+    entity_category: config
+    icon: mdi:star-four-points
+    min_value: 3
+    max_value: 12
+    step: 1
+    initial_value: 8
+    optimistic: true
+    restore_value: true
+  # With "clock by day" on, the grow face gives way to the ordinary clock this
+  # long after wake time, and comes back for the bedtime warning.
+  - platform: template
+    id: grow_wake_hold_min
+    name: "Grow clock wake hold minutes"
+    entity_category: config
+    icon: mdi:clock-end
+    unit_of_measurement: "min"
+    min_value: 5
+    max_value: 240
+    step: 5
+    initial_value: 60
+    optimistic: true
+    restore_value: true
+  # "Five more minutes": the snooze button starts a short sleep of this length.
+  - platform: template
+    id: grow_snooze_min
+    name: "Grow clock snooze minutes"
+    entity_category: config
+    icon: mdi:alarm-snooze
+    unit_of_measurement: "min"
+    min_value: 1
+    max_value: 30
+    step: 1
+    initial_value: 5
+    optimistic: true
+    restore_value: true
+  # How long the wake-up effect (rainbow, sparkle) runs on the ring after wake.
+  # HOW OFTEN THE FACE MAY REDRAW, in milliseconds, and it is a dial rather
+  # than a constant because the right value is a thing you look at, not a
+  # thing I can derive.
+  #
+  # This panel has no working PSRAM, so its buffer holds a sixth of a frame
+  # and every redraw is written to the glass in six horizontal strips, top to
+  # bottom. If a new frame starts before the last one has finished walking
+  # down the panel, the screen is never showing one whole picture, and that
+  # is the flicker left on the animations after the stale-pixel bug was
+  # fixed. It is not a fault in the drawing; it is the panel being repainted
+  # faster than it can be repainted.
+  #
+  # THE DIAL IS THE POINT: turn it live and watch, no reflash. Lower is
+  # smoother eyes and more load; higher is calmer and jumpier.
+  #
+  # THE RULE, and it is measurable rather than a matter of taste: keep this at
+  # roughly TWICE the "Grow clock frame time" sensor. Below that the loop
+  # cannot finish one repaint before the next is due, and everything sharing
+  # the loop -- the ordinary clock face, the ring -- starts to stutter with it.
+  # That is what happened at a 100 ms default, and the lesson is that the
+  # budget is the LOOP, not the SPI bus.
+  #
+  # The history is worth keeping because the numbers moved twice. A full-panel
+  # animation frame measured 269 ms and the first clipped one 385, which is why
+  # the floor was briefly 400. Drawing the animation box band by band (06765c3)
+  # cut the background from 272160 pixel calls a frame to 45360 and skips the
+  # eye block in three bands of six, so the floor comes back down to 200 and
+  # the default to 300. If the frame-time sensor says otherwise on your panel,
+  # believe the sensor.
+  #
+  # Blinks get a faster floor than this on their own -- see the animator's
+  # gate below. They are the fast part and they were the part being dropped.
+  - platform: template
+    id: grow_anim_ms
+    name: "Grow clock animation interval"
+    entity_category: config
+    icon: mdi:filmstrip
+    unit_of_measurement: "ms"
+    # 250, not 100. A FULL frame is 360 x 360 x 16 bit -- 259200 bytes, about
+    # 104 ms at the panel's 20 MHz -- plus six passes of the drawing lambda.
+    # Below about 250 ms the frames overlap and the glass never shows one whole
+    # picture, which is the flicker this whole exercise is about. The first
+    # version that worked repainted once a SECOND; 600 is still more than twice
+    # as smooth as that.
+    min_value: 200
+    max_value: 2000
+    step: 10
+    initial_value: 300
+    optimistic: true
+    restore_value: true
+
+  - platform: template
+    id: grow_wake_effect_min
+    name: "Grow clock wake effect minutes"
+    entity_category: config
+    icon: mdi:party-popper
+    unit_of_measurement: "min"
+    min_value: 1
+    max_value: 60
+    step: 1
+    initial_value: 5
+    optimistic: true
+    restore_value: true
+  # How long the clock reacts after a sound event -- see grow_sound_in.
+  - platform: template
+    id: grow_sound_secs
+    name: "Grow clock sound response seconds"
+    entity_category: config
+    icon: mdi:ear-hearing
+    unit_of_measurement: "s"
+    min_value: 5
+    max_value: 120
+    step: 5
+    initial_value: 20
+    optimistic: true
+    restore_value: true
+
 select:
   # ---- WHICH SCREEN ----------------------------------------------------------
   # "auto" follows the strap on ${panel_detect}. The two explicit options are
@@ -890,22 +1514,6 @@ select:
       - "medium"
       - "large"
     initial_option: "large"
-    optimistic: true
-    restore_value: true
-
-  # Size of the DATE and WEATHER lines under the time, independent of the time
-  # itself. Separate control because the two want opposite things: the time
-  # should be as large as the panel allows, and the subtitles want to be small
-  # enough that three of them fit across a 320 px line.
-  - platform: template
-    id: sub_size
-    name: "Subtitle text size"
-    entity_category: config
-    icon: mdi:format-size
-    options:
-      - "small"
-      - "medium"
-    initial_option: "medium"
     optimistic: true
     restore_value: true
 
@@ -1074,6 +1682,131 @@ select:
     optimistic: true
     restore_value: true
 
+  # ---- Grow clock ----------------------------------------------------------
+  # Blue is the Gro-Clock's night colour and what most children have seen. Red
+  # is what sleep consultants tend to recommend -- it is the wavelength least
+  # likely to suppress melatonin -- so it is here as a choice rather than a
+  # default. "off" is for the child who sleeps better with nothing lit at all:
+  # the ring goes dark in the sleep state and only the wake colour ever shows.
+  - platform: template
+    id: grow_sleep_colour
+    name: "Grow clock sleep colour"
+    entity_category: config
+    icon: mdi:palette
+    options:
+      - "blue"
+      - "red"
+      - "purple"
+      - "off"
+    initial_option: "blue"
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_wake_colour
+    name: "Grow clock wake colour"
+    entity_category: config
+    icon: mdi:palette
+    options:
+      - "yellow"
+      - "green"
+      - "white"
+    initial_option: "yellow"
+    optimistic: true
+    restore_value: true
+  # The two in-between colours. Amber before wake is the convention; some
+  # children do better with a colour that is clearly not the wake one.
+  - platform: template
+    id: grow_almost_colour
+    name: "Grow clock almost colour"
+    entity_category: config
+    icon: mdi:palette
+    options:
+      - "amber"
+      - "yellow"
+      - "green"
+      - "white"
+    initial_option: "amber"
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: grow_bedtime_colour
+    name: "Grow clock bedtime colour"
+    entity_category: config
+    icon: mdi:palette
+    options:
+      - "orange"
+      - "red"
+      - "purple"
+      - "blue"
+    initial_option: "orange"
+    optimistic: true
+    restore_value: true
+  # The stars on the screen: plain dots, or little four-point sparkles.
+  - platform: template
+    id: grow_star_shape
+    name: "Grow clock star shape"
+    entity_category: config
+    icon: mdi:star-four-points-outline
+    options:
+      - "dots"
+      - "stars"
+    initial_option: "stars"
+    optimistic: true
+    restore_value: true
+  # What the ring does for the first minutes after wake: the wake colour, a
+  # slow rainbow, or the wake colour with sparkles. A small celebration.
+  - platform: template
+    id: grow_wake_effect
+    name: "Grow clock wake effect"
+    entity_category: config
+    icon: mdi:party-popper
+    options:
+      - "solid"
+      - "rainbow"
+      - "sparkle"
+    initial_option: "rainbow"
+    optimistic: true
+    restore_value: true
+  # What the panel draws. "sun and moon" is the Gro-Clock's picture;
+  # "eyes" is the Deskimon look Sam asked for: two big rounded eyes glowing in
+  # the state colour on a black field, no mouth, every expression an eyelid.
+  # "eyes and sky" is the same with a sun or a moon above them and the stars
+  # under them -- Sam: "the face and also the stars/moon or sun". The default.
+  # "eyes on colour" is the same eyes in dark ink on a field of the state
+  # colour, for a room where the whole screen should read as the colour.
+  # "colour only" is just the field, for a child who finds faces too exciting.
+  - platform: template
+    id: grow_face
+    name: "Grow clock face"
+    entity_category: config
+    icon: mdi:emoticon-outline
+    options:
+      - "eyes and sky"
+      - "eyes"
+      - "eyes on colour"
+      - "sun and moon"
+      - "colour only"
+    initial_option: "eyes and sky"
+    optimistic: true
+    restore_value: true
+  # Forces a state, for showing a child what each one looks like before the
+  # first night, and for checking the colours in daylight. "auto" is the real
+  # behaviour; the others hold that expression until this is put back.
+  - platform: template
+    id: grow_expression
+    name: "Grow clock expression"
+    entity_category: config
+    icon: mdi:emoticon-happy-outline
+    options:
+      - "auto"
+      - "sleeping"
+      - "almost"
+      - "awake"
+      - "bedtime"
+    initial_option: "auto"
+    optimistic: true
+    restore_value: true
+
 switch:
   # ---------------------------------------------------------------------------
   # POWER: one master, two surfaces
@@ -1095,6 +1828,181 @@ switch:
     name: "Display"
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
+
+  # THE FIX, if the shape test below confirms the hypothesis. Default OFF, so
+  # nothing changes unless Sam picks it.
+  #
+  # Flat art is the INSTRUMENT: a plain square, maximally pure, deliberately
+  # ugly. This is what the art should actually become if edge structure turns
+  # out to be the cause -- a pixel-art crescent and crossed-bar sparkles that
+  # look intentional rather than like a fallback.
+  #
+  # I over-stated the constraint in my own notes: I wrote that a crescent from
+  # stacked bars "will not do, that reintroduces the row-to-row change". Too
+  # strict. A rasterised circle changes its run-length at EVERY row -- about
+  # forty of them for this moon. Seven bands change it six times. The
+  # hypothesis is about fine, repeated row-to-row structure, not about any
+  # change anywhere, so a chunky shape keeps nearly all the benefit.
+  #
+  # The crescent is STEPPED FROM THE REAL GEOMETRY rather than hand-drawn:
+  # outer disc, bite disc offset right and up, sampled at each band's centre.
+  # Hand-picked bars read as the letter C; stepping the true shape reads as a
+  # moon. Verified in preview/grow_faces.py -- see preview/shape-block.png.
+  - platform: template
+    id: grow_block_art
+    name: "Grow clock blocky art"
+    entity_category: config
+    icon: mdi:moon-waning-crescent
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  # THE SHAPE TEST, and it is the first hypothesis that fits every data point.
+  #
+  # Sam's two lists, laid out by what the elements are DRAWN AS rather than
+  # where they are or how big:
+  #
+  #   eyes        rounded rectangles, straight edges          steady
+  #   z's, time   text glyphs, straight strokes               steady
+  #   moon        filled_circle x2, staircase edges           FLICKERS
+  #   stars       filled_circle / filled_triangle, staircase  FLICKERS
+  #
+  # It is not size: the z's are small, bright and steady. It is not position:
+  # the stars and part of the time share band 4. What is left is the EDGE
+  # STRUCTURE. A rasterised circle's run-length changes row to row, and that
+  # fine row-to-row structure is what beats against an LCD's polarity-inversion
+  # scheme when VCOM is slightly off -- the classic cause of shimmer that hits
+  # patterned regions and leaves flat blocks alone.
+  #
+  # ON: the moon and the star row are drawn with axis-aligned rectangles only.
+  # Same positions, same colours, same code path, same frame -- ONLY the edge
+  # structure changes. If the flicker goes with the shape, the cause is the
+  # panel's inversion/VCOM and not one line of the renderer.
+  #
+  # Chosen over poking the init sequence's VCOM registers (0x7C/0xC3/0xC4/0xC9)
+  # because there is no public GC9B72 datasheet, those values are the vendor's
+  # own, and guessing at analogue drive levels on Sam's hardware is not a test,
+  # it is a risk.
+  - platform: template
+    id: grow_flat_art
+    name: "Grow clock flat art (test)"
+    entity_category: config
+    icon: mdi:square-outline
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  # SAM: "The first time you flashed the animations worked. Try that again but
+  # with the fix that stopped the flicker on the eyes and clock."
+  #
+  # He is right, and it is worth being exact about WHY the first one worked.
+  # In 7776635 the partial repaint was filled_rectangle(CX-124, 60, 248, 184) --
+  # starting at y = 60. Band 0 is y 0-59, so band 0 always came back empty, and
+  # mipi_spi RETURNS from the whole frame on the first empty band. Not one
+  # animation frame ever reached the glass. The panel was repainted by exactly
+  # one path, the full frame, and every band was painted in full every time.
+  # That is the safest arrangement there is over a shared buffer nobody clears:
+  # there is no such thing as a partially-touched band.
+  #
+  # So this switch is OFF by default and the partial path is off with it. Every
+  # repaint is now a FULL frame, and what stops that being the once-a-second
+  # sweep it used to be is the other half of his sentence -- the content key
+  # from c635533, which repaints when the picture changes rather than when the
+  # clock ticks. Those two together are what he asked for.
+  #
+  # 6702d52 also made animation frames full frames and it did not settle it --
+  # but at that point the unconditional 1 Hz repaint was still running too, so
+  # there were two full-frame paths at different rates walking down the glass
+  # over each other. With the key in place there is only one.
+  #
+  # ON restores the partial path, for A/B on the glass without a reflash.
+  # Hide the message without clearing it, so a standing note can be parked
+  # rather than retyped.
+  - platform: template
+    id: grow_msg_show
+    name: "Show the message"
+    entity_category: config
+    icon: mdi:message-outline
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
+    id: grow_night_sky
+    name: "Grow clock night sky"
+    entity_category: config
+    icon: mdi:weather-night
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # Sam, 2026-09-05: "Add them during the night sleeping." The sky ran during
+  # sleep and naps only, which meant it appeared at the moment the face closed
+  # its eyes rather than while the room was winding down. ON puts it up for the
+  # bedtime warning as well, so the sky arrives with bedtime and stays until
+  # morning.
+  - platform: template
+    id: grow_night_sky_bed
+    name: "Grow clock night sky at bedtime"
+    entity_category: config
+    icon: mdi:bed-clock
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # A different sky every night. Reseeds on the TRANSITION into sleep, not on
+  # every second of it -- a field that re-randomised each frame would not be a
+  # sky, it would be static.
+  - platform: template
+    id: grow_night_sky_nightly
+    name: "Grow clock new night sky each night"
+    entity_category: config
+    icon: mdi:shimmer
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
+    id: grow_partial
+    name: "Grow clock partial redraw"
+    entity_category: config
+    icon: mdi:image-refresh
+    optimistic: true
+    # ON. An animation frame repaints the eye box and nothing else, so nothing
+    # static is ever rewritten while the panel is scanning itself out. That is
+    # the flicker fix -- see "THE ANIMATION BOX" in the round panel's lambda.
+    # Turn it OFF to get the old behaviour back (every animation frame repaints
+    # all 360 x 360) and the moon and the star row will start blinking again;
+    # that is the A/B, and it is the evidence for the diagnosis.
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # THE DECISIVE TEST, and it should have existed nine theories ago.
+  # ON: the dispatcher stops calling component.update on the panel ENTIRELY.
+  # No full frames, no animation frames, not one byte down the SPI bus. The
+  # last picture drawn stays on the glass.
+  #
+  # If the screen STILL flickers with this on, then nothing the firmware draws
+  # is responsible -- not the repaint rate, not the clip, not the animation --
+  # because nothing is being drawn. It is then the panel, the wiring or the
+  # backlight, and I stop editing the renderer for good.
+  #
+  # If it goes still, the flicker is in what we write, and the frame-time
+  # sensor plus the repaint switch narrow it from there.
+  #
+  # Leave it OFF for normal use: with it on the clock never updates again.
+  - platform: template
+    id: screen_freeze
+    name: "Screen freeze (test)"
+    entity_category: config
+    icon: mdi:pause-octagon
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  # Diagnostic, and an A/B. OFF (the default) is the fixed behaviour: the panel
+  # is repainted when the picture changes. ON restores the old unconditional
+  # 1 Hz full repaint, so the two can be compared on the glass in a few seconds
+  # without a reflash.
+  - platform: template
+    id: grow_paint_1s
+    name: "Grow clock repaint every second"
+    entity_category: config
+    icon: mdi:refresh-auto
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
 
   - platform: template
     id: ring_on
@@ -1171,52 +2079,6 @@ switch:
     icon: mdi:weather-partly-cloudy
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
-
-  # ---- the extra weather line, bar panel only --------------------------------
-  # These four share ONE line under the date on the 320x170 bar. Each is off by
-  # default: a letterbox has room for two or three of them, not four, and the
-  # renderer simply stops when the line is full rather than overprinting.
-  # The round face does not offer them -- it has no spare line, which is the
-  # same reason it does not offer the analogue faces to the bar.
-  - platform: template
-    id: show_rain
-    name: "Show rain"
-    entity_category: config
-    icon: mdi:weather-rainy
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
-
-  - platform: template
-    id: show_humidity
-    name: "Show humidity"
-    entity_category: config
-    icon: mdi:water-percent
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
-
-  - platform: template
-    id: show_wind
-    name: "Show wind"
-    entity_category: config
-    icon: mdi:weather-windy
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
-
-  - platform: template
-    id: show_uv
-    name: "Show UV index"
-    entity_category: config
-    icon: mdi:weather-sunny-alert
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
-
-  - platform: template
-    id: show_condition
-    name: "Show weather in words"
-    entity_category: config
-    icon: mdi:text-short
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
 
   # ---------------------------------------------------------------------------
   # THE AMBIENT HINTS, ONE SWITCH EACH
@@ -1299,7 +2161,508 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
+  # ---- Grow clock ----------------------------------------------------------
+  # THE MASTER. On, the whole clock becomes the child's clock: ring, panel and
+  # backlight follow the sleep/wake schedule and nothing else -- no timers, no
+  # status pixels, no hands. A nursery clock that lights up because the
+  # kitchen timer finished is a bug, not a feature. Off, everything above this
+  # comment behaves exactly as it did.
+  - platform: template
+    id: grow_mode
+    name: "Grow clock"
+    icon: mdi:baby-face-outline
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  # The digital time along the bottom of the face. On by default -- Sam asked
+  # for it, and it is the parent at 3 a.m. who reads it, not the child. Off if
+  # the numbers turn out to be a distraction: the colour is still the clock.
+  - platform: template
+    id: grow_show_time
+    name: "Grow clock show time"
+    entity_category: config
+    icon: mdi:clock-digital
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # The Gro-Clock's best idea: stars that go out one by one through the night,
+  # so "how long until morning" is something a child can count. Here the ring
+  # is the stars -- a 60-LED ring loses one about every ten minutes over a
+  # ten-hour night -- and the panel shows a row of eight.
+  - platform: template
+    id: grow_stars
+    name: "Grow clock stars"
+    entity_category: config
+    icon: mdi:star-four-points
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # The eyes move: random looks, blinks, smiles, yawns at bedtime, a twitch in
+  # the night. Off leaves the resting face of each state, still.
+  - platform: template
+    id: grow_animate
+    name: "Grow clock animate"
+    entity_category: config
+    icon: mdi:motion-play-outline
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # "12 min" under the eyes while it is almost morning, and again before bed:
+  # for a child who can count, and for the parent who wants to know.
+  - platform: template
+    id: grow_show_countdown
+    name: "Grow clock show countdown"
+    entity_category: config
+    icon: mdi:timer-sand
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # A grow clock at night, an ordinary clock by day: once the wake window has
+  # held for grow_wake_hold_min, the normal face comes back until the bedtime
+  # warning. Off keeps the grow face all day.
+  - platform: template
+    id: grow_day_clock
+    name: "Grow clock clock by day"
+    entity_category: config
+    icon: mdi:clock-outline
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  # DIAGNOSTIC, and the only honest way left to split the last symptom in two.
+  # On: animation frames keep running at exactly the same rate, but the pose
+  # they draw never advances -- every frame writes the SAME pixels.
+  #   still flickers  -> it is the act of writing to the panel (a burst on the
+  #                      supply, or the write itself being visible), and no
+  #                      amount of drawing differently will fix it.
+  #   goes steady     -> it is the CONTENT changing, which is the animation
+  #                      itself, and the answer is how the eyes move.
+  # Four flashes have been spent guessing between those two. This settles it.
+  - platform: template
+    id: grow_freeze
+    name: "Grow clock freeze the eyes (test)"
+    entity_category: diagnostic
+    icon: mdi:pause-octagon
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  # Holidays: the weekend times apply every day until this is turned off.
+  - platform: template
+    id: grow_holiday
+    name: "Grow clock holiday"
+    entity_category: config
+    icon: mdi:beach
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: template
+    id: grow_weekend
+    name: "Grow clock weekend times"
+    entity_category: config
+    icon: mdi:calendar-weekend
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: template
+    id: grow_dim
+    name: "Grow clock dim at night"
+    entity_category: config
+    icon: mdi:brightness-4
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # WHAT "RESPOND TO SOUND" MEANS HERE, honestly. This board has no microphone.
+  # The trigger is a Home Assistant entity (grow_sound_in) that anything can
+  # drive -- a Voice PE hearing its wake word, a baby monitor, a noise sensor.
+  # When it fires DURING SLEEP the clock brightens for grow_sound_secs and the
+  # face says "shh", in the SLEEP colour, never the wake one: the point is to
+  # answer "is it morning yet?" with a clear no, not to reward calling out.
+  - platform: template
+    id: grow_sound
+    name: "Grow clock respond to sound"
+    entity_category: config
+    icon: mdi:ear-hearing
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+# -----------------------------------------------------------------------------
+# GROW CLOCK BUTTONS -- the parent's overrides
+# -----------------------------------------------------------------------------
+# An override holds until the SCHEDULE next changes state on its own, then lets
+# go. So "wake now" at 6:40 gives the wake colour immediately and the schedule
+# takes back over at bedtime; "sleep now" at 18:30 gives the sleep colour and
+# lets go at the next wake. Nothing has to be remembered to be undone.
+button:
+  # Put this clock into safe mode ON PURPOSE, from Home Assistant. Two uses:
+  # before an OTA you are not sure about, so the risky image lands on a device
+  # that is already in the recovery state; and to rescue a clock whose main
+  # firmware is running but wedged -- the API still answers, so the button
+  # still works, and it comes back up with only WiFi and OTA alive.
+  #
+  # It is NOT a restart button. It reboots into safe mode and stays there for
+  # safe_mode's reboot_timeout waiting for an image.
+  - platform: safe_mode
+    id: enter_safe_mode
+    safe_mode: clock_safe_mode
+    name: "Restart into safe mode"
+
+  # Randomise the stars now. One integer changes and the whole field moves --
+  # positions, sizes and twinkle phases all come out of it. It is stored, so
+  # the new sky survives a reboot.
+  - platform: template
+    id: grow_night_sky_shuffle
+    name: "Grow clock new night sky"
+    icon: mdi:star-shooting-outline
+    on_press:
+      - lambda: 'id(night_seed) = random_uint32() | 1u;'
+
+  - platform: template
+    id: grow_wake_now
+    name: "Grow clock wake now"
+    icon: mdi:weather-sunny
+    on_press:
+      - lambda: |-
+          id(grow_nap_end) = 0;
+          id(grow_sched_at_override) = id(grow_sched);
+          id(grow_override) = 1;
+  - platform: template
+    id: grow_sleep_now
+    name: "Grow clock sleep now"
+    icon: mdi:weather-night
+    on_press:
+      - lambda: |-
+          id(grow_nap_end) = 0;
+          id(grow_sched_at_override) = id(grow_sched);
+          id(grow_override) = 2;
+  # A nap is a short sleep with its own countdown: the stars count the nap
+  # down instead of the night, and the wake colour comes on at the end.
+  - platform: template
+    id: grow_nap_start
+    name: "Grow clock start nap"
+    icon: mdi:power-sleep
+    on_press:
+      - lambda: |-
+          const auto now = id(ha_time).now();
+          if (now.is_valid()) {
+            id(grow_override) = 0;
+            id(grow_nap_end) = (uint32_t) now.timestamp
+                             + (uint32_t) lroundf(id(grow_nap_min).state * 60.0f);
+          }
+  - platform: template
+    id: grow_nap_cancel
+    name: "Grow clock cancel nap"
+    icon: mdi:cancel
+    on_press:
+      - lambda: 'id(grow_nap_end) = 0;'
+  # "Five more minutes": a short sleep in the sleep colour that ends itself in
+  # the wake colour. It is a nap of grow_snooze_min, and the nap machinery
+  # already does exactly that.
+  - platform: template
+    id: grow_snooze
+    name: "Grow clock five more minutes"
+    icon: mdi:alarm-snooze
+    on_press:
+      - lambda: |-
+          const auto now = id(ha_time).now();
+          if (now.is_valid()) {
+            id(grow_override) = 0;
+            id(grow_nap_end) = (uint32_t) now.timestamp
+                             + (uint32_t) lroundf(id(grow_snooze_min).state * 60.0f);
+          }
+  - platform: template
+    id: grow_clear_override
+    name: "Grow clock back to schedule"
+    icon: mdi:calendar-clock
+    on_press:
+      - lambda: |-
+          id(grow_override) = 0;
+          id(grow_nap_end) = 0;
+
+# -----------------------------------------------------------------------------
+# A MESSAGE FROM HOME ASSISTANT, ON THE SCREEN
+# -----------------------------------------------------------------------------
+# Sam, 2026-09-05: "Can I just add settings into HASS that show on the screen?"
+#
+# Not in general -- a new CONTROL is a new entity, and entities are compiled in,
+# so a new dial still needs a flash. But the thing behind the question is
+# answerable: this is a free-text field that lands on the face. Type it in Home
+# Assistant, from a script, from an automation, from Assist -- and it appears.
+# No reflash, ever again, for anything you can say in words.
+#
+# It is stored on the device, so it survives a reboot and shows even while Home
+# Assistant is down -- which is the half of it that matters, because the times
+# you most want a message on a child's clock are the times the network is
+# having a bad day.
+text:
+  - platform: template
+    id: grow_msg
+    name: "Message"
+    icon: mdi:message-text
+    optimistic: true
+    restore_value: true
+    max_length: 40
+    initial_value: ""
+    mode: text
+
 globals:
+  # ---- The night sky's seed ------------------------------------------------
+  # The whole field -- where every star is, how big it is and where in its
+  # twinkle it starts -- comes out of one 32-bit number run through an LCG. So
+  # "randomise the stars" is one integer, it survives a reboot, and the field is
+  # IDENTICAL in all six bands of a frame because every band re-runs the same
+  # sequence from the same seed. That last part is not a nicety: the bands are
+  # drawn in six separate passes, and a field that differed between them would
+  # tear the sky into six strips that disagree.
+  - id: night_seed
+    type: uint32_t
+    restore_value: yes
+    initial_value: '0x9E3779B9'
+  # what the state was last second, so "a new sky each night" can fire on the
+  # TRANSITION into sleep rather than every second of it
+  - id: night_last_st
+    type: int
+    restore_value: no
+    initial_value: '-1'
+
+  # ---- Grow clock state, resolved ONCE a second by the dispatcher ----------
+  # so the ring, the panel, the backlight and the HA sensor all read the same
+  # answer. 0 sleep, 1 almost, 2 awake, 3 bedtime, 4 nap.
+  - id: grow_st
+    type: int
+    restore_value: no
+    initial_value: '2'
+  # the schedule's own state, ignoring overrides -- what an override is measured
+  # against to know when to let go
+  - id: grow_sched
+    type: int
+    restore_value: no
+    initial_value: '2'
+  - id: grow_sched_at_override
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: grow_override          # 0 none, 1 force awake, 2 force sleep
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: grow_nap_end           # epoch seconds; 0 = no nap running
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: grow_frac              # fraction of the night (or nap) still to go
+    type: float
+    restore_value: no
+    initial_value: '1.0'
+  - id: grow_sound_since       # millis() at the last sound event
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: grow_sound_count
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  # ---- Grow eye animator. Written by the 100 ms interval, read by both panel
+  # lambdas, so a full frame from the dispatcher and an animation frame draw
+  # the same eyes. Mirrored in preview/grow_anim.py.
+  - id: an_seed                # 32-bit LCG state
+    type: uint32_t
+    restore_value: no
+    initial_value: '2463534242'
+  - id: an_clip                # running clip, 0 = resting
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: an_t0                  # millis() the clip started
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: an_dur                 # its length, ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '1'
+  - id: an_next                # millis() the next clip may start
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: an_p1
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: an_p2
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: an_p3
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: an_p4
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: an_stlast              # state the animator last saw
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  # per-frame outputs
+  - id: an_gx                  # gaze, px at round scale
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: an_gy
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: an_lidl                # share of the left eye covered from the top
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: an_lidr
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: an_smile               # 0 open .. 1 a happy arch
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: an_hs                  # eye height scale (bounce, wide)
+    type: float
+    restore_value: no
+    initial_value: '1'
+  - id: an_mouth               # 0 .. 1, the yawn
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: an_zph                 # phase of the drifting z's, 0 .. 1
+    type: float
+    restore_value: no
+    initial_value: '0'
+  # TRUE WHILE AN ANIMATION FRAME IS BEING DRAWN, and this time it is sound.
+  #
+  # The first attempt was not. mipi_spi flushes the BOUNDING BOX of what was
+  # drawn, out of a buffer one band tall that is reused for all six bands and
+  # never cleared while auto_clear is off -- so any pixel inside that box which
+  # the pass did not draw is sent to the panel as a different slice of the
+  # screen. Drawing just the eye box left most of its own bounding box
+  # untouched on the band straddling its bottom edge, and that is what erased
+  # Sam's clock time ten times a second.
+  #
+  # What makes it work is CLIPPING, which I dismissed without reading:
+  # Display::fill() is filled_rectangle over the whole screen, and every pixel
+  # of it goes through the clipping test. So with a clip set, a fill touches
+  # exactly the clipped region and marks exactly it dirty. The drawn set IS
+  # its own bounding box, which is the property the first attempt lacked.
+  #
+  # The clip starts at y = 0 on purpose. The driver abandons the whole frame
+  # at the first band that comes back empty, so a region starting at y = 66
+  # would abort in band 0 before anything reached the glass. Starting at the
+  # top means the bands that abort are the ones BELOW the region -- the ones
+  # with nothing to say, whose time and countdown keep what they have.
+  #
+  # Why it is worth the trouble: a full frame is 360 x 360 x 2 bytes, which
+  # the bench measured at 207 ms at 10 MHz, so 52 at 40. A panel refresh is
+  # about 16. No clock rate makes a full-frame change arrive inside one
+  # refresh -- that is arithmetic, and it is why raising the SPI clock alone
+  # could not fix this. The clipped region is 248 x 244, about 121 KB, which
+  # is roughly one refresh at 40 MHz.
+  - id: an_partial
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  # WHICH BAND THE DRIVER IS ASKING FOR, 0..5. mipi_spi runs the display lambda
+  # once per band, top to bottom, and gives it no way to ask which one -- so it
+  # is counted. Incremented on the FIRST LINE of the lambda so every early
+  # return is covered, wrapped at 6, and reset to 0 immediately before each
+  # component.update so a lost frame cannot leave it out of step.
+  #
+  # It is only ever used to NARROW what gets drawn, never to move anything. If
+  # it ever did drift, a band would come back with the marker alone: a missed
+  # repaint, not a corrupted one.
+  - id: an_band
+    type: int
+    restore_value: no
+    initial_value: '0'
+  # WHAT THE PANEL IS ALREADY SHOWING. The animation frame used to be drawn
+  # ten times a second whether or not anything had moved, which is most of the
+  # time: the animator spends far longer in an idle gap holding a resting pose
+  # than it does inside a clip. Every one of those repaints is six lambda
+  # passes and four banded flushes, and on the panel it reads as the graphics
+  # flickering. These hold the pose as last DRAWN, and the frame is skipped
+  # unless the pose has actually changed. Set after the update, not before, so
+  # a frame that never made it to the panel is not recorded as shown.
+  - id: an_dgx
+    type: float
+    restore_value: no
+    initial_value: '-999'
+  - id: an_dgy
+    type: float
+    restore_value: no
+    initial_value: '-999'
+  - id: an_dlidl
+    type: float
+    restore_value: no
+    initial_value: '-999'
+  - id: an_dlidr
+    type: float
+    restore_value: no
+    initial_value: '-999'
+  - id: an_dsmile
+    type: float
+    restore_value: no
+    initial_value: '-999'
+  - id: an_dhs
+    type: float
+    restore_value: no
+    initial_value: '-999'
+  - id: an_dmouth
+    type: float
+    restore_value: no
+    initial_value: '-999'
+  - id: an_dzq                 # the z-drift, quantised: 8 steps a cycle, not 10 a second
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: an_dzph                # ...and the phase itself, as drawn
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: an_lastdraw            # millis() of the last animation repaint
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: an_frame_t0            # millis() when the current frame started
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: grow_paint_key         # hash of everything a FULL frame draws that an
+    type: uint32_t              # animation frame does not; a change means repaint
+    restore_value: no
+    initial_value: '0'
+  - id: grow_paint_at          # millis() of the last full repaint
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: grow_paint_want        # dispatcher -> the update action, this tick
+    type: bool
+    restore_value: no
+    initial_value: 'true'
+  - id: grow_bl_last           # backlight level last set by grow mode; -1 = none
+    type: float
+    restore_value: no
+    initial_value: '-1.0'
+  - id: grow_since_wake        # minutes since the scheduled wake; -1 outside the wake window
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: grow_min_to            # minutes to the next change of state; -1 unknown
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: grow_daytime           # "clock by day" has handed the panel back to the clock
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
   # Drives pulses and the test chase. Deliberately independent of wall-clock
   # time so animations still run before the first sync.
   - id: frame
@@ -1403,20 +2766,497 @@ interval:
   # exists rather than reusing ${lcd_reset}.
   - interval: 1s
     then:
+      # ---- GROW CLOCK STATE MACHINE ----------------------------------------
+      # Runs whether or not grow mode is on, so flipping the switch shows the
+      # right state on the very next frame instead of one second later.
       - lambda: |-
+          const auto now = id(ha_time).now();
+          int st = 2, sched = 2; float frac = 1.0f;
+          if (now.is_valid()) {
+            const int m   = now.hour * 60 + now.minute;
+            const int dow = now.day_of_week;             // 1 = Sunday .. 7 = Saturday
+            const bool wknd = id(grow_holiday).state
+                           || (id(grow_weekend).state && (dow == 1 || dow == 7));
+            const int wake = wknd
+              ? (int) id(grow_wake_h_wknd).state * 60 + (int) id(grow_wake_m_wknd).state
+              : (int) id(grow_wake_h).state * 60      + (int) id(grow_wake_m).state;
+            const int bed   = (int) id(grow_bed_h).state * 60 + (int) id(grow_bed_m).state;
+            const int warn  = (int) id(grow_warn_min).state;
+            const int bwarn = (int) id(grow_bed_warn_min).state;
+            // Half-open windows on a 1440-minute circle. a <= b is an ordinary
+            // window; a > b is one that crosses midnight, which the sleep window
+            // always does and the "almost" window does for anyone waking before
+            // their warning length past midnight.
+            auto inwin = [](int a, int b, int x) {
+              return a <= b ? (x >= a && x < b) : (x >= a || x < b);
+            };
+            auto span = [](int a, int b) { return ((b - a) % 1440 + 1440) % 1440; };
+            const int almost0 = ((wake - warn)  % 1440 + 1440) % 1440;
+            const int bwarn0  = ((bed  - bwarn) % 1440 + 1440) % 1440;
+            if      (warn  > 0 && inwin(almost0, wake, m)) sched = 1;
+            else if (inwin(wake, bwarn0, m))               sched = 2;
+            else if (bwarn > 0 && inwin(bwarn0, bed, m))   sched = 3;
+            else                                           sched = 0;
+
+            // An override lasts until the schedule moves on by itself.
+            if (id(grow_override) != 0 && sched != id(grow_sched_at_override))
+              id(grow_override) = 0;
+            st = sched;
+            if (id(grow_override) == 1) st = 2;
+            if (id(grow_override) == 2) st = 0;
+
+            // Stars: the fraction of the night still to go. Measured from bed
+            // to wake so a "sleep now" at 18:30 still counts down to 7:00.
+            if (st == 0) {
+              int total = span(bed, wake); if (total <= 0) total = 1;
+              int left  = span(m, wake);   if (left > total) left = total;
+              frac = (float) left / (float) total;
+            }
+
+            // A nap beats everything, and ends itself.
+            const uint32_t ts = (uint32_t) now.timestamp;
+            if (id(grow_nap_end) > ts) {
+              st = 4;
+              const float tot = id(grow_nap_min).state * 60.0f;
+              frac = (float) (id(grow_nap_end) - ts) / (tot > 1.0f ? tot : 1.0f);
+              if (frac > 1.0f) frac = 1.0f;
+            } else if (id(grow_nap_end) != 0) {
+              id(grow_nap_end) = 0;                      // nap over: back to schedule
+            }
+
+            // Minutes since the scheduled wake (the sunrise fade, the wake
+            // effect and "clock by day" all count from it), and minutes to
+            // whatever comes next, for the countdown and the sensor.
+            id(grow_since_wake) = (sched == 2 && id(grow_override) == 0 && st == 2)
+                                ? span(wake, m) : -1;
+            int nxt;
+            if      (st == 2) nxt = span(m, bwarn > 0 ? bwarn0 : bed);
+            else if (st == 3) nxt = span(m, bed);
+            else              nxt = span(m, wake);
+            id(grow_min_to) = nxt;
+            const float mtw = (float) span(m, wake);
+            if (isnan(id(grow_minutes_to_wake).state)
+                || fabsf(id(grow_minutes_to_wake).state - mtw) >= 0.5f)
+              id(grow_minutes_to_wake).publish_state(mtw);
+            // "Clock by day": the wake window has held long enough, hand the
+            // panel and the ring back to the ordinary clock.
+            id(grow_daytime) = id(grow_day_clock).state && st == 2
+                               && id(grow_since_wake) >= (int) id(grow_wake_hold_min).state;
+          } else {
+            id(grow_since_wake) = -1; id(grow_min_to) = -1; id(grow_daytime) = false;
+          }
+          // A forced expression, for demos and daylight checks.
+          const std::string fx = id(grow_expression).current_option().str();
+          if      (fx == "sleeping") st = 0;
+          else if (fx == "almost")   st = 1;
+          else if (fx == "awake")    st = 2;
+          else if (fx == "bedtime")  st = 3;
+          if (fx != "auto") id(grow_daytime) = false;   // a demo shows the face
+
+          id(grow_sched) = sched;
+          // A NEW SKY EACH NIGHT, on the transition INTO sleep. Guarded on the
+          // previous state, so it fires once a night rather than once a second;
+          // and night_last_st starts at -1, so a clock that boots up already
+          // asleep keeps the sky it had rather than throwing it away.
+          if (id(grow_night_sky_nightly).state && st == 0
+              && id(night_last_st) != 0 && id(night_last_st) != -1)
+            id(night_seed) = random_uint32() | 1u;
+          id(night_last_st) = st;
+          id(grow_st)    = st;
+          id(grow_frac)  = frac;
+          static const char *names[] = {"sleep", "almost", "awake", "bedtime", "nap"};
+          if (id(grow_state).state != names[st]) id(grow_state).publish_state(names[st]);
+
+          // ---- the backlight follows the state -----------------------------
+          // Only touched when the wanted level CHANGES, so this does not fight
+          // the Backlight light entity every second. Leaving grow mode puts the
+          // backlight back to full, once, and then leaves it alone.
+          // MY FREEZE TEST HAD A HOLE IN IT. screen_freeze stops
+          // component.update on the panel, so no PIXELS go down the SPI bus --
+          // but it never stopped this block, which drives the BACKLIGHT. So
+          // "still flickers while frozen" did not prove the hardware after
+          // all: the backlight was still being written the whole time.
+          // Frozen now means frozen: no pixels and no backlight changes.
+          if (id(screen_freeze).state) {
+            // leave the backlight exactly where it is
+          } else if (id(grow_mode).state && !id(grow_daytime)) {
+            const bool nightish = (st == 0 || st == 3 || st == 4);
+            const float bn = id(grow_night_bright).state / 100.0f;
+            const float bd = id(grow_day_bright).state / 100.0f;
+            float b = (nightish && id(grow_dim).state) ? bn : bd;
+            // sunrise: fade up from the night level over grow_fade_min
+            const int fade = (int) id(grow_fade_min).state, sw = id(grow_since_wake);
+            if (st == 2 && fade > 0 && sw >= 0 && sw < fade)
+              b = bn + (bd - bn) * ((float) sw + 0.5f) / (float) fade;
+            const bool sound = id(grow_sound).state && (st == 0 || st == 4)
+                && id(grow_sound_since) != 0
+                && (uint32_t)(millis() - id(grow_sound_since))
+                   < (uint32_t) lroundf(id(grow_sound_secs).state * 1000.0f);
+            if (sound && b < 0.6f) b = 0.6f;
+            if (fabsf(b - id(grow_bl_last)) > 0.005f) {
+              auto c = id(backlight).turn_on(); c.set_brightness(b); c.perform();
+              id(grow_bl_last) = b;
+            }
+          } else if (id(grow_bl_last) >= 0.0f) {
+            auto c = id(backlight).turn_on(); c.set_brightness(1.0f); c.perform();
+            id(grow_bl_last) = -1.0f;
+          }
+      - lambda: |-
+          // current_option(), not .state. The compiler says: "'Select::state' is
+          // deprecated: Use current_option() instead of .state. Will be removed
+          // in 2026.7.0". This still built, but it is the LAST release where it
+          // does -- and 2026.7.0 does not exist yet, so this would have turned
+          // into a hard build failure on Sam's next ESPHome update, months from
+          // now, with nothing obviously connecting it to this file.
           const std::string want = id(panel_choice).current_option().str();
           bool bar = id(bar_active);
           if      (want == "bar 320x170")   bar = true;
           else if (want == "round 360x360") bar = false;
           else                              bar = id(panel_strap).state;
           id(bar_active) = bar;
+      # ---- REPAINT ON CHANGE, NOT ON THE TICK -------------------------------
+      # This dispatcher used to end with an unconditional full repaint, every
+      # second, forever. That is more expensive than it looks. An animation
+      # frame sets a clipping window, and mipi_spi's fill() falls back to the
+      # base implementation when clipping is set, so only the eye box is marked
+      # dirty. A FULL frame has no clip, so fill() takes its fast path: it wipes
+      # the band buffer and marks the ENTIRE band dirty. Every one of those
+      # repaints therefore pushed all 360 x 360 x 16 bits down the bus --
+      # 259200 bytes, about 52 ms at 40 MHz -- at a panel that refreshes in
+      # roughly 16, sixty times a minute, on a screen where between one second
+      # and the next almost nothing has changed.
+      #
+      # The key below covers everything a full frame draws that an animation
+      # frame does NOT: the field outside the eye box, the star row, the
+      # countdown, and the digital time. The eyes, the z's, the sky and "shh"
+      # all sit inside the animation clip and the partial frames keep them
+      # current, so they are deliberately absent -- putting them in would repaint
+      # the whole panel on every blink, which is the behaviour being removed.
+      #
+      # Gated in grow mode only. The ordinary clock face has a second hand and
+      # has earned its second. And a 10 s floor underneath, so if the key is
+      # ever missing an input the panel goes stale for ten seconds rather than
+      # forever -- a bounded bug instead of an unbounded one.
+      - lambda: |-
+          bool want = true;
+          uint32_t key = 0;
+          auto mix  = [&key](uint32_t v) { key = (key ^ v) * 16777619u; };
+          auto mixs = [&mix](const std::string &v) {
+            for (char c : v) mix((uint32_t)(uint8_t) c);
+          };
+          if (id(grow_mode).state && !id(grow_daytime) && !id(grow_paint_1s).state) {
+            const auto now = id(ha_time).now();
+            const int st = id(grow_st);
+            mix((uint32_t) st);
+            mix(id(display_on).state ? 1u : 0u);
+            mix(id(screen_on).state ? 2u : 0u);
+            mixs(id(grow_face).current_option().str());
+            mixs(id(grow_sleep_colour).current_option().str());
+            mixs(id(grow_wake_colour).current_option().str());
+            mixs(id(grow_almost_colour).current_option().str());
+            mixs(id(grow_bedtime_colour).current_option().str());
+            // "shh" lives inside the clip, but it is one bit and it changes
+            // about twice a night, so it costs nothing to be safe about it.
+            const bool sound = id(grow_sound).state && (st == 0 || st == 4)
+                && id(grow_sound_since) != 0
+                && (uint32_t)(millis() - id(grow_sound_since))
+                   < (uint32_t) lroundf(id(grow_sound_secs).state * 1000.0f);
+            mix(sound ? 4u : 0u);
+            // The star row: what is drawn is the COUNT lit, not the fraction,
+            // so hash the count. grow_frac slides continuously and would
+            // otherwise force a repaint every single second for a row of dots
+            // that changes about once every few minutes.
+            if (id(grow_stars).state && (st == 0 || st == 4)) {
+              const int NS = std::max(3, std::min(12, (int) id(grow_star_count).state));
+              int lit = (int) ceilf(id(grow_frac) * NS); if (lit > NS) lit = NS;
+              mix(0xA1u); mix((uint32_t) NS); mix((uint32_t) lit);
+              mixs(id(grow_star_shape).current_option().str());
+            }
+            if (id(grow_show_countdown).state && (st == 1 || st == 3) && id(grow_min_to) >= 0) {
+              mix(0xB2u); mix((uint32_t) id(grow_min_to));
+            }
+            if (id(grow_show_time).state && now.is_valid()) {
+              mix(0xC3u); mix((uint32_t) now.hour); mix((uint32_t) now.minute);
+              mix(id(fmt_24h).state ? 8u : 0u);
+            }
+            want = key != id(grow_paint_key)
+                || (uint32_t)(millis() - id(grow_paint_at)) >= 10000u;
+          }
+          // The freeze switch wins over everything, including the 10 s floor
+          // and the non-grow path that is otherwise never gated. Nothing goes
+          // to the panel while it is on.
+          if (id(screen_freeze).state) want = false;
+          if (want) { id(grow_paint_key) = key; id(grow_paint_at) = millis(); }
+          id(grow_paint_want) = want;
       - if:
           condition:
-            lambda: 'return id(bar_active);'
+            lambda: 'return id(grow_paint_want);'
           then:
-            - component.update: bar_lcd
-          else:
-            - component.update: face_lcd
+            - if:
+                condition:
+                  lambda: 'return id(bar_active);'
+                then:
+                  - component.update: bar_lcd
+                else:
+                  - lambda: 'id(an_band) = 0;'
+                  - component.update: face_lcd
+
+  # ---- Grow eye animator, 10 fps -----------------------------------------------
+  # A clip library and a scheduler. Each state has a table of clips with
+  # weights and an idle gap; the scheduler draws the next clip, its length
+  # and its gaze targets from a 32-bit LCG, plays it through envelopes, and
+  # rests the eyes between clips. The outputs are per-frame numbers (gaze,
+  # lids, smile, height, mouth) that both panel lambdas turn into pixels.
+  #
+  # This is the SAME engine as preview/grow_anim.py, constant for constant;
+  # that file renders it to GIFs so a change can be watched before a flash.
+  # Awake draws about 225 clips in 20 minutes, none of them identical -- the
+  # variety is in the parameters, the sequence period is 2^32 draws.
+  #
+  # 100 ms. It was briefly 50, to allow 20 fps once the clipped repaint made
+  # a frame cheap -- and that is the change that made the ORDINARY CLOCK
+  # start flickering too, which it never had. A clipped frame being cheap is
+  # not the same as the loop being free: at 50 ms of animator plus 10 fps of
+  # repaint the board stopped keeping up, and everything sharing that loop --
+  # the clock face, the ring -- went with it. Reverted, and the lesson is
+  # that the budget is the LOOP, not the SPI.
+  - interval: 100ms
+    then:
+      - lambda: |-
+          if (!id(grow_mode).state || id(grow_daytime)) { id(an_clip) = 0; return; }
+          const uint32_t ms = millis();
+          const int st = id(grow_st);
+
+          // resting pose: how much of the eye the lid covers, and the smile
+          float base_lid, base_smile;
+          if      (st == 0 || st == 4) { base_lid = 1.0f;  base_smile = 0.0f;  }
+          else if (st == 1)            { base_lid = 0.45f; base_smile = 0.0f;  }
+          else if (st == 2)            { base_lid = 0.0f;  base_smile = 0.35f; }
+          else                         { base_lid = 0.55f; base_smile = 0.0f;  }
+
+          auto rnd = [&]() -> uint32_t {
+            id(an_seed) = id(an_seed) * 1664525u + 1013904223u;
+            return (id(an_seed) >> 8) & 0xFFFFFFu;
+          };
+          auto rr = [&](int lo, int hi) -> int {
+            return lo + (int) (rnd() % (uint32_t) (hi - lo + 1));
+          };
+          auto ease = [](float u) -> float {
+            u = u < 0 ? 0 : u > 1 ? 1 : u; return u * u * (3 - 2 * u);
+          };
+          auto tri = [](float u) -> float { return u < 0.5f ? u * 2 : 2 - u * 2; };
+          auto hold = [&](float u, float a, float b) -> float {
+            return u < a ? ease(u / a) : u < b ? 1.0f : ease((1 - u) / (1 - b));
+          };
+
+          // clips
+          enum { NONE, BLINK, DBLINK, LOOK, LOOK_AROUND, SMILE, WINK, BOUNCE, WIDE,
+                 SQUINT, ROLL, WIGGLE, YAWN, SLOW_BLINK, PEEK, DRIFT, NOD, TWITCH, DANCE };
+          static const uint16_t DLO[19] = {0, 360, 800, 1500, 4000, 2000, 700, 900, 1200,
+                                           1500, 1600, 900, 3000, 1200, 1800, 4000, 2400, 400, 2400};
+          static const uint16_t DHI[19] = {0, 360, 800, 3500, 6000, 4000, 700, 900, 1200,
+                                           2500, 1600, 900, 3000, 1200, 1800, 6000, 2400, 400, 2400};
+          // {clip, weight} per state, weights sum to 100
+          static const uint8_t T_AWAKE[12][2]   = {{LOOK, 22}, {LOOK_AROUND, 14}, {BLINK, 14},
+                                                   {DBLINK, 5}, {SMILE, 16}, {WINK, 4}, {BOUNCE, 6},
+                                                   {WIDE, 3}, {SQUINT, 4}, {ROLL, 3}, {WIGGLE, 4},
+                                                   {DANCE, 5}};
+          static const uint8_t T_ALMOST[8][2]   = {{SLOW_BLINK, 22}, {BLINK, 10}, {LOOK, 15},
+                                                   {YAWN, 15}, {PEEK, 12}, {DRIFT, 14}, {SQUINT, 6},
+                                                   {SMILE, 6}};
+          static const uint8_t T_BEDTIME[7][2]  = {{YAWN, 26}, {SLOW_BLINK, 20}, {NOD, 16},
+                                                   {DRIFT, 14}, {LOOK, 10}, {BLINK, 9}, {SQUINT, 5}};
+          static const uint8_t T_SLEEP[1][2]    = {{TWITCH, 100}};
+          const uint8_t (*tbl)[2]; int tn; int glo, ghi;
+          if      (st == 2) { tbl = T_AWAKE;   tn = 12; glo = 1500;  ghi = 5000;  }
+          else if (st == 1) { tbl = T_ALMOST;  tn = 8;  glo = 2000;  ghi = 6000;  }
+          else if (st == 3) { tbl = T_BEDTIME; tn = 7;  glo = 2000;  ghi = 7000;  }
+          else              { tbl = T_SLEEP;   tn = 1;  glo = 12000; ghi = 30000; }
+          const int GAZE_X = 20, GAZE_Y = 12;
+
+          if (st != id(an_stlast)) {
+            // a state change cancels the clip and rests the eyes. The first
+            // one after boot also stirs the seed, so two clocks do not blink
+            // in step.
+            if (id(an_stlast) < 0) id(an_seed) ^= ms * 2654435761u;
+            id(an_clip) = 0; id(an_next) = ms + 1500; id(an_stlast) = st;
+          }
+          if (id(grow_animate).state && (int32_t) (ms - id(an_next)) >= 0) {
+            const int r = rr(0, 99);
+            int acc = 0, c = tbl[tn - 1][0];
+            for (int i = 0; i < tn; i++) { acc += tbl[i][1]; if (r < acc) { c = tbl[i][0]; break; } }
+            id(an_clip) = c; id(an_t0) = ms; id(an_dur) = rr(DLO[c], DHI[c]);
+            const float k = st == 2 ? 1.0f : 0.6f;       // small looks when sleepy
+            id(an_p1) = (int) (rr(-GAZE_X, GAZE_X) * k); id(an_p2) = (int) (rr(-GAZE_Y, GAZE_Y) * k);
+            id(an_p3) = (int) (rr(-GAZE_X, GAZE_X) * k); id(an_p4) = (int) (rr(-GAZE_Y, GAZE_Y) * k);
+            id(an_next) = ms + id(an_dur) + rr(glo, ghi);
+          }
+
+          int c = id(an_clip);
+          float u = c ? (float) (ms - id(an_t0)) / (float) id(an_dur) : 1.0f;
+          if (u >= 1.0f) { c = NONE; u = 1.0f; id(an_clip) = 0; }
+
+          float lidl = base_lid, lidr = base_lid, smile = base_smile, hs = 1.0f, mouth = 0.0f;
+          float tx = 0, ty = 0; bool direct = false; float dx = 0, dy = 0;
+          const int p1 = id(an_p1), p2 = id(an_p2), p3 = id(an_p3), p4 = id(an_p4);
+          const float PI2 = 6.2831853f;
+          switch (c) {
+            case BLINK:      lidl = lidr = std::max(base_lid, tri(u)); break;
+            case DBLINK:     lidl = lidr = std::max(base_lid, tri(fmodf(u * 2, 1.0f))); break;
+            case LOOK:       tx = p1; ty = p2; break;
+            case LOOK_AROUND:
+              if (u < 0.45f) { tx = p1; ty = p2; } else if (u < 0.9f) { tx = p3; ty = p4; }
+              break;
+            case SMILE:      smile = std::max(base_smile, hold(u, 0.2f, 0.75f)); break;
+            case WINK:
+              lidr = std::max(base_lid, hold(u, 0.25f, 0.65f));
+              smile = std::max(base_smile, 0.6f * hold(u, 0.25f, 0.65f));
+              break;
+            case BOUNCE:     hs = 1 + 0.16f * sinf(PI2 * u) * (1 - u); break;
+            case WIDE:
+              lidl = lidr = 0; hs = 1 + 0.15f * hold(u, 0.2f, 0.7f); ty = -3 * hold(u, 0.2f, 0.7f);
+              break;
+            case SQUINT:
+              lidl = lidr = std::max(base_lid, 0.45f * hold(u, 0.25f, 0.75f)); tx = p1; ty = -6;
+              break;
+            case ROLL:       direct = true; dx = 14 * cosf(PI2 * u); dy = 9 * sinf(PI2 * u); break;
+            case WIGGLE:     direct = true; dx = 10 * sinf(2 * PI2 * u) * (1 - u); break;
+            case YAWN: {
+              const float e = hold(u, 0.3f, 0.8f);
+              lidl = lidr = std::max(base_lid, e); mouth = hold(u, 0.35f, 0.7f); ty = 4 * mouth;
+              break;
+            }
+            case SLOW_BLINK: lidl = lidr = std::max(base_lid, tri(u)); break;
+            case PEEK: {
+              const float e = hold(u, 0.3f, 0.7f);
+              lidl = lidr = base_lid * (1 - e); ty = -3 * e;
+              break;
+            }
+            case DRIFT:      lidl = lidr = std::min(0.95f, base_lid + 0.25f * sinf(3.14159265f * u)); break;
+            case NOD:
+              if (u < 0.55f) {
+                const float e = ease(u / 0.55f);
+                lidl = lidr = base_lid + (0.95f - base_lid) * e; ty = 10 * e;
+              } else if (u < 0.7f) { lidl = lidr = 0.15f; ty = -4; }
+              else {
+                const float e = 1 - ease((u - 0.7f) / 0.3f);
+                lidl = lidr = base_lid + (0.15f - base_lid) * e;
+              }
+              break;
+            case TWITCH:     direct = true; dx = 3 * sinf(2 * PI2 * u) * (1 - u); break;
+            case DANCE:
+              smile = 1; hs = 1 + 0.14f * sinf(2 * PI2 * u) * (1 - 0.5f * u);
+              direct = true; dx = 10 * sinf(PI2 * u);
+              break;
+            default: break;
+          }
+          if (direct) { id(an_gx) = dx; id(an_gy) = dy; }
+          else {
+            id(an_gx) += (tx - id(an_gx)) * 0.4f;
+            id(an_gy) += (ty - id(an_gy)) * 0.4f;
+          }
+          id(an_lidl) = lidl; id(an_lidr) = lidr; id(an_smile) = smile;
+          id(an_hs) = hs; id(an_mouth) = mouth;
+          id(an_zph) = (ms % 3000) / 3000.0f;
+      # An animation frame: only when there is something to animate and the
+      # panel is showing it. The lambda sees an_partial and repaints just the
+      # eye box, so the driver flushes just that.
+      - if:
+          condition:
+            lambda: |-
+              if (id(screen_freeze).state) return false;      // see screen_freeze
+              if (!id(grow_mode).state || id(grow_daytime) || !id(grow_animate).state) return false;
+              if (!id(display_on).state || !id(screen_on).state) return false;
+              if (id(clock_face).current_option().str() == "colour test") return false;
+              const std::string fs = id(grow_face).current_option().str();
+              if (!(fs == "eyes" || fs == "eyes and sky" || fs == "eyes on colour"))
+                return false;
+              // ...AND ONLY IF THE EYES HAVE MOVED. Without this the panel is
+              // repainted ten times a second through an idle gap in which
+              // nothing changes, which is what Sam saw as the graphics
+              // flickering. The thresholds are below what a pixel can show:
+              // the gaze moves the pupil by a few pixels per unit, and the
+              // lids, the smile, the squash and the yawn are all 0..1 over
+              // the eye's own height.
+              // A full frame is 104 ms of SPI plus six passes of drawing, so
+              // the repaint cannot run at the animator's own 100 ms tick --
+              // and if a frame starts before the last one has finished
+              // walking down the panel, the glass never shows one whole
+              // picture. That is the flicker. grow_anim_ms is the floor
+              // between repaints and it is Sam's to turn, because the right
+              // value is something you look at.
+              // A BLINK IS THE FAST PART, and it was the part being dropped.
+              // The lid crosses its whole range in a couple of hundred
+              // milliseconds; at the dial's own interval that is one frame, and
+              // one frame of a blink is a snap, not a blink. So while a lid, the
+              // squash or the mouth is actually moving, the floor halves --
+              // never below 150 ms, which is where the loop stops keeping up.
+              // The idle gap keeps the dial's value, so nothing is spent on a
+              // face that is holding still.
+              const float mv = std::max(
+                  std::max(fabsf(id(an_lidl) - id(an_dlidl)),
+                           fabsf(id(an_lidr) - id(an_dlidr))),
+                  std::max(fabsf(id(an_hs)   - id(an_dhs)),
+                           fabsf(id(an_mouth) - id(an_dmouth))));
+              const uint32_t dial = (uint32_t) id(grow_anim_ms).state;
+              const uint32_t floor_ms = mv > 0.06f
+                  ? std::max<uint32_t>(150u, dial / 2u) : dial;
+              if (millis() - id(an_lastdraw) < floor_ms)
+                return false;
+              // Frozen: keep drawing at the same cadence, same picture. The
+              // dirty check below would otherwise stop the test dead, since
+              // by definition nothing has moved.
+              if (id(grow_freeze).state) return true;
+              const int zq = (int) (id(an_zph) * 8.0f);
+              return fabsf(id(an_gx)    - id(an_dgx))    > 0.02f
+                  || fabsf(id(an_gy)    - id(an_dgy))    > 0.02f
+                  || fabsf(id(an_lidl)  - id(an_dlidl))  > 0.01f
+                  || fabsf(id(an_lidr)  - id(an_dlidr))  > 0.01f
+                  || fabsf(id(an_smile) - id(an_dsmile)) > 0.01f
+                  || fabsf(id(an_hs)    - id(an_dhs))    > 0.01f
+                  || fabsf(id(an_mouth) - id(an_dmouth)) > 0.01f
+                  || zq != id(an_dzq);
+          then:
+            # Advance the drawn pose FIRST: the lambda renders from these, so
+            # this is what makes the frame show something new. Unless the
+            # freeze switch is on, in which case the frame still runs and
+            # still writes to the panel -- it just writes the same picture.
+            - lambda: |-
+                if (!id(grow_freeze).state) {
+                  id(an_dgx)    = id(an_gx);    id(an_dgy)    = id(an_gy);
+                  id(an_dlidl)  = id(an_lidl);  id(an_dlidr)  = id(an_lidr);
+                  id(an_dsmile) = id(an_smile); id(an_dhs)    = id(an_hs);
+                  id(an_dmouth) = id(an_mouth); id(an_dzph)   = id(an_zph);
+                  id(an_dzq)    = (int) (id(an_zph) * 8.0f);
+                }
+                id(an_frame_t0) = millis();
+                // PARTIAL by default now. A full animation frame walks all
+                // 360 rows past a scan that is walking them too, and every
+                // crossing shows on anything that is being redrawn unchanged.
+                // See grow_partial and "THE ANIMATION BOX".
+                id(an_partial) = id(grow_partial).state;
+            - if:
+                condition:
+                  lambda: 'return id(bar_active);'
+                then:
+                  - component.update: bar_lcd
+                else:
+                  - lambda: 'id(an_band) = 0;'
+                  - component.update: face_lcd
+            - lambda: |-
+                id(an_partial) = false;
+                const uint32_t now_ms = millis();
+                id(an_lastdraw) = now_ms;
+                // A full animation frame has just repainted the whole panel,
+                // so the 1 s dispatcher must not turn round and do it again a
+                // few milliseconds later. Resetting the floor here is what
+                // keeps the two paths from walking down the glass over each
+                // other, which is the thing 6702d52 got wrong.
+                if (!id(grow_partial).state) id(grow_paint_at) = now_ms;
+                const float dt = (float) (now_ms - id(an_frame_t0));
+                if (isnan(id(grow_frame_ms).state)
+                    || fabsf(id(grow_frame_ms).state - dt) >= 1.0f)
+                  id(grow_frame_ms).publish_state(dt);
 
   - interval: 250ms
     then:
@@ -1512,6 +3352,41 @@ light:
     id: backlight
     name: "Backlight"
     restore_mode: ALWAYS_ON
+    # 0s, and this was a real defect. ESPHome's default_transition_length is
+    # ONE SECOND, and this light never set it -- the ring sets 0s and says why,
+    # the backlight was simply missed. So every brightness change here has been
+    # a one-second RAMP of the panel's backlight rather than a step. Anything
+    # that nudges the level repeatedly (the sunrise fade moves it every second
+    # by design) has therefore been continuously modulating the backlight, and
+    # backlight modulation on an LCD is most visible on small bright features
+    # against a flat dark field -- a 32 px moon, a row of 6 px dots -- and
+    # least visible inside a large solid block like an eye.
+    #
+    # That is not a claim that it IS the flicker. It is a defect that was
+    # sitting in the one subsystem I never looked at, with a symptom profile
+    # that matches, and it costs nothing to remove.
+    default_transition_length: 0s
+    # Sam: "the screen is too low". The light's default gamma is 2.8, so the
+    # grow clock's 10% night level was a 0.16% duty -- the panel was off in all
+    # but name. With gamma 1.0 a percentage is a duty, 10% is a real glow, and
+    # the two screen-brightness numbers mean what they say.
+    gamma_correct: 1.0
+
+  # The board's own RGB LED, driven to black at boot and kept there. Exposed to
+  # HA so it can be turned back on -- it is a useful "is this thing alive" light
+  # on a bench -- but ALWAYS_OFF means every boot starts dark whatever HA last
+  # said, which is what "turn it off" has to mean on a clock in a bedroom.
+  - platform: esp32_rmt_led_strip
+    id: board_led
+    name: "Board LED"
+    entity_category: config
+    icon: mdi:led-off
+    pin: ${board_led_pin}
+    num_leds: 1
+    chipset: WS2812
+    rgb_order: GRB
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 0s
 
   - platform: esp32_rmt_led_strip
     id: ring
@@ -1527,18 +3402,24 @@ light:
     # DID accept WS2812B, so a copy-paste from an old config fails validation.)
     chipset: WS2812
 
-    # `rgb_order`, NOT `channel_colors`. CORRECTING A CLAIM THIS FILE MADE.
-    # The comment here used to say channel_colors replaced rgb_order in "ESPHome
-    # 2026.8.0 -- this exact version". There is no 2026.8.0. Checked against the
-    # index on 2026-08-27: the newest ESPHome that exists is 2026.6.5, and there
-    # is no 2026.7 or 2026.8 at all.
+    # `rgb_order`, and it is the VERSION-PORTABLE choice rather than the current
+    # one. Two corrections to what this comment used to claim, both from the
+    # bench, where 2026.8.1 is installed and the firmware actually flashes:
     #
-    # Read out of the installed 2026.6.5 source rather than asserted:
-    # components/esp32_rmt_led_strip/light.py line 83 --
-    #     cv.Required(CONF_RGB_ORDER): cv.enum(RGB_ORDERS, upper=True)
-    # It is REQUIRED, channel_colors is not a key at all, and `esphome config`
-    # fails the whole file on it. So the config as it stood could not have been
-    # flashed. Accepted values are RGB RBG GRB GBR BGR BRG (light.py:36).
+    #   1. I wrote here that "there is no 2026.8.0" and that 2026.6.5 was the
+    #      newest ESPHome in existence. WRONG. 2026.7 and 2026.8 both exist.
+    #      What I actually checked was a package index through a proxy, and I
+    #      reported what it served as what exists.
+    #   2. I wrote that `channel_colors` "is not a key at all". WRONG. It exists,
+    #      and on 2026.8.x `rgb_order` is Optional and deprecated in favour of
+    #      it, with removal scheduled for 2027.3.0.
+    #
+    # What was right: on 2026.6.5, `cv.Required(CONF_RGB_ORDER)` really is
+    # required and `channel_colors` really is unknown, so a file using
+    # channel_colors fails there. Since rgb_order still WORKS on 2026.8.x -- it
+    # only warns -- rgb_order is the one setting that validates on both, which is
+    # why it stays. Swap to channel_colors when 2027.3.0 is close, not before.
+    # Accepted values: RGB RBG GRB GBR BGR BRG.
     #
     # If red and green come out swapped on the ring, change this to RGB. Note
     # that this is the RING's byte order and has nothing to do with the screen's
@@ -1592,12 +3473,154 @@ light:
               buf[i].b = (uint8_t) std::min(255, (int) buf[i].b + b);
             };
 
+            // ---- Current budget, applied to whatever was just written ------
+            // Called immediately before every return from this lambda, and at
+            // the end. It reads the strip back rather than the compositing
+            // buffer on purpose: grow mode writes it[] directly and never
+            // touches buf, so the buffer is not the whole truth. One estimate,
+            // one multiply, no layer can bypass it.
+            //
+            // 20 mA per channel at full is the WS2812B datasheet figure, so a
+            // white pixel is 60 mA. get_red() returns the value as WRITTEN --
+            // before the light's own correction -- which equals the byte on the
+            // wire only because this config pins gamma_correct to 1.0 and the
+            // master brightness to 100%. If either of those ever changes, this
+            // estimate stops being current and starts being a fiction.
+            //
+            // Quiescent draw (about 1 mA per LED, always there) is deliberately
+            // NOT in the sum: it cannot be scaled away, so including it would
+            // only make the limiter clamp harder for no gain.
+            auto cap = [&it, PHYS]() {
+              const float lim = id(ring_ma).state;
+              if (!(lim > 0.0f)) return;                    // 0 or NaN = off
+              float ma = 0.0f;
+              for (int i = 0; i < PHYS; i++)
+                ma += (it[i].get_red() + it[i].get_green() + it[i].get_blue())
+                      * (20.0f / 255.0f);
+              if (ma <= lim) return;
+              const float sc = lim / ma;
+              for (int i = 0; i < PHYS; i++)
+                it[i] = Color((uint8_t) lroundf(it[i].get_red()   * sc),
+                              (uint8_t) lroundf(it[i].get_green() * sc),
+                              (uint8_t) lroundf(it[i].get_blue()  * sc));
+            };
+
             const std::string mode  = id(display_mode).current_option().str();
             const auto now = id(ha_time).now();
             // The ring has its own switch under the master now, so "turn off
             // the LED's on the outside" does not take the screen with it.
             if (!id(display_on).state || !id(ring_on).state) {
               it.all() = Color::BLACK; return;
+            }
+
+            // ---- GROW CLOCK: the ring is the colour, and the stars ---------
+            // Takes the whole ring and returns. Nothing below -- hands, timers,
+            // status -- is for a child's bedroom.
+            if (id(grow_mode).state && !id(grow_daytime)) {
+              const int st = id(grow_st);
+              const std::string sc = id(grow_sleep_colour).current_option().str();
+              const std::string wc = id(grow_wake_colour).current_option().str();
+              const std::string ac = id(grow_almost_colour).current_option().str();
+              const std::string bc = id(grow_bedtime_colour).current_option().str();
+              int r = 0, g = 0, b = 0;
+              float k = 1.0f;
+              const float ph = (id(frame) % 80) / 80.0f;               // 4 s breathe
+              const float breathe = 0.55f + 0.45f * fabsf(1.0f - 2.0f * ph);
+              bool stars = false;
+              if (st == 0 || st == 4) {
+                if      (sc == "red")    { r = 120; g = 0;  b = 0;   }
+                else if (sc == "purple") { r = 60;  g = 0;  b = 90;  }
+                else if (sc == "off")    { r = 0;   g = 0;  b = 0;   }
+                else                     { r = 0;   g = 20; b = 120; }
+                stars = id(grow_stars).state;
+              } else if (st == 1) {
+                if      (ac == "yellow") { r = 255; g = 200; b = 0;   }
+                else if (ac == "green")  { r = 0;   g = 200; b = 40;  }
+                else if (ac == "white")  { r = 200; g = 200; b = 200; }
+                else                     { r = 255; g = 120; b = 0;   }
+                k = breathe;
+              } else if (st == 2) {
+                if      (wc == "green") { r = 0;   g = 200; b = 40;  }
+                else if (wc == "white") { r = 200; g = 200; b = 200; }
+                else                    { r = 255; g = 200; b = 0;   }
+              } else {
+                if      (bc == "red")    { r = 120; g = 0;  b = 0;   }
+                else if (bc == "purple") { r = 60;  g = 0;  b = 90;  }
+                else if (bc == "blue")   { r = 0;   g = 20; b = 120; }
+                else                     { r = 200; g = 80; b = 0;   }
+                k = breathe;
+              }
+
+              // Sound during sleep: brighter and pulsing, in the SLEEP colour.
+              const bool sound = id(grow_sound).state && (st == 0 || st == 4)
+                  && id(grow_sound_since) != 0
+                  && (uint32_t)(millis() - id(grow_sound_since))
+                     < (uint32_t) lroundf(id(grow_sound_secs).state * 1000.0f);
+              // The RING's own brightness numbers; the screen has its own pair.
+              const bool nightish = (st == 0 || st == 3 || st == 4);
+              const float bn = id(grow_ring_night_bright).state / 100.0f;
+              const float bd = id(grow_ring_day_bright).state / 100.0f;
+              float bri = (nightish && id(grow_dim).state) ? bn : bd;
+              const int fade = (int) id(grow_fade_min).state, sw = id(grow_since_wake);
+              if (st == 2 && fade > 0 && sw >= 0 && sw < fade)
+                bri = bn + (bd - bn) * ((float) sw + 0.5f) / (float) fade;   // sunrise
+              if (sound) {
+                if (bri < 0.6f) bri = 0.6f;
+                k = 0.6f + 0.4f * fabsf(1.0f - 2.0f * ((id(frame) % 20) / 20.0f));
+              }
+
+              // The wake-up effect: for the first grow_wake_effect_min of the
+              // wake window the ring celebrates -- a slow rainbow, or the wake
+              // colour with sparkles. Then it settles to the plain colour.
+              const std::string fx = id(grow_wake_effect).current_option().str();
+              if (st == 2 && fx != "solid" && sw >= 0
+                  && sw < (int) id(grow_wake_effect_min).state) {
+                for (int i = 0; i < PHYS; i++) it[i] = Color::BLACK;
+                uint32_t seed = id(frame) * 2654435761u;
+                for (int i = 0; i < N; i++) {
+                  int rr = r, gg = g, bb = b;
+                  if (fx == "rainbow") {
+                    // hue walks once round the ring and once round every 8 s
+                    const float h = fmodf((float) i / N + (id(frame) % 160) / 160.0f, 1.0f) * 6.0f;
+                    const int   q = (int) h; const float f = h - q;
+                    const int   x = (int) (255 * (1 - f)), y = (int) (255 * f);
+                    switch (q) {
+                      case 0: rr = 255; gg = y;   bb = 0;   break;
+                      case 1: rr = x;   gg = 255; bb = 0;   break;
+                      case 2: rr = 0;   gg = 255; bb = y;   break;
+                      case 3: rr = 0;   gg = x;   bb = 255; break;
+                      case 4: rr = y;   gg = 0;   bb = 255; break;
+                      default: rr = 255; gg = 0;  bb = x;   break;
+                    }
+                  } else {
+                    // sparkle: about one pixel in six flashes white this frame
+                    seed = seed * 1664525u + 1013904223u;
+                    if (((seed >> 8) % 6) == 0) { rr = 255; gg = 255; bb = 255; }
+                  }
+                  it[P((float) i / N)] = Color((uint8_t) lroundf(rr * bri),
+                                               (uint8_t) lroundf(gg * bri),
+                                               (uint8_t) lroundf(bb * bri));
+                }
+                cap();
+                return;
+              }
+
+              // Stars go out from the far end, anticlockwise from 12, so the
+              // last one standing is at the top -- where the sun comes up.
+              int lit = N;
+              if (stars) {
+                lit = (int) ceilf(id(grow_frac) * N);
+                if (lit < 0) lit = 0; if (lit > N) lit = N;
+              }
+              for (int i = 0; i < PHYS; i++) it[i] = Color::BLACK;
+              for (int i = 0; i < lit; i++) {
+                const int p = P(stars ? -(float) i / N : (float) i / N);
+                it[p] = Color((uint8_t) lroundf(r * k * bri),
+                              (uint8_t) lroundf(g * k * bri),
+                              (uint8_t) lroundf(b * k * bri));
+              }
+              cap();
+              return;
             }
 
             // ---- THEME ------------------------------------------------------
@@ -1875,6 +3898,7 @@ light:
             // Anything past the configured ring size stays dark, so a short
             // ring on a long-compiled strip does not show stale pixels.
             for (int i = N; i < PHYS; i++) it[i] = Color::BLACK;
+            cap();
 
 # =============================================================================
 # DISPLAY — verified GC9B72 init sequence (working on hardware 2026-08-24)
@@ -1957,7 +3981,38 @@ display:
     dimensions:
       width: 360
       height: 360
-    data_rate: 20MHz          # 50MHz is what xboot uses; 20 is a safe first pass
+    # 40, not 20. What is left of the flicker is the TIME A FRAME TAKES: any
+    # change to the face is written to the glass in six strips top to bottom,
+    # and at 20 MHz a 360 x 360 frame is 104 ms of SPI before the drawing is
+    # counted. Sam's test settles that this is what it is -- with "Grow clock
+    # animate" off the panel is redrawn every second and is perfectly steady,
+    # so a redraw of unchanged pixels is invisible and only the CHANGED region
+    # shows the sweep. The only lever left is making the sweep shorter.
+    #
+    # See the lcd_hz substitution at the top of this file for why this is back
+    # at 20MHz and how to A/B it. Short version: 40 was a guess I made during
+    # the flicker hunt, on a link I have no datasheet for, and a marginal SPI
+    # clock corrupts thin strokes while leaving solid blocks looking perfect --
+    # which is the symptom.
+    data_rate: ${lcd_hz}
+    # PINNED, AND THE ANIMATION BOX DEPENDS ON IT. Left alone, ESPHome picks
+    # the fraction itself: with no psram it aims at a ~20 kB buffer and lands
+    # on 1/8, so the bands come out 45 rows. 17% asks for "no bigger than a
+    # sixth"; the resolver takes the first divisor of 360 that is small enough,
+    # which is 6, so the buffer is 360*360*2/6 = 43200 bytes and THE BANDS ARE
+    # EXACTLY 60 ROWS.
+    #
+    # That number is load-bearing. The eye box in the lambda runs y 60..239 and
+    # BOTH edges have to land on a band boundary, or the driver sends a band
+    # whose bounding box contains pixels that pass never wrote. 45-row bands
+    # cannot do it: the only alignment that clears the sun's rays at the top
+    # would be y 90, and that cuts through the z's. CHANGE ONE, CHANGE BOTH.
+    #
+    # It costs 10.8 kB of internal SRAM over the default, and there is no psram
+    # on this board (see the note at the top of the file). If the log ever says
+    # "Buffer allocation failed", this is the line: the fallback is to drop the
+    # animation box back to a full repaint (grow_partial off) and remove this.
+    buffer_size: ${lcd_buffer}
     pixel_mode: 16bit         # MUST match COLMOD 0x05 in the table above
     invert_colors: false      # flip if the image looks like a photo negative
 
@@ -2023,6 +4078,14 @@ display:
     # about 100 ms, a tenth of the bus, spent on a panel that is not there, and
     # the panel that IS there would stutter for it.
     update_interval: never
+    # The driver flushes only the rectangle that was drawn on since the last
+    # update. With auto-clear on, every update clears the whole buffer and so
+    # flushes the whole panel: 360 x 360 x 16 bit at 20 MHz is 104 ms. With it
+    # off, a grow-clock animation frame repaints the eye box alone (248 x 184,
+    # 36 ms) and a full frame clears itself, first thing, exactly as auto-clear
+    # did. This is what makes 10 fps eyes possible without touching the SPI
+    # clock that the bench has proven at 20 MHz.
+    auto_clear_enabled: false
     init_sequence:
       # =====================================================================
       # GENUINE GC9B72 INIT SEQUENCE
@@ -2130,6 +4193,21 @@ display:
       - [0xFE]
       - [0xEE]
     lambda: |-
+      // FIRST LINE, so the early returns below cannot skip it. See an_band.
+      const int band = id(an_band);
+      id(an_band) = (band + 1) % ${lcd_bands};
+      if (!id(an_partial)) {
+        it.fill(Color::BLACK);                     // what auto-clear used to do
+        // A full frame draws the eyes from the SAME drawn-pose globals the
+        // animation frame does, so it repaints them exactly as they already
+        // are and changes nothing. It deliberately does NOT advance that
+        // pose. This is the whole fix: the 1 s dispatcher redraw used to
+        // draw the LIVE pose, so however slowly the animation frames were
+        // throttled, the eyes still jumped a whole second's worth of
+        // movement once a second -- which is what Sam has been seeing, and
+        // why no value of the interval ever helped. Now the only thing that
+        // moves the eyes is an animation frame, at the rate the dial sets.
+      }
       const int CX = 180, CY = 180;
       const auto now = id(ha_time).now();
       const std::string face = id(clock_face).current_option().str();
@@ -2189,6 +4267,558 @@ display:
       // turn one surface off without the other; this is that end of it.
       if (!id(display_on).state || !id(screen_on).state) {
         it.fill(Color::BLACK); return;
+      }
+
+      // ---- GROW CLOCK ------------------------------------------------------
+      // Before the night-blank check on purpose: a grow clock's whole job is
+      // to be visible at night. Before the weather and the timers because none
+      // of that belongs in a child's room. The backlight level is set by the
+      // dispatcher, so the field here can be drawn at full colour.
+      if (id(grow_mode).state && !id(grow_daytime)) {
+        const int st = id(grow_st);
+        const std::string sc = id(grow_sleep_colour).current_option().str();
+        const std::string wc = id(grow_wake_colour).current_option().str();
+        const std::string ac = id(grow_almost_colour).current_option().str();
+        const std::string bc = id(grow_bedtime_colour).current_option().str();
+        const std::string fs = id(grow_face).current_option().str();
+        // Two palettes. "eyes" and "eyes and sky" are the Deskimon look: a
+        // black field with everything drawn in the state colour, so the eyes
+        // glow. The other faces put the state colour on the whole field with
+        // dark ink on it. Mirrored in preview/grow_faces.py -- change both.
+        const bool glow = fs == "eyes" || fs == "eyes and sky";
+        const bool sky  = fs == "eyes and sky";
+        const bool partial = id(an_partial);
+        if (partial && !glow && fs != "eyes on colour") return;
+        Color field, ink;
+        if (glow) {
+          field = Color(0, 0, 0);
+          if (st == 0 || st == 4) {
+            ink = sc == "red"    ? Color(255, 40, 30)
+                : sc == "purple" ? Color(170, 60, 255)
+                : sc == "off"    ? Color(50, 50, 60)
+                :                  Color(40, 100, 255);
+          } else if (st == 1) {
+            ink = ac == "yellow" ? Color(255, 220, 60)
+                : ac == "green"  ? Color(60, 230, 80)
+                : ac == "white"  ? Color(240, 240, 240)
+                :                  Color(255, 150, 30);
+          } else if (st == 2) {
+            ink = wc == "green" ? Color(60, 230, 80)
+                : wc == "white" ? Color(240, 240, 240)
+                :                 Color(255, 210, 40);
+          } else {
+            ink = bc == "red"    ? Color(255, 40, 30)
+                : bc == "purple" ? Color(170, 60, 255)
+                : bc == "blue"   ? Color(40, 100, 255)
+                :                  Color(255, 120, 50);
+          }
+        } else if (st == 0 || st == 4) {
+          field = sc == "red"    ? Color(90, 10, 10)
+                : sc == "purple" ? Color(50, 10, 80)
+                : sc == "off"    ? Color(0, 0, 0)
+                :                  Color(10, 18, 80);
+          ink = Color(225, 228, 240);
+        } else if (st == 1) {
+          field = ac == "yellow" ? Color(230, 200, 40)
+                : ac == "green"  ? Color(40, 160, 60)
+                : ac == "white"  ? Color(200, 200, 200)
+                :                  Color(200, 120, 20);
+          ink = ac == "green" ? Color(10, 40, 16) : Color(40, 24, 4);
+        } else if (st == 2) {
+          field = wc == "green" ? Color(40, 180, 60)
+                : wc == "white" ? Color(220, 220, 220)
+                :                 Color(240, 200, 40);
+          ink = Color(40, 32, 8);
+        } else {
+          field = bc == "red"    ? Color(90, 10, 10)
+                : bc == "purple" ? Color(50, 10, 80)
+                : bc == "blue"   ? Color(10, 18, 80)
+                :                  Color(140, 60, 20);
+          ink = Color(240, 225, 200);
+        }
+        if (!partial) it.fill(field);
+        const bool sound = id(grow_sound).state && (st == 0 || st == 4)
+            && id(grow_sound_since) != 0
+            && (uint32_t)(millis() - id(grow_sound_since))
+               < (uint32_t) lroundf(id(grow_sound_secs).state * 1000.0f);
+
+        // rrect: a rounded rectangle from two rectangles and four circles,
+        // the only way to get one out of Display without a bitmap.
+        auto rrect = [&](int x, int y, int w, int h, int r, Color c) {
+          it.filled_rectangle(x + r, y, w - 2 * r, h, c);
+          it.filled_rectangle(x, y + r, w, h - 2 * r, c);
+          it.filled_circle(x + r, y + r, r, c);
+          it.filled_circle(x + w - 1 - r, y + r, r, c);
+          it.filled_circle(x + r, y + h - 1 - r, r, c);
+          it.filled_circle(x + w - 1 - r, y + h - 1 - r, r, c);
+        };
+
+        if (glow || fs == "eyes on colour") {
+          // Deskimon-style: two big rounded eyes, no mouth, and every
+          // expression is an eyelid painted over an open eye in the field
+          // colour -- which only works because nothing is drawn behind them.
+          // The numbers come from the animator's globals, so the dispatcher's
+          // full frame and the 100 ms animation frame draw the same eyes.
+          // Geometry is mirrored in preview/grow_faces.py; change both.
+          // EVERY DIMENSION BELOW IS sc TIMES THE ORIGINAL. The clamp is not
+          // decoration: the animation box is fixed at y 60..239 because its
+          // edges must land on band boundaries, so the face has to fit inside a
+          // window that cannot move. What binds first is the eyes' own width,
+          // CX + 100*sc <= AN_R - 2, which is 1.21.
+          const float sc = std::max(0.70f, std::min(1.20f,
+                                                    id(grow_scale).state / 100.0f));
+          const int EX = (int) lroundf(60*sc), EY = CY - (int) lroundf(34*sc),
+                    EW = (int) lroundf(80*sc), EH = (int) lroundf(112*sc),
+                    ER = (int) lroundf(28*sc), BAR = (int) lroundf(16*sc);
+          // ---- THE ANIMATION BOX, AND THE FLICKER --------------------------
+          // The panel scans itself out of GRAM continuously, about 60 times a
+          // second. We write GRAM over SPI, asynchronously, and a whole
+          // 360 x 360 frame is 259200 bytes -- 104 ms at 20 MHz, six scans
+          // long. So the write walks down the glass while the scan walks down
+          // the glass, they cross each other several times on the way, and
+          // every crossing is visible. Over a region that is CHANGING that
+          // reads as motion. Over a region being rewritten with the pixels it
+          // already had it reads as a blink.
+          //
+          // That is the whole thing, and it is exactly how Sam's list sorted:
+          //
+          //   eyes    change every frame          looked like animation
+          //   z's     change every frame          looked like animation
+          //   time    was not being redrawn       steady
+          //   moon    redrawn, never changes      FLICKERED
+          //   stars   redrawn, never changes      FLICKERED
+          //
+          // It also explains the one measurement that never fitted any of the
+          // ten theories: with the animator OFF the panel is perfectly steady,
+          // because then a full frame only goes out when something actually
+          // changed, and one crossing a minute is not a flicker.
+          //
+          // The init sequence turns TE on (0x35 above) but mipi_spi has no TE
+          // input, so the write cannot be synced to the scan. The only lever
+          // left is to WRITE LESS. An animation frame now repaints the eye box
+          // and nothing else. The sky above it and the star row, the "shh" and
+          // the time below it are left exactly as they are and are redrawn
+          // only by a full frame -- which is already gated on the content
+          // actually changing. Nothing static is ever rewritten again.
+          //
+          // KEEP EVERY BAND ALIVE. mipi_spi does not run this lambda once per
+          // frame: with a partial buffer it runs it once per BAND, top to
+          // bottom, flushing each band's dirty rectangle as it goes -- and if
+          // a band comes back with nothing drawn in it, the driver does not
+          // skip that band, it RETURNS and abandons the whole rest of the
+          // frame (mipi_spi.h, the loop over start_line_). The eye box lives
+          // in the middle bands, so left alone the first band comes back empty
+          // and every animation frame is thrown away before a pixel reaches
+          // the glass.
+          //
+          // So: a 4 px column of FIELD-coloured pixels down the far left,
+          // drawn ONLY in the rows the box does not cover. On a round 360
+          // panel the glass at those rows does not reach x = 4 -- the chord at
+          // y = 59 runs x 47..313 and only narrows from there, and the same
+          // below y = 240 -- so the marker is off the picture entirely, and it
+          // is field-coloured anyway.
+          //
+          // AND THE MARKER MUST NEVER SHARE A BAND WITH THE BOX. The driver
+          // flushes the BOUNDING BOX of what was drawn, not the pixels that
+          // were drawn; anything inside that box which this pass did not write
+          // still holds the previous band's contents and goes out as garbage.
+          // A band with marker rows and box rows in it would have a bounding
+          // box of x 0..303 with only x 0..3 written. So the box is aligned to
+          // the band grid: buffer_size is pinned at 17% on the display above,
+          // which makes the bands exactly 60 rows, and 60 and 240 are both
+          // multiples of 60. CHANGE ONE, CHANGE THE OTHER.
+          //
+          //   rows   0.. 59   band  0    marker only   (the sky lives here)
+          //   rows  60..239   bands 1-3  the box
+          //   rows 240..359   bands 4-5  marker only   (stars, shh, the time)
+          //
+          // What has to fit inside 60..239: the eyes (90..202), the three z's
+          // (a 32 px glyph centred 82..106, so 66..122), the yawn (centred
+          // 222, r <= 16, so 206..238) and the countdown, which is why the
+          // countdown moved up to CY + 40 and why it suppresses the yawn.
+          // What has to stay outside: the sky (moved up to CY - 144 so its
+          // longest ray stops at 58), the star row (243..261), "shh" (261..299)
+          // and the time (272..328).
+          //
+          // AND IT HAS TO BE DRAWN BAND BY BAND. The first version drew the
+          // whole 248 x 180 rectangle on every one of the six passes and let
+          // draw_pixel_at throw away five sixths of it -- 268000 calls a frame
+          // for 45000 pixels. Measured on the bench: 385 ms a frame with the
+          // clip on against 269 ms with it off. The clipped path was SLOWER
+          // than the full repaint it replaced, which is the opposite of the
+          // point. The bottleneck was never the SPI bus; a clipped frame sends
+          // 90 kB instead of 259, but it walks the draw loop six times over.
+          //
+          // So every rectangle here is intersected with the band first, and the
+          // eye block is skipped outright in the three bands it cannot reach.
+          const int AN_L = CX - 124, AN_R = CX + 124;   // x 56..303
+          const int AN_T = 60,       AN_B = 240;        // y 60..239
+          const int AN_MK = 4;                          // marker column width
+          const int b0 = band < ${lcd_bands} ? band*${lcd_band_h} : 0;
+          const int b1 = band < ${lcd_bands} ? b0 + ${lcd_band_h} : 360;
+          auto strip = [&it, &field](int x, int w, int y0, int y1) {
+            if (y1 > y0) it.filled_rectangle(x, y0, w, y1 - y0, field);
+          };
+          if (partial) {
+            // THE MARKER IS ONLY FOR BANDED RENDERING. With a single band
+            // nothing can come back empty, so there is nothing to keep alive --
+            // and drawing it anyway would be actively wrong: the marker rows and
+            // the box rows would share that one band, giving a bounding box of
+            // x 0..303 with only the two of them written and everything between
+            // flushed as whatever the buffer held. That is the exact failure the
+            // alignment exists to prevent, and one band is the case where the
+            // alignment cannot help.
+            if (${lcd_bands} > 1) {
+              it.start_clipping(0, 0, AN_MK, 360);
+              strip(0, AN_MK, b0, std::min(b1, AN_T));
+              strip(0, AN_MK, std::max(b0, AN_B), b1);
+              it.end_clipping();
+            }
+            it.start_clipping(AN_L, AN_T, AN_R, AN_B);
+            strip(AN_L, AN_R - AN_L, std::max(b0, AN_T), std::min(b1, AN_B));
+          }
+          // The eyes, the z's, the yawn and "shh" all live between y 66 and
+          // 238. On an animation frame the other three bands have nothing to
+          // draw and every pixel of them would be rejected one at a time.
+          const bool eyeband = !partial || (b1 > AN_T && b0 < AN_B);
+
+          // ---- THE NIGHT SKY, and it goes FIRST ----------------------------
+          // Scattered stars that twinkle, at sleep and nap only. Drawn before
+          // the eyes and the z's on purpose: whatever lands behind them is
+          // simply painted over, so there is no exclusion zone to get wrong.
+          //
+          // INSIDE THE ANIMATION BOX, which is the only reason a twinkle is
+          // affordable at all. The box is repainted every animation frame
+          // already, so a star whose brightness moves costs nothing extra --
+          // and a pixel that CHANGES is the one case that never flickered.
+          // Scattering them over the whole panel would mean a full 269 ms
+          // repaint to twinkle them, which is precisely what made the moon and
+          // the star row blink for two days.
+          //
+          // The field is fixed: one seed, so the stars do not walk about
+          // between frames. Only the brightness moves.
+          // WHEN. Sleep and naps, and -- since Sam asked for it -- the bedtime
+          // wind-down too, so the sky arrives with bedtime instead of appearing
+          // at the moment the eyes close.
+          const bool skynow = st == 0 || st == 4
+                           || (st == 3 && id(grow_night_sky_bed).state);
+          if (eyeband && id(grow_night_sky).state && skynow) {
+            const int NN = std::max(0, std::min(60,
+                                                (int) id(grow_night_star_count).state));
+            // sky_br, NOT BR. `BR` is a special-register name in the Xtensa
+            // headers the ESP-IDF pulls in, and a local called BR fails to
+            // compile with "expected unqualified-id before numeric constant"
+            // pointing at specreg.h, which tells you nothing about your own
+            // code. Short upper-case names are not safe in this translation
+            // unit.
+            const int  sky_rmax = std::max(1, std::min(4, (int) id(grow_night_star_size).state));
+            const float sky_br  = std::max(0.10f, std::min(1.00f,
+                                           id(grow_night_star_bright).state / 100.0f));
+            const float sky_spd = std::max(0.20f, std::min(2.00f,
+                                           id(grow_night_twinkle).state / 100.0f));
+            const uint32_t ms = millis();
+            // THE SEED IS A GLOBAL, and every band re-runs the same sequence
+            // from it. That is what keeps the sky identical across the six
+            // passes a frame is drawn in -- a per-band field would tear it into
+            // six strips that disagree with each other.
+            uint32_t rr = id(night_seed) | 1u;
+            auto nxt = [&rr]() { rr = rr*1664525u + 1013904223u; return (rr >> 16) & 0x7FFFu; };
+            for (int i = 0; i < NN; i++) {
+              const int nx = AN_L + 8 + (int)(nxt() % (uint32_t)(AN_R - AN_L - 16));
+              const int ny = AN_T + 8 + (int)(nxt() % (uint32_t)(AN_B - AN_T - 16));
+              const int phase = (int)(nxt() % 628u);
+              const int r = 1 + (int)(nxt() % (uint32_t) sky_rmax);
+              // EVERY DRAW IS DECIDED AFTER THE RANDOM NUMBERS ARE TAKEN, never
+              // before. Skipping a star early would leave the generator in a
+              // different place for the next one, and the field would come out
+              // different in each band -- the one bug this arrangement can have.
+              if (partial && (ny + r < b0 || ny - r >= b1)) continue;
+              // "twinkle slightly": 0.35 to 1.0 of the face colour, scaled by
+              // the brightness dial. Never off, never at full.
+              const float tw = 0.675f + 0.325f*sinf(ms*sky_spd/1100.0f + phase/100.0f);
+              const Color c = dim(ink, tw*sky_br);
+              it.filled_rectangle(nx - r, ny, 2*r + 1, 1, c);
+              it.filled_rectangle(nx, ny - r, 1, 2*r + 1, c);
+            }
+          }
+
+          const float droop = st == 3 ? 1.0f : 0.0f;
+          auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
+            const int h = (int) (EH * hs), w = EW;
+            const int r = std::min(ER, h / 2 - 1);
+            if (lid >= 0.9f) {                       // closed: a flat bar
+              rrect(cx - w / 2, cy - BAR / 2, w, BAR, BAR / 2, ink);
+              return;
+            }
+            rrect(cx - w / 2, cy - h / 2, w, h, r, ink);
+            const int x0 = cx - w / 2 - 1, top = cy - h / 2 - 1;
+            if (lid > 0.02f) {                       // the lid, from the top
+              const int L = (int) (h * lid);
+              it.filled_rectangle(x0, top, w + 2, L + 1, field);
+              if (droop > 0.0f) {                    // outer corner droops: tired
+                const int d = std::max(4, (int) (EH / 8.0f * droop));
+                if (outer_left) it.filled_triangle(x0, top + L, x0 + w + 2, top + L, x0, top + L + d, field);
+                else            it.filled_triangle(x0, top + L, x0 + w + 2, top + L, x0 + w + 2, top + L + d, field);
+              }
+            }
+            if (smile > 0.02f) {                     // a bite from below: a happy arch
+              // CLIPPED TO THE EYE, and it has to be. The bite is a circle of
+              // radius 0.9w whose centre sits BELOW the eye, so most of it is
+              // outside it: at the resting awake smile of 0.35 it reaches
+              // about 70 px past the eye's bottom. On the round panel that is
+              // over the countdown and the digital time; on the bar it is
+              // over the time. A full frame redraws both, so there was never
+              // anything wrong to look at -- until the animation frames
+              // started reaching the panel, and then the time was being
+              // erased and repainted at the animation rate. That is what Sam
+              // saw as the graphics flickering. Drawn as spans rather than as
+              // a circle so it cannot reach past the eye it is biting.
+              const int Rb = (int) (w * 0.9f);
+              const int yc = cy + h / 2 + Rb - (int) (smile * h * 0.78f);
+              const int y0 = std::max(cy - h / 2, yc - Rb);
+              const int y1 = std::min(cy + h / 2, yc + Rb);
+              for (int yy = y0; yy <= y1; yy++) {
+                const int dy = yy - yc;
+                const int dx = (int) sqrtf((float) (Rb * Rb - dy * dy));
+                if (dx > 0) it.filled_rectangle(cx - dx, yy, 2 * dx + 1, 1, field);
+              }
+            }
+          };
+          const int gx = (int) lroundf(id(an_dgx)), gy = (int) lroundf(id(an_dgy));
+          if (eyeband) {
+          eye(CX - EX + gx, EY + gy, id(an_dlidl), id(an_dsmile), id(an_dhs), true);
+          eye(CX + EX + gx, EY + gy, id(an_dlidr), id(an_dsmile), id(an_dhs), false);
+          // The countdown lands where the yawn does, and only one of them can
+          // have it. The number wins: it is information, the yawn is decoration.
+          const bool cdown = id(grow_show_countdown).state
+                             && (st == 1 || st == 3) && id(grow_min_to) >= 0;
+          if (id(an_dmouth) > 0.05f && !cdown) {      // the yawn
+            // 14 and 11, not 20 and 16. The yawn's bottom is the lowest thing
+            // in the box -- 180 + 47*sc now against 180 + 54*sc before -- and
+            // at the old numbers it left the box at a scale of 1.07, which
+            // would have made the size dial clip the face.
+            const int r  = (int) lroundf((3 + 8 * id(an_dmouth)) * sc);
+            const int my = EY + EH / 2 + (int) lroundf(14 * sc) + gy;
+            it.filled_circle(CX + gx, my, r, ink);
+            if (r > 5) it.filled_circle(CX + gx, my, r - (int) lroundf(4*sc), field);
+          }
+          if (st == 0 || st == 4) {                  // three z's, rising and fading
+            for (int i = 0; i < 3; i++) {
+              const float ph = fmodf(id(an_dzph) + i / 3.0f, 1.0f);
+              // CLAMPED. A 32 px glyph centred at CY - 98*sc reaches the box's
+              // top edge at a scale of 1.01, so above that the z's stop rising
+              // rather than being sliced off by the clip.
+              const int zy = std::max(AN_T + 20,
+                                      CY - (int) lroundf((74.0f + 24.0f*ph) * sc));
+              it.print(CX + (int) lroundf(70*sc) + (int) (14 * ph), zy, id(font_med),
+                       dim(ink, 1.0f - ph * 0.9f), TextAlign::CENTER, "z");
+            }
+          }
+          if (sound) it.print(CX, CY + 40, id(font_med), ink, TextAlign::CENTER, "shh");
+          // The sky, above the eyes: a moon at night and bedtime, a sun by
+          // day, a sun half-risen when it is almost morning.
+          // OUTSIDE THE BOX ON PURPOSE, and 144 not 138 for the same reason:
+          // the longest sun ray is 22 px and 36 + 22 = 58, which clears the
+          // box's top edge at 60 with two rows to spare. An animation frame
+          // does not draw the sky at all -- it is not clipped away, it is not
+          // reached -- so the moon is never rewritten and cannot blink. A full
+          // frame redraws it, and full frames only happen when something has
+          // actually changed.
+          if (sky && !partial) {
+            const int sy = CY - 144;
+            const bool flat = id(grow_flat_art).state;
+            if (st == 0 || st == 4 || st == 3) {
+              if (!flat && id(grow_block_art).state) {
+                // Pixel-art crescent, stepped from the real geometry: outer
+                // disc R, bite disc Rb offset right and up, sampled at each
+                // band's centre. Seven bands, so the run-length changes six
+                // times instead of the circle's forty-odd.
+                const float R = 20.0f, Rb = 15.0f, bx = 9.0f, by = -4.5f;
+                const int N = 7;
+                for (int i = 0; i < N; i++) {
+                  const int y0 = (int) (-R + (2.0f * R * i) / N);
+                  const int y1 = (int) (-R + (2.0f * R * (i + 1)) / N);
+                  const float ym = (y0 + y1) * 0.5f;
+                  if (fabsf(ym) >= R) continue;
+                  const float half = sqrtf(R * R - ym * ym);
+                  float xl = -half, xr = half;
+                  const float d = Rb * Rb - (ym - by) * (ym - by);
+                  if (d > 0.0f) xr = std::min(xr, bx - sqrtf(d));
+                  if (xr - xl < 2.0f) continue;
+                  it.filled_rectangle(CX + (int) xl, sy + y0, (int) (xr - xl), y1 - y0, ink);
+                }
+              } else if (flat) {
+                // A PLAIN SQUARE, no bite. The first attempt kept the crescent
+                // by subtracting an offset square, which renders as an L -- and
+                // an L is two widths stacked, so its run-length still changes
+                // row to row and the test would have proved nothing. The whole
+                // point is a shape whose width is CONSTANT down every row.
+                // It does not look like a moon. It is not meant to; it is an
+                // instrument, and it goes back off after the reading.
+                it.filled_rectangle(CX - 16, sy - 16, 32, 32, ink);
+              } else {
+                it.filled_circle(CX, sy, 16, ink);
+                it.filled_circle(CX + 7, sy - 4, 13, field);
+              }
+            } else {
+              if (flat) it.filled_rectangle(CX - 11, sy - 11, 22, 22, ink);
+              else       it.filled_circle(CX, sy, 11, ink);
+              // The rays are diagonal lines, which are staircases too -- they
+              // have to go in flat mode or they contaminate the reading.
+              for (int i = 0; !flat && i < 8; i++) {
+                const float a = i * 3.14159265f / 4.0f;
+                it.line(CX + (int) lroundf(15 * cosf(a)), sy + (int) lroundf(15 * sinf(a)),
+                        CX + (int) lroundf(22 * cosf(a)), sy + (int) lroundf(22 * sinf(a)), ink);
+              }
+              if (st == 1)                          // the horizon: half a sun
+                it.filled_rectangle(CX - 26, sy + 2, 52, 24, field);
+            }
+          }
+        } else if (fs == "sun and moon") {
+          if (st == 0 || st == 4 || st == 3) {
+            it.filled_circle(CX, CY - 10, 70, ink);              // moon...
+            it.filled_circle(CX + 28, CY - 24, 62, field);       // ...with a bite out
+            const int sx[5] = {-120, -95, 105, 125, 60}, sy[5] = {-60, 70, -80, 20, -125};
+            for (int i = 0; i < 5; i++) it.filled_circle(CX + sx[i], CY + sy[i], 5, ink);
+          } else {
+            it.filled_circle(CX, CY - 10, 60, ink);
+            for (int i = 0; i < 12; i++) {
+              const float a = i * 3.14159265f / 6.0f;
+              it.line(CX + (int) lroundf(78 * cosf(a)),  CY - 10 + (int) lroundf(78 * sinf(a)),
+                      CX + (int) lroundf(105 * cosf(a)), CY - 10 + (int) lroundf(105 * sinf(a)), ink);
+            }
+          }
+          if (sound) it.print(CX, CY + 100, id(font_med), ink, TextAlign::CENTER, "shh");
+          }   // eyeband
+        }
+        // A MESSAGE FROM HOME ASSISTANT. Resolved HERE, above the countdown,
+        // because on one face the two want the same spot and the countdown has
+        // to know before it draws.
+        const std::string msg = id(grow_msg_show).state ? id(grow_msg).state
+                                                        : std::string();
+        // Where it goes. CY + 72 -- the star row's place -- on every face but
+        // one. THE SUN-AND-MOON FACE HAS NO ROOM THERE: its disc is centred at
+        // CY - 10 with rays out to r = 105, so it reaches CY + 95 and the
+        // message would print straight across it. That face already parks its
+        // countdown at the top for exactly this reason, so the message goes
+        // there too -- and takes it, on the same rule as the star row.
+        const bool sunmoon = (fs == "sun and moon");
+        const int msg_y = sunmoon ? CY - 150 : CY + 72;
+
+        // The countdown: minutes to wake while it is almost morning, minutes
+        // to bed in the bedtime warning. Where the stars would be.
+        if (id(grow_show_countdown).state && (st == 1 || st == 3) && id(grow_min_to) >= 0
+            && !(sunmoon && !msg.empty())) {
+          char cb[12]; snprintf(cb, sizeof(cb), "%d min", id(grow_min_to));
+          // CY + 40, not CY + 72. It used to sit on the star row, which is
+          // below the animation box now -- the box would have chopped the top
+          // off the glyphs on every animation frame and a full frame would have
+          // put them back once a minute. Directly under the eyes it is inside
+          // the box, redrawn with them, and where the yawn would have been.
+          // On the sun-and-moon face the picture owns the middle, so it goes
+          // up top where the chord is still 100 px wide.
+          const int cy_ = (fs == "sun and moon") ? CY - 150 : CY + 40;
+          it.print(CX, cy_, id(font_med), ink, TextAlign::CENTER, cb);
+        }
+
+        // An animation frame ends here. EVERYTHING BELOW IS STATIC between
+        // full frames -- the star row, the time -- and static is precisely
+        // what must not be rewritten while the panel is scanning. It keeps
+        // what it already has.
+        if (partial) { it.end_clipping(); return; }
+
+        // The message itself, DRAWN AFTER the partial-frame return above, so it
+        // costs an animation frame nothing. It repaints only when the text
+        // changes -- which is precisely the rare full frame this architecture
+        // is built to afford. It takes the star row's place while it is set:
+        // below the box that is the only free band, the time owns CY + 120,
+        // and a message someone typed on purpose outranks a row of stars.
+        if (!msg.empty()) {
+          // HOW MUCH WIDTH THERE ACTUALLY IS AT THAT HEIGHT. The panel is a
+          // 360 px circle, so the chord is 2*sqrt(180^2 - dy^2) and it
+          // collapses fast off centre: 330 px at CY + 72, but only 199 at
+          // CY - 150, where the sun-and-moon face has to put it. A fixed
+          // threshold printed a clipped sentence there -- "ack to bed, mat" --
+          // which is the failure this measurement exists to stop.
+          const int dy_  = msg_y - CY;
+          const int room = 2*(int) sqrtf(fmaxf(0.0f, 180.0f*180.0f
+                                               - (float) dy_*(float) dy_)) - 12;
+          auto wide = [&](font::Font *f, const std::string &t) {
+            int gx_, gy_, w_, h_;
+            it.get_text_bounds(0, 0, t.c_str(), f, TextAlign::TOP_LEFT,
+                               &gx_, &gy_, &w_, &h_);
+            return w_;
+          };
+          // Biggest font that fits, then trim if even the small one does not.
+          // Trimmed with an ellipsis rather than clipped: a sentence that
+          // stops visibly is readable, one whose end is sliced off mid-glyph
+          // just looks broken.
+          font::Font *f = id(font_med);
+          if (wide(f, msg) > room) f = id(font_small);
+          std::string out = msg;
+          while (out.size() > 1 && wide(f, out + "...") > room) out.erase(out.size() - 1);
+          if (out.size() < msg.size()) out += "...";
+          it.print(CX, msg_y, f, ink, TextAlign::CENTER, out.c_str());
+        }
+
+        // Stars until morning: a row under the eyes, lit ones solid, spent
+        // ones faint. The row is grow_star_count wide at up to 28 px pitch;
+        // y = CY + 72 has 165 px of half-width on the round panel.
+        if (msg.empty() && id(grow_stars).state && (st == 0 || st == 4)) {
+          const int NS = std::max(3, std::min(12, (int) id(grow_star_count).state));
+          const int pitch = std::min(28, 220 / std::max(1, NS - 1));
+          const bool pointy = id(grow_star_shape).current_option().str() == "stars";
+          int lit = (int) ceilf(id(grow_frac) * NS); if (lit > NS) lit = NS;
+          for (int i = 0; i < NS; i++) {
+            const int x = CX - (NS - 1) * pitch / 2 + i * pitch, y = CY + 72;
+            const Color c = i < lit ? ink : dim(ink, 0.18f);
+            if (id(grow_flat_art).state) {         // straight edges only
+              it.filled_rectangle(x - 6, y - 6, 13, 13, c);
+            } else if (id(grow_block_art).state) {  // a sparkle from two bars
+              it.filled_rectangle(x - 2, y - 7, 5, 15, c);
+              it.filled_rectangle(x - 7, y - 2, 15, 5, c);
+            } else if (pointy) {                   // a four-point sparkle
+              it.filled_triangle(x, y - 9, x - 3, y, x + 3, y, c);
+              it.filled_triangle(x, y + 9, x - 3, y, x + 3, y, c);
+              it.filled_triangle(x - 9, y, x, y - 3, x, y + 3, c);
+              it.filled_triangle(x + 9, y, x, y - 3, x, y + 3, c);
+            } else it.filled_circle(x, y, 6, c);
+          }
+        }
+
+        // The time, digital, along the bottom. 48 px digits centred at
+        // CY + 120: "12:34" is about 119 px wide and the chord there is 249.
+        if (id(grow_show_time).state && now.is_valid()) {
+          char tb[8]; int hh = now.hour;
+          if (!h24) { hh %= 12; if (hh == 0) hh = 12; }
+          snprintf(tb, sizeof(tb), "%d:%02d", hh, now.minute);
+          if (h24) {
+            it.print(CX, CY + 120, id(font_t48), ink, TextAlign::CENTER, tb);
+          } else {
+            // "7:05 am". font_small so it reads as a suffix rather than a
+            // fourth digit, and THE PAIR is centred, not the digits -- centre
+            // the digits alone and the whole time shifts sideways when the
+            // hour goes from 9 to 10.
+            //
+            // Baselines are aligned, not boxes. Bottom-aligning two line boxes
+            // of different sizes leaves the small one floating, because most of
+            // the difference is descender that neither string uses.
+            const char *ap = now.hour < 12 ? "am" : "pm";
+            int gx_, gy_, tw, th, aw, ah;
+            it.get_text_bounds(0, 0, tb, id(font_t48), TextAlign::TOP_LEFT,
+                               &gx_, &gy_, &tw, &th);
+            it.get_text_bounds(0, 0, ap, id(font_small), TextAlign::TOP_LEFT,
+                               &gx_, &gy_, &aw, &ah);
+            const int GAP = 7;
+            const int top  = CY + 120 - th/2;
+            const int left = CX - (tw + GAP + aw)/2;
+            const int base = top + id(font_t48)->get_baseline();
+            it.print(left, top, id(font_t48), ink, TextAlign::TOP_LEFT, tb);
+            it.print(left + tw + GAP, base - id(font_small)->get_baseline(),
+                     id(font_small), ink, TextAlign::TOP_LEFT, ap);
+          }
+        }
+        return;
       }
 
       // Night blanks the SCREEN only. The ring keeps the time, because the
@@ -2667,7 +5297,9 @@ display:
     data_rate: 40MHz
     pixel_mode: 16bit
     update_interval: never        # the dispatcher drives this
+    auto_clear_enabled: false     # see face_lcd: partial flushes for the eyes
     lambda: |-
+      if (!id(an_partial)) it.fill(Color::BLACK);   // what auto-clear used to do
       // Canvas after rotation: 320 wide, 170 tall.
       const int W = 320, H = 170;
       auto now = id(ha_time).now();
@@ -2677,6 +5309,218 @@ display:
       // and not the other would be a bug that only shows up at 3 a.m.
       if (!id(display_on).state || !id(screen_on).state) {
         it.fill(Color::BLACK); return;
+      }
+
+      // ---- GROW CLOCK, on the bar: the same states, laid out for 320 x 170 --
+      if (id(grow_mode).state && !id(grow_daytime)) {
+        const int st = id(grow_st);
+        const std::string sc = id(grow_sleep_colour).current_option().str();
+        const std::string wc = id(grow_wake_colour).current_option().str();
+        const std::string ac = id(grow_almost_colour).current_option().str();
+        const std::string bc = id(grow_bedtime_colour).current_option().str();
+        const std::string fs = id(grow_face).current_option().str();
+        // Same two palettes as the round panel; see there.
+        const bool glow = fs == "eyes" || fs == "eyes and sky";
+        const bool sky  = fs == "eyes and sky";
+        const bool partial = id(an_partial);
+        if (partial && !glow && fs != "eyes on colour") return;
+        Color field, ink;
+        if (glow) {
+          field = Color(0, 0, 0);
+          if (st == 0 || st == 4) {
+            ink = sc == "red" ? Color(255, 40, 30) : sc == "purple" ? Color(170, 60, 255)
+                : sc == "off" ? Color(50, 50, 60) : Color(40, 100, 255);
+          } else if (st == 1) {
+            ink = ac == "yellow" ? Color(255, 220, 60) : ac == "green" ? Color(60, 230, 80)
+                : ac == "white" ? Color(240, 240, 240) : Color(255, 150, 30);
+          } else if (st == 2) {
+            ink = wc == "green" ? Color(60, 230, 80) : wc == "white" ? Color(240, 240, 240)
+                : Color(255, 210, 40);
+          } else {
+            ink = bc == "red" ? Color(255, 40, 30) : bc == "purple" ? Color(170, 60, 255)
+                : bc == "blue" ? Color(40, 100, 255) : Color(255, 120, 50);
+          }
+        } else if (st == 0 || st == 4) {
+          field = sc == "red" ? Color(90, 10, 10) : sc == "purple" ? Color(50, 10, 80)
+                : sc == "off" ? Color(0, 0, 0) : Color(10, 18, 80);
+          ink = Color(225, 228, 240);
+        } else if (st == 1) {
+          field = ac == "yellow" ? Color(230, 200, 40) : ac == "green" ? Color(40, 160, 60)
+                : ac == "white" ? Color(200, 200, 200) : Color(200, 120, 20);
+          ink = ac == "green" ? Color(10, 40, 16) : Color(40, 24, 4);
+        } else if (st == 2) {
+          field = wc == "green" ? Color(40, 180, 60) : wc == "white" ? Color(220, 220, 220)
+                : Color(240, 200, 40);
+          ink = Color(40, 32, 8);
+        } else {
+          field = bc == "red" ? Color(90, 10, 10) : bc == "purple" ? Color(50, 10, 80)
+                : bc == "blue" ? Color(10, 18, 80) : Color(140, 60, 20);
+          ink = Color(240, 225, 200);
+        }
+        if (!partial) it.fill(field);
+        const bool sound = id(grow_sound).state && (st == 0 || st == 4)
+            && id(grow_sound_since) != 0
+            && (uint32_t)(millis() - id(grow_sound_since))
+               < (uint32_t) lroundf(id(grow_sound_secs).state * 1000.0f);
+        auto rrect = [&](int x, int y, int w, int h, int r, Color c) {
+          it.filled_rectangle(x + r, y, w - 2 * r, h, c);
+          it.filled_rectangle(x, y + r, w, h - 2 * r, c);
+          it.filled_circle(x + r, y + r, r, c);
+          it.filled_circle(x + w - 1 - r, y + r, r, c);
+          it.filled_circle(x + r, y + h - 1 - r, r, c);
+          it.filled_circle(x + w - 1 - r, y + h - 1 - r, r, c);
+        };
+        auto dim = [](Color c, float k) {
+          return Color((uint8_t) (c.r * k), (uint8_t) (c.g * k), (uint8_t) (c.b * k));
+        };
+        const int FX = W / 2;
+        if (glow || fs == "eyes on colour") {
+          // The round panel's eyes at bar scale, from the same animator
+          // globals. Mirrored in preview/grow_faces.py; change both.
+          const int EX = 40, EY = 56, EW = 48, EH = 72, ER = 18, BAR = 10;
+          // Every band alive, exactly as on the round panel -- see the long
+          // comment there. This panel is 170 tall after rotation.
+          // Clipped animation frame, as on the round panel. FULL WIDTH here:
+          // this panel's sky sits top-left at x = 30 and its "shh" top-right,
+          // both outside any box drawn round the eyes. To y = 116, so the
+          // countdown at 120 and the time at 148 are untouched.
+          if (partial) {
+            it.start_clipping(0, 0, W, 116);
+            // filled_rectangle, not fill(): see the round panel above. Same
+            // pixels, same dirty box, without walking the whole panel per band.
+            it.filled_rectangle(0, 0, W, 116, field);
+          }
+          const float droop = st == 3 ? 1.0f : 0.0f;
+          auto eye = [&](int cx, int cy, float lid, float smile, float hs, bool outer_left) {
+            const int h = (int) (EH * hs), w = EW;
+            const int r = std::min(ER, h / 2 - 1);
+            if (lid >= 0.9f) {
+              rrect(cx - w / 2, cy - BAR / 2, w, BAR, BAR / 2, ink);
+              return;
+            }
+            rrect(cx - w / 2, cy - h / 2, w, h, r, ink);
+            const int x0 = cx - w / 2 - 1, top = cy - h / 2 - 1;
+            if (lid > 0.02f) {
+              const int L = (int) (h * lid);
+              it.filled_rectangle(x0, top, w + 2, L + 1, field);
+              if (droop > 0.0f) {
+                const int d = std::max(4, (int) (EH / 8.0f * droop));
+                if (outer_left) it.filled_triangle(x0, top + L, x0 + w + 2, top + L, x0, top + L + d, field);
+                else            it.filled_triangle(x0, top + L, x0 + w + 2, top + L, x0 + w + 2, top + L + d, field);
+              }
+            }
+            if (smile > 0.02f) {                     // the same bite, same clip
+              // CLIPPED TO THE EYE, and it has to be. The bite is a circle of
+              // radius 0.9w whose centre sits BELOW the eye, so most of it is
+              // outside it: at the resting awake smile of 0.35 it reaches
+              // about 70 px past the eye's bottom. On the round panel that is
+              // over the countdown and the digital time; on the bar it is
+              // over the time. A full frame redraws both, so there was never
+              // anything wrong to look at -- until the animation frames
+              // started reaching the panel, and then the time was being
+              // erased and repainted at the animation rate. That is what Sam
+              // saw as the graphics flickering. Drawn as spans rather than as
+              // a circle so it cannot reach past the eye it is biting.
+              const int Rb = (int) (w * 0.9f);
+              const int yc = cy + h / 2 + Rb - (int) (smile * h * 0.78f);
+              const int y0 = std::max(cy - h / 2, yc - Rb);
+              const int y1 = std::min(cy + h / 2, yc + Rb);
+              for (int yy = y0; yy <= y1; yy++) {
+                const int dy = yy - yc;
+                const int dx = (int) sqrtf((float) (Rb * Rb - dy * dy));
+                if (dx > 0) it.filled_rectangle(cx - dx, yy, 2 * dx + 1, 1, field);
+              }
+            }
+          };
+          // gaze at 0.6 of the round panel's, like everything else here
+          const int gx = (int) lroundf(id(an_dgx) * 0.6f), gy = (int) lroundf(id(an_dgy) * 0.6f);
+          eye(FX - EX + gx, EY + gy, id(an_dlidl), id(an_dsmile), id(an_dhs), true);
+          eye(FX + EX + gx, EY + gy, id(an_dlidr), id(an_dsmile), id(an_dhs), false);
+          if (id(an_dmouth) > 0.05f) {
+            const int r = 3 + (int) (7 * id(an_dmouth));
+            it.filled_circle(FX + gx, EY + EH / 2 + 12 + gy, r, ink);
+            if (r > 5) it.filled_circle(FX + gx, EY + EH / 2 + 12 + gy, r - 4, field);
+          }
+          if (st == 0 || st == 4) {
+            for (int i = 0; i < 3; i++) {
+              const float ph = fmodf(id(an_dzph) + i / 3.0f, 1.0f);
+              it.print(FX + 62 + (int) (10 * ph), 24 - (int) (16 * ph), id(font_med),
+                       dim(ink, 1.0f - ph * 0.9f), TextAlign::CENTER, "z");
+            }
+          }
+          if (sky) {                               // top-left, inside the clip
+            const int sx = 30, sy = 24;
+            if (st == 0 || st == 4 || st == 3) {
+              it.filled_circle(sx, sy, 11, ink); it.filled_circle(sx + 5, sy - 3, 9, field);
+            } else {
+              it.filled_circle(sx, sy, 8, ink);
+              for (int i = 0; i < 8; i++) {
+                const float a = i * 3.14159265f / 4.0f;
+                it.line(sx + (int) lroundf(11 * cosf(a)), sy + (int) lroundf(11 * sinf(a)),
+                        sx + (int) lroundf(16 * cosf(a)), sy + (int) lroundf(16 * sinf(a)), ink);
+              }
+              if (st == 1) it.filled_rectangle(sx - 18, sy + 2, 36, 16, field);
+            }
+          }
+        } else if (fs == "sun and moon") {
+          if (st == 0 || st == 4 || st == 3) {
+            it.filled_circle(FX, 70, 46, ink); it.filled_circle(FX + 18, 60, 40, field);
+          } else {
+            it.filled_circle(FX, 70, 40, ink);
+            for (int i = 0; i < 12; i++) {
+              const float a = i * 3.14159265f / 6.0f;
+              it.line(FX + (int) lroundf(52 * cosf(a)), 70 + (int) lroundf(52 * sinf(a)),
+                      FX + (int) lroundf(68 * cosf(a)), 70 + (int) lroundf(68 * sinf(a)), ink);
+            }
+          }
+        }
+        if (sound) it.print(W - 12, 10, id(font_med), ink, TextAlign::TOP_RIGHT, "shh");
+        if (partial) { it.end_clipping(); return; }
+        if (id(grow_stars).state && (st == 0 || st == 4)) {
+          const int NS = std::max(3, std::min(12, (int) id(grow_star_count).state));
+          const int pitch = std::min(20, 160 / std::max(1, NS - 1));
+          const bool pointy = id(grow_star_shape).current_option().str() == "stars";
+          int lit = (int) ceilf(id(grow_frac) * NS); if (lit > NS) lit = NS;
+          for (int i = 0; i < NS; i++) {
+            const int x = FX - (NS - 1) * pitch / 2 + i * pitch, y = 120;
+            const Color c = i < lit ? ink : dim(ink, 0.18f);
+            if (pointy) {
+              it.filled_triangle(x, y - 6, x - 2, y, x + 2, y, c);
+              it.filled_triangle(x, y + 6, x - 2, y, x + 2, y, c);
+              it.filled_triangle(x - 6, y, x, y - 2, x, y + 2, c);
+              it.filled_triangle(x + 6, y, x, y - 2, x, y + 2, c);
+            } else it.filled_circle(x, y, 4, c);
+          }
+        }
+        if (id(grow_show_countdown).state && (st == 1 || st == 3) && id(grow_min_to) >= 0) {
+          char cb[12]; snprintf(cb, sizeof(cb), "%d min", id(grow_min_to));
+          if (fs == "sun and moon") it.print(12, 10, id(font_small), ink, TextAlign::TOP_LEFT, cb);
+          else                      it.print(FX, 120, id(font_small), ink, TextAlign::CENTER, cb);
+        }
+        // The time, digital, along the bottom.
+        if (id(grow_show_time).state && now.is_valid()) {
+          char tb[8]; int hh = now.hour;
+          if (!id(fmt_24h).state) { hh %= 12; if (hh == 0) hh = 12; }
+          snprintf(tb, sizeof(tb), "%d:%02d", hh, now.minute);
+          if (id(fmt_24h).state) {
+            it.print(FX, 148, id(font_med), ink, TextAlign::CENTER, tb);
+          } else {                              // same rule as the round panel
+            const char *ap = now.hour < 12 ? "am" : "pm";
+            int gx_, gy_, tw, th, aw, ah;
+            it.get_text_bounds(0, 0, tb, id(font_med), TextAlign::TOP_LEFT,
+                               &gx_, &gy_, &tw, &th);
+            it.get_text_bounds(0, 0, ap, id(font_small), TextAlign::TOP_LEFT,
+                               &gx_, &gy_, &aw, &ah);
+            const int GAP = 5;
+            const int top  = 148 - th/2;
+            const int left = FX - (tw + GAP + aw)/2;
+            const int base = top + id(font_med)->get_baseline();
+            it.print(left, top, id(font_med), ink, TextAlign::TOP_LEFT, tb);
+            it.print(left + tw + GAP, base - id(font_small)->get_baseline(),
+                     id(font_small), ink, TextAlign::TOP_LEFT, ap);
+          }
+        }
+        return;
       }
       if (id(night_blank).state && id(auto_dim).state && now.is_valid()) {
         const int h  = now.hour;
@@ -2692,35 +5536,8 @@ display:
       const Color c_hour  = Color(id(pal_scr)[0], id(pal_scr)[1],  id(pal_scr)[2]);
       const Color c_sec   = Color(id(pal_scr)[6], id(pal_scr)[7],  id(pal_scr)[8]);
       const Color c_timer = Color(id(pal_scr)[9], id(pal_scr)[10], id(pal_scr)[11]);
-
-      // ---- weather tint, the same blend the round face uses ------------------
-      // Deliberately identical to the round panel's, including the colours and
-      // the blend back toward the plain ground, so "Weather tint" means the
-      // same thing whichever screen is fitted. Without this the bar ignored
-      // both `show_weather`'s background and the tint slider entirely -- the
-      // control existed in Home Assistant and did nothing here.
-      const Color ground = Color(10, 12, 18);
-      Color bg = ground;
-      if (id(show_weather).state) {
-        const std::string cond = id(weather_condition).state;
-        if      (cond == "sunny")            bg = Color(46, 34,  6);
-        else if (cond == "clear-night")      bg = Color( 8, 10, 26);
-        else if (cond == "partlycloudy")     bg = Color(28, 30, 38);
-        else if (cond == "cloudy")           bg = Color(22, 24, 28);
-        else if (cond == "fog")              bg = Color(26, 26, 30);
-        else if (cond == "rainy" ||
-                 cond == "pouring")          bg = Color( 8, 20, 40);
-        else if (cond == "lightning" ||
-                 cond == "lightning-rainy")  bg = Color(38, 24, 46);
-        else if (cond == "snowy")            bg = Color(30, 36, 44);
-        else if (cond == "windy")            bg = Color(16, 30, 30);
-
-        const float ts = id(tint_strength).state / 100.0f;
-        bg = Color((uint8_t) lroundf(ground.r + (bg.r - ground.r) * ts),
-                   (uint8_t) lroundf(ground.g + (bg.g - ground.g) * ts),
-                   (uint8_t) lroundf(ground.b + (bg.b - ground.b) * ts));
-      }
-      it.fill(bg);
+      const Color ground  = Color(10, 12, 18);
+      it.fill(ground);
 
       if (!now.is_valid()) {
         it.print(W / 2, H / 2, id(font_med), c_sec, TextAlign::CENTER, "--:--");
@@ -2752,6 +5569,17 @@ display:
       }
 
       // ---- is a timer running? ----------------------------------------------
+      // current_option(), NOT .state. `timer_screen` is a SELECT and a select's
+      // .state is a std::string, so `if (id(timer_screen).state)` does not
+      // compile -- "could not convert std::string to bool". It also would not
+      // have meant the right thing if it had: the options are "keep clock" and
+      // "countdown", and only the second one wants this branch. This is what
+      // the round panel does at its own timer block, and the two now agree.
+      //
+      // WORTH KNOWING: `esphome config` passes this file with the bug in it.
+      // Validation checks the YAML schema and never compiles the lambdas, so a
+      // type error inside one only appears at `esphome compile`. Validating is
+      // not the same as building.
       int left = -1;
       if (id(timer_screen).current_option().str() == "countdown") {
         const float fin = id(timer_finish_epoch).state;
@@ -2796,36 +5624,19 @@ display:
       // either side of a 320 px panel. font_big (118) would be 293 and would
       // crowd the seconds off the edge, so this is the largest honest size here
       // -- the same argument the round face makes for 118 over 132.
-      //
-      // "Digital time size" now picks the face, because the bar IS the digital
-      // time -- large/medium/small were round-only until this, which is why the
-      // control appeared to do nothing when the bar panel was selected.
-      // large = t96 (the largest that fits, per the note above), medium = t72,
-      // small = t48. The seconds offset follows the face so it keeps sitting on
-      // the time's baseline rather than floating away from a smaller number.
-      const std::string dsz = id(digi_size).current_option().str();
-      auto *f_time  = id(font_t96);
-      int   sec_off = 26;
-      if (dsz == "small")       { f_time = id(font_t48); sec_off = 12; }
-      else if (dsz == "medium") { f_time = id(font_t72); sec_off = 19; }
-
       const int ty = id(show_date).state || id(show_weather).state ? 58 : H / 2;
-      it.print(W / 2, ty, f_time, c_hour, TextAlign::CENTER, tbuf);
+      it.print(W / 2, ty, id(font_t96), c_hour, TextAlign::CENTER, tbuf);
 
       if (id(show_seconds).state) {
         char sbuf[6];
         snprintf(sbuf, sizeof(sbuf), ":%02d", now.second);
-        it.print(W - 8, ty + sec_off, id(font_med), c_sec, TextAlign::BASELINE_RIGHT, sbuf);
+        it.print(W - 8, ty + 26, id(font_med), c_sec, TextAlign::BASELINE_RIGHT, sbuf);
       }
 
       // ---- one subtitle line, date and weather sharing it --------------------
       // A bar has room for exactly one line under the time. Rather than pick
       // one and drop the other, they take an end each -- which is also what the
       // round face does with the digital sub-dial and the date.
-      // "Subtitle text size" picks the face for both lines. small buys room
-      // for a third item on the extras line; medium is easier from the room.
-      const bool sub_small = id(sub_size).current_option().str() == "small";
-      auto *f_sub = sub_small ? id(font_small) : id(font_med);
       const int sy = 128;
       if (id(show_date).state) {
         static const char *dows[7] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
@@ -2835,7 +5646,7 @@ display:
                    dows[now.day_of_week - 1], now.day_of_month, now.month);
         else
           snprintf(dbuf, sizeof(dbuf), "%d/%d", now.day_of_month, now.month);
-        it.print(id(show_weather).state ? 10 : W / 2, sy, f_sub, c_sec,
+        it.print(id(show_weather).state ? 10 : W / 2, sy, id(font_med), c_sec,
                  id(show_weather).state ? TextAlign::TOP_LEFT : TextAlign::TOP_CENTER,
                  dbuf);
       }
@@ -2843,81 +5654,8 @@ display:
       if (id(show_weather).state) {
         const float tC = id(weather_temp).state;
         if (!std::isnan(tC))
-          it.printf(W - 10, sy, f_sub, c_hour, TextAlign::TOP_RIGHT,
+          it.printf(W - 10, sy, id(font_med), c_hour, TextAlign::TOP_RIGHT,
                     "%.1f°", tC);
-      }
-
-      // ---- the extras line: rain, humidity, wind, UV, condition -------------
-      // One line, built left to right from whichever switches are on, and it
-      // STOPS when the line is full rather than overprinting -- a letterbox
-      // has room for two or three of these, not five, and a wall clock that
-      // prints one reading on top of another is worse than one that omits it.
-      //
-      // Anything NaN is skipped silently: rain in particular depends on a
-      // sensor that only exists once packages/wall_clock_weather.yaml is
-      // deployed, and an undeployed package should cost a missing word, not
-      // a "nan" on the wall.
-      if (id(show_weather).state) {
-        const int ey = sy + (sub_small ? 20 : 26);
-        if (ey + 14 < H) {
-          char ebuf[64];
-          int  used = 0;
-          ebuf[0] = '\0';
-          // ~6.2 px per character at font_small, ~8.4 at font_med. The budget
-          // is the panel width less both margins, converted to characters.
-          const int budget = (int) ((W - 20) / (sub_small ? 6.2f : 8.4f));
-
-          auto append = [&](const char *frag) {
-            const int need = (int) strlen(frag) + (used ? 2 : 0);
-            if (used + need > budget) return;          // full: stop, do not wrap
-            if (used) { strncat(ebuf, "  ", sizeof(ebuf) - strlen(ebuf) - 1); }
-            strncat(ebuf, frag, sizeof(ebuf) - strlen(ebuf) - 1);
-            used += need;
-          };
-
-          char frag[24];
-          if (id(show_rain).state) {
-            const float mm = id(weather_rain).state;
-            if (!std::isnan(mm)) {
-              snprintf(frag, sizeof(frag), "%.1fmm", mm);
-              append(frag);
-            }
-          }
-          if (id(show_humidity).state) {
-            const float h = id(weather_humidity).state;
-            if (!std::isnan(h)) {
-              snprintf(frag, sizeof(frag), "%.0f%%", h);
-              append(frag);
-            }
-          }
-          if (id(show_wind).state) {
-            const float ws = id(weather_wind).state;
-            if (!std::isnan(ws)) {
-              snprintf(frag, sizeof(frag), "%.0fkm/h", ws);
-              append(frag);
-            }
-          }
-          if (id(show_uv).state) {
-            const float uv = id(weather_uv).state;
-            if (!std::isnan(uv)) {
-              snprintf(frag, sizeof(frag), "UV%.0f", uv);
-              append(frag);
-            }
-          }
-          if (id(show_condition).state) {
-            // The condition slug with its hyphens opened out, so "partlycloudy"
-            // and "lightning-rainy" read as words rather than as identifiers.
-            std::string c = id(weather_condition).state;
-            if (!c.empty()) {
-              for (size_t i = 0; i < c.size(); i++) if (c[i] == '-') c[i] = ' ';
-              snprintf(frag, sizeof(frag), "%.20s", c.c_str());
-              append(frag);
-            }
-          }
-
-          if (ebuf[0])
-            it.print(W / 2, ey, id(font_small), c_sec, TextAlign::TOP_CENTER, ebuf);
-        }
       }
 
       // Stale-status hint, in the same corner and the same red the round face
