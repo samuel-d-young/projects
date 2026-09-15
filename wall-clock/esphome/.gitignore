@@ -4,3 +4,5 @@ secrets.yaml
 
 # esphome build cache, written by `esphome config`/`run`
 .esphome/
+zacs-clock.yaml
+jakes-clock.yaml

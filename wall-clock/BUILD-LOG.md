@@ -6558,3 +6558,32 @@ was two weeks behind this branch and hid every clock's cards; installed from her
 File editor add-on's API and reloaded. Picker offers Zac's / Jake's / Third Clock again.
 `ha-device-configs/*.yaml` are in `/config/esphome/` on the box, so Device Builder
 Install → Wirelessly works as the README says; secrets verified equal by hash.
+
+## 2026-09-16 — Both rings frozen since the flash: two RMT strips, one pool of blocks
+
+Samuel at 06:30: "Zac and Jake's clocks LED rings are frozen, and didn't change as they
+should have." Both clocks were online and every HA entity looked normal; the rings simply
+held their last frame.
+
+**Diagnosis (verified, from the clocks' own logs over the native API):** both clocks log
+`[E][esp32_rmt_led_strip:175]: RMT TX timeout` and `rmt: rmt_tx_wait_all_done(586):
+invalid argument` about fourteen times a second, continuously. In the driver,
+`rmt_tx_wait_all_done(this->channel_, 1000)` returns *invalid argument* only when the
+channel handle is null — the channel was never created at boot. Why: `85cd837` (Board LED
+off) added a **second** `esp32_rmt_led_strip` for the board's own RGB LED, and on the
+ESP32-S3 the driver's default `rmt_symbols` is **192** — all four of the chip's 48-symbol
+RMT TX memory blocks (checked in `components/esp32_rmt_led_strip/light.py`, `SplitDefault`
+`esp32_s3=192`). The board LED is defined first, took all four, the ring's channel creation
+failed, and every ring frame since has failed. The 5 September firmware ran one strip and
+never hit it; the first build with both strips was last night's.
+
+**Fix (`44f8303`):** `rmt_symbols: 48` on the board LED (one LED needs 24 symbols) and
+`rmt_symbols: 96` on the ring — three of four blocks, both channels created. Validated,
+pushed, flashed over WiFi from the workbench like last night (per-clock files copied up
+beside `secrets.yaml` first — the reconciliation had removed the copies).
+
+**Correction, same morning:** an earlier draft of this entry said the grow clock's
+*minutes to wake* had stopped updating too. It had not — the timestamps I read were UTC.
+A null channel fails instantly, so the main loop was fine; only the ring was dead.
+Rule for this config: the two strips' `rmt_symbols` must never add up past 192, and the
+ring is the one that matters.
