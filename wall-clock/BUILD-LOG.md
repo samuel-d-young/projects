@@ -6435,7 +6435,7 @@ branch head adds the `safe_mode` button, the message-from-HA text and its *Show 
 switch, and the board-LED-off change (none of those entities exist in HA yet **(verified)**).
 Install → Wirelessly pulls the branch at build time. The README's two caveats stand: the
 box's `wall_clock_ota_password` and `wall_clock_api_key` must equal what the 09-05 build was
-compiled with, and that build came from a different machine's `secrets.yaml`. A wrong OTA
+compiled with, and that build was made on this machine too, from the short-path worktree `K:\wc8` (removed 2026-09-15 night, its flash logs kept under `home-assistant/backups/`), with the same `secrets.yaml`. A wrong OTA
 password is refused harmlessly; a wrong API key flashes fine and then HA asks for the new
 key on the ESPHome integration.
 
