@@ -20,6 +20,7 @@ import params  # noqa: E402
 from _lib import emit, write_manifest  # noqa: E402
 from cassette import build_lid, build_tray  # noqa: E402
 from player import build_base, build_top  # noqa: E402
+from player_slot import build_body as build_slot_body, build_lid as build_slot_lid  # noqa: E402
 
 
 def invariants(v: dict, D: dict) -> list[str]:
@@ -72,12 +73,43 @@ def invariants(v: dict, D: dict) -> list[str]:
     chk(D["led_cx"] + v["led_d"] / 2 + 3.0 < D["buttons_x0"] - 4.5, "LED too close to the first button")
     chk(D["led_cx"] - v["led_d"] / 2 > D["buzzer_cx"] + v["buzzer_d"] / 2 + 1.5, "LED legs land in the buzzer")
     chk(D["buttons_x0"] + 4 * D["buttons_pitch"] + 4.5 < D["L"] / 2 - v["corner_r"], "buttons run into the corner radius")
+
+    # ---- vertical-slot player ----
+    chk(D["s_proud"] >= 20.0, "slot: less than 20 mm of tape stands proud; hard to grab")
+    chk(v["s_slot_depth"] >= 25.0, "slot: less than 25 mm of tape in the slot; it will wobble")
+    chk(D["s_antenna_to_card"] <= 12.0, "slot: antenna too far from the card")
+    chk(D["s_buzzer_top_z"] + 0.5 < D["s_roof_z"], "slot: buzzer hits the roof")
+    chk(D["s_buzzer_cx"] - v["buzzer_d"] / 2 - 1.5 > D["s_rail_x"] + v["s_keeper"] / 2, "slot: buzzer ring overlaps the module's side rib")
+    chk(D["s_buzzer_cx"] + v["buzzer_d"] / 2 + 1.5 < D["s_cavity_l"] / 2, "slot: buzzer ring through the right wall")
+    chk(D["s_buzzer_cy"] - v["buzzer_d"] / 2 - 1.5 > D["y_pcb0"], "slot: buzzer ring in front of the module wall")
+    chk(D["s_plate_bot_z"] > D["s_led_cz"] + v["led_d"] / 2 + 1.0, "slot: LED hole runs into the slot floor plate")
+    chk(D["s_pcb_top_z"] + v["cavity_clr"] <= D["s_roof_z"] + 1e-6, "slot: module taller than the cavity")
+    chk(D["s_roof_z"] - 8.0 > D["s_pcb_top_z"] - 8.0, "slot: keepers do not reach the PCB")
+    chk(D["s_d1_rib_gap"] >= 0.5, "slot: D1 mini too close to the module's side rib; widen s_side_margin")
+    chk(D["y_d1_1"] + v["cavity_clr"] <= D["s_W"] / 2 - v["wall"] + 1e-6, "slot: D1 mini through the back wall")
+    chk(D["s_d1_top_z"] <= D["s_roof_z"] - 0.5, "slot: Dupont on the D1 mini hits the roof")
+    chk(D["s_usb_cz"] + v["usb_h"] / 2 < D["s_plate_bot_z"], "slot: USB cutout runs into the slot floor plate")
+    chk(D["y_tail1"] + v["cavity_clr"] <= D["s_W"] / 2 - v["wall"] + 1e-6, "slot: module tails through the back wall")
+    # posts clear of the slot ends, the D1 mini, the tails and the buzzer
+    for (x, y) in D["s_posts"]:
+        r = v["post_d"] / 2
+        chk(abs(x) - r > D["s_slot_l"] / 2 + v["s_end_wall"] or y - r > D["y_pcb0"], "slot: a screw post lands in the slot block")
+        chk(abs(x - D["s_d1_cx"]) > v["d1_l"] / 2 + r + v["lip_t"] or abs(y - D["s_d1_cy"]) > v["d1_w"] / 2 + r + v["lip_t"], "slot: a screw post hits the D1 mini")
+        chk(abs(x) > v["pn532_l"] / 2 + r or y - r > D["y_tail1"], "slot: a screw post lands in the module tails")
+        chk((x - D["s_buzzer_cx"]) ** 2 + (y - D["s_buzzer_cy"]) ** 2 > (r + v["buzzer_d"] / 2 + 1.5) ** 2, "slot: a screw post hits the buzzer")
+        chk(abs(x) + r <= D["s_cavity_l"] / 2 + v["wall"] and abs(y) + r <= D["s_cavity_w"] / 2 + v["wall"], "slot: a screw post outside the body")
+    chk(D["s_screw_in_post"] >= v["thread_min"], "slot: not enough thread in the posts")
+    chk(D["s_pilot_depth"] < D["s_roof_z"] - v["floor"] - 1.0, "slot: pilot hole reaches the roof")
+    chk(D["s_buttons_x0"] + 4 * D["s_buttons_pitch"] + 4.5 < D["s_L"] / 2 - v["corner_r"], "slot: buttons run into the corner radius")
+    chk(D["s_led_cx"] - v["led_d"] / 2 > -D["s_L"] / 2 + v["corner_r"], "slot: LED in the corner radius")
+    chk(D["s_buttons_cz"] + 3.0 < D["s_plate_bot_z"] - 0.5, "slot: buttons overlap the slot floor plate level")
     return bad
 
 
 def build_all(D: dict):
     return {"cassette_tray": build_tray(D), "cassette_lid": build_lid(D),
-            "player_base": build_base(D), "player_top": build_top(D)}
+            "player_base": build_base(D), "player_top": build_top(D),
+            "slot_body": build_slot_body(D), "slot_lid": build_slot_lid(D)}
 
 
 def valid(part) -> bool:
@@ -90,8 +122,10 @@ def main() -> int:
     quick = "--quick" in sys.argv
     v = params.nominal()
     D = params.derive(v)
-    print(f"player {D['L']:.1f} x {D['W']:.1f} x {D['H']:.1f} mm, cassette {v['cassette_l']} x {v['cassette_w']} x {v['cassette_h']}, "
+    print(f"flat player {D['L']:.1f} x {D['W']:.1f} x {D['H']:.1f} mm, cassette {v['cassette_l']} x {v['cassette_w']} x {v['cassette_h']}, "
           f"antenna to card {D['antenna_to_card']:.1f} mm, cavity {D['cavity_h']:.1f} mm")
+    print(f"slot player {D['s_L']:.1f} x {D['s_W']:.1f} x {D['s_H']:.1f} mm, tape stands {D['s_proud']:.1f} mm proud, "
+          f"antenna to card {D['s_antenna_to_card']:.1f} mm")
     bad = invariants(v, D)
     if bad:
         print("NOMINAL INVARIANTS FAILED:\n  " + "\n  ".join(bad))
@@ -105,7 +139,9 @@ def main() -> int:
     emit(parts["cassette_tray"], "cassette_tray", "open side up", note="glue the lid in")
     emit(parts["cassette_lid"], "cassette_lid", "dimples up")
     emit(parts["player_base"], "player_base", "open side up", note="electronics drop in from above")
-    emit(parts["player_top"], "player_top", "bay side up", note="4 x M3 x 10 pan head from the top")
+    emit(parts["player_top"], "player_top", "bay side up", note="4 x M3 x 16 pan head from the top")
+    emit(parts["slot_body"], "slot_body", "upside down, top face on the bed", note="slot floor bridges 13 mm")
+    emit(parts["slot_lid"], "slot_lid", "outside face down", note="4 x M3 x 10 pan head from below")
     write_manifest()
     print(f"  nominal built and exported in {time.time() - t0:.0f} s")
     if quick:

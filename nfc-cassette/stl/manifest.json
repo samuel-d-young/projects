@@ -76,7 +76,47 @@
   "mass_g_pla": 28.1,
   "orientation": "bay side up",
   "supports": "none",
-  "note": "4 x M3 x 10 pan head from the top",
+  "note": "4 x M3 x 16 pan head from the top",
+  "errors": []
+ },
+ "slot_body": {
+  "name": "slot_body",
+  "triangles": 7840,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 62001.12,
+  "brep_volume_mm3": 62004.13,
+  "volume_drift": 4.9e-05,
+  "extents_mm": [
+   127.4,
+   48.5,
+   44.8
+  ],
+  "fits_build_volume": true,
+  "mass_g_pla": 41.2,
+  "orientation": "upside down, top face on the bed",
+  "supports": "none",
+  "note": "slot floor bridges 13 mm",
+  "errors": []
+ },
+ "slot_lid": {
+  "name": "slot_lid",
+  "triangles": 3692,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 14583.57,
+  "brep_volume_mm3": 14583.56,
+  "volume_drift": 1e-06,
+  "extents_mm": [
+   127.4,
+   47.0,
+   9.4
+  ],
+  "fits_build_volume": true,
+  "mass_g_pla": 9.7,
+  "orientation": "outside face down",
+  "supports": "none",
+  "note": "4 x M3 x 10 pan head from below",
   "errors": []
  }
 }

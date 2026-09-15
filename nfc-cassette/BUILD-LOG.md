@@ -63,3 +63,35 @@ pilot depth is derived from it, and the sweep checks thread engagement ≥ 6 mm 
 pilot never reaches the floor. Antenna-to-card distance unchanged at 4.8 mm.
 
 Player is 118 × 90 × 31 mm now. Still nothing printed.
+
+## 2026-09-15 (night) — Slot version: the tape stands in the top
+
+Samuel: show me the STLs "if the cassette can go in but also be taken out of the top
+rather than put into the side". So: a vertical slot in the top face, the tape standing
+on its long edge, label to the front, 31 of its 64 mm proud. `cad/player_slot.py`, two
+parts, `slot_body` (printed upside down, top face on the bed) and `slot_lid` (the bottom
+plate). Body 127 × 47 × 47 mm.
+
+**Inside.** The PN532 stands upright with its flat back against the 1.6 mm wall behind
+the slot — the coil reads through its own board, and it puts the card 5.6 mm from the
+antenna with the components, header and Dupont tails all facing the back. Held by two
+full-height side ribs, two keeper ribs hanging from the roof, and a shelf on the lid; it
+slides up into the pocket from below. The D1 mini lies on the lid to the left of the
+module, USB through the left wall; the buzzer on the lid to the right, three sound holes
+through the right wall; LED and five cosmetic buttons on the front, all below the slot
+floor plate. Four M3 × 10 up from the lid into posts hanging from the roof: front-left,
+front-right, back-right and back-middle — the back-left corner belongs to the D1 mini.
+
+**Two things the sweep caught.** (1) The body length was a fixed margin around the slot,
+so a 3 mm wall squeezed the D1 mini into the module's side rib; the length is now the
+larger of the slot-plus-margins and what the board needs. (2) The first pass passed at
+exactly 0.5 mm of gap, which floating point read as 0.4999; the design gap is 0.6 and
+the check stays at 0.5. Six parts, 128 corners, 0 failures.
+
+**Printing.** The body prints top-face-down: the slot is an open channel from the bed,
+the module pocket and the cavity open upward, the posts grow from the bed, and the only
+bridge is the 13 mm slot floor. The lid prints outside-face-down so its counterbores are
+open at the bed. No supports anywhere. Render: `docs/nfc-cassette-slot.png`.
+
+The flat-bay version from earlier tonight stays in the folder as an alternative.
+**Still nothing printed**; the four assumed dimensions still want a caliper first.

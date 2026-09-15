@@ -90,6 +90,16 @@ _P: list[Param] = [
     Param("lip_t", 1.2, 1.0, 1.6, "choice", "locating lips around the PCBs"),
     Param("ledge", 2.5, 2.0, 3.0, "choice", "how much of a PCB corner rests on its post"),
     Param("cavity_clr", 1.0, 0.5, 2.0, "choice", "air below the lowest thing in the cavity"),
+    # ---- the vertical-slot player ("toaster"): the tape stands in a slot in the top
+    Param("s_slot_clr", 0.5, 0.3, 0.8, "choice", "tape to slot, per side, both directions"),
+    Param("s_slot_depth", 33.0, 28.0, 38.0, "choice", "how much of the tape's 63.8 height is inside; the rest stands proud"),
+    Param("s_slot_floor", 2.0, 1.6, 2.6, "choice", "plate the tape stands on"),
+    Param("s_module_wall", 1.6, 1.2, 2.0, "choice", "between the slot and the module's flat back"),
+    Param("s_roof", 2.4, 2.0, 3.0, "choice", "top face over the module zone"),
+    Param("s_side_margin", 13.0, 12.0, 15.0, "choice", "beyond the slot ends; the D1 mini lives on the left behind the module wall"),
+    Param("s_keeper", 1.5, 1.2, 2.0, "choice", "ribs that hold the PCB against the module wall"),
+    Param("s_shelf_h", 1.0, 0.8, 1.5, "choice", "rib on the lid the PCB's bottom edge rests on"),
+    Param("s_end_wall", 2.0, 1.6, 2.6, "choice", "slot block beyond each end of the slot"),
 ]
 PARAMS: dict[str, Param] = {p.name: p for p in _P}
 
@@ -169,4 +179,75 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     D["pilot_depth"] = D["screw_in_post"] + 2.0
     D["proud"] = v["cassette_h"] - v["bay_depth"]
     D["notch_cx"] = D["bay_l"] / 2 + v["notch_d"] / 2 - v["notch_depth"]
+
+    # ------------------------------------------------------------------
+    # Vertical-slot player. Distances `f_*` are measured from the front
+    # outer face toward the back; y = f - s_W/2. The tape stands on its long
+    # edge, label to the front, card side to the back, where the module's
+    # flat back presses against the wall behind the slot. Components, header
+    # and Dupont tails all face the back. The D1 mini lies flat on the lid
+    # to the LEFT of the module, USB out of the left wall. The buzzer sits
+    # under the slot floor at the right. Bottom lid, four M3 screws up into
+    # posts hanging from the roof.
+    # ------------------------------------------------------------------
+    D["s_slot_l"] = v["cassette_l"] + 2 * v["s_slot_clr"]
+    D["s_slot_w"] = v["cassette_h"] + 2 * v["s_slot_clr"]
+    # the body is as long as the slot plus its margins, OR as long as the D1 mini
+    # beside the module pocket needs (wall, lip, clearance, board, clearance, lip,
+    # a 0.5 mm gap, then the module's side rib), whichever is more - so a thicker
+    # wall grows the body instead of squeezing the board against the rib
+    rail_outer = v["pn532_l"] / 2 + v["pcb_clr"] + v["s_keeper"]
+    d1_needs = 2 * (v["wall"] + v["lip_t"] + v["pcb_clr"] + v["d1_l"] + v["pcb_clr"] + v["lip_t"] + 0.6 + rail_outer)
+    D["s_L"] = max(D["s_slot_l"] + 2 * v["s_side_margin"], d1_needs)
+    D["s_tail"] = max(v["pn532_comp_h"], v["pin_below"] + v["dupont_h"])
+    D["f_slot0"] = v["wall"]
+    D["f_slot1"] = D["f_slot0"] + D["s_slot_w"]
+    D["f_pcb0"] = D["f_slot1"] + v["s_module_wall"]
+    D["f_pcb1"] = D["f_pcb0"] + v["pn532_t"]
+    D["f_tail1"] = D["f_pcb1"] + D["s_tail"]
+    D["f_d1_0"] = D["f_pcb0"] + 1.0
+    D["f_d1_1"] = D["f_d1_0"] + v["d1_w"]
+    D["f_back_inner"] = max(D["f_tail1"], D["f_d1_1"]) + v["cavity_clr"]
+    D["s_W"] = D["f_back_inner"] + v["wall"]
+    yof = -D["s_W"] / 2.0
+    for k in ("f_slot0", "f_slot1", "f_pcb0", "f_pcb1", "f_tail1", "f_d1_0", "f_d1_1", "f_back_inner"):
+        D["y" + k[1:]] = D[k] + yof              # y_slot0, y_slot1, y_pcb0 ...
+    D["s_H"] = v["floor"] + v["s_shelf_h"] + v["pn532_w"] + v["cavity_clr"] + v["s_roof"]
+    D["s_plate_top_z"] = D["s_H"] - v["s_slot_depth"]
+    D["s_plate_bot_z"] = D["s_plate_top_z"] - v["s_slot_floor"]
+    D["s_roof_z"] = D["s_H"] - v["s_roof"]        # underside of the roof
+    D["s_proud"] = v["cassette_w"] - v["s_slot_depth"]
+    D["s_cavity_l"] = D["s_L"] - 2 * v["wall"]
+    D["s_cavity_w"] = D["s_W"] - 2 * v["wall"]
+    D["s_cavity_r"] = max(v["corner_r"] - v["wall"], 0.6)
+    D["s_pcb_bot_z"] = v["floor"] + v["s_shelf_h"]
+    D["s_pcb_top_z"] = D["s_pcb_bot_z"] + v["pn532_w"]
+    D["s_rail_x"] = v["pn532_l"] / 2 + v["pcb_clr"] + v["s_keeper"] / 2   # side rib centre
+    D["s_rail_y0"] = D["y_slot1"]
+    D["s_rail_y1"] = D["y_pcb1"] + v["pcb_clr"] + v["s_keeper"]
+    D["s_keeper_y"] = D["y_pcb1"] + v["pcb_clr"] + v["s_keeper"] / 2
+    D["s_keeper_x"] = v["pn532_l"] / 2 - 5.0
+    D["s_antenna_to_card"] = v["s_module_wall"] + v["pn532_t"] + v["shell_floor"] + v["s_slot_clr"] + v["pcb_clr"]
+    # D1 mini: long side along X, against the left wall (USB out through it); the
+    # gap to the module's side rib is what the sweep checks
+    D["s_d1_cx"] = -(D["s_cavity_l"] / 2 - v["lip_t"] - v["pcb_clr"] - v["d1_l"] / 2)
+    D["s_d1_cy"] = (D["y_d1_0"] + D["y_d1_1"]) / 2
+    D["s_d1_rib_gap"] = (-D["s_rail_x"] - v["s_keeper"] / 2) - (D["s_d1_cx"] + v["d1_l"] / 2 + v["pcb_clr"] + v["lip_t"])
+    D["s_d1_board_z"] = v["floor"] + v["d1_standoff"]
+    D["s_d1_top_z"] = D["s_d1_board_z"] + v["d1_t"] + v["d1_top_h"]
+    D["s_usb_cz"] = D["s_d1_board_z"] + v["d1_t"] / 2 + 1.5
+    # buzzer on the lid in the back zone, right of the module; sound holes through the right wall
+    D["s_buzzer_cx"] = 40.0
+    D["s_buzzer_cy"] = (D["y_pcb0"] + D["y_back_inner"]) / 2
+    D["s_buzzer_top_z"] = v["floor"] + 3.0 + v["buzzer_d"] * 0.8     # ring 3 tall, buzzer ~9.6 tall
+    # front face furniture, all below the slot floor plate
+    D["s_led_cx"], D["s_led_cz"] = -46.0, 6.0
+    D["s_buttons_x0"], D["s_buttons_pitch"], D["s_buttons_cz"] = -34.0, 12.0, 6.0
+    # screw posts: front-left, front-right, back-right, back-middle (x = 0 sits between
+    # the module tails and the back wall, which the D1 mini's depth makes deep enough)
+    px = D["s_L"] / 2 - v["wall"] - v["post_d"] / 2 - 0.5
+    py = D["s_W"] / 2 - v["wall"] - v["post_d"] / 2 - 0.5
+    D["s_posts"] = [(-px, -py), (px, -py), (px, py), (0.0, py)]
+    D["s_screw_in_post"] = v["screw_len"] - (v["floor"] - v["screw_head_h"])
+    D["s_pilot_depth"] = D["s_screw_in_post"] + 2.0
     return D
