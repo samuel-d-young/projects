@@ -6407,3 +6407,46 @@ The ties cross the **top** of the board 14 mm in from each end. On a DevKitC-1
 that is the middle third, clear of the USB shells and the antenna keep-out, but
 there is no verified component map for the board in his hand. The windows are
 4 mm long so a tie can be nudged; `STANDBOX_TIE_INSET` moves them properly.
+
+## 2026-09-15 — Both clocks flashed from this branch; the new controls needed their ids back
+
+Zac's (21:07) and Jake's (21:31) were flashed over WiFi from the workbench with
+`esphome run zacs-clock.yaml --device 192.168.1.24` (and `jakes-clock.yaml`, `.25`), the
+package pulling this branch at build time. OTA successful both times **(verified)**; both
+clocks report `2026.8.1 (2026-09-15 21:07:43 / 21:31:46 +1000)` and 126 entities.
+
+**The 14 entities each flash added arrived under the wrong prefix.** Home Assistant names a
+NEW ESPHome entity after the device's friendly name at the moment it first appears, so the
+night-sky controls, *Message* + *Show the message*, *Board LED*, *Restart into safe mode*,
+*Grow clock size* and the *Firmware* update entity registered as `*.zac_s_clock_*` and
+`*.jake_s_clock_*` — while the older 112 kept `mini_round_clock_3_*` / `_4_*`, which is what
+every row in `build_clock_dashboard.py` addresses. Rows for the new controls read *Entity not
+found* **(verified)**.
+
+**Fix: `homeassistant/normalise_entity_ids.py`.** Finds each clock in CLOCKS by its device
+name, renames every entity on that device that is not under the slug back to
+`<kind>.<slug>_<rest>` (the WebSocket registry call; what Settings → Entities → rename
+does), `--dry-run` to look first. 28 renamed tonight, second pass finds nothing. Run it after
+any flash that adds entities. The generator keeps one prefix per clock on purpose — teaching
+it two would mean knowing which entity arrived when.
+
+**Dashboard regenerated and installed.** The `/wall-clock-build` Settings view on the box
+predated the night-sky work (no `night_sky`, `board_led` or `restart_into_safe_mode` rows).
+`build_clock_dashboard.py --view` from this branch, the `settings` view replaced over the
+WebSocket API (previous copy in `home-assistant/backups/dashboards-2026-09-15/`), every
+`mini_round_clock_3/4` id it references present in HA **(verified)** except the two
+*Frame time* sensors Sam disabled himself, and the Projects dashboard's Wall Clock tab
+re-copied from it. One stale key in the generator fixed on the way: the firmware's switch is
+*Grow clock partial redraw* (`grow_clock_partial_redraw`), the row asked for
+`grow_clock_partial_redraw_test`.
+
+**Two build traps on Windows**, both now in the home-assistant STATUS and memory: ESP-IDF
+refuses to build under Git Bash and ESPHome still says *Successfully compiled*; and the
+default toolchain cache path is too long — `ESPHOME_ESP_IDF_PREFIX=C:\ESPHome\idf`.
+
+Also done tonight from the other checkout of this repo (a stale one, 84 commits behind this
+branch, whose BUILD-LOG carries the fuller write-up): the box's `wall_clock_ui.yaml` package
+was two weeks behind this branch and hid every clock's cards; installed from here via the
+File editor add-on's API and reloaded. Picker offers Zac's / Jake's / Third Clock again.
+`ha-device-configs/*.yaml` are in `/config/esphome/` on the box, so Device Builder
+Install → Wirelessly works as the README says; secrets verified equal by hash.

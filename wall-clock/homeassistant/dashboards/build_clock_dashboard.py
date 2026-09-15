@@ -53,6 +53,17 @@ import json, io, sys
 # They match the device names in Home Assistant, renamed there with name_by_user
 # on 2026-09-05, which likewise does not disturb entity ids.
 #
+# ...EXISTING entity ids. An entity that a LATER firmware adds is named by Home
+# Assistant after the device's friendly name at the moment it first appears, so
+# the 2026-09-15 flash produced `switch.zac_s_clock_grow_clock_night_sky`, not
+# `switch.mini_round_clock_3_grow_clock_night_sky`, and every row below for the
+# new controls read "Entity not found". The dashboard keeps one prefix per
+# clock on purpose; the ids are made to agree with it instead. After any flash
+# that adds entities run `python ../normalise_entity_ids.py` -- it renames the
+# strays back under the slug (that is all Settings -> Entities -> rename does)
+# and needs no regeneration here. The label must equal the device's name in
+# Home Assistant for it to find the device.
+#
 # THREE, not four. Sam, 2026-09-05: "There are not 2 screens there are 3." The
 # two dead entries (Mini Round Clock, Mini Round Clock 2 -- boards that have not
 # answered since 2026-08-31) were deleted from Home Assistant, and the D1 mini
@@ -444,7 +455,7 @@ def clock_cards(slug, label):
             # crescent and crossed-bar sparkles. Default off.
             row(e("switch", "grow_clock_blocky_art"), "Blocky art"),
             row(e("switch", "grow_clock_flat_art_test"), "Flat art (test)"),
-            row(e("switch", "grow_clock_partial_redraw_test"), "Partial redraw (test)"),
+            row(e("switch", "grow_clock_partial_redraw"), "Partial redraw (test)"),
             row(e("switch", "screen_freeze_test"), "Screen freeze (test)"),
             row(e("switch", "grow_clock_repaint_every_second"), "Repaint every second (test)"),
             row(e("switch", "grow_clock_freeze_the_eyes_test"), "Freeze the eyes (test)"),

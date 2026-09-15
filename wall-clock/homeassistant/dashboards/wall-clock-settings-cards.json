@@ -689,7 +689,7 @@
         "name": "Flat art (test)"
       },
       {
-        "entity": "switch.mini_round_clock_3_grow_clock_partial_redraw_test",
+        "entity": "switch.mini_round_clock_3_grow_clock_partial_redraw",
         "name": "Partial redraw (test)"
       },
       {
@@ -1517,7 +1517,7 @@
         "name": "Flat art (test)"
       },
       {
-        "entity": "switch.mini_round_clock_4_grow_clock_partial_redraw_test",
+        "entity": "switch.mini_round_clock_4_grow_clock_partial_redraw",
         "name": "Partial redraw (test)"
       },
       {
@@ -2345,7 +2345,7 @@
         "name": "Flat art (test)"
       },
       {
-        "entity": "switch.mini_round_clock_grow_clock_partial_redraw_test",
+        "entity": "switch.mini_round_clock_grow_clock_partial_redraw",
         "name": "Partial redraw (test)"
       },
       {
