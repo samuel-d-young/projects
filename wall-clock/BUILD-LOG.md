@@ -6786,3 +6786,24 @@ asked to find and connect it, and a flash changes what the clock does.
 A wrong turn on the way, corrected: the first lookup by MAC landed on the network
 integration's device record for the same address (the UniFi tracker), which got renamed
 *Third Clock* for a few seconds before the ESPHome device did; reverted.
+
+## 2026-09-16 (evening) — The third clock flashed and made a routine clock; face times copy
+
+Sam: *"HA says, 'Third Clock is not connected'"* — the Wall Clock tab's gate,
+`binary_sensor.mini_round_clock_status`, which the August build never declared. *"Flash it
+now."* — done from this branch over the air at 17:43 (full compile for the new device name,
+RAM 58.9 %, flash 72.4 %) and again at 17:48 with `routine_slug: third`: the status sensor
+is on, the gate opens, 172 entities all under `mini_round_clock_*` (107 arrived as
+`third_clock_*` and were renamed), the 60-LED ring count survived the reflash **(verified)**.
+`ha-device-configs/mini-round-clock.yaml` is its wrapper and the installer puts it on the box
+(it replaced an older file of the same name there, the August config; this repo holds every
+version of the firmware). *"Add this as an option for routines too"* — `wall_clock_routines.yaml`
+gained a third block (a copy of Zac's, slug `third`, chosen before the clock has an owner:
+change the label on the card, not the slug), the scripts' options list it, the Routines
+dashboard has a Third Clock column and a third Layout card. `test_routines.py --clock third`:
+the step arrives and the picture loads on it; the grow-face window shows the clock face because
+its Grow clock mode is off, which the test now allows — 20/21 with that one noted.
+
+*"Add an option to copy the faces through the day to other clocks too."* — the card's
+`copy_from` takes a list now and renders a *Copy …'s routine* and a *Copy …'s face times*
+button per clock listed; both copy with fresh ids and touch nothing else.
