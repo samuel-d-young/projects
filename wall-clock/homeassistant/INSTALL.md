@@ -131,7 +131,7 @@ home-assistant repo, over the File editor add-on's API, with no restart:
 
 ```bash
 python K:\Claude\home-assistant	ools\install_routines.py        # install + reload + verify
-python K:\Claude\home-assistant	ools	est_routines.py           # 16 end-to-end checks
+python K:\Claude\home-assistant	ools	est_routines.py           # 19 end-to-end checks
 ```
 
 It copies `packages/wall_clock_routines.yaml` and `packages/wall_clock_weather.yaml`
