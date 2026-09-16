@@ -17,6 +17,8 @@
  *     needs about 23 kB. HA's store takes jpeg/png/gif only.
  *   - saves through script.wall_clock_routine_save (one event, one sensor update)
  *   - "Try it" shows a step on the clock for two minutes via script.wall_clock_routine_preview
+ *   - while a step is on: Done (ends it early), +5 min, Next now; all ride on the
+ *     same preview event, so nothing here touches the saved schedule
  *
  * Plain custom element, no build step, no framework. Talks to HA only through the
  * `hass` object the frontend hands every card (callService, callWS, fetchWithAuth).
@@ -134,15 +136,16 @@
       const c = this._config.clock;
       return { steps: `sensor.wall_clock_routine_${c}_steps`, now: `sensor.wall_clock_routine_${c}_now`,
                on: `input_boolean.wall_clock_routine_${c}`, hol: "input_boolean.wall_clock_school_holidays",
-               fwin: `sensor.wall_clock_face_${c}_windows`, fnow: `sensor.wall_clock_face_${c}_now` };
+               fwin: `sensor.wall_clock_face_${c}_windows`, fnow: `sensor.wall_clock_face_${c}_now`,
+               pv: `sensor.wall_clock_routine_${c}_preview` };
     }
     _st(id) { return this._hass && this._hass.states[id]; }
     _steps() { const s = this._st(this._ids.steps); const l = (s && s.attributes.steps) || []; return Array.isArray(l) ? l.slice().sort((a, b) => mins(a.start) - mins(b.start)) : []; }
     _faces() { const s = this._st(this._ids.fwin); const l = (s && s.attributes.windows) || []; return Array.isArray(l) ? l.slice().sort((a, b) => mins(a.start) - mins(b.start)) : []; }
     _key() {
       const s = this._st(this._ids.steps), n = this._st(this._ids.now), o = this._st(this._ids.on), h = this._st(this._ids.hol);
-      const fw = this._st(this._ids.fwin), fn = this._st(this._ids.fnow);
-      return [s && s.last_updated, n && n.state, n && n.attributes.step_id, o && o.state, h && h.state, fw && fw.last_updated, fn && fn.state, this._edit ? "e" : "", this._fedit ? "f" : "", this._busy, this._err].join("|");
+      const fw = this._st(this._ids.fwin), fn = this._st(this._ids.fnow), pv = this._st(this._ids.pv);
+      return [s && s.last_updated, n && n.state, n && n.attributes.step_id, n && n.attributes.end_s, o && o.state, h && h.state, fw && fw.last_updated, fn && fn.state, pv && pv.state, this._edit ? "e" : "", this._fedit ? "f" : "", this._busy, this._err].join("|");
     }
     // ---- HA calls ---------------------------------------------------------
     async _save(steps) {
@@ -174,11 +177,22 @@
       }
       const nowLine = (() => {
         if (!now) return "";
+        const btn = (d, t, cls) => `<button class="${cls || ""}" data-${d} ${this._busy ? "disabled" : ""}>${t}</button>`;
         if (now.state && now.state !== "none" && now.state !== "unknown") {
           const e = now.attributes.end_s || 0, pv = now.attributes.preview;
-          return `<div class="now">Now on the clock: <b>${esc(now.state)}</b> until ${pad(Math.floor(e / 3600))}:${pad(Math.floor(e / 60) % 60)}${pv ? " <span class=muted>(preview)</span>" : ""}</div>`;
+          const cur = this._steps().find((x) => x.id === now.attributes.step_id);
+          const nx = this._next();
+          // Parent controls: Done ends the step early (nothing shows until its
+          // scheduled end), +5 min refills the ring for what is left plus five,
+          // Next now jumps to the following step until ITS scheduled end.
+          const acts = pv ? btn("back", "Back to schedule")
+            : (cur ? btn("done", "Done ✓", "p") + " " + btn("more", "+5 min") + (nx ? " " + btn("nextnow", "Next now ▶") : "") : "");
+          return `<div class="now">Now on the clock: <b>${esc(now.state)}</b> until ${pad(Math.floor(e / 3600))}:${pad(Math.floor(e / 60) % 60)}${pv ? " <span class=muted>(preview)</span>" : ""}
+            <span style="float:right">${acts}</span></div>`;
         }
+        const pvs = this._st(this._ids.pv), skip = pvs && pvs.attributes.step && pvs.attributes.step.skip && (pvs.attributes.until || 0) > Date.now() / 1000;
         const nx = this._next();
+        if (skip) return `<div class="now">Marked <b>done</b> early. ${nx ? `Next: <b>${esc(nx.label)}</b> at ${esc(nx.start)}.` : ""} <span style="float:right">${btn("back", "Undo")}</span></div>`;
         return `<div class="now">Nothing on right now.${nx ? ` Next: <b>${esc(nx.label)}</b> at ${esc(nx.start)}.` : ""}</div>`;
       })();
       this.shadowRoot.innerHTML = `<style>${css}</style><ha-card>
@@ -291,6 +305,15 @@
         const id = ev.target.dataset.tog;
         this._hass.callService("input_boolean", ev.target.checked ? "turn_on" : "turn_off", { entity_id: id });
       }));
+      // parent controls on the Now line
+      const secsNow = () => { const t = new Date(); return t.getHours() * 3600 + t.getMinutes() * 60 + t.getSeconds(); };
+      const act = async (label, fn) => { try { this._busy = label; this._render(); await fn(); this._err = ""; } catch (e) { this._err = String(e.message || e); } this._busy = ""; this._render(); };
+      const nowS = this._st(this._ids.now), curStep = nowS && this._steps().find((x) => x.id === nowS.attributes.step_id);
+      const remaining = () => Math.max(5, (nowS && nowS.attributes.end_s || 0) - secsNow());
+      const dn = q("[data-done]"); if (dn) dn.onclick = () => act("Marking done…", () => this._preview({ id: "done", skip: true, label: "done" }, remaining()));
+      const mo = q("[data-more]"); if (mo) mo.onclick = () => act("Adding five minutes…", () => this._preview(curStep, remaining() + 300));
+      const nn = q("[data-nextnow]"); if (nn) nn.onclick = () => { const nx = this._next(); if (!nx) return; act("Starting the next step…", () => this._preview(nx, Math.max(60, mins(nx.end) * 60 - secsNow()))); };
+      const bk = q("[data-back]"); if (bk) bk.onclick = () => act("Back to the schedule…", () => this._hass.callService("script", "wall_clock_routine_preview_stop", { clock: this._config.clock }));
       const add = q("[data-add]"); if (add) add.onclick = () => { this._edit = { id: uid(), label: "", start: "08:00", end: "08:20", days: "weekdays", hue: 173, image: "", emoji: "" }; this._pending = null; this._err = ""; this._render(); };
       qa("[data-edit]").forEach((b) => b.onclick = () => { const s = this._steps().find((x) => x.id === b.dataset.edit); if (s) { this._edit = Object.assign({}, s); this._pending = null; this._err = ""; this._render(); this._drawPreview(); } });
       qa("[data-del]").forEach((b) => b.onclick = async () => {

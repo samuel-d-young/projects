@@ -2,8 +2,9 @@
 # K:\Claude\home-assistant\tools\install_routines.py (lovelace/config/save).
 #
 # Three tabs:
-#   Routines  program each boy's picture routine (the custom card) and see what
-#             the clock is showing right now
+#   Routines  today's weather and the holidays toggle at the top, then one
+#             column per boy: the routine card (steps, parent buttons, faces
+#             through the day) and what his clock says it is showing
 #   Layout    drag the weather symbol, the time and the routine picture around
 #             a mock of each screen; the clock follows live
 #   Help      what everything means, in plain words
@@ -21,6 +22,33 @@ views:
     max_columns: 2
     sections:
       - type: grid
+        column_span: 2
+        cards:
+          - type: heading
+            heading: Today
+            icon: mdi:weather-partly-cloudy
+          - type: tile
+            entity: sensor.wall_clock_weather_today
+            name: Weather
+            icon: mdi:weather-partly-cloudy
+            grid_options: {columns: 4}
+          - type: tile
+            entity: sensor.wall_clock_weather_high
+            name: High
+            color: orange
+            grid_options: {columns: 4}
+          - type: tile
+            entity: sensor.wall_clock_weather_low
+            name: Low
+            color: blue
+            grid_options: {columns: 4}
+          - type: tile
+            entity: input_boolean.wall_clock_school_holidays
+            name: School holidays
+            icon: mdi:beach
+            tap_action: {action: toggle}
+            grid_options: {columns: 4}
+      - type: grid
         cards:
           - type: heading
             heading: Zac
@@ -30,23 +58,26 @@ views:
             name: Zac
             copy_from: jake
           - type: entities
+            title: Zac's clock
             show_header_toggle: false
             state_color: true
             entities:
-              - entity: sensor.wall_clock_routine_zac_now
-                name: On the clock now (Home Assistant)
-              - entity: sensor.mini_round_clock_3_routine_showing
-                name: On the clock now (the clock says)
-              - entity: sensor.wall_clock_face_zac_now
-                name: Face wanted now (auto = the clock decides)
+              - entity: binary_sensor.mini_round_clock_3_status
+                name: Online
               - entity: sensor.mini_round_clock_3_face_showing
-                name: Face showing (the clock says)
+                name: Face showing
+              - entity: sensor.mini_round_clock_3_routine_showing
+                name: Step showing
               - entity: binary_sensor.mini_round_clock_3_routine_picture_loaded
                 name: Picture loaded
               - entity: select.mini_round_clock_3_routine_countdown_direction
                 name: Ring empties
-              - entity: binary_sensor.mini_round_clock_3_status
-                name: Clock online
+              - type: section
+                label: Home Assistant's view
+              - entity: sensor.wall_clock_routine_zac_now
+                name: Step wanted now
+              - entity: sensor.wall_clock_face_zac_now
+                name: Face wanted now (auto = the clock decides)
       - type: grid
         cards:
           - type: heading
@@ -57,23 +88,26 @@ views:
             name: Jake
             copy_from: zac
           - type: entities
+            title: Jake's clock
             show_header_toggle: false
             state_color: true
             entities:
-              - entity: sensor.wall_clock_routine_jake_now
-                name: On the clock now (Home Assistant)
-              - entity: sensor.mini_round_clock_4_routine_showing
-                name: On the clock now (the clock says)
-              - entity: sensor.wall_clock_face_jake_now
-                name: Face wanted now (auto = the clock decides)
+              - entity: binary_sensor.mini_round_clock_4_status
+                name: Online
               - entity: sensor.mini_round_clock_4_face_showing
-                name: Face showing (the clock says)
+                name: Face showing
+              - entity: sensor.mini_round_clock_4_routine_showing
+                name: Step showing
               - entity: binary_sensor.mini_round_clock_4_routine_picture_loaded
                 name: Picture loaded
               - entity: select.mini_round_clock_4_routine_countdown_direction
                 name: Ring empties
-              - entity: binary_sensor.mini_round_clock_4_status
-                name: Clock online
+              - type: section
+                label: Home Assistant's view
+              - entity: sensor.wall_clock_routine_jake_now
+                name: Step wanted now
+              - entity: sensor.wall_clock_face_jake_now
+                name: Face wanted now (auto = the clock decides)
 
   - title: Layout
     path: layout
@@ -110,6 +144,16 @@ views:
                 name: Source (Open-Meteo, zone.home)
               - entity: weather.forecast_home
                 name: Fallback (met.no)
+              - type: section
+                label: Clock health
+              - entity: sensor.mini_round_clock_3_free_heap
+                name: Zac's clock free heap
+              - entity: sensor.mini_round_clock_3_largest_free_block
+                name: Zac's clock largest free block
+              - entity: sensor.mini_round_clock_4_free_heap
+                name: Jake's clock free heap
+              - entity: sensor.mini_round_clock_4_largest_free_block
+                name: Jake's clock largest free block
 
   - title: Help
     path: help
@@ -142,11 +186,27 @@ views:
                 changing the schedule. Good for checking a picture.
               * **Ring colour** is per step. The screen text takes the same
                 colour.
-              * A step that is on right now is outlined in the list. "On the
-                clock now (the clock says)" is what the clock itself reports
-                back, so if the two disagree the clock has not received it.
+              * A step that is on right now is outlined in the list. "Step
+                showing" under the clock is what the clock itself reports
+                back, so if it disagrees with "Step wanted now" the clock has
+                not received it.
           - type: markdown
             content: >-
+              ## While a step is on
+
+              Three buttons appear on the "Now on the clock" line:
+
+              * **Done ✓** — he finished early. The clock goes back to its
+                face now; the next step still starts at its own time. *Undo*
+                puts the step back.
+              * **+5 min** — the ring refills for what is left plus five
+                minutes.
+              * **Next now ▶** — jump to the following step straight away; it
+                ends at its scheduled time.
+
+              None of these change the saved schedule. Tomorrow runs as
+              programmed.
+
               ## The weather symbol
 
               A sun, a cloud, rain, a storm, snow, fog, wind or a moon, with
@@ -178,7 +238,7 @@ views:
               instead: *Grow face 18:30 until 07:30, every day* and *Clock
               face 07:30 until 18:30*. "Until" earlier than "From" runs over
               midnight. A routine step always takes over while it is on, and
-              "Face showing (the clock says)" tells you what is on the glass.
+              "Face showing" under the clock tells you what is on the glass.
 
               **What's next.** The routine face keeps a small area on the
               right with the following step's picture and start time; move

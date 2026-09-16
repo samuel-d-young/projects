@@ -41,7 +41,12 @@
 # PREVIEW. `script.wall_clock_routine_preview` puts one step on a clock for
 # a couple of minutes without touching the schedule -- the card's "Try it on
 # the clock" button. It goes through its own tiny trigger-based sensor so it
-# survives the same way.
+# survives the same way. The card's parent buttons ride on the same event:
+#   Done       preview {skip: true} until the step's scheduled end -> nothing
+#              shows, the next step starts on time
+#   +5 min     preview the current step for what is left plus five minutes
+#              (the ring refills for that span)
+#   Next now   preview the next step until ITS scheduled end
 #
 # ADDING A CLOCK: copy one clock's block (steps sensor, preview sensor, now
 # sensor, input_boolean) and change the slug, then give the new clock's
@@ -219,7 +224,9 @@ template:
             {% set ns = namespace(hit=none) %}
             {% set pv = state_attr('sensor.wall_clock_routine_zac_preview', 'step') %}
             {% set until = state_attr('sensor.wall_clock_routine_zac_preview', 'until') | int(0) %}
-            {% if pv and pv.label is defined and until > as_timestamp(t) %}
+            {% if pv and pv.skip is defined and pv.skip and until > as_timestamp(t) %}
+              {# "Done": the step is over early; nothing shows until its scheduled end #}
+            {% elif pv and pv.label is defined and until > as_timestamp(t) %}
               {% set left = (until - as_timestamp(t)) | int %}
               {% set ns.hit = dict(pv, start_s=secs, end_s=secs + left, preview=true) %}
             {% elif is_state('input_boolean.wall_clock_routine_zac', 'on') %}
@@ -380,7 +387,9 @@ template:
             {% set ns = namespace(hit=none) %}
             {% set pv = state_attr('sensor.wall_clock_routine_jake_preview', 'step') %}
             {% set until = state_attr('sensor.wall_clock_routine_jake_preview', 'until') | int(0) %}
-            {% if pv and pv.label is defined and until > as_timestamp(t) %}
+            {% if pv and pv.skip is defined and pv.skip and until > as_timestamp(t) %}
+              {# "Done": the step is over early; nothing shows until its scheduled end #}
+            {% elif pv and pv.label is defined and until > as_timestamp(t) %}
               {% set left = (until - as_timestamp(t)) | int %}
               {% set ns.hit = dict(pv, start_s=secs, end_s=secs + left, preview=true) %}
             {% elif is_state('input_boolean.wall_clock_routine_jake', 'on') %}

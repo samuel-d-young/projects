@@ -6723,3 +6723,23 @@ symbol's default spot (top, y = 50) against the grow face's eyes; the routine na
 for long names (14 characters fit at the default; the Layout size slider drops to 22 px);
 the ring direction. Adding a third clock = a `routine_slug` in its wrapper plus a copied
 block in `wall_clock_routines.yaml`.
+
+## 2026-09-16 (afternoon) — Zac's routine loaded; the dashboard finished
+
+Sam: *"Set up Zac's morning routine for me, and finish the HA dashboard for it."* Four
+school-day steps from his own examples — Breakfast 07:30, Get dressed 08:00, Brush teeth
+08:20, Shoes and bag 08:30–08:40 — with Noto emoji (googlefonts/noto-emoji 512 px PNGs)
+composed onto black 180 px canvases, saved as JPEG q92 and uploaded to HA's image store;
+saved through `script.wall_clock_routine_save`, routine switched on, and his clock showed
+*Get dressed* with the picture loaded in a 40 s preview **(verified)**.
+
+The dashboard's finish is the parent's side of a routine: while a step is on, the card's
+"Now" line carries **Done ✓**, **+5 min** and **Next now ▶** (and *Undo* / *Back to
+schedule*). All three ride on the existing preview event so the saved schedule is never
+touched — Done is a preview with `skip: true` until the step's scheduled end, which the
+`now` template now treats as "nothing on"; +5 min previews the current step for what is left
+plus five (the ring refills); Next now previews the following step until its own end. The
+Routines tab opens with a Today strip (weather tiles, the holidays toggle) and one column
+per boy; the Layout tab lists clock health (free heap, largest block). `test_routines.py`
+gained the Done/Undo pair: **21/21** on Zac's clock **(verified)**; the cards were checked in
+the harness (buttons render, no console errors).
