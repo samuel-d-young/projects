@@ -6807,3 +6807,19 @@ its Grow clock mode is off, which the test now allows — 20/21 with that one no
 *"Add an option to copy the faces through the day to other clocks too."* — the card's
 `copy_from` takes a list now and renders a *Copy …'s routine* and a *Copy …'s face times*
 button per clock listed; both copy with fresh ids and touch nothing else.
+
+## 2026-09-16 (night) — The squeezed routine list, and the next area's default spot
+
+Sam's screenshot of the Routines page: every step row rendered about 200 px wide with its
+text wrapped to one word a line, and the Done / +5 min / Next now buttons hanging below the
+"Now on the clock" strip. Cause: those buttons were a `float:right` span inside the strip, and
+the step list below it is a flex container — a flex container establishes its own formatting
+context and must not overlap a float, so the browser narrowed the whole list to the space
+beside the buttons for its full height. Fix: the strip is a flex row (text `flex: 1 1 220px`,
+buttons in their own flex group), no float anywhere. Checked in the harness — rows span the
+card again — and installed **(verified)**.
+
+While there: the what's-next area's default on the grow and clock faces (292, 262) brushed the
+grow face's time in 12-hour mode (its "pm" reaches x ≈ 290 at y ≈ 300). Moved to 306, 236 on
+all three clocks by `number.set_value` and as the firmware default for the next build; it is a
+layout number, so drag it wherever it reads best.

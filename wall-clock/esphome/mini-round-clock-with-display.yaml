@@ -1050,7 +1050,9 @@ number:
     restore_value: true
   # the "what's next" area on the GROW and CLOCK faces (the routine face has
   # its own slot above), shown from `routine_next_horizon` minutes before the
-  # next step so a child who finished early still sees what comes next
+  # next step so a child who finished early still sees what comes next.
+  # Default 306,236: right of the eyes, clear of the grow face's time (which
+  # reaches x ~290 with its "pm" in 12-hour mode) and of the weather at the top.
   - platform: template
     id: lay_next2_x
     name: "Layout next (other faces) X"
@@ -1060,7 +1062,7 @@ number:
     min_value: 0
     max_value: 360
     step: 2
-    initial_value: 292
+    initial_value: 306
     optimistic: true
     restore_value: true
   - platform: template
@@ -1072,7 +1074,7 @@ number:
     min_value: 0
     max_value: 360
     step: 2
-    initial_value: 262
+    initial_value: 236
     optimistic: true
     restore_value: true
   - platform: template
@@ -5166,8 +5168,8 @@ display:
       };
       auto draw_next2 = [&]() {
         if (!next_due()) return;
-        draw_next(std::isnan(id(lay_next2_x).state) ? 292 : (int) lroundf(id(lay_next2_x).state),
-                  std::isnan(id(lay_next2_y).state) ? 262 : (int) lroundf(id(lay_next2_y).state),
+        draw_next(std::isnan(id(lay_next2_x).state) ? 306 : (int) lroundf(id(lay_next2_x).state),
+                  std::isnan(id(lay_next2_y).state) ? 236 : (int) lroundf(id(lay_next2_y).state),
                   std::isnan(id(lay_next2_size).state) ? 1.0f : id(lay_next2_size).state / 100.0f);
       };
 

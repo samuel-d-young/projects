@@ -43,8 +43,10 @@
     ha-card { padding: 12px 16px 16px; }
     .hdr { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
     .hdr h2 { font-size: 1.25em; margin: 0; flex: 1 1 auto; font-weight: 500; }
-    .now { padding: 8px 12px; border-radius: 10px; background: var(--secondary-background-color, rgba(127,127,127,.12)); font-size: .95em; margin-bottom: 10px; }
+    .now { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 12px; border-radius: 10px; background: var(--secondary-background-color, rgba(127,127,127,.12)); font-size: .95em; margin-bottom: 10px; }
     .now b { color: var(--primary-color); }
+    .now .txt { flex: 1 1 220px; }
+    .now .acts { display: flex; flex-wrap: wrap; gap: 6px; }
     .steps { display: flex; flex-direction: column; gap: 6px; }
     .step { display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--divider-color, rgba(127,127,127,.3)); }
     .step.on { border-color: var(--primary-color); box-shadow: 0 0 0 1px var(--primary-color) inset; }
@@ -188,14 +190,14 @@
           // scheduled end), +5 min refills the ring for what is left plus five,
           // Next now jumps to the following step until ITS scheduled end.
           const acts = pv ? btn("back", "Back to schedule")
-            : (cur ? btn("done", "Done ✓", "p") + " " + btn("more", "+5 min") + (nx ? " " + btn("nextnow", "Next now ▶") : "") : "");
-          return `<div class="now">Now on the clock: <b>${esc(now.state)}</b> until ${pad(Math.floor(e / 3600))}:${pad(Math.floor(e / 60) % 60)}${pv ? " <span class=muted>(preview)</span>" : ""}
-            <span style="float:right">${acts}</span></div>`;
+            : (cur ? btn("done", "Done ✓", "p") + btn("more", "+5 min") + (nx ? btn("nextnow", "Next now ▶") : "") : "");
+          return `<div class="now"><span class="txt">Now on the clock: <b>${esc(now.state)}</b> until ${pad(Math.floor(e / 3600))}:${pad(Math.floor(e / 60) % 60)}${pv ? " <span class=muted>(preview)</span>" : ""}</span>
+            <span class="acts">${acts}</span></div>`;
         }
         const pvs = this._st(this._ids.pv), skip = pvs && pvs.attributes.step && pvs.attributes.step.skip && (pvs.attributes.until || 0) > Date.now() / 1000;
         const nx = this._next();
-        if (skip) return `<div class="now">Marked <b>done</b> early. ${nx ? `Next: <b>${esc(nx.label)}</b> at ${esc(nx.start)}.` : ""} <span style="float:right">${btn("back", "Undo")}</span></div>`;
-        return `<div class="now">Nothing on right now.${nx ? ` Next: <b>${esc(nx.label)}</b> at ${esc(nx.start)}.` : ""}</div>`;
+        if (skip) return `<div class="now"><span class="txt">Marked <b>done</b> early. ${nx ? `Next: <b>${esc(nx.label)}</b> at ${esc(nx.start)}.` : ""}</span><span class="acts">${btn("back", "Undo")}</span></div>`;
+        return `<div class="now"><span class="txt">Nothing on right now.${nx ? ` Next: <b>${esc(nx.label)}</b> at ${esc(nx.start)}.` : ""}</span></div>`;
       })();
       this.shadowRoot.innerHTML = `<style>${css}</style><ha-card>
         <div class="hdr"><h2>${esc(name)}'s routine</h2>
