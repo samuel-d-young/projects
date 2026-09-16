@@ -1,0 +1,67 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>card harness</title>
+<!-- Stand-alone test page for the two custom cards: a mock `hass` with Zac's routine,
+     the weather sensors and the layout numbers, so the cards can be exercised in a
+     plain browser with no Home Assistant login. Serve this folder (python -m http.server)
+     and open /test-harness.html. Every service call is logged at the bottom. -->
+<style>
+  body { font-family: Roboto, system-ui, sans-serif; background: #f4f4f4; color: #212121; margin: 0; padding: 16px; }
+  ha-card { display: block; background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.2); margin: 0 0 16px; }
+  .cols { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  .cols > * { flex: 1 1 420px; max-width: 560px; }
+  #log { font: 12px/1.4 monospace; white-space: pre-wrap; background: #222; color: #9f9; padding: 8px; border-radius: 8px; max-height: 220px; overflow: auto; }
+  :root { --primary-color: #03a9f4; --text-primary-color: #fff; --primary-text-color: #212121; --secondary-text-color: #727272; --divider-color: rgba(0,0,0,.12); --card-background-color: #fff; --secondary-background-color: #e5e5e5; --error-color: #db4437; }
+</style></head>
+<body>
+<div class="cols">
+  <wall-clock-routines-card id="r"></wall-clock-routines-card>
+  <wall-clock-layout-card id="l"></wall-clock-layout-card>
+</div>
+<div id="log"></div>
+<script>
+  customElements.define("ha-card", class extends HTMLElement {});
+  const log = (m) => { const el = document.getElementById("log"); el.textContent += m + "\n"; el.scrollTop = 1e9; };
+  window.__calls = [];
+  const states = {};
+  const S = (id, state, attributes = {}) => { states[id] = { entity_id: id, state: String(state), attributes, last_updated: new Date().toISOString() }; };
+  S("input_boolean.wall_clock_routine_zac", "on"); S("input_boolean.wall_clock_school_holidays", "off");
+  S("sensor.wall_clock_routine_zac_steps", "2", { steps: [
+    { id: "a1", label: "Get dressed", start: "08:00", end: "08:20", days: "weekdays", hue: 120, image: "", emoji: "👕" },
+    { id: "a2", label: "Brush teeth", start: "08:20", end: "08:30", days: "everyday", hue: 215, image: "", emoji: "🪥" } ] });
+  S("sensor.wall_clock_routine_zac_now", "Get dressed", { label: "Get dressed", start_s: 28800, end_s: 30000, hue: 120, step_id: "a1", preview: false, image_url: "" });
+  S("sensor.wall_clock_routine_jake_steps", "1", { steps: [ { id: "b1", label: "Bath", start: "18:30", end: "18:50", days: "everyday", hue: 320, image: "", emoji: "🛁" } ] });
+  S("sensor.wall_clock_face_zac_windows", "1", { windows: [ { id: "w1", face: "grow", start: "18:30", end: "07:30", days: "everyday" } ] });
+  S("sensor.wall_clock_face_zac_now", "grow", { window_id: "w1", until: "07:30" });
+  S("sensor.wall_clock_weather_today", "rainy", { high: 11.2, low: 6.0 }); S("sensor.wall_clock_weather_high", "11"); S("sensor.wall_clock_weather_low", "6");
+  const slug = "mini_round_clock_3";
+  const nums = { weather: [180, 50, 100], routine_weather: [96, 300, 70], grow_time: [180, 300, 100], routine_time: [180, 30, 100], routine_name: [180, 68, 100], routine_picture: [180, 188, 100], routine_minutes: [180, 318, 100], routine_next: [306, 188, 100] };
+  for (const [k, v] of Object.entries(nums)) { S(`number.${slug}_layout_${k}_x`, v[0]); S(`number.${slug}_layout_${k}_y`, v[1]); if (v[2] !== undefined) S(`number.${slug}_layout_${k}_size`, v[2]); }
+  for (const sw of ["weather_symbol", "weather_symbol_shows_the_low", "grow_clock_show_time"]) S(`switch.${slug}_${sw}`, "on");
+  S(`switch.${slug}_weather_symbol_on_the_routine_face`, "off");
+  const hass = {
+    states,
+    async callService(domain, service, data) {
+      window.__calls.push([domain, service, data]); log(`callService ${domain}.${service} ${JSON.stringify(data).slice(0, 160)}`);
+      if (domain === "input_boolean") states[data.entity_id].state = service === "turn_on" ? "on" : "off";
+      if (domain === "switch") states[data.entity_id].state = service === "turn_on" ? "on" : "off";
+      if (domain === "number") states[data.entity_id].state = String(data.value);
+      if (domain === "script" && service === "wall_clock_routine_save") { S(`sensor.wall_clock_routine_${data.clock}_steps`, data.steps.length, { steps: data.steps }); }
+      push();
+    },
+    async callWS(msg) { window.__calls.push(["ws", msg.type, msg]); log(`callWS ${msg.type}`); return {}; },
+    async fetchWithAuth(path, init) { log(`fetchWithAuth ${path} ${init && init.method} body=${init && init.body && init.body.get && init.body.get("file") && init.body.get("file").size}B`); return { ok: true, status: 200, json: async () => ({ id: "fakeimage" + Date.now().toString(36) }) }; },
+  };
+  const r = document.getElementById("r"), l = document.getElementById("l");
+  // The cards are configured after their scripts load (the setTimeout below).
+  function push() { const h = Object.assign({}, hass, { states: Object.assign({}, states) }); r.hass = h; l.hass = h; }
+  window.addEventListener("error", (e) => log("JS ERROR: " + e.message + " @" + e.filename + ":" + e.lineno));
+  window.addEventListener("unhandledrejection", (e) => log("PROMISE ERROR: " + (e.reason && e.reason.message || e.reason)));
+  log("harness ready");
+</script>
+<script src="wall-clock-routines-card.js"></script>
+<script src="wall-clock-layout-card.js"></script>
+<script>
+  // scripts above define the elements after the mocks; re-push so upgraded elements get hass
+  setTimeout(() => { const r = document.getElementById("r"), l = document.getElementById("l"); r.setConfig({ clock: "zac", name: "Zac", copy_from: "jake" }); l.setConfig({ slug: "mini_round_clock_3", name: "Zac", routine: "zac" }); push(); log("cards configured"); }, 50);
+</script>
+</body></html>

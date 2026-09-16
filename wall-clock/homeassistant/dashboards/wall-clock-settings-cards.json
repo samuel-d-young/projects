@@ -223,6 +223,46 @@
       {
         "entity": "switch.mini_round_clock_3_status_who_is_home",
         "name": "\u2003Who is home (6 o'clock)"
+      },
+      {
+        "type": "section",
+        "label": "Routine + weather"
+      },
+      {
+        "entity": "sensor.mini_round_clock_3_routine_showing",
+        "name": "Routine step showing"
+      },
+      {
+        "entity": "sensor.mini_round_clock_3_face_showing",
+        "name": "Face showing"
+      },
+      {
+        "entity": "select.mini_round_clock_3_routine_countdown_direction",
+        "name": "Routine ring empties"
+      },
+      {
+        "entity": "switch.mini_round_clock_3_weather_symbol",
+        "name": "Weather symbol"
+      },
+      {
+        "entity": "switch.mini_round_clock_3_weather_symbol_shows_the_low",
+        "name": "\u2003with the low"
+      },
+      {
+        "entity": "switch.mini_round_clock_3_weather_symbol_on_the_routine_face",
+        "name": "\u2003on the routine face"
+      },
+      {
+        "entity": "number.mini_round_clock_3_layout_weather_size",
+        "name": "Weather symbol size"
+      },
+      {
+        "entity": "sensor.mini_round_clock_3_free_heap",
+        "name": "Free heap"
+      },
+      {
+        "entity": "sensor.mini_round_clock_3_largest_free_block",
+        "name": "Largest free block"
       }
     ]
   },
@@ -1051,6 +1091,46 @@
       {
         "entity": "switch.mini_round_clock_4_status_who_is_home",
         "name": "\u2003Who is home (6 o'clock)"
+      },
+      {
+        "type": "section",
+        "label": "Routine + weather"
+      },
+      {
+        "entity": "sensor.mini_round_clock_4_routine_showing",
+        "name": "Routine step showing"
+      },
+      {
+        "entity": "sensor.mini_round_clock_4_face_showing",
+        "name": "Face showing"
+      },
+      {
+        "entity": "select.mini_round_clock_4_routine_countdown_direction",
+        "name": "Routine ring empties"
+      },
+      {
+        "entity": "switch.mini_round_clock_4_weather_symbol",
+        "name": "Weather symbol"
+      },
+      {
+        "entity": "switch.mini_round_clock_4_weather_symbol_shows_the_low",
+        "name": "\u2003with the low"
+      },
+      {
+        "entity": "switch.mini_round_clock_4_weather_symbol_on_the_routine_face",
+        "name": "\u2003on the routine face"
+      },
+      {
+        "entity": "number.mini_round_clock_4_layout_weather_size",
+        "name": "Weather symbol size"
+      },
+      {
+        "entity": "sensor.mini_round_clock_4_free_heap",
+        "name": "Free heap"
+      },
+      {
+        "entity": "sensor.mini_round_clock_4_largest_free_block",
+        "name": "Largest free block"
       }
     ]
   },
@@ -1879,6 +1959,46 @@
       {
         "entity": "switch.mini_round_clock_status_who_is_home",
         "name": "\u2003Who is home (6 o'clock)"
+      },
+      {
+        "type": "section",
+        "label": "Routine + weather"
+      },
+      {
+        "entity": "sensor.mini_round_clock_routine_showing",
+        "name": "Routine step showing"
+      },
+      {
+        "entity": "sensor.mini_round_clock_face_showing",
+        "name": "Face showing"
+      },
+      {
+        "entity": "select.mini_round_clock_routine_countdown_direction",
+        "name": "Routine ring empties"
+      },
+      {
+        "entity": "switch.mini_round_clock_weather_symbol",
+        "name": "Weather symbol"
+      },
+      {
+        "entity": "switch.mini_round_clock_weather_symbol_shows_the_low",
+        "name": "\u2003with the low"
+      },
+      {
+        "entity": "switch.mini_round_clock_weather_symbol_on_the_routine_face",
+        "name": "\u2003on the routine face"
+      },
+      {
+        "entity": "number.mini_round_clock_layout_weather_size",
+        "name": "Weather symbol size"
+      },
+      {
+        "entity": "sensor.mini_round_clock_free_heap",
+        "name": "Free heap"
+      },
+      {
+        "entity": "sensor.mini_round_clock_largest_free_block",
+        "name": "Largest free block"
       }
     ]
   },

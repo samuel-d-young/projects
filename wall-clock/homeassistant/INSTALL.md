@@ -124,6 +124,26 @@ IDs came out unprefixed.
 
 ---
 
+## 5b. The routines, the weather symbol and the layout (2026-09-16)
+
+Three more things live in this folder and are installed by ONE script in the
+home-assistant repo, over the File editor add-on's API, with no restart:
+
+```bash
+python K:\Claude\home-assistant	ools\install_routines.py        # install + reload + verify
+python K:\Claude\home-assistant	ools	est_routines.py           # 16 end-to-end checks
+```
+
+It copies `packages/wall_clock_routines.yaml` and `packages/wall_clock_weather.yaml`
+to `/config/packages/`, the two custom cards from `www/` to `/config/www/`, the
+per-clock wrappers to `/config/esphome/`, registers the cards as Lovelace
+resources and saves the `/boys-routines` dashboard from
+`dashboards/routines-dashboard.yaml`. Each clock's wrapper needs a
+`routine_slug` (zac / jake) and the firmware from this branch. After a flash
+that adds entities, run `python normalise_entity_ids.py` so the dashboard's
+`mini_round_clock_3_*` ids resolve. Today's weather comes from Open-Meteo
+(`weather.home`, set up on zone.home) with met.no as the fallback.
+
 # B. The device
 
 ## 6. Validate the config first

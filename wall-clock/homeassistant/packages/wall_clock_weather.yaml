@@ -34,7 +34,7 @@
 # INSTALL
 # -------
 # Drop in /config/packages/ alongside the other wall_clock_*.yaml files and
-# restart Home Assistant. Requires `homeassistant: packages: !include_dir_named
+# call `template.reload` (or restart). Requires `homeassistant: packages: !include_dir_named
 # packages` in configuration.yaml, which this instance already has.
 # =============================================================================
 
@@ -93,3 +93,84 @@ template:
           {{ fc is defined
              and fc['weather.forecast_home'] is defined
              and fc['weather.forecast_home'].forecast | count > 0 }}
+
+  # ---------------------------------------------------------------------------
+  # TODAY, FOR THE KIDS' CLOCKS -- condition + high + low, one sensor each
+  # ---------------------------------------------------------------------------
+  # The clocks draw a sun / cloud / rain symbol with the day's HIGH beside it
+  # and the low underneath (mini-round-clock-with-display.yaml, the weather
+  # widget). Three sensors rather than attributes because ESPHome imports a
+  # sensor STATE natively and a text_sensor state as a string; nothing has to
+  # be parsed on the device.
+  #
+  # SOURCE. weather.home is the built-in Open-Meteo integration set up on
+  # zone.home 2026-09-16: no key, hourly refresh, and for Australia it blends
+  # the Bureau's own ACCESS model with ECMWF. weather.forecast_home (met.no)
+  # is the fallback when Open-Meteo has nothing. The Bureau of Meteorology
+  # HACS integration (bremor/bureau_of_meteorology) would be the official
+  # feed if it is ever installed: add it to `sources` first and nothing else
+  # changes.
+  #
+  # "TODAY" is matched by LOCAL date, not taken as forecast[0]: Open-Meteo's
+  # daily list starts at 00:00 UTC, which at 07:00 in Melbourne is still
+  # yesterday's entry.
+  - trigger:
+      - trigger: time_pattern
+        minutes: "/15"
+      - trigger: state
+        entity_id: [weather.home, weather.forecast_home]
+      - trigger: homeassistant
+        event: start
+    action:
+      - action: weather.get_forecasts
+        target:
+          entity_id: [weather.home, weather.forecast_home]
+        data:
+          type: daily
+        response_variable: fcs
+      - variables:
+          today: >-
+            {% set ns = namespace(hit=none) %}
+            {% set d = now().date() %}
+            {% for src in ['weather.home', 'weather.forecast_home'] %}
+              {% for f in (fcs[src].forecast if src in fcs else []) %}
+                {% if ns.hit is none and as_local(as_datetime(f.datetime)).date() == d %}
+                  {% set ns.hit = dict(f, source=src) %}
+                {% endif %}
+              {% endfor %}
+            {% endfor %}
+            {{ ns.hit }}
+    sensor:
+      - name: "Wall clock weather high"
+        unique_id: wall_clock_weather_high
+        unit_of_measurement: "°C"
+        device_class: temperature
+        icon: mdi:thermometer-chevron-up
+        state: "{{ today.temperature | round(0) | int if today and today.temperature is not none else 'unknown' }}"
+        attributes:
+          source: "{{ today.source if today else '' }}"
+          date: "{{ as_local(as_datetime(today.datetime)).date() if today else '' }}"
+      - name: "Wall clock weather low"
+        unique_id: wall_clock_weather_low
+        unit_of_measurement: "°C"
+        device_class: temperature
+        icon: mdi:thermometer-chevron-down
+        state: "{{ today.templow | round(0) | int if today and today.templow is not none else 'unknown' }}"
+        attributes:
+          source: "{{ today.source if today else '' }}"
+      # The Home Assistant condition slug for the day: sunny, clear-night,
+      # partlycloudy, cloudy, rainy, pouring, lightning, lightning-rainy,
+      # snowy, snowy-rainy, hail, fog, windy, windy-variant, exceptional.
+      # The clock maps these onto its drawn symbols; anything else draws a
+      # cloud.
+      - name: "Wall clock weather today"
+        unique_id: wall_clock_weather_today
+        icon: mdi:weather-partly-cloudy
+        state: "{{ today.condition if today and today.condition else states('weather.home') }}"
+        attributes:
+          high: "{{ today.temperature if today else none }}"
+          low: "{{ today.templow if today else none }}"
+          rain_chance: "{{ today.precipitation_probability if today else none }}"
+          rain_mm: "{{ today.precipitation if today else none }}"
+          source: "{{ today.source if today else '' }}"
+          fetched: "{{ now().isoformat(timespec='seconds') }}"

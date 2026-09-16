@@ -114,3 +114,16 @@ get moved around or shared. It holds your WiFi password and API key.
 8. **The bar panel's colour setup.** `color_order: bgr` and `invert_colors: true` on the 1.9" ST7789 are inherited from ESPHome's own 170×320 models (T-EMBED, T-DISPLAY-S3), not measured on this module. A photo-negative image means flip `invert_colors`; swapped red and blue means flip `color_order`. Its **geometry** is not a guess: 170×320 native with `offset_width: 35` is forced by the ST7789's 240×320 RAM, and is the figure ESPHome carries for the same panel size.
 
 Nothing here has been flashed, sliced, cut, or run against a real Home Assistant.
+
+## Routines, weather symbol, layout (2026-09-16)
+
+| File | |
+|---|---|
+| `homeassistant/packages/wall_clock_routines.yaml` | The boys' picture routines and the face windows: helpers, the save/preview scripts, the trigger-based sensors that ARE the store |
+| `homeassistant/packages/wall_clock_weather.yaml` | Rain (older) + today's condition, high and low for the weather symbol, Open-Meteo first, met.no fallback |
+| `homeassistant/www/wall-clock-routines-card.js` | Custom card: steps (emoji or photo, start/finish, days, colour), faces through the day |
+| `homeassistant/www/wall-clock-layout-card.js` | Custom card: drag and size everything on a mock of each face; the clock follows live |
+| `homeassistant/www/test-harness.html` | Both cards with a mock `hass`, no HA login needed (serve the folder, open this) |
+| `homeassistant/dashboards/routines-dashboard.yaml` | The `/boys-routines` dashboard (Routines / Layout / Help) |
+| `esphome/ha-device-configs/*.yaml` | Per-clock wrappers, now with `routine_slug` |
+| *(home-assistant repo)* `tools/install_routines.py`, `tools/test_routines.py`, `docs/CLOCK-ROUTINES.md` | Installer, end-to-end test, write-up |

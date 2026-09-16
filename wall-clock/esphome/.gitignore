@@ -6,3 +6,5 @@ secrets.yaml
 .esphome/
 zacs-clock.yaml
 jakes-clock.yaml
+# workbench-only wrappers that build the local file instead of the GitHub branch
+local-*.yaml

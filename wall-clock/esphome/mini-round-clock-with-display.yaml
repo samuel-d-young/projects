@@ -196,7 +196,31 @@ substitutions:
   night_end_hour: "7"
 
   # ---- your Home Assistant weather entity ----------------------------------
-  weather_entity: weather.home
+  weather_entity: weather.forecast_home
+
+  # ---- ROUTINE STEPS (the picture schedule) -------------------------------
+  # Home Assistant works out which step of the child's routine is on right now
+  # and publishes it as ONE sensor per clock:
+  #     sensor.wall_clock_routine_<routine_slug>_now
+  # state = the step's label (or "none"); attributes image_url, start_s,
+  # end_s (seconds since local midnight) and hue. This clock subscribes to
+  # that sensor, fetches the picture over plain HTTP from HA's image store,
+  # and counts the step down on the ring by its OWN clock. The per-clock
+  # wrapper file sets the slug: zacs-clock.yaml says `routine_slug: zac`.
+  #
+  # Seconds-of-day rather than a unix epoch on purpose. ESPHome sensor states
+  # are 32-bit floats, and a float cannot hold 1.79e9 to better than 128 s --
+  # a 20-minute step would drift by up to two minutes at each end. 86400 is
+  # exact in a float.
+  routine_slug: clock
+  # Pixel size of the routine picture, square. The buffer is px*px*2 bytes of
+  # internal SRAM (no PSRAM on these boards): 180 is 64.8 kB. The Home
+  # Assistant card uploads pictures at this exact size, so no rescale happens
+  # on the device; a different size is rescaled nearest-neighbour. If the log
+  # ever says the image buffer could not be allocated, drop this to 160.
+  routine_img_px: "180"
+  # The "what's next" thumbnail on the routine face. 64 px square is 8 kB.
+  routine_next_px: "64"
 
 esphome:
   name: ${device_name}
@@ -214,6 +238,12 @@ esphome:
             id: backlight
             brightness: 80%
         - logger.log: "Boot: ring on, backlight on, display pending init sequence"
+        # The routine picture buffers, reserved at link time (see routine_buf).
+        - lambda: |-
+            static uint8_t routine_buf_[${routine_img_px} * ${routine_img_px} * 2];
+            static uint8_t next_buf_[${routine_next_px} * ${routine_next_px} * 2];
+            id(routine_buf) = routine_buf_;
+            id(next_buf) = next_buf_;
 
 esp32:
   variant: esp32s3
@@ -264,6 +294,9 @@ esp32:
 # The header note further up says ESPHome's ST77916 model declares
 # requires={"psram"} and would refuse a config without it. True, and irrelevant
 # here: this config uses `model: CUSTOM`, which carries no such requirement.
+
+debug:
+  update_interval: 30s
 
 logger:
   hardware_uart: UART0   # CH343 USB-UART bridge on this board (VID 1A86), NOT native USB-JTAG
@@ -463,6 +496,37 @@ sensor:
     entity_id: ${weather_entity}
     attribute: temperature
 
+  # ---- ROUTINE STEP, from HA (see the substitution note) -------------------
+  # NaN / absent = no step. All three are attributes of the one sensor.
+  - platform: homeassistant
+    id: routine_start_s
+    entity_id: sensor.wall_clock_routine_${routine_slug}_now
+    attribute: start_s
+  - platform: homeassistant
+    id: routine_end_s
+    entity_id: sensor.wall_clock_routine_${routine_slug}_now
+    attribute: end_s
+  - platform: homeassistant
+    id: routine_hue
+    entity_id: sensor.wall_clock_routine_${routine_slug}_now
+    attribute: hue
+
+  # ---- TODAY'S WEATHER, for the symbol widget ------------------------------
+  # Published by packages/wall_clock_weather.yaml from the daily forecast
+  # (Open-Meteo, met.no as the fallback), matched to today's LOCAL date.
+  # NaN = the package is not installed or has not fetched yet; the widget
+  # then draws the symbol from the current condition and no numbers.
+  - platform: homeassistant
+    id: routine_next_start_s
+    entity_id: sensor.wall_clock_routine_${routine_slug}_now
+    attribute: next_start_s
+  - platform: homeassistant
+    id: wx_high
+    entity_id: sensor.wall_clock_weather_high
+  - platform: homeassistant
+    id: wx_low
+    entity_id: sensor.wall_clock_weather_low
+
   # Grow clock: how many sound events since boot. Mostly so a parent can see in
   # the morning whether the clock was being talked to at 5 a.m.
   # Minutes until the scheduled wake, for an automation or a bedside card.
@@ -470,6 +534,15 @@ sensor:
   # Every number I have used for this all night has been arithmetic off the
   # byte count. This is the measured wall-clock time of one component.update,
   # which is the drawing plus every band's flush.
+  # HOW MUCH HEAP IS LEFT, and the largest block -- the number that decides
+  # whether a picture decodes (see img_busy). Diagnostic, every 30 s.
+  - platform: debug
+    free:
+      name: "Free heap"
+      entity_category: diagnostic
+    block:
+      name: "Largest free block"
+      entity_category: diagnostic
   - platform: template
     id: grow_frame_ms
     name: "Grow clock frame time"
@@ -511,12 +584,101 @@ text_sensor:
   - platform: homeassistant
     id: weather_condition
     entity_id: ${weather_entity}      # the entity STATE is the condition slug
+  # The DAY's condition slug (sunny / partlycloudy / rainy ...), same package
+  # as wx_high. Falls back to weather_condition when empty.
+  - platform: homeassistant
+    id: wx_cond
+    entity_id: sensor.wall_clock_weather_today
   - platform: homeassistant
     id: next_bin
     entity_id: sensor.next_bin        # "Green waste" / "Recycling"
   - platform: homeassistant
     id: timer_label
     entity_id: sensor.wall_clock_timer_label   # name of the next timer, or empty
+
+  # ---- ROUTINE STEP: label and picture ---------------------------------------
+  - platform: homeassistant
+    id: routine_label_in
+    entity_id: sensor.wall_clock_routine_${routine_slug}_now   # state = label or "none"
+  - platform: homeassistant
+    id: routine_url_in
+    entity_id: sensor.wall_clock_routine_${routine_slug}_now
+    attribute: image_url
+    # A new URL means a new step: fetch its picture. The download runs in the
+    # background; routine_img_ok flips true in on_download_finished and the
+    # next 1 s frame draws it. Until then the face shows a plain disc, which is
+    # a second or two on a LAN. Fires on connect too, so a reboot mid-step
+    # fetches the picture straight away.
+    on_value:
+      - if:
+          condition:
+            lambda: 'return !x.empty() && x != "none" && x != "unknown" && x != "unavailable" && x.rfind("http", 0) == 0;'
+          then:
+            - lambda: |-
+                id(routine_img_ok) = false;
+                id(routine_img_retry) = 0;
+                id(img_busy) = true;
+                // a decode still running for the previous URL is dropped, or
+                // update() would refuse the new one ("already being updated")
+                if (id(routine_img).is_decoding()) id(routine_img).release();
+                id(routine_img).set_external_buffer(id(routine_buf), ${routine_img_px}, ${routine_img_px});
+            - online_image.set_url:
+                id: routine_img
+                url: !lambda 'return x;'
+          else:
+            - lambda: 'id(routine_img_ok) = false;'
+  # ---- WHAT'S NEXT: the following step's name and thumbnail ----------------
+  # Sam, 2026-09-16: "show a small area on the right of what's next too."
+  - platform: homeassistant
+    id: routine_next_label
+    entity_id: sensor.wall_clock_routine_${routine_slug}_now
+    attribute: next_label
+  - platform: homeassistant
+    id: routine_next_url
+    entity_id: sensor.wall_clock_routine_${routine_slug}_now
+    attribute: next_image_url
+    on_value:
+      - if:
+          condition:
+            lambda: 'return !x.empty() && x != "none" && x != "unknown" && x != "unavailable" && x.rfind("http", 0) == 0;'
+          then:
+            - lambda: 'id(routine_next_ok) = false;'
+            # let the picture finish first (see img_busy); 15 s is well past
+            # http_request's own timeout, so this cannot wait forever
+            - wait_until:
+                condition:
+                  lambda: 'return !id(img_busy);'
+                timeout: 15s
+            - lambda: |-
+                id(img_busy) = true;
+                if (id(routine_next_img).is_decoding()) id(routine_next_img).release();
+                id(routine_next_img).set_external_buffer(id(next_buf), ${routine_next_px}, ${routine_next_px});
+            - online_image.set_url:
+                id: routine_next_img
+                url: !lambda 'return x;'
+          else:
+            - lambda: 'id(routine_next_ok) = false;'
+  # ---- FACE SCHEDULE from HA -------------------------------------------------
+  # "grow" keeps the grow face, "clock" hands the panel to the ordinary clock,
+  # "auto" (or nothing) leaves it to the grow schedule and "Grow clock by day".
+  # packages/wall_clock_routines.yaml computes it once a minute from the face
+  # windows edited on the Routines dashboard. A routine step always wins.
+  - platform: homeassistant
+    id: face_want_in
+    entity_id: sensor.wall_clock_face_${routine_slug}_now
+  # Which face is on the glass right now: routine / grow / clock.
+  - platform: template
+    id: face_showing
+    name: "Face showing"
+    icon: mdi:monitor-dashboard
+    update_interval: never
+  # What the clock is actually showing, so a dashboard (and test_routines.py)
+  # can see the step arrived. Published on change from the 1 s dispatcher.
+  - platform: template
+    id: routine_showing
+    name: "Routine showing"
+    icon: mdi:progress-clock
+    update_interval: never
   # Grow clock: sleep / almost / awake / bedtime / nap. Published on change, so
   # an automation can act on it -- a night light that follows the clock, say.
   - platform: template
@@ -538,6 +700,14 @@ binary_sensor:
   - platform: status
     name: "Status"
     entity_category: diagnostic
+
+  # Did the routine picture download and decode. Diagnostic; the face copes
+  # either way (a disc stands in for a missing picture).
+  - platform: template
+    id: routine_img_loaded
+    name: "Routine picture loaded"
+    entity_category: diagnostic
+    icon: mdi:image-check
 
   - platform: homeassistant
     id: timer_alert
@@ -609,6 +779,313 @@ binary_sensor:
 # CONTROLS EXPOSED TO HOME ASSISTANT
 # -----------------------------------------------------------------------------
 number:
+  # ---------------------------------------------------------------------------
+  # LAYOUT SLOTS -- where things sit on the 360 x 360 round panel
+  # ---------------------------------------------------------------------------
+  # Every movable element has an X and a Y (its CENTRE, in panel pixels, 0-360
+  # with 180,180 the middle) and most have a size (percent; 100 is the design
+  # size). They are plain number entities so the Layout card on the Routines
+  # dashboard can drag them live -- the clock repaints within a second -- and
+  # so they survive a reboot (restore_value). The size picks a font step on
+  # text and scales the drawn symbol; it cannot resize the picture, which is a
+  # compile-time buffer (routine_img_px).
+  # the weather symbol on the grow faces and the ordinary clock
+  - platform: template
+    id: lay_wx_x
+    name: "Layout weather X"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 180
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_wx_y
+    name: "Layout weather Y"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 50
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_wx_size
+    name: "Layout weather size"
+    entity_category: config
+    icon: mdi:resize
+    unit_of_measurement: "%"
+    min_value: 40
+    max_value: 250
+    step: 10
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+  # the weather symbol on the routine face (switch: Weather symbol on the routine face)
+  - platform: template
+    id: lay_rwx_x
+    name: "Layout routine weather X"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 96
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_rwx_y
+    name: "Layout routine weather Y"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 300
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_rwx_size
+    name: "Layout routine weather size"
+    entity_category: config
+    icon: mdi:resize
+    unit_of_measurement: "%"
+    min_value: 40
+    max_value: 250
+    step: 10
+    initial_value: 70
+    optimistic: true
+    restore_value: true
+  # the time on the grow face (switch: Grow clock show time)
+  - platform: template
+    id: lay_gtime_x
+    name: "Layout grow time X"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 180
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_gtime_y
+    name: "Layout grow time Y"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 300
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_gtime_size
+    name: "Layout grow time size"
+    entity_category: config
+    icon: mdi:resize
+    unit_of_measurement: "%"
+    min_value: 40
+    max_value: 250
+    step: 10
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+  # the small time on the routine face
+  - platform: template
+    id: lay_rtime_x
+    name: "Layout routine time X"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 180
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_rtime_y
+    name: "Layout routine time Y"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 30
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_rtime_size
+    name: "Layout routine time size"
+    entity_category: config
+    icon: mdi:resize
+    unit_of_measurement: "%"
+    min_value: 40
+    max_value: 250
+    step: 10
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+  # the step's name on the routine face
+  - platform: template
+    id: lay_label_x
+    name: "Layout routine name X"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 180
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_label_y
+    name: "Layout routine name Y"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 68
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_label_size
+    name: "Layout routine name size"
+    entity_category: config
+    icon: mdi:resize
+    unit_of_measurement: "%"
+    min_value: 40
+    max_value: 250
+    step: 10
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+  # the centre of the picture on the routine face (size is fixed by routine_img_px)
+  - platform: template
+    id: lay_pic_x
+    name: "Layout routine picture X"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 180
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_pic_y
+    name: "Layout routine picture Y"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 188
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_pic_size
+    name: "Layout routine picture size"
+    entity_category: config
+    icon: mdi:resize
+    unit_of_measurement: "%"
+    min_value: 40
+    max_value: 200
+    step: 10
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+  # the "what's next" area on the routine face: caption, thumbnail, start time
+  - platform: template
+    id: lay_next_x
+    name: "Layout routine next X"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 306
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_next_y
+    name: "Layout routine next Y"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 188
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_next_size
+    name: "Layout routine next size"
+    entity_category: config
+    icon: mdi:resize
+    unit_of_measurement: "%"
+    min_value: 40
+    max_value: 250
+    step: 10
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+  # the minutes-left line on the routine face
+  - platform: template
+    id: lay_min_x
+    name: "Layout routine minutes X"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 180
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_min_y
+    name: "Layout routine minutes Y"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 318
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_min_size
+    name: "Layout routine minutes size"
+    entity_category: config
+    icon: mdi:resize
+    unit_of_measurement: "%"
+    min_value: 40
+    max_value: 250
+    step: 10
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+
   # ---- Ring geometry -------------------------------------------------------
   # HOW MANY LEDs ARE ACTUALLY ON YOUR RING.
   #
@@ -1647,6 +2124,27 @@ select:
     optimistic: true
     restore_value: true
 
+  # Which way the ROUTINE countdown empties. Named by what the eye sees -- the
+  # direction the edge of the lit arc travels -- because the timer option
+  # above is named by how its arc is laid out, and the two readings of
+  # "anticlockwise" are opposites. Sam, 2026-09-16: "the LED rings count down
+  # anti clockwise until the time is up."
+  #   anticlockwise: full ring at the start; LEDs go out one after another
+  #                  walking backwards from just left of 12 (11, 10, 9 ...),
+  #                  the last one standing is at 12.
+  #   clockwise:     the mirror image -- the dark grows from just right of 12.
+  - platform: template
+    id: routine_dir
+    name: "Routine countdown direction"
+    entity_category: config
+    icon: mdi:rotate-left
+    options:
+      - "anticlockwise"
+      - "clockwise"
+    initial_option: "anticlockwise"
+    optimistic: true
+    restore_value: true
+
   - platform: template
     id: alert_style
     name: "Alert pattern"
@@ -1808,6 +2306,35 @@ select:
     restore_value: true
 
 switch:
+  # ---------------------------------------------------------------------------
+  # WEATHER SYMBOL WIDGET -- sun / cloud / rain with today's high and low
+  # ---------------------------------------------------------------------------
+  # Drawn on the grow faces and the ordinary clock faces at the position and
+  # size the Layout numbers below say (the Routines dashboard's Layout card
+  # drags them). Sam, 2026-09-16: "cloud symbols, a sun symbol, or a rain
+  # symbol with the number that is the high of the day. Easy to read."
+  - platform: template
+    id: wx_widget
+    name: "Weather symbol"
+    icon: mdi:weather-partly-cloudy
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+  # The low, in small grey under the high. Off = the high alone, bigger cue.
+  - platform: template
+    id: wx_show_low
+    name: "Weather symbol shows the low"
+    icon: mdi:thermometer-chevron-down
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+  # Also on the routine (picture) face, at its own slot. Off by default: the
+  # picture is the message there.
+  - platform: template
+    id: wx_on_routine
+    name: "Weather symbol on the routine face"
+    icon: mdi:weather-partly-cloudy
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
   # ---------------------------------------------------------------------------
   # POWER: one master, two surfaces
   # ---------------------------------------------------------------------------
@@ -2707,14 +3234,68 @@ globals:
     restore_value: no
     initial_value: '0'
 
+  # ...and 18-20 routine (ring), 12-14 routine (screen).
   - id: pal_ring
-    type: int[18]
+    type: int[21]
     restore_value: no
-    initial_value: '{255,90,20, 30,120,255, 90,90,90, 0,90,80, 0,60,55, 255,85,0}'
+    initial_value: '{255,90,20, 30,120,255, 90,90,90, 0,90,80, 0,60,55, 255,85,0, 0,204,180}'
   - id: pal_scr
-    type: int[12]
+    type: int[15]
     restore_value: no
-    initial_value: '{235,144,105, 106,153,224, 158,158,158, 94,235,219}'
+    initial_value: '{235,144,105, 106,153,224, 158,158,158, 94,235,219, 94,235,219}'
+
+  # ---- Routine step, resolved ONCE a second by the dispatcher --------------
+  # from the three HA sensors and the local clock, so the ring, the panel, the
+  # backlight and the animation gate all read the same answer.
+  - id: routine_on
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: routine_frac              # share of the step still to go, 0..1
+    type: float
+    restore_value: no
+    initial_value: '0'
+  - id: routine_left              # whole seconds still to go
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: routine_img_ok            # the picture for the CURRENT url decoded fine
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: routine_next_ok           # ...and the "what's next" thumbnail
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  # ONE DOWNLOAD AT A TIME. Two decodes in flight each want a contiguous
+  # block, and with the 65 kB picture buffer already taken the heap has none
+  # to spare: the bench log read "Failed to allocate 47160 bytes. Largest free
+  # block: 22528 / Error decoding image: Out of memory" the moment the
+  # thumbnail started while the picture was still arriving. The thumbnail
+  # waits for this flag; a failed picture retries a few seconds later.
+  - id: img_busy
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  # THE PICTURE BUFFERS THEMSELVES. Static arrays, set at boot (see on_boot),
+  # handed to the two images before every decode. runtime_image frees the
+  # buffer it allocated after ANY failed decode and then asks the heap for
+  # 64.8 kB contiguous again; on the bench the largest free block was 47 kB
+  # with 152 kB free in total, so the first failure became every failure.
+  # Memory in .bss cannot fragment and costs the same RAM the runtime
+  # allocation would have.
+  - id: routine_buf
+    type: uint8_t *
+    restore_value: no
+    initial_value: 'nullptr'
+  - id: next_buf
+    type: uint8_t *
+    restore_value: no
+    initial_value: 'nullptr'
+  - id: routine_img_retry
+    type: int
+    restore_value: no
+    initial_value: '0'
 
 # -----------------------------------------------------------------------------
 # PALETTE RESOLVER
@@ -2771,6 +3352,28 @@ interval:
       # right state on the very next frame instead of one second later.
       - lambda: |-
           const auto now = id(ha_time).now();
+
+          // ---- ROUTINE STEP, first: everything below defers to it ---------
+          // Active while the local time of day sits inside [start_s, end_s).
+          // The device does the comparison, not HA, so the arc is smooth and
+          // the step ends on the second even if HA is a minute late.
+          {
+            bool ron = false; float rf = 0.0f; int rl = 0;
+            const float s0 = id(routine_start_s).state, e0 = id(routine_end_s).state;
+            if (now.is_valid() && !std::isnan(s0) && !std::isnan(e0) && e0 > s0) {
+              const float t = now.hour * 3600.0f + now.minute * 60.0f + now.second;
+              if (t >= s0 && t < e0) {
+                ron = true;
+                rl = (int) ceilf(e0 - t);
+                rf = (e0 - t) / (e0 - s0);
+                if (rf > 1.0f) rf = 1.0f; if (rf < 0.0f) rf = 0.0f;
+              }
+            }
+            id(routine_on) = ron; id(routine_frac) = rf; id(routine_left) = rl;
+            const std::string want = ron ? id(routine_label_in).state : std::string("");
+            if (id(routine_showing).state != want) id(routine_showing).publish_state(want);
+          }
+
           int st = 2, sched = 2; float frac = 1.0f;
           if (now.is_valid()) {
             const int m   = now.hour * 60 + now.minute;
@@ -2852,6 +3455,12 @@ interval:
           else if (fx == "awake")    st = 2;
           else if (fx == "bedtime")  st = 3;
           if (fx != "auto") id(grow_daytime) = false;   // a demo shows the face
+          // ---- FACE SCHEDULE: a window from HA overrides "clock by day" ----
+          if (fx == "auto") {
+            const std::string fw = id(face_want_in).state;
+            if      (fw == "clock") id(grow_daytime) = true;
+            else if (fw == "grow")  id(grow_daytime) = false;
+          }
 
           id(grow_sched) = sched;
           // A NEW SKY EACH NIGHT, on the transition INTO sleep. Guarded on the
@@ -2866,6 +3475,11 @@ interval:
           id(grow_frac)  = frac;
           static const char *names[] = {"sleep", "almost", "awake", "bedtime", "nap"};
           if (id(grow_state).state != names[st]) id(grow_state).publish_state(names[st]);
+          {
+            const char *fs = id(routine_on) ? "routine"
+                           : (id(grow_mode).state && !id(grow_daytime)) ? "grow" : "clock";
+            if (id(face_showing).state != fs) id(face_showing).publish_state(fs);
+          }
 
           // ---- the backlight follows the state -----------------------------
           // Only touched when the wanted level CHANGES, so this does not fight
@@ -2893,6 +3507,9 @@ interval:
                 && (uint32_t)(millis() - id(grow_sound_since))
                    < (uint32_t) lroundf(id(grow_sound_secs).state * 1000.0f);
             if (sound && b < 0.6f) b = 0.6f;
+            // A routine step is daytime by definition: the picture has to be
+            // seen, whatever the grow schedule thinks of the hour.
+            if (id(routine_on)) b = bd;
             if (fabsf(b - id(grow_bl_last)) > 0.005f) {
               auto c = id(backlight).turn_on(); c.set_brightness(b); c.perform();
               id(grow_bl_last) = b;
@@ -2944,13 +3561,27 @@ interval:
           auto mixs = [&mix](const std::string &v) {
             for (char c : v) mix((uint32_t)(uint8_t) c);
           };
-          if (id(grow_mode).state && !id(grow_daytime) && !id(grow_paint_1s).state) {
+          // A routine step repaints every second like the ordinary clock does
+          // (its minutes-left line changes), so it skips the grow hash gate.
+          if (id(grow_mode).state && !id(grow_daytime) && !id(grow_paint_1s).state
+              && !id(routine_on)) {
             const auto now = id(ha_time).now();
             const int st = id(grow_st);
             mix((uint32_t) st);
             mix(id(display_on).state ? 1u : 0u);
             mix(id(screen_on).state ? 2u : 0u);
             mixs(id(grow_face).current_option().str());
+            // the weather symbol and the layout slots it and the time use
+            if (id(wx_widget).state) {
+              mix(0xD4u); mixs(id(wx_cond).state); mixs(id(weather_condition).state);
+              mix((uint32_t) (int) lroundf(std::isnan(id(wx_high).state) ? -999.0f : id(wx_high).state * 10.0f));
+              mix((uint32_t) (int) lroundf(std::isnan(id(wx_low).state)  ? -999.0f : id(wx_low).state  * 10.0f));
+              mix(id(wx_show_low).state ? 16u : 0u);
+              mix((uint32_t) (int) id(lay_wx_x).state); mix((uint32_t) (int) id(lay_wx_y).state);
+              mix((uint32_t) (int) id(lay_wx_size).state);
+            }
+            mix((uint32_t) (int) id(lay_gtime_x).state); mix((uint32_t) (int) id(lay_gtime_y).state);
+            mix((uint32_t) (int) id(lay_gtime_size).state);
             mixs(id(grow_sleep_colour).current_option().str());
             mixs(id(grow_wake_colour).current_option().str());
             mixs(id(grow_almost_colour).current_option().str());
@@ -3023,7 +3654,7 @@ interval:
   - interval: 100ms
     then:
       - lambda: |-
-          if (!id(grow_mode).state || id(grow_daytime)) { id(an_clip) = 0; return; }
+          if (!id(grow_mode).state || id(grow_daytime) || id(routine_on)) { id(an_clip) = 0; return; }
           const uint32_t ms = millis();
           const int st = id(grow_st);
 
@@ -3165,6 +3796,7 @@ interval:
           condition:
             lambda: |-
               if (id(screen_freeze).state) return false;      // see screen_freeze
+              if (id(routine_on)) return false;               // the picture owns the panel
               if (!id(grow_mode).state || id(grow_daytime) || !id(grow_animate).state) return false;
               if (!id(display_on).state || !id(screen_on).state) return false;
               if (id(clock_face).current_option().str() == "colour test") return false;
@@ -3284,13 +3916,14 @@ interval:
           // hue, saturation, value for hour, minute, second, timer, pip.
           // The presets are the previous hardcoded RGB triples converted to
           // HSV, so they round-trip to within a unit or two of what they were.
-          float T[6][3] = {
+          float T[7][3] = {
             { 17.9f,  92.2f, 100.0f},   // hour
             {216.0f,  88.2f, 100.0f},   // minute
             {  0.0f,   0.0f,  35.3f},   // second
             {173.3f, 100.0f,  35.3f},   // timer
             {175.0f, 100.0f,  23.5f},   // pip
             { 20.0f, 100.0f, 100.0f},   // alert — overwritten below
+            {173.0f, 100.0f,  80.0f},   // routine — hue from HA, overwritten below
           };
 
           const std::string th = id(colour_theme).current_option().str();
@@ -3334,14 +3967,23 @@ interval:
           T[5][0] = id(alert_hue).state;
           T[5][1] = (th == "mono") ? 0.0f : 100.0f;
           T[5][2] = 100.0f;
-
-          for (int e = 0; e < 6; e++)
+          // The routine colour is the step's own, chosen on the HA card per
+          // step (hue 0-360). Bright on the ring -- unlike the timer arc this
+          // IS the thing a child is meant to look at -- and grey under mono.
+          {
+            const float rh = id(routine_hue).state;
+            T[6][0] = std::isnan(rh) ? 173.0f : rh;
+            T[6][1] = (th == "mono") ? 0.0f : 100.0f;
+            T[6][2] = 80.0f;
+          }
+          for (int e = 0; e < 7; e++)
             hsv(T[e][0], T[e][1], T[e][2], &id(pal_ring)[e * 3]);
 
           // Role values for the screen, in the panel's own hierarchy.
           const float role_v[4] = {92.0f, 88.0f, 62.0f, 92.0f};
           for (int e = 0; e < 4; e++)
             hsv(T[e][0], T[e][1] * 0.6f, role_v[e], &id(pal_scr)[e * 3]);
+          hsv(T[6][0], T[6][1] * 0.6f, 92.0f, &id(pal_scr)[12]);
 
 # -----------------------------------------------------------------------------
 # LIGHTS
@@ -3527,8 +4169,9 @@ light:
 
             // ---- GROW CLOCK: the ring is the colour, and the stars ---------
             // Takes the whole ring and returns. Nothing below -- hands, timers,
-            // status -- is for a child's bedroom.
-            if (id(grow_mode).state && !id(grow_daytime)) {
+            // status -- is for a child's bedroom. A routine step is the one
+            // thing that outranks it: the parent scheduled it for this minute.
+            if (id(grow_mode).state && !id(grow_daytime) && !id(routine_on)) {
               const int st = id(grow_st);
               const std::string sc = id(grow_sleep_colour).current_option().str();
               const std::string wc = id(grow_wake_colour).current_option().str();
@@ -3691,6 +4334,34 @@ light:
                 for (int i = 0; i < N; i++)
                   add(i, (int)(alertC[0]*k), (int)(alertC[1]*k), (int)(alertC[2]*k));
               }
+            }
+
+            // ---- ROUTINE STEP: the ring is the child's countdown -----------
+            // Full ring when the step starts, draining to nothing as it ends.
+            // A COUNT of LEDs (ceil of the share left), so the last LED stays
+            // lit through the final stretch and goes out exactly on time. The
+            // last minute pulses -- the cue to hurry -- and the colour is the
+            // step's own, resolved into pal_ring by the palette interval.
+            // Beaten only by a timer alarm above; beats the hands, the status
+            // pixels and the grow clock.
+            else if (id(routine_on)) {
+              const int *rC = P_ + 18;
+              int lit = (int) ceilf(id(routine_frac) * N);
+              if (lit > N) lit = N; if (lit < 0) lit = 0;
+              float k = 1.0f;
+              if (id(routine_left) <= 60) {
+                const float ph = (id(frame) % 20) / 20.0f;        // ~1 Hz at 20 fps
+                k = 0.35f + 0.65f * fabsf(1.0f - 2.0f * ph);
+              }
+              // "anticlockwise" = the arc is laid out clockwise from 12 and
+              // its far end walks back anticlockwise as LEDs go out; P()
+              // normalises a negative index, so the mirror image is the sign.
+              const bool acw = id(routine_dir).current_option().str() == "anticlockwise";
+              for (int i = 0; i < lit; i++)
+                add(P(acw ? (float) i / N : -(float) i / N),
+                    (int) lroundf(rC[0] * k), (int) lroundf(rC[1] * k), (int) lroundf(rC[2] * k));
+              // Twelve stays marked so the ring still reads as a clock.
+              add(P(0.0f), 24, 24, 30);
             }
 
             // ---- NORMAL FACE -----------------------------------------------
@@ -3921,6 +4592,85 @@ light:
 # on any of this.
 # =============================================================================
 
+# =============================================================================
+# THE ROUTINE PICTURE -- fetched from Home Assistant's image store
+# =============================================================================
+# `image_upload` in HA serves what was uploaded at
+#   http://<ha>/api/image/serve/<id>/original      with NO auth required
+# (verified 2026-09-16 with a plain GET from the workbench), which is what
+# makes a picture reachable from a device that holds no token. The Routines
+# card uploads every picture -- an emoji drawn onto a canvas, or a photo
+# cropped to a circle -- as a ${routine_img_px} px square JPEG, so the decode
+# lands straight in the buffer with no rescale.
+#
+# One buffer, kept: px * px * 2 bytes of internal SRAM (64.8 kB at 180),
+# reserved in static RAM at boot and handed over before every decode (see
+# routine_buf in globals: for why not the component's own allocation).
+# buffer_size is the DOWNLOAD
+# chunk, not the image; the default is 64 kB, which this board cannot spare
+# next to the image itself, so it is 4 kB here -- a 20 kB PNG arrives in a
+# handful of reads (a 180 px JPEG is 5-15 kB).
+http_request:
+  timeout: 10s
+  verify_ssl: false          # plain http to the LAN address; no cert bundle
+  watchdog_timeout: 15s
+
+image:
+  - platform: online_image
+    id: routine_img
+    # Placeholder URL only: the real one arrives with each step, see
+    # routine_url_in. Never fetched (update_interval never, and set_url
+    # replaces it before the first update).
+    url: http://192.168.1.75:8123/api/image/serve/none/original
+    # JPEG, NOT PNG. pngle wants ~47 kB contiguous for its inflate dictionary
+    # on every decode and the heap's largest free block is 45 kB once the
+    # display bands, the API client and two HTTP clients are in it ("Failed
+    # to allocate memory for PNGLE engine!" on the bench). JPEGDEC needs about
+    # 23 kB. HA's image store takes jpeg/png/gif only, so BMP -- which needs
+    # no engine at all -- was not available. The card uploads JPEG at q=0.92.
+    format: JPEG
+    type: RGB565
+    resize: ${routine_img_px}x${routine_img_px}
+    buffer_size: 4096
+    update_interval: never
+    on_download_finished:
+      - lambda: |-
+          id(routine_img_ok) = true;
+          id(img_busy) = false;
+          id(routine_img_loaded).publish_state(true);
+    on_error:
+      - lambda: |-
+          id(routine_img_ok) = false;
+          id(img_busy) = false;
+          id(routine_img_loaded).publish_state(false);
+      - if:
+          condition:
+            lambda: 'return id(routine_img_retry) < 3;'
+          then:
+            - lambda: 'id(routine_img_retry) += 1;'
+            - delay: 5s
+            - lambda: |-
+                id(img_busy) = true;
+                id(routine_img).set_external_buffer(id(routine_buf), ${routine_img_px}, ${routine_img_px});
+            - component.update: routine_img
+  # The "what's next" thumbnail: the same pictures, scaled down on decode.
+  - platform: online_image
+    id: routine_next_img
+    url: http://192.168.1.75:8123/api/image/serve/none/original
+    format: JPEG
+    type: RGB565
+    resize: ${routine_next_px}x${routine_next_px}
+    buffer_size: 4096
+    update_interval: never
+    on_download_finished:
+      - lambda: |-
+          id(routine_next_ok) = true;
+          id(img_busy) = false;
+    on_error:
+      - lambda: |-
+          id(routine_next_ok) = false;
+          id(img_busy) = false;
+
 spi:
   - id: lcd_bus
     clk_pin: ${lcd_clk}       # SCL
@@ -3950,22 +4700,29 @@ font:
     id: font_t48
     size: 48
     bpp: 4
-    glyphs: "0123456789:"
+    glyphs: "0123456789:°-"      # ° and - for the weather high/low
   - file: "gfonts://Roboto"
     id: font_t72
     size: 72
     bpp: 4
-    glyphs: "0123456789:"
+    glyphs: "0123456789:°-"      # ° and - for the weather high/low
   - file: "gfonts://Roboto"
     id: font_t96
     size: 96
     bpp: 4
-    glyphs: "0123456789:"
+    glyphs: "0123456789:°-"      # ° and - for the weather high/low
   - file: "gfonts://Roboto"
     id: font_small
     size: 22
     bpp: 4
     glyphs: "0123456789.:-°% abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  # A big alphabet, for a routine step's name and its minutes-left line when
+  # the layout sets them large. ~50 kB of flash, nothing at runtime.
+  - file: "gfonts://Roboto"
+    id: font_t48a
+    size: 48
+    bpp: 4
+    glyphs: "0123456789.:-°%' abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 # -----------------------------------------------------------------------------
 # THE ROUND DISPLAY
@@ -4275,10 +5032,236 @@ display:
                      (uint8_t) lroundf(c.b * k));
       };
 
+      // ---- LAYOUT HELPERS ---------------------------------------------------
+      // A slot's size (%) picks a font step. Digits-only fonts for numbers,
+      // alphabet fonts for words -- the two ladders differ because the big
+      // Roboto faces above only carry digits, ° and - (flash).
+      auto font_num = [](float sc) -> font::Font * {
+        return sc < 0.8f ? id(font_med) : sc < 1.3f ? id(font_t48)
+             : sc < 1.9f ? id(font_t72) : id(font_t96);
+      };
+      auto font_txt = [](float sc) -> font::Font * {
+        return sc < 0.85f ? id(font_small) : sc < 1.3f ? id(font_med) : id(font_t48a);
+      };
+      auto sc_font_txt_or_num = [&](float sc, bool num) -> font::Font * {
+        return num ? (sc < 0.8f ? (sc < 0.6f ? id(font_small) : id(font_med)) : font_num(sc)) : font_txt(sc);
+      };
+      // Draw an image scaled by k about its centre, nearest-neighbour, the rows
+      // limited to the band being written so the six passes do not each walk
+      // the whole picture. The routine picture and the "next" thumbnail use it:
+      // their buffers are compile-time sizes, their SIZES are layout numbers.
+      auto draw_scaled = [&](image::Image *img, int cx, int cy, float k) {
+        const int sw = img->get_width(), sh = img->get_height();
+        if (sw <= 0 || sh <= 0) return;
+        if (k < 0.2f) k = 0.2f; if (k > 2.5f) k = 2.5f;
+        const int dw = (int) lroundf(sw * k), dh = (int) lroundf(sh * k);
+        const int x0 = cx - dw / 2, y0 = cy - dh / 2;
+        if (fabsf(k - 1.0f) < 0.01f) { it.image(x0, y0, img); return; }
+        const int r0 = band * ${lcd_band_h}, r1 = r0 + ${lcd_band_h};
+        const int ya = std::max(y0, r0), yb = std::min(y0 + dh, r1);
+        for (int y = ya; y < yb; y++) {
+          const int sy = std::min(sh - 1, (int) ((y - y0) / k));
+          for (int x = 0; x < dw; x++) {
+            const int sx = std::min(sw - 1, (int) (x / k));
+            it.draw_pixel_at(x0 + x, y, img->get_pixel(sx, sy));
+          }
+        }
+      };
+
+      // ---- THE WEATHER SYMBOL WIDGET -------------------------------------------
+      // A child-sized picture of the day -- sun, cloud, rain, storm, snow, fog,
+      // wind, moon -- drawn from primitives so one control scales it, with the
+      // day's HIGH in big digits beside it and the low small and grey below.
+      // (x, y) is the widget's centre; sc is the size ladder (1.0 = design).
+      // Everything comes from the wall_clock_weather package: the day's
+      // condition slug and the two temperatures. Missing numbers draw the
+      // symbol alone, from the current condition if the day's is absent.
+      auto draw_wx = [&](int x, int y, float sc, const Color &bg) {
+        std::string cond = id(wx_cond).state;
+        if (cond.empty() || cond == "unknown" || cond == "unavailable")
+          cond = id(weather_condition).state;
+        const float hi = id(wx_high).state, lo = id(wx_low).state;
+        const bool have_hi = !std::isnan(hi);
+        const Color SUN(255, 204, 40), CLOUD(210, 216, 228), RAIN(80, 160, 255);
+        const Color BOLT(255, 225, 60), SNOW(235, 240, 255), FOG(150, 156, 170);
+        const Color WIND(170, 200, 230), HI(240, 240, 240), LO(150, 158, 175);
+        const float R = 26.0f * sc;                       // symbol radius
+        // symbol to the left of centre when there are numbers, else centred
+        const int ix = have_hi ? x - (int) lroundf(34.0f * sc) : x;
+        const int iy = y;
+        auto sun = [&](int cx, int cy, float r, const Color &c) {
+          it.filled_circle(cx, cy, (int) lroundf(r), c);
+          for (int k = 0; k < 8; k++) {
+            const float a = k * 0.7853982f;
+            const int x0 = cx + (int) lroundf(cosf(a) * r * 1.35f), y0 = cy + (int) lroundf(sinf(a) * r * 1.35f);
+            const int x1 = cx + (int) lroundf(cosf(a) * r * 1.85f), y1 = cy + (int) lroundf(sinf(a) * r * 1.85f);
+            it.line(x0, y0, x1, y1, c); it.line(x0 + 1, y0, x1 + 1, y1, c); it.line(x0, y0 + 1, x1, y1 + 1, c);
+          }
+        };
+        auto cloud = [&](int cx, int cy, float r, const Color &c) {   // r = half width
+          it.filled_circle(cx - (int) lroundf(r * 0.45f), cy + (int) lroundf(r * 0.12f), (int) lroundf(r * 0.42f), c);
+          it.filled_circle(cx + (int) lroundf(r * 0.05f), cy - (int) lroundf(r * 0.18f), (int) lroundf(r * 0.56f), c);
+          it.filled_circle(cx + (int) lroundf(r * 0.52f), cy + (int) lroundf(r * 0.18f), (int) lroundf(r * 0.38f), c);
+          it.filled_rectangle(cx - (int) lroundf(r * 0.45f), cy + (int) lroundf(r * 0.14f),
+                              (int) lroundf(r * 0.97f), (int) lroundf(r * 0.40f), c);
+        };
+        auto drops = [&](int cx, int cy, float r, int n) {
+          for (int k = 0; k < n; k++) {
+            const int dx = cx - (int) lroundf(r * 0.55f) + (int) lroundf(k * (r * 1.1f) / (n - 1));
+            const int y0 = cy + (int) lroundf(r * 0.62f), y1 = cy + (int) lroundf(r * 1.05f);
+            it.line(dx, y0, dx - (int) lroundf(r * 0.14f), y1, RAIN);
+            it.line(dx + 1, y0, dx + 1 - (int) lroundf(r * 0.14f), y1, RAIN);
+          }
+        };
+        auto flakes = [&](int cx, int cy, float r) {
+          for (int k = 0; k < 3; k++) {
+            const int dx = cx - (int) lroundf(r * 0.5f) + (int) lroundf(k * r * 0.5f);
+            it.filled_circle(dx, cy + (int) lroundf(r * 0.85f), std::max(2, (int) lroundf(r * 0.1f)), SNOW);
+          }
+        };
+        auto bolt = [&](int cx, int cy, float r) {
+          const int x0 = cx + (int) lroundf(r * 0.1f), y0 = cy + (int) lroundf(r * 0.45f);
+          const int w = std::max(3, (int) lroundf(r * 0.22f)), h = (int) lroundf(r * 0.7f);
+          it.filled_triangle(x0, y0, x0 + w, y0, x0 - w / 2, y0 + h / 2 + 2, BOLT);
+          it.filled_triangle(x0 + w / 2, y0 + h / 2 - 2, x0 - w / 2, y0 + h / 2 + 2, x0 - w / 4, y0 + h, BOLT);
+        };
+        auto moon = [&](int cx, int cy, float r) {
+          it.filled_circle(cx, cy, (int) lroundf(r), Color(235, 230, 200));
+          it.filled_circle(cx + (int) lroundf(r * 0.45f), cy - (int) lroundf(r * 0.3f), (int) lroundf(r * 0.85f), bg);
+        };
+        if (cond == "sunny") {
+          sun(ix, iy, R * 0.62f, SUN);
+        } else if (cond == "clear-night") {
+          moon(ix, iy, R * 0.75f);
+        } else if (cond == "partlycloudy") {
+          sun(ix + (int) lroundf(R * 0.35f), iy - (int) lroundf(R * 0.35f), R * 0.42f, SUN);
+          cloud(ix - (int) lroundf(R * 0.05f), iy + (int) lroundf(R * 0.15f), R * 0.9f, CLOUD);
+        } else if (cond == "rainy") {
+          cloud(ix, iy - (int) lroundf(R * 0.2f), R, CLOUD); drops(ix, iy - (int) lroundf(R * 0.2f), R, 3);
+        } else if (cond == "pouring") {
+          cloud(ix, iy - (int) lroundf(R * 0.2f), R, Color(160, 170, 190)); drops(ix, iy - (int) lroundf(R * 0.2f), R, 5);
+        } else if (cond == "lightning") {
+          cloud(ix, iy - (int) lroundf(R * 0.2f), R, Color(150, 150, 175)); bolt(ix, iy - (int) lroundf(R * 0.2f), R);
+        } else if (cond == "lightning-rainy") {
+          cloud(ix, iy - (int) lroundf(R * 0.2f), R, Color(150, 150, 175)); drops(ix - (int) lroundf(R * 0.35f), iy - (int) lroundf(R * 0.2f), R * 0.7f, 2); bolt(ix + (int) lroundf(R * 0.2f), iy - (int) lroundf(R * 0.2f), R);
+        } else if (cond == "snowy" || cond == "snowy-rainy" || cond == "hail") {
+          cloud(ix, iy - (int) lroundf(R * 0.2f), R, CLOUD); flakes(ix, iy - (int) lroundf(R * 0.2f), R);
+        } else if (cond == "fog") {
+          cloud(ix, iy - (int) lroundf(R * 0.25f), R * 0.9f, FOG);
+          for (int k = 0; k < 2; k++)
+            it.filled_rectangle(ix - (int) lroundf(R * 0.8f), iy + (int) lroundf(R * (0.45f + 0.25f * k)),
+                                (int) lroundf(R * 1.6f), std::max(2, (int) lroundf(R * 0.08f)), FOG);
+        } else if (cond == "windy" || cond == "windy-variant") {
+          cloud(ix - (int) lroundf(R * 0.25f), iy - (int) lroundf(R * 0.1f), R * 0.75f, CLOUD);
+          for (int k = 0; k < 3; k++)
+            it.filled_rectangle(ix - (int) lroundf(R * 0.2f), iy + (int) lroundf(R * (0.35f + 0.28f * k)),
+                                (int) lroundf(R * (1.2f - 0.25f * k)), std::max(2, (int) lroundf(R * 0.09f)), WIND);
+        } else {                                          // cloudy, exceptional, unknown
+          cloud(ix, iy, R, CLOUD);
+        }
+        if (have_hi) {
+          char tb[12];
+          snprintf(tb, sizeof(tb), "%d°", (int) lroundf(hi));
+          const int tx = x - (int) lroundf(4.0f * sc);
+          const bool show_lo = id(wx_show_low).state && !std::isnan(lo);
+          const int ty = show_lo ? y - (int) lroundf(8.0f * sc) : y;
+          it.print(tx, ty, font_num(sc), HI, TextAlign::CENTER_LEFT, tb);
+          if (show_lo) {
+            snprintf(tb, sizeof(tb), "%d°", (int) lroundf(lo));
+            it.print(tx + (int) lroundf(2.0f * sc), y + (int) lroundf(24.0f * sc),
+                     sc < 1.3f ? id(font_small) : id(font_med), LO, TextAlign::CENTER_LEFT, tb);
+          }
+        }
+      };
+
       // The screen's own switch, under the master. Sam asked to be able to
       // turn one surface off without the other; this is that end of it.
       if (!id(display_on).state || !id(screen_on).state) {
         it.fill(Color::BLACK); return;
+      }
+
+      // ---- ROUTINE STEP: the picture is the panel ---------------------------
+      // What the child should be doing right now, as a picture (an emoji or a
+      // photo, uploaded from the Routines dashboard), the step's name, the
+      // minutes left and the time. Outranks the grow clock and the weather
+      // wash: the parent scheduled this for this minute. A timer ALARM still
+      // wins on the ring, but the panel keeps the picture -- the alarm is
+      // loud enough without taking the child's cue away.
+      if (id(routine_on)) {
+        const int *R_ = id(pal_scr) + 12;
+        const Color c_rt = Color(R_[0], R_[1], R_[2]);
+        const int px = ${routine_img_px};
+        it.filled_circle(CX, CY, 180, Color(0, 0, 0));
+        // Every position below is a layout slot (see number: LAYOUT SLOTS).
+        auto L = [](float v, int dflt) -> int { return std::isnan(v) ? dflt : (int) lroundf(v); };
+        auto S = [](float v) -> float { return std::isnan(v) ? 1.0f : v / 100.0f; };
+
+        // the time, small -- "what time is it" always answers
+        {
+          const int tx = L(id(lay_rtime_x).state, 180), ty = L(id(lay_rtime_y).state, 30);
+          font::Font *tf = sc_font_txt_or_num(S(id(lay_rtime_size).state), true);
+          if (h24)
+            it.strftime(tx, ty, tf, Color(120, 130, 150), TextAlign::CENTER, "%H:%M", now);
+          else
+            it.printf(tx, ty, tf, Color(120, 130, 150), TextAlign::CENTER,
+                      "%d:%02d", hour12(now.hour), now.minute);
+        }
+
+        // the step's name
+        const std::string lbl = id(routine_label_in).state;
+        if (!lbl.empty() && lbl != "none")
+          it.printf(L(id(lay_label_x).state, 180), L(id(lay_label_y).state, 68),
+                    font_txt(S(id(lay_label_size).state)), c_rt, TextAlign::CENTER, "%s", lbl.c_str());
+
+        // the picture, by its centre
+        {
+          const int pcx = L(id(lay_pic_x).state, 180), pcy = L(id(lay_pic_y).state, 188);
+          const float pk = std::min(2.0f, std::max(0.4f, S(id(lay_pic_size).state)));
+          if (id(routine_img_ok))
+            draw_scaled(id(routine_img), pcx, pcy, pk);
+          else
+            it.filled_circle(pcx, pcy, (int) lroundf(px * pk / 2) - 8, dim(c_rt, 0.18f));
+        }
+
+        // minutes left; seconds inside the last minute
+        {
+          const int left = id(routine_left);
+          const int mx = L(id(lay_min_x).state, 180), my = L(id(lay_min_y).state, 318);
+          font::Font *mf = font_txt(S(id(lay_min_size).state));
+          if (left > 60)
+            it.printf(mx, my, mf, c_rt, TextAlign::CENTER, "%d min", (left + 59) / 60);
+          else
+            it.printf(mx, my, mf, c_rt, TextAlign::CENTER, "%d s", left);
+        }
+
+        // what's next: a caption, the next step's thumbnail and its start time
+        {
+          const std::string nl = id(routine_next_label).state;
+          const float ns = id(routine_next_start_s).state;
+          if (!nl.empty() && nl != "none" && nl != "unknown" && nl != "unavailable") {
+            const int nx = L(id(lay_next_x).state, 306), ny = L(id(lay_next_y).state, 188);
+            const float nsc = S(id(lay_next_size).state);
+            const int npx = ${routine_next_px};
+            const int half = (int) lroundf(npx * nsc / 2);
+            const Color grey(120, 130, 150);
+            font::Font *nf = nsc < 1.4f ? id(font_small) : id(font_med);
+            it.print(nx, ny - half - 14, nf, grey, TextAlign::CENTER, "next");
+            if (id(routine_next_ok))
+              draw_scaled(id(routine_next_img), nx, ny, nsc);
+            else
+              it.filled_circle(nx, ny, std::max(4, half - 4), Color(40, 44, 52));
+            if (!std::isnan(ns) && ns > 0) {
+              const int hh = (int) ns / 3600, mm = ((int) ns / 60) % 60;
+              it.printf(nx, ny + half + 14, nf, grey, TextAlign::CENTER,
+                        "%d:%02d", h24 ? hh : (hh % 12 == 0 ? 12 : hh % 12), mm);
+            }
+          }
+        }
+
+        if (id(wx_widget).state && id(wx_on_routine).state)
+          draw_wx(L(id(lay_rwx_x).state, 96), L(id(lay_rwx_y).state, 300),
+                  S(id(lay_rwx_size).state), Color(0, 0, 0));
+        return;
       }
 
       // ---- GROW CLOCK ------------------------------------------------------
@@ -4286,7 +5269,7 @@ display:
       // to be visible at night. Before the weather and the timers because none
       // of that belongs in a child's room. The backlight level is set by the
       // dispatcher, so the field here can be drawn at full colour.
-      if (id(grow_mode).state && !id(grow_daytime)) {
+      if (id(grow_mode).state && !id(grow_daytime) && !id(routine_on)) {
         const int st = id(grow_st);
         const std::string sc = id(grow_sleep_colour).current_option().str();
         const std::string wc = id(grow_wake_colour).current_option().str();
@@ -4737,6 +5720,14 @@ display:
         // full frames -- the star row, the time -- and static is precisely
         // what must not be rewritten while the panel is scanning. It keeps
         // what it already has.
+        // The weather symbol, on top of the eyes and the sky. Drawn on the
+        // partial (animation) frames too: inside the clip it is repainted
+        // with the eyes, outside it the clip discards the pixels and the full
+        // frame's copy stays. Either way what is on the glass is one picture.
+        if (id(wx_widget).state)
+          draw_wx(std::isnan(id(lay_wx_x).state) ? CX : (int) lroundf(id(lay_wx_x).state),
+                  std::isnan(id(lay_wx_y).state) ? 50 : (int) lroundf(id(lay_wx_y).state),
+                  std::isnan(id(lay_wx_size).state) ? 1.0f : id(lay_wx_size).state / 100.0f, field);
         if (partial) { it.end_clipping(); return; }
 
         // The message itself, DRAWN AFTER the partial-frame return above, so it
@@ -4801,11 +5792,17 @@ display:
         // The time, digital, along the bottom. 48 px digits centred at
         // CY + 120: "12:34" is about 119 px wide and the chord there is 249.
         if (id(grow_show_time).state && now.is_valid()) {
+          // Where and how big: the "Layout grow time" slot.
+          const int   tcx = std::isnan(id(lay_gtime_x).state) ? CX : (int) lroundf(id(lay_gtime_x).state);
+          const int   tcy = std::isnan(id(lay_gtime_y).state) ? CY + 120 : (int) lroundf(id(lay_gtime_y).state);
+          const float tsc = std::isnan(id(lay_gtime_size).state) ? 1.0f : id(lay_gtime_size).state / 100.0f;
+          font::Font *tf  = font_num(tsc);
+          font::Font *af  = tsc < 1.3f ? id(font_small) : id(font_med);
           char tb[8]; int hh = now.hour;
           if (!h24) { hh %= 12; if (hh == 0) hh = 12; }
           snprintf(tb, sizeof(tb), "%d:%02d", hh, now.minute);
           if (h24) {
-            it.print(CX, CY + 120, id(font_t48), ink, TextAlign::CENTER, tb);
+            it.print(tcx, tcy, tf, ink, TextAlign::CENTER, tb);
           } else {
             // "7:05 am". font_small so it reads as a suffix rather than a
             // fourth digit, and THE PAIR is centred, not the digits -- centre
@@ -4817,19 +5814,22 @@ display:
             // the difference is descender that neither string uses.
             const char *ap = now.hour < 12 ? "am" : "pm";
             int gx_, gy_, tw, th, aw, ah;
-            it.get_text_bounds(0, 0, tb, id(font_t48), TextAlign::TOP_LEFT,
-                               &gx_, &gy_, &tw, &th);
-            it.get_text_bounds(0, 0, ap, id(font_small), TextAlign::TOP_LEFT,
-                               &gx_, &gy_, &aw, &ah);
+            it.get_text_bounds(0, 0, tb, tf, TextAlign::TOP_LEFT, &gx_, &gy_, &tw, &th);
+            it.get_text_bounds(0, 0, ap, af, TextAlign::TOP_LEFT, &gx_, &gy_, &aw, &ah);
             const int GAP = 7;
-            const int top  = CY + 120 - th/2;
-            const int left = CX - (tw + GAP + aw)/2;
-            const int base = top + id(font_t48)->get_baseline();
-            it.print(left, top, id(font_t48), ink, TextAlign::TOP_LEFT, tb);
-            it.print(left + tw + GAP, base - id(font_small)->get_baseline(),
-                     id(font_small), ink, TextAlign::TOP_LEFT, ap);
+            const int top  = tcy - th/2;
+            const int left = tcx - (tw + GAP + aw)/2;
+            const int base = top + tf->get_baseline();
+            it.print(left, top, tf, ink, TextAlign::TOP_LEFT, tb);
+            it.print(left + tw + GAP, base - af->get_baseline(), af, ink, TextAlign::TOP_LEFT, ap);
           }
         }
+        // The weather symbol on the full frame too (the partial-frame copy
+        // above only covers the clip); drawn last so it sits on top.
+        if (id(wx_widget).state)
+          draw_wx(std::isnan(id(lay_wx_x).state) ? CX : (int) lroundf(id(lay_wx_x).state),
+                  std::isnan(id(lay_wx_y).state) ? 50 : (int) lroundf(id(lay_wx_y).state),
+                  std::isnan(id(lay_wx_size).state) ? 1.0f : id(lay_wx_size).state / 100.0f, field);
         return;
       }
 
@@ -5250,6 +6250,12 @@ display:
       if (!id(ha_connected))
         it.filled_circle(CX, CY + 140, 4, Color(120, 30, 30));
 
+      // The weather symbol on the ordinary faces too, last so it sits on top.
+      if (id(wx_widget).state)
+        draw_wx(std::isnan(id(lay_wx_x).state) ? CX : (int) lroundf(id(lay_wx_x).state),
+                std::isnan(id(lay_wx_y).state) ? 50 : (int) lroundf(id(lay_wx_y).state),
+                std::isnan(id(lay_wx_size).state) ? 1.0f : id(lay_wx_size).state / 100.0f, bg);
+
 # -----------------------------------------------------------------------------
 # THE BAR DISPLAY — 1.9" ST7789V2, 170x320 native, drawn landscape as 320x170
 # -----------------------------------------------------------------------------
@@ -5323,8 +6329,32 @@ display:
         it.fill(Color::BLACK); return;
       }
 
+      // ---- ROUTINE STEP on the bar: name, minutes left, a draining bar ------
+      // No picture here: the bar panel is 170 px tall and the picture buffer
+      // is sized for the round face. The words and the bar carry it.
+      if (id(routine_on)) {
+        const Color c_rt = Color(id(pal_scr)[12], id(pal_scr)[13], id(pal_scr)[14]);
+        it.fill(Color::BLACK);
+        char rb[16];
+        int hh = now.hour; if (!id(fmt_24h).state) { hh = hh % 12; if (hh == 0) hh = 12; }
+        snprintf(rb, sizeof(rb), "%d:%02d", hh, now.minute);
+        it.print(10, 6, id(font_small), Color(120, 130, 150), TextAlign::TOP_LEFT, rb);
+        const std::string lbl = id(routine_label_in).state;
+        if (!lbl.empty() && lbl != "none")
+          it.print(W / 2, 62, id(font_med), c_rt, TextAlign::CENTER, lbl.c_str());
+        const int left = id(routine_left);
+        if (left > 60) snprintf(rb, sizeof(rb), "%d min", (left + 59) / 60);
+        else           snprintf(rb, sizeof(rb), "%d s", left);
+        it.print(W / 2, 108, id(font_med), c_rt, TextAlign::CENTER, rb);
+        const int bx0 = 10, bx1 = W - 10, by = H - 22;
+        it.rectangle(bx0, by, bx1 - bx0, 12, Color(40, 44, 52));
+        const int w = (int) lroundf((bx1 - bx0 - 2) * id(routine_frac));
+        if (w > 0) it.filled_rectangle(bx0 + 1, by + 1, w, 10, c_rt);
+        return;
+      }
+
       // ---- GROW CLOCK, on the bar: the same states, laid out for 320 x 170 --
-      if (id(grow_mode).state && !id(grow_daytime)) {
+      if (id(grow_mode).state && !id(grow_daytime) && !id(routine_on)) {
         const int st = id(grow_st);
         const std::string sc = id(grow_sleep_colour).current_option().str();
         const std::string wc = id(grow_wake_colour).current_option().str();

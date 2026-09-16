@@ -6587,3 +6587,139 @@ beside `secrets.yaml` first — the reconciliation had removed the copies).
 A null channel fails instantly, so the main loop was fine; only the ring was dead.
 Rule for this config: the two strips' `rmt_symbols` must never add up past 192, and the
 ring is the one that matters.
+
+## 2026-09-16 (morning) — Picture routines, the weather symbol, a draggable layout, faces by the hour
+
+Sam, 07:03: *"The end goal is for the screens to show what the boys should be doing
+during bedtime routine or in the morning. For example, at 8am, a school uniform might
+show on Zac's ... at 8:20 it shows a tooth brush ... upload a photo or select emojis ...
+start and finish ... the LED rings count down anti clockwise until the time is up."*
+Then, while it was being built: the weather on the grow faces with symbols a child can
+read and the day's high; a size control; "a real-time way of changing what the clock looks
+like ... move around what's on the screen"; a small *what's next* area on the right; every
+routine item sizable; and the faces (grow / routine / clock) changing through the day on
+times he can add. All of it is on both clocks by 08:30 **(verified, below)**.
+
+**What a child sees.** At the step's start the panel becomes the picture face: the step's
+name, its picture (an emoji drawn onto a canvas, or a photo cropped to a circle, 180 px),
+the minutes left, the time small at the top, and a 64 px thumbnail of the next step with
+its start time on the right. The ring goes full and empties one LED at a time; in the last
+minute it pulses. On every other face a weather symbol (sun, moon, cloud, sun-behind-cloud,
+rain, pouring, storm, snow, fog, wind — drawn from primitives so one number scales it)
+carries today's high in big digits and the low small and grey beneath.
+
+**Where the schedule lives, and why not a file.** `sensor.wall_clock_routine_<clock>_steps`
+is a trigger-based template sensor whose `steps` attribute is the whole list; the card
+saves through `script.wall_clock_routine_save`, which fires one event. Trigger-based
+template sensors restore state and attributes across a restart, so this is the store — no
+JSON file, no shell_command, no long-lived token, none of the machinery the NFC library
+needed last night. Once a minute `sensor.wall_clock_routine_<clock>_now` picks the active
+step (days: every day / school days / weekends, with a *School holidays* toggle that makes
+every day a weekend day) and publishes one record: label, picture URL, `start_s`/`end_s`,
+hue, and `next_label` / `next_start_s` / `next_image_url`. A second list per clock, the
+*face windows*, gives `sensor.wall_clock_face_<clock>_now` = grow / clock / auto.
+
+**Seconds since midnight, not an epoch.** An ESPHome sensor state is a 32-bit float and
+1.79e9 rounds to 128 s — a 20-minute step could end two minutes off. 86400 is exact, and
+the clock does the comparison against its own time every second, so the arc is smooth and
+the step ends on the second even if HA's minute tick is late.
+
+**Pictures without a token.** HA's image store (`POST /api/image/upload`) serves
+`/api/image/serve/<id>/original` with no auth (only 256x256 / 512x512 are offered as
+resizes — anything else is a 400), so the card uploads every picture at exactly the size
+the firmware's buffer is (`routine_img_px`, 180) and `image: platform: online_image`
+fetches it straight in: one 64.8 kB RGB565 buffer in internal SRAM, `buffer_size: 4096`
+for the download because the 64 kB default would not fit next to it. A second 8 kB image
+holds the *next* thumbnail (`resize: 64x64`, the same PNG scaled on decode).
+
+**Layout as number entities.** Every movable thing — the weather symbol (grow/clock faces
+and, switchable, the routine face), the grow face's time, and on the routine face the
+time, name, picture, minutes and the what's-next area — has `Layout … X`, `… Y` and (all
+but none now) `… size` numbers. The Layout card on the Routines dashboard is a 360-px SVG
+mock; dragging calls `number.set_value` five times a second and the clock repaints within
+the second; sizes pick a font step (a 48 px Roboto alphabet was added, and ° and - joined
+the digit-only faces) or scale the symbol; the picture and the thumbnail are scaled at
+draw time with a nearest-neighbour blit from `Image::get_pixel`, rows limited to the band
+being written so the six passes do not each walk the whole picture.
+
+**Weather source.** The clocks' `weather_entity` was `weather.home`, which did not exist —
+met.no is `weather.forecast_home` here. Open-Meteo (built-in, no key) was set up on
+`zone.home` and now IS `weather.home`; `packages/wall_clock_weather.yaml` fetches both
+daily forecasts every 15 minutes, matches **today by local date** (Open-Meteo's list starts
+at 00:00 UTC, which at 07:00 here is still yesterday's entry) and publishes
+`sensor.wall_clock_weather_today` (the condition slug), `_high`, `_low`. The Bureau's own
+HACS integration (`bremor/bureau_of_meteorology` v1.3.7) is available and not installed:
+it needs a restart and a location setup, and Open-Meteo already blends the Bureau's ACCESS
+model for Australia. The source list at the top of the package is where it would go.
+
+**Priority.** A routine step beats the grow face and the weather wash; a timer alarm still
+wins on the ring (the panel keeps the picture — the alarm is loud enough without taking the
+child's cue away). Face windows override "Grow clock by day" but never a demo expression.
+The grow face's partial (animation) frames draw the weather symbol too: inside the clip it
+is repainted with the eyes, outside it the clip discards the pixels — one picture on the
+glass either way — and the repaint hash mixes the symbol's inputs and slots so a dragged
+symbol repaints on the next second.
+
+**"Anticlockwise".** The timer arc option is named by how the arc is laid out; Sam's
+sentence names the direction the countdown moves. The two readings are opposites, so the
+routine has its own select, *Routine countdown direction*, named by what the eye sees:
+*anticlockwise* = full ring, LEDs go out walking backwards from just left of twelve, the
+last one standing at the top. If it looks backwards on the wall, flip it.
+
+**The picture that would not load, and why it was not memory pressure.** After the
+what's-next thumbnail joined, `test_routines.py` reported *Routine picture loaded = off*
+while the routine step itself arrived. The clock's own log (aioesphomeapi, verbose) said
+`Failed to allocate 64800 bytes. Largest free block: 47104` on every attempt, with 152 kB
+free in total. Two things stack: `runtime_image` frees its buffer after ANY failed decode
+(a decode that overlapped the thumbnail's found no 47 kB block the first time), and a heap
+with the display bands, the API client and two HTTP clients in it never again offers 64.8 kB
+in one piece. So one failure became every failure, and serialising the downloads (patch 4)
+could not undo it. Patch 5 reserves both picture buffers in static RAM at boot and hands
+them to the images before every decode (`set_external_buffer`, new in this ESPHome) — the
+same RAM the runtime allocation would have taken, with no way to fragment.
+
+**...and then the PNG engine.** With the buffers static the next log line was `Failed to
+allocate memory for PNGLE engine!`: pngle keeps a 32 kB inflate dictionary inside its state
+and asks for ~47 kB contiguous on EVERY decode, and the heap's largest block after the
+display bands, the API client and two HTTP clients is 45 kB. BMP would need no engine at all,
+but HA's image store takes jpeg/png/gif only (tested: a valid 24-bit BMP comes back 400). So
+the pictures are **JPEG** (patch 6): the card uploads the canvas at q 0.92, JPEGDEC needs about
+23 kB, and a 180 px picture is 5-15 kB on the wire instead of 20.
+
+**Verified.**
+- Zac's clock: first build 07:37 (RAM 37 % static, flash 71 %), OTA at 07:45, 152 entities,
+  26 new — renamed under the slug by `normalise_entity_ids.py`. `test_routines.py` 12/12:
+  the `now` record, the no-auth picture URL, the clock reporting *Routine showing = Test
+  step* and *Routine picture loaded = on* within seconds, school-holiday and toggle logic,
+  preview and stop, today's weather rainy 11°/6° from Open-Meteo.
+- Patch 3 (what's next, sizes, face windows): Zac 07:50, Jake 07:53 — 17/18, the picture
+  refusing to load (below). Patch 4 (serialised downloads, retries, heap sensors): 11:32 /
+  11:35 — still off, and the heap sensors showed why (largest block 47 kB, then 45 kB).
+  Patch 5 (static buffers) + patch 6 (JPEG): Zac 11:50, Jake 11:55 — **19/19 on both
+  clocks** (`test_routines.py --clock zac` and `--clock jake`): the step arrives, *Routine
+  picture loaded = on*, largest free block 41-43 kB afterwards, next-step attributes, clock
+  and grow face windows with *Face showing* agreeing, today's weather rainy 10°/6°. 159
+  entities per clock, all under their slugs. Static RAM 58.8 %, flash 72.4 %.
+- The cards render in `www/test-harness.html` (mock `hass`, launch config `card-harness`):
+  steps list, emoji editor, faces list, the layout mock with the rainy symbol — the in-app
+  browser cannot log into HA and no tool types credentials, so this harness is how a card
+  is seen before Sam opens it.
+
+**Files.** Firmware `esphome/mini-round-clock-with-display.yaml` (+~940 lines: substitutions
+`routine_slug`, `routine_img_px`, `routine_next_px`; HA-fed sensors; `http_request` +
+two `online_image`s; 24 layout numbers; three weather switches; the routine select; the
+palette's seventh colour; the dispatcher's routine/face resolution; the ring branch; the
+round and bar routine faces; `draw_wx`, `draw_scaled`). Wrappers
+`esphome/ha-device-configs/*.yaml` gained `routine_slug`. HA side in `homeassistant/`:
+`packages/wall_clock_routines.yaml`, `packages/wall_clock_weather.yaml` (extended),
+`www/wall-clock-routines-card.js`, `www/wall-clock-layout-card.js`, `www/test-harness.html`,
+`dashboards/routines-dashboard.yaml`; generator rows for the new controls. Installer and
+test in the home-assistant repo: `tools/install_routines.py`, `tools/test_routines.py`;
+write-up `docs/CLOCK-ROUTINES.md` (Projects hub tab *Clock routines*).
+
+**Not done / for Sam.** The clocks have not been looked at on the wall from here — the
+verification is the entities, the test and the harness. Things worth a glance: the weather
+symbol's default spot (top, y = 50) against the grow face's eyes; the routine name at 32 px
+for long names (14 characters fit at the default; the Layout size slider drops to 22 px);
+the ring direction. Adding a third clock = a `routine_slug` in its wrapper plus a copied
+block in `wall_clock_routines.yaml`.

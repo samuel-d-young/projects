@@ -240,6 +240,20 @@ def clock_cards(slug, label):
             row(e("switch", "status_garage_open"), " Garage open (3 o'clock)"),
             row(e("switch", "status_driveway"), " Driveway (9 o'clock)"),
             row(e("switch", "status_who_is_home"), " Who is home (6 o'clock)"),
+            # 2026-09-16: the picture routine and the weather symbol. Where they
+            # sit on the screen is dragged on the Routines dashboard's Layout tab
+            # (/boys-routines), so only the switches and the size that matters
+            # most are here.
+            section("Routine + weather"),
+            row(e("sensor", "routine_showing"), "Routine step showing"),
+            row(e("sensor", "face_showing"), "Face showing"),
+            row(e("select", "routine_countdown_direction"), "Routine ring empties"),
+            row(e("switch", "weather_symbol"), "Weather symbol"),
+            row(e("switch", "weather_symbol_shows_the_low"), " with the low"),
+            row(e("switch", "weather_symbol_on_the_routine_face"), " on the routine face"),
+            row(e("number", "layout_weather_size"), "Weather symbol size"),
+            row(e("sensor", "free_heap"), "Free heap"),
+            row(e("sensor", "largest_free_block"), "Largest free block"),
         ],
     }
 

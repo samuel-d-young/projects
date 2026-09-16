@@ -6,6 +6,11 @@ A 60-LED ring wall clock driven by Home Assistant, replacing an Amazon Echo Wall
 - Timer progress from Home Assistant Assist timers
 - Ambient status when idle (bin night, garage, driveway faces, who's home)
 - No cloud, no account, no phone app
+- **Picture routines for the kids** (2026-09-16): at 8:00 a school-uniform picture,
+  "Get dressed" and the minutes left, the ring emptying anticlockwise until 8:20;
+  a weather symbol with today's high; every element draggable and sizable from a
+  Home Assistant dashboard; the grow / clock faces on a timetable. See the
+  BUILD-LOG entry of 2026-09-16 and `homeassistant/INSTALL.md` step 5b.
 
 Priority order when something has to give: **reliable clock > timers > status.**
 
@@ -16,7 +21,7 @@ Priority order when something has to give: **reliable clock > timers > status.**
 | `BUILD-LOG.md` | Dated running log. Read this first if picking the project back up. |
 | `docs/` | Research ledger, BOM, test plan |
 | `esphome/` | Device firmware YAML |
-| `homeassistant/` | The `packages/wall_clock.yaml` package |
+| `homeassistant/` | The `packages/wall_clock*.yaml` packages, the two custom cards in `www/`, the generated dashboards |
 | `enclosure/` | Bambu (FDM) and Glowforge (laser) sources — parametric, see its README |
 | `docs/PHASE-6-TEST-PLAN.md` | The runnable checklist. Start here when parts arrive. |
 

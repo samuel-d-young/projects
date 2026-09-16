@@ -9,6 +9,10 @@
 # 32 LEDs. Currently at 192.168.1.68.
 substitutions:
   device_name: mini-round-clock-4
+  # The routine and its pictures come from sensor.wall_clock_routine_<slug>_now
+  # in Home Assistant (packages/wall_clock_routines.yaml). One word, no
+  # hyphens: it is spliced into an entity id.
+  routine_slug: jake
   friendly_name: "Jake's Clock"
 
 packages:

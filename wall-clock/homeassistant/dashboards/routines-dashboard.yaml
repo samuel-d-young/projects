@@ -1,0 +1,185 @@
+# The "Routines" dashboard (/boys-routines) -- installed by
+# K:\Claude\home-assistant\tools\install_routines.py (lovelace/config/save).
+#
+# Three tabs:
+#   Routines  program each boy's picture routine (the custom card) and see what
+#             the clock is showing right now
+#   Layout    drag the weather symbol, the time and the routine picture around
+#             a mock of each screen; the clock follows live
+#   Help      what everything means, in plain words
+#
+# The custom cards are served from /local/ (www/wall-clock-routines-card.js and
+# www/wall-clock-layout-card.js) and registered as Lovelace resources by the
+# installer. Entity ids below assume the clocks' new entities have been put
+# back under their slugs with normalise_entity_ids.py.
+title: Routines
+views:
+  - title: Routines
+    path: routines
+    icon: mdi:calendar-check
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Zac
+            icon: mdi:account-child
+          - type: custom:wall-clock-routines-card
+            clock: zac
+            name: Zac
+            copy_from: jake
+          - type: entities
+            show_header_toggle: false
+            state_color: true
+            entities:
+              - entity: sensor.wall_clock_routine_zac_now
+                name: On the clock now (Home Assistant)
+              - entity: sensor.mini_round_clock_3_routine_showing
+                name: On the clock now (the clock says)
+              - entity: sensor.wall_clock_face_zac_now
+                name: Face wanted now (auto = the clock decides)
+              - entity: sensor.mini_round_clock_3_face_showing
+                name: Face showing (the clock says)
+              - entity: binary_sensor.mini_round_clock_3_routine_picture_loaded
+                name: Picture loaded
+              - entity: select.mini_round_clock_3_routine_countdown_direction
+                name: Ring empties
+              - entity: binary_sensor.mini_round_clock_3_status
+                name: Clock online
+      - type: grid
+        cards:
+          - type: heading
+            heading: Jake
+            icon: mdi:account-child
+          - type: custom:wall-clock-routines-card
+            clock: jake
+            name: Jake
+            copy_from: zac
+          - type: entities
+            show_header_toggle: false
+            state_color: true
+            entities:
+              - entity: sensor.wall_clock_routine_jake_now
+                name: On the clock now (Home Assistant)
+              - entity: sensor.mini_round_clock_4_routine_showing
+                name: On the clock now (the clock says)
+              - entity: sensor.wall_clock_face_jake_now
+                name: Face wanted now (auto = the clock decides)
+              - entity: sensor.mini_round_clock_4_face_showing
+                name: Face showing (the clock says)
+              - entity: binary_sensor.mini_round_clock_4_routine_picture_loaded
+                name: Picture loaded
+              - entity: select.mini_round_clock_4_routine_countdown_direction
+                name: Ring empties
+              - entity: binary_sensor.mini_round_clock_4_status
+                name: Clock online
+
+  - title: Layout
+    path: layout
+    icon: mdi:drag-variant
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: custom:wall-clock-layout-card
+            slug: mini_round_clock_3
+            name: Zac
+            routine: zac
+      - type: grid
+        cards:
+          - type: custom:wall-clock-layout-card
+            slug: mini_round_clock_4
+            name: Jake
+            routine: jake
+      - type: grid
+        column_span: 2
+        cards:
+          - type: entities
+            title: Today's weather (what the clocks draw)
+            show_header_toggle: false
+            entities:
+              - entity: sensor.wall_clock_weather_today
+                name: Condition
+              - entity: sensor.wall_clock_weather_high
+                name: High
+              - entity: sensor.wall_clock_weather_low
+                name: Low
+              - entity: weather.home
+                name: Source (Open-Meteo, zone.home)
+              - entity: weather.forecast_home
+                name: Fallback (met.no)
+
+  - title: Help
+    path: help
+    icon: mdi:help-circle-outline
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        column_span: 2
+        cards:
+          - type: markdown
+            content: >-
+              ## How the routines work
+
+              Each boy has a list of **steps**: what to do, a picture, a start
+              and a finish. At the start time the clock shows the picture with
+              the step's name and the minutes left, and the **LED ring fills
+              up and then empties anticlockwise** until the step is over. In the
+              last minute the ring pulses. Then the clock goes back to whatever
+              it was showing (the grow face, or the ordinary clock).
+
+              * **Emoji or photo.** Pick an emoji from the grid, type any emoji
+                from the phone keyboard, or upload a photo (it is cropped to a
+                circle). The picture is stored in Home Assistant and the clock
+                fetches it when the step starts.
+              * **Days.** *Every day*, *School days* (Mon–Fri) or *Weekends*.
+                Switch **School holidays** on and every day counts as a
+                weekend day.
+              * **Try it on the clock** shows a step for two minutes without
+                changing the schedule. Good for checking a picture.
+              * **Ring colour** is per step. The screen text takes the same
+                colour.
+              * A step that is on right now is outlined in the list. "On the
+                clock now (the clock says)" is what the clock itself reports
+                back, so if the two disagree the clock has not received it.
+          - type: markdown
+            content: >-
+              ## The weather symbol
+
+              A sun, a cloud, rain, a storm, snow, fog, wind or a moon, with
+              **today's high** in big digits and the low small under it. Today's
+              forecast comes from **Open-Meteo** (set up on the home zone; for
+              Australia it blends the Bureau's ACCESS model with the European
+              model) and falls back to met.no. It refreshes every 15 minutes.
+
+              On the **Layout** tab drag the symbol where you want it on each
+              face and set its size; the clock follows within a second. "with
+              the low" hides the small number for a cleaner look; "on the
+              routine face" adds it to the picture face too.
+
+              **Ring direction.** "Ring empties: anticlockwise" means the lit
+              LEDs go out one after another walking backwards from just left of
+              twelve, with the last one at the top. If that looks backwards to
+              you on the wall, flip the select and it mirrors.
+          - type: markdown
+            content: >-
+              ## Which face, when
+
+              Each clock has three faces: the **grow face** (the eyes and the
+              night sky), the **routine face** (the picture, while a step is
+              on) and the **ordinary clock**. Left alone the clock decides:
+              the grow face on its own schedule, and "Grow clock by day" hands
+              the panel to the ordinary clock after wake-up.
+
+              **Faces through the day** on each boy's card lets you set times
+              instead: *Grow face 18:30 until 07:30, every day* and *Clock
+              face 07:30 until 18:30*. "Until" earlier than "From" runs over
+              midnight. A routine step always takes over while it is on, and
+              "Face showing (the clock says)" tells you what is on the glass.
+
+              **What's next.** The routine face keeps a small area on the
+              right with the following step's picture and start time; move
+              and size it on the Layout tab like everything else.

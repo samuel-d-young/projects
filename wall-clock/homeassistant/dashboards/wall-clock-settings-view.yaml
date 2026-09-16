@@ -203,6 +203,148 @@
       - entity: switch.mini_round_clock_3_blank_screen_at_night
         name: Blank screen at night
     - type: markdown
+      content: '**How the grow clock reads.** Sleep colour with stars that go out one by one through the night; amber and a half-awake face for *almost time*; the wake colour and a smile when it is fine to get up; a yawn in the warning before bed. The eyes are Deskimon-style and move on their own — looks, blinks, smiles, yawns when it is late; *Animate the eyes* off leaves them still. While it is on, this clock shows nothing else — no hands, timers or status.
+
+
+        **Sound.** The clock has no microphone. *Test: pretend a sound* is the same helper anything in Home Assistant can pulse — a Voice PE hearing its wake word, a baby monitor, a noise sensor. See `packages/wall_clock_grow.yaml` for a ready-made example. During sleep it brightens in the **sleep** colour and says *shh*; it never shows the wake colour for a noise, because that would reward calling out.
+
+
+        **Overrides** last until the schedule next changes on its own, so *Wake now* at 6:40 lets go by itself at bedtime.'
+    visibility: &id001
+    - condition: state
+      entity: input_select.wall_clock_target
+      state: Zac's Clock
+    - condition: state
+      entity: binary_sensor.mini_round_clock_3_status
+      state: 'on'
+  - type: grid
+    cards:
+    - type: entities
+      title: Zac's Clock — Ring
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: number.mini_round_clock_3_ring_led_count
+        name: LED count
+      - entity: number.mini_round_clock_3_twelve_o_clock_offset
+        name: Twelve o'clock offset
+      - entity: select.mini_round_clock_3_mode
+        name: Mode
+      - entity: switch.mini_round_clock_3_ring_leds
+        name: Ring LEDs on
+      - entity: number.mini_round_clock_3_ring_current_limit
+        name: Current limit
+      - type: section
+        label: Hands
+      - entity: select.mini_round_clock_3_second_hand_style
+        name: Second hand
+      - entity: switch.mini_round_clock_3_ring_second_hand
+        name: Show second hand
+      - type: section
+        label: Markers
+      - entity: select.mini_round_clock_3_ring_hour_markers
+        name: Markers
+      - entity: number.mini_round_clock_3_hour_marker_brightness
+        name: Marker brightness
+      - type: section
+        label: Timer + status
+      - entity: select.mini_round_clock_3_timer_countdown_style
+        name: Countdown style
+      - entity: select.mini_round_clock_3_timer_arc_direction
+        name: Arc direction
+      - entity: switch.mini_round_clock_3_show_extra_timer_pips
+        name: Extra timer pips
+      - entity: switch.mini_round_clock_3_show_status_hints
+        name: Status hints
+      - entity: number.mini_round_clock_3_status_pixel_brightness
+        name: Status brightness
+      - entity: switch.mini_round_clock_3_status_bin_night
+        name:  Bin night (12 o'clock)
+      - entity: switch.mini_round_clock_3_status_garage_open
+        name:  Garage open (3 o'clock)
+      - entity: switch.mini_round_clock_3_status_driveway
+        name:  Driveway (9 o'clock)
+      - entity: switch.mini_round_clock_3_status_who_is_home
+        name:  Who is home (6 o'clock)
+      - type: section
+        label: Routine + weather
+      - entity: sensor.mini_round_clock_3_routine_showing
+        name: Routine step showing
+      - entity: sensor.mini_round_clock_3_face_showing
+        name: Face showing
+      - entity: select.mini_round_clock_3_routine_countdown_direction
+        name: Routine ring empties
+      - entity: switch.mini_round_clock_3_weather_symbol
+        name: Weather symbol
+      - entity: switch.mini_round_clock_3_weather_symbol_shows_the_low
+        name:  with the low
+      - entity: switch.mini_round_clock_3_weather_symbol_on_the_routine_face
+        name:  on the routine face
+      - entity: number.mini_round_clock_3_layout_weather_size
+        name: Weather symbol size
+      - entity: sensor.mini_round_clock_3_free_heap
+        name: Free heap
+      - entity: sensor.mini_round_clock_3_largest_free_block
+        name: Largest free block
+    - type: entities
+      title: Zac's Clock — Colour
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_3_colour_theme
+        name: Theme
+      - type: section
+        label: Hour hand
+      - entity: number.mini_round_clock_3_hour_hue
+        name: Hue
+      - entity: number.mini_round_clock_3_hour_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_3_hour_intensity
+        name: Intensity
+      - type: section
+        label: Minute hand
+      - entity: number.mini_round_clock_3_minute_hue
+        name: Hue
+      - entity: number.mini_round_clock_3_minute_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_3_minute_intensity
+        name: Intensity
+      - type: section
+        label: Second hand
+      - entity: number.mini_round_clock_3_second_hue
+        name: Hue
+      - entity: number.mini_round_clock_3_second_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_3_second_intensity
+        name: Intensity
+      - type: section
+        label: Timer arc
+      - entity: number.mini_round_clock_3_timer_hue
+        name: Hue
+      - entity: number.mini_round_clock_3_timer_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_3_timer_intensity
+        name: Intensity
+    - type: entities
+      title: Zac's Clock — Alert
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_3_alert_pattern
+        name: Pattern
+      - entity: number.mini_round_clock_3_alert_hue
+        name: Hue
+      - entity: number.mini_round_clock_3_alert_shows_for
+        name: Clock shows it for
+      - type: section
+        label: The alarm itself
+      - entity: input_button.wall_clock_timer_dismiss
+        name: Dismiss the alarm
+      - entity: input_number.wall_clock_alert_repeat_seconds
+        name: Re-announce every
+      - entity: input_number.wall_clock_alert_repeat_max
+        name: Repeats (0 = until cancelled)
+    - type: markdown
       content: '### Zac''s Clock — Colour
 
         The presets **default, warm, cool, mono** ignore the sliders below. Set **Theme** to **custom** first, then they apply immediately, no reflash.
@@ -212,13 +354,12 @@
 
 
         Status **pips** follow the timer arc at 62% and have no separate control. **mono** pins every saturation to zero and is the accessible palette.'
-    visibility: &id001
-    - condition: state
-      entity: input_select.wall_clock_target
-      state: Zac's Clock
-    - condition: state
-      entity: binary_sensor.mini_round_clock_3_status
-      state: 'on'
+    - type: markdown
+      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
+
+
+        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
+    visibility: *id001
   - type: grid
     cards:
     - type: entities
@@ -281,75 +422,6 @@
       - entity: sensor.mini_round_clock_3_grow_clock_minutes_to_wake
         name: Minutes to wake
     - type: entities
-      title: Zac's Clock — Colour
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_3_colour_theme
-        name: Theme
-      - type: section
-        label: Hour hand
-      - entity: number.mini_round_clock_3_hour_hue
-        name: Hue
-      - entity: number.mini_round_clock_3_hour_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_3_hour_intensity
-        name: Intensity
-      - type: section
-        label: Minute hand
-      - entity: number.mini_round_clock_3_minute_hue
-        name: Hue
-      - entity: number.mini_round_clock_3_minute_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_3_minute_intensity
-        name: Intensity
-      - type: section
-        label: Second hand
-      - entity: number.mini_round_clock_3_second_hue
-        name: Hue
-      - entity: number.mini_round_clock_3_second_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_3_second_intensity
-        name: Intensity
-      - type: section
-        label: Timer arc
-      - entity: number.mini_round_clock_3_timer_hue
-        name: Hue
-      - entity: number.mini_round_clock_3_timer_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_3_timer_intensity
-        name: Intensity
-    - type: entities
-      title: Zac's Clock — Alert
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_3_alert_pattern
-        name: Pattern
-      - entity: number.mini_round_clock_3_alert_hue
-        name: Hue
-      - entity: number.mini_round_clock_3_alert_shows_for
-        name: Clock shows it for
-      - type: section
-        label: The alarm itself
-      - entity: input_button.wall_clock_timer_dismiss
-        name: Dismiss the alarm
-      - entity: input_number.wall_clock_alert_repeat_seconds
-        name: Re-announce every
-      - entity: input_number.wall_clock_alert_repeat_max
-        name: Repeats (0 = until cancelled)
-    - type: markdown
-      content: '**How the grow clock reads.** Sleep colour with stars that go out one by one through the night; amber and a half-awake face for *almost time*; the wake colour and a smile when it is fine to get up; a yawn in the warning before bed. The eyes are Deskimon-style and move on their own — looks, blinks, smiles, yawns when it is late; *Animate the eyes* off leaves them still. While it is on, this clock shows nothing else — no hands, timers or status.
-
-
-        **Sound.** The clock has no microphone. *Test: pretend a sound* is the same helper anything in Home Assistant can pulse — a Voice PE hearing its wake word, a baby monitor, a noise sensor. See `packages/wall_clock_grow.yaml` for a ready-made example. During sleep it brightens in the **sleep** colour and says *shh*; it never shows the wake colour for a noise, because that would reward calling out.
-
-
-        **Overrides** last until the schedule next changes on its own, so *Wake now* at 6:40 lets go by itself at bedtime.'
-    visibility: *id001
-  - type: grid
-    cards:
-    - type: entities
       title: Zac's Clock — Screen
       show_header_toggle: false
       state_color: true
@@ -400,53 +472,6 @@
         label: Background
       - entity: number.mini_round_clock_3_weather_tint_strength
         name: Weather tint
-    - type: entities
-      title: Zac's Clock — Ring
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: number.mini_round_clock_3_ring_led_count
-        name: LED count
-      - entity: number.mini_round_clock_3_twelve_o_clock_offset
-        name: Twelve o'clock offset
-      - entity: select.mini_round_clock_3_mode
-        name: Mode
-      - entity: switch.mini_round_clock_3_ring_leds
-        name: Ring LEDs on
-      - entity: number.mini_round_clock_3_ring_current_limit
-        name: Current limit
-      - type: section
-        label: Hands
-      - entity: select.mini_round_clock_3_second_hand_style
-        name: Second hand
-      - entity: switch.mini_round_clock_3_ring_second_hand
-        name: Show second hand
-      - type: section
-        label: Markers
-      - entity: select.mini_round_clock_3_ring_hour_markers
-        name: Markers
-      - entity: number.mini_round_clock_3_hour_marker_brightness
-        name: Marker brightness
-      - type: section
-        label: Timer + status
-      - entity: select.mini_round_clock_3_timer_countdown_style
-        name: Countdown style
-      - entity: select.mini_round_clock_3_timer_arc_direction
-        name: Arc direction
-      - entity: switch.mini_round_clock_3_show_extra_timer_pips
-        name: Extra timer pips
-      - entity: switch.mini_round_clock_3_show_status_hints
-        name: Status hints
-      - entity: number.mini_round_clock_3_status_pixel_brightness
-        name: Status brightness
-      - entity: switch.mini_round_clock_3_status_bin_night
-        name:  Bin night (12 o'clock)
-      - entity: switch.mini_round_clock_3_status_garage_open
-        name:  Garage open (3 o'clock)
-      - entity: switch.mini_round_clock_3_status_driveway
-        name:  Driveway (9 o'clock)
-      - entity: switch.mini_round_clock_3_status_who_is_home
-        name:  Who is home (6 o'clock)
     - type: markdown
       content: '### Zac''s Clock — everything the ring can light
 
@@ -478,11 +503,6 @@
 
 
         **A single blue dot just left of 6 o''clock is Sam''s presence pixel.** The twelve hour markers are faintly blue too, but they are dim and there are twelve of them, so one blue dot is the presence one.'
-    - type: markdown
-      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
-
-
-        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
     visibility: *id001
   - type: grid
     cards:
@@ -623,6 +643,148 @@
       - entity: switch.mini_round_clock_4_blank_screen_at_night
         name: Blank screen at night
     - type: markdown
+      content: '**How the grow clock reads.** Sleep colour with stars that go out one by one through the night; amber and a half-awake face for *almost time*; the wake colour and a smile when it is fine to get up; a yawn in the warning before bed. The eyes are Deskimon-style and move on their own — looks, blinks, smiles, yawns when it is late; *Animate the eyes* off leaves them still. While it is on, this clock shows nothing else — no hands, timers or status.
+
+
+        **Sound.** The clock has no microphone. *Test: pretend a sound* is the same helper anything in Home Assistant can pulse — a Voice PE hearing its wake word, a baby monitor, a noise sensor. See `packages/wall_clock_grow.yaml` for a ready-made example. During sleep it brightens in the **sleep** colour and says *shh*; it never shows the wake colour for a noise, because that would reward calling out.
+
+
+        **Overrides** last until the schedule next changes on its own, so *Wake now* at 6:40 lets go by itself at bedtime.'
+    visibility: &id002
+    - condition: state
+      entity: input_select.wall_clock_target
+      state: Jake's Clock
+    - condition: state
+      entity: binary_sensor.mini_round_clock_4_status
+      state: 'on'
+  - type: grid
+    cards:
+    - type: entities
+      title: Jake's Clock — Ring
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: number.mini_round_clock_4_ring_led_count
+        name: LED count
+      - entity: number.mini_round_clock_4_twelve_o_clock_offset
+        name: Twelve o'clock offset
+      - entity: select.mini_round_clock_4_mode
+        name: Mode
+      - entity: switch.mini_round_clock_4_ring_leds
+        name: Ring LEDs on
+      - entity: number.mini_round_clock_4_ring_current_limit
+        name: Current limit
+      - type: section
+        label: Hands
+      - entity: select.mini_round_clock_4_second_hand_style
+        name: Second hand
+      - entity: switch.mini_round_clock_4_ring_second_hand
+        name: Show second hand
+      - type: section
+        label: Markers
+      - entity: select.mini_round_clock_4_ring_hour_markers
+        name: Markers
+      - entity: number.mini_round_clock_4_hour_marker_brightness
+        name: Marker brightness
+      - type: section
+        label: Timer + status
+      - entity: select.mini_round_clock_4_timer_countdown_style
+        name: Countdown style
+      - entity: select.mini_round_clock_4_timer_arc_direction
+        name: Arc direction
+      - entity: switch.mini_round_clock_4_show_extra_timer_pips
+        name: Extra timer pips
+      - entity: switch.mini_round_clock_4_show_status_hints
+        name: Status hints
+      - entity: number.mini_round_clock_4_status_pixel_brightness
+        name: Status brightness
+      - entity: switch.mini_round_clock_4_status_bin_night
+        name:  Bin night (12 o'clock)
+      - entity: switch.mini_round_clock_4_status_garage_open
+        name:  Garage open (3 o'clock)
+      - entity: switch.mini_round_clock_4_status_driveway
+        name:  Driveway (9 o'clock)
+      - entity: switch.mini_round_clock_4_status_who_is_home
+        name:  Who is home (6 o'clock)
+      - type: section
+        label: Routine + weather
+      - entity: sensor.mini_round_clock_4_routine_showing
+        name: Routine step showing
+      - entity: sensor.mini_round_clock_4_face_showing
+        name: Face showing
+      - entity: select.mini_round_clock_4_routine_countdown_direction
+        name: Routine ring empties
+      - entity: switch.mini_round_clock_4_weather_symbol
+        name: Weather symbol
+      - entity: switch.mini_round_clock_4_weather_symbol_shows_the_low
+        name:  with the low
+      - entity: switch.mini_round_clock_4_weather_symbol_on_the_routine_face
+        name:  on the routine face
+      - entity: number.mini_round_clock_4_layout_weather_size
+        name: Weather symbol size
+      - entity: sensor.mini_round_clock_4_free_heap
+        name: Free heap
+      - entity: sensor.mini_round_clock_4_largest_free_block
+        name: Largest free block
+    - type: entities
+      title: Jake's Clock — Colour
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_4_colour_theme
+        name: Theme
+      - type: section
+        label: Hour hand
+      - entity: number.mini_round_clock_4_hour_hue
+        name: Hue
+      - entity: number.mini_round_clock_4_hour_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_4_hour_intensity
+        name: Intensity
+      - type: section
+        label: Minute hand
+      - entity: number.mini_round_clock_4_minute_hue
+        name: Hue
+      - entity: number.mini_round_clock_4_minute_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_4_minute_intensity
+        name: Intensity
+      - type: section
+        label: Second hand
+      - entity: number.mini_round_clock_4_second_hue
+        name: Hue
+      - entity: number.mini_round_clock_4_second_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_4_second_intensity
+        name: Intensity
+      - type: section
+        label: Timer arc
+      - entity: number.mini_round_clock_4_timer_hue
+        name: Hue
+      - entity: number.mini_round_clock_4_timer_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_4_timer_intensity
+        name: Intensity
+    - type: entities
+      title: Jake's Clock — Alert
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_4_alert_pattern
+        name: Pattern
+      - entity: number.mini_round_clock_4_alert_hue
+        name: Hue
+      - entity: number.mini_round_clock_4_alert_shows_for
+        name: Clock shows it for
+      - type: section
+        label: The alarm itself
+      - entity: input_button.wall_clock_timer_dismiss
+        name: Dismiss the alarm
+      - entity: input_number.wall_clock_alert_repeat_seconds
+        name: Re-announce every
+      - entity: input_number.wall_clock_alert_repeat_max
+        name: Repeats (0 = until cancelled)
+    - type: markdown
       content: '### Jake''s Clock — Colour
 
         The presets **default, warm, cool, mono** ignore the sliders below. Set **Theme** to **custom** first, then they apply immediately, no reflash.
@@ -632,13 +794,12 @@
 
 
         Status **pips** follow the timer arc at 62% and have no separate control. **mono** pins every saturation to zero and is the accessible palette.'
-    visibility: &id002
-    - condition: state
-      entity: input_select.wall_clock_target
-      state: Jake's Clock
-    - condition: state
-      entity: binary_sensor.mini_round_clock_4_status
-      state: 'on'
+    - type: markdown
+      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
+
+
+        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
+    visibility: *id002
   - type: grid
     cards:
     - type: entities
@@ -701,75 +862,6 @@
       - entity: sensor.mini_round_clock_4_grow_clock_minutes_to_wake
         name: Minutes to wake
     - type: entities
-      title: Jake's Clock — Colour
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_4_colour_theme
-        name: Theme
-      - type: section
-        label: Hour hand
-      - entity: number.mini_round_clock_4_hour_hue
-        name: Hue
-      - entity: number.mini_round_clock_4_hour_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_4_hour_intensity
-        name: Intensity
-      - type: section
-        label: Minute hand
-      - entity: number.mini_round_clock_4_minute_hue
-        name: Hue
-      - entity: number.mini_round_clock_4_minute_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_4_minute_intensity
-        name: Intensity
-      - type: section
-        label: Second hand
-      - entity: number.mini_round_clock_4_second_hue
-        name: Hue
-      - entity: number.mini_round_clock_4_second_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_4_second_intensity
-        name: Intensity
-      - type: section
-        label: Timer arc
-      - entity: number.mini_round_clock_4_timer_hue
-        name: Hue
-      - entity: number.mini_round_clock_4_timer_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_4_timer_intensity
-        name: Intensity
-    - type: entities
-      title: Jake's Clock — Alert
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_4_alert_pattern
-        name: Pattern
-      - entity: number.mini_round_clock_4_alert_hue
-        name: Hue
-      - entity: number.mini_round_clock_4_alert_shows_for
-        name: Clock shows it for
-      - type: section
-        label: The alarm itself
-      - entity: input_button.wall_clock_timer_dismiss
-        name: Dismiss the alarm
-      - entity: input_number.wall_clock_alert_repeat_seconds
-        name: Re-announce every
-      - entity: input_number.wall_clock_alert_repeat_max
-        name: Repeats (0 = until cancelled)
-    - type: markdown
-      content: '**How the grow clock reads.** Sleep colour with stars that go out one by one through the night; amber and a half-awake face for *almost time*; the wake colour and a smile when it is fine to get up; a yawn in the warning before bed. The eyes are Deskimon-style and move on their own — looks, blinks, smiles, yawns when it is late; *Animate the eyes* off leaves them still. While it is on, this clock shows nothing else — no hands, timers or status.
-
-
-        **Sound.** The clock has no microphone. *Test: pretend a sound* is the same helper anything in Home Assistant can pulse — a Voice PE hearing its wake word, a baby monitor, a noise sensor. See `packages/wall_clock_grow.yaml` for a ready-made example. During sleep it brightens in the **sleep** colour and says *shh*; it never shows the wake colour for a noise, because that would reward calling out.
-
-
-        **Overrides** last until the schedule next changes on its own, so *Wake now* at 6:40 lets go by itself at bedtime.'
-    visibility: *id002
-  - type: grid
-    cards:
-    - type: entities
       title: Jake's Clock — Screen
       show_header_toggle: false
       state_color: true
@@ -820,53 +912,6 @@
         label: Background
       - entity: number.mini_round_clock_4_weather_tint_strength
         name: Weather tint
-    - type: entities
-      title: Jake's Clock — Ring
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: number.mini_round_clock_4_ring_led_count
-        name: LED count
-      - entity: number.mini_round_clock_4_twelve_o_clock_offset
-        name: Twelve o'clock offset
-      - entity: select.mini_round_clock_4_mode
-        name: Mode
-      - entity: switch.mini_round_clock_4_ring_leds
-        name: Ring LEDs on
-      - entity: number.mini_round_clock_4_ring_current_limit
-        name: Current limit
-      - type: section
-        label: Hands
-      - entity: select.mini_round_clock_4_second_hand_style
-        name: Second hand
-      - entity: switch.mini_round_clock_4_ring_second_hand
-        name: Show second hand
-      - type: section
-        label: Markers
-      - entity: select.mini_round_clock_4_ring_hour_markers
-        name: Markers
-      - entity: number.mini_round_clock_4_hour_marker_brightness
-        name: Marker brightness
-      - type: section
-        label: Timer + status
-      - entity: select.mini_round_clock_4_timer_countdown_style
-        name: Countdown style
-      - entity: select.mini_round_clock_4_timer_arc_direction
-        name: Arc direction
-      - entity: switch.mini_round_clock_4_show_extra_timer_pips
-        name: Extra timer pips
-      - entity: switch.mini_round_clock_4_show_status_hints
-        name: Status hints
-      - entity: number.mini_round_clock_4_status_pixel_brightness
-        name: Status brightness
-      - entity: switch.mini_round_clock_4_status_bin_night
-        name:  Bin night (12 o'clock)
-      - entity: switch.mini_round_clock_4_status_garage_open
-        name:  Garage open (3 o'clock)
-      - entity: switch.mini_round_clock_4_status_driveway
-        name:  Driveway (9 o'clock)
-      - entity: switch.mini_round_clock_4_status_who_is_home
-        name:  Who is home (6 o'clock)
     - type: markdown
       content: '### Jake''s Clock — everything the ring can light
 
@@ -898,11 +943,6 @@
 
 
         **A single blue dot just left of 6 o''clock is Sam''s presence pixel.** The twelve hour markers are faintly blue too, but they are dim and there are twelve of them, so one blue dot is the presence one.'
-    - type: markdown
-      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
-
-
-        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
     visibility: *id002
   - type: grid
     cards:
@@ -1043,6 +1083,148 @@
       - entity: switch.mini_round_clock_blank_screen_at_night
         name: Blank screen at night
     - type: markdown
+      content: '**How the grow clock reads.** Sleep colour with stars that go out one by one through the night; amber and a half-awake face for *almost time*; the wake colour and a smile when it is fine to get up; a yawn in the warning before bed. The eyes are Deskimon-style and move on their own — looks, blinks, smiles, yawns when it is late; *Animate the eyes* off leaves them still. While it is on, this clock shows nothing else — no hands, timers or status.
+
+
+        **Sound.** The clock has no microphone. *Test: pretend a sound* is the same helper anything in Home Assistant can pulse — a Voice PE hearing its wake word, a baby monitor, a noise sensor. See `packages/wall_clock_grow.yaml` for a ready-made example. During sleep it brightens in the **sleep** colour and says *shh*; it never shows the wake colour for a noise, because that would reward calling out.
+
+
+        **Overrides** last until the schedule next changes on its own, so *Wake now* at 6:40 lets go by itself at bedtime.'
+    visibility: &id003
+    - condition: state
+      entity: input_select.wall_clock_target
+      state: Third Clock
+    - condition: state
+      entity: binary_sensor.mini_round_clock_status
+      state: 'on'
+  - type: grid
+    cards:
+    - type: entities
+      title: Third Clock — Ring
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: number.mini_round_clock_ring_led_count
+        name: LED count
+      - entity: number.mini_round_clock_twelve_o_clock_offset
+        name: Twelve o'clock offset
+      - entity: select.mini_round_clock_mode
+        name: Mode
+      - entity: switch.mini_round_clock_ring_leds
+        name: Ring LEDs on
+      - entity: number.mini_round_clock_ring_current_limit
+        name: Current limit
+      - type: section
+        label: Hands
+      - entity: select.mini_round_clock_second_hand_style
+        name: Second hand
+      - entity: switch.mini_round_clock_ring_second_hand
+        name: Show second hand
+      - type: section
+        label: Markers
+      - entity: select.mini_round_clock_ring_hour_markers
+        name: Markers
+      - entity: number.mini_round_clock_hour_marker_brightness
+        name: Marker brightness
+      - type: section
+        label: Timer + status
+      - entity: select.mini_round_clock_timer_countdown_style
+        name: Countdown style
+      - entity: select.mini_round_clock_timer_arc_direction
+        name: Arc direction
+      - entity: switch.mini_round_clock_show_extra_timer_pips
+        name: Extra timer pips
+      - entity: switch.mini_round_clock_show_status_hints
+        name: Status hints
+      - entity: number.mini_round_clock_status_pixel_brightness
+        name: Status brightness
+      - entity: switch.mini_round_clock_status_bin_night
+        name:  Bin night (12 o'clock)
+      - entity: switch.mini_round_clock_status_garage_open
+        name:  Garage open (3 o'clock)
+      - entity: switch.mini_round_clock_status_driveway
+        name:  Driveway (9 o'clock)
+      - entity: switch.mini_round_clock_status_who_is_home
+        name:  Who is home (6 o'clock)
+      - type: section
+        label: Routine + weather
+      - entity: sensor.mini_round_clock_routine_showing
+        name: Routine step showing
+      - entity: sensor.mini_round_clock_face_showing
+        name: Face showing
+      - entity: select.mini_round_clock_routine_countdown_direction
+        name: Routine ring empties
+      - entity: switch.mini_round_clock_weather_symbol
+        name: Weather symbol
+      - entity: switch.mini_round_clock_weather_symbol_shows_the_low
+        name:  with the low
+      - entity: switch.mini_round_clock_weather_symbol_on_the_routine_face
+        name:  on the routine face
+      - entity: number.mini_round_clock_layout_weather_size
+        name: Weather symbol size
+      - entity: sensor.mini_round_clock_free_heap
+        name: Free heap
+      - entity: sensor.mini_round_clock_largest_free_block
+        name: Largest free block
+    - type: entities
+      title: Third Clock — Colour
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_colour_theme
+        name: Theme
+      - type: section
+        label: Hour hand
+      - entity: number.mini_round_clock_hour_hue
+        name: Hue
+      - entity: number.mini_round_clock_hour_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_hour_intensity
+        name: Intensity
+      - type: section
+        label: Minute hand
+      - entity: number.mini_round_clock_minute_hue
+        name: Hue
+      - entity: number.mini_round_clock_minute_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_minute_intensity
+        name: Intensity
+      - type: section
+        label: Second hand
+      - entity: number.mini_round_clock_second_hue
+        name: Hue
+      - entity: number.mini_round_clock_second_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_second_intensity
+        name: Intensity
+      - type: section
+        label: Timer arc
+      - entity: number.mini_round_clock_timer_hue
+        name: Hue
+      - entity: number.mini_round_clock_timer_saturation
+        name: Saturation
+      - entity: number.mini_round_clock_timer_intensity
+        name: Intensity
+    - type: entities
+      title: Third Clock — Alert
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_alert_pattern
+        name: Pattern
+      - entity: number.mini_round_clock_alert_hue
+        name: Hue
+      - entity: number.mini_round_clock_alert_shows_for
+        name: Clock shows it for
+      - type: section
+        label: The alarm itself
+      - entity: input_button.wall_clock_timer_dismiss
+        name: Dismiss the alarm
+      - entity: input_number.wall_clock_alert_repeat_seconds
+        name: Re-announce every
+      - entity: input_number.wall_clock_alert_repeat_max
+        name: Repeats (0 = until cancelled)
+    - type: markdown
       content: '### Third Clock — Colour
 
         The presets **default, warm, cool, mono** ignore the sliders below. Set **Theme** to **custom** first, then they apply immediately, no reflash.
@@ -1052,13 +1234,12 @@
 
 
         Status **pips** follow the timer arc at 62% and have no separate control. **mono** pins every saturation to zero and is the accessible palette.'
-    visibility: &id003
-    - condition: state
-      entity: input_select.wall_clock_target
-      state: Third Clock
-    - condition: state
-      entity: binary_sensor.mini_round_clock_status
-      state: 'on'
+    - type: markdown
+      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
+
+
+        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
+    visibility: *id003
   - type: grid
     cards:
     - type: entities
@@ -1121,75 +1302,6 @@
       - entity: sensor.mini_round_clock_grow_clock_minutes_to_wake
         name: Minutes to wake
     - type: entities
-      title: Third Clock — Colour
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_colour_theme
-        name: Theme
-      - type: section
-        label: Hour hand
-      - entity: number.mini_round_clock_hour_hue
-        name: Hue
-      - entity: number.mini_round_clock_hour_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_hour_intensity
-        name: Intensity
-      - type: section
-        label: Minute hand
-      - entity: number.mini_round_clock_minute_hue
-        name: Hue
-      - entity: number.mini_round_clock_minute_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_minute_intensity
-        name: Intensity
-      - type: section
-        label: Second hand
-      - entity: number.mini_round_clock_second_hue
-        name: Hue
-      - entity: number.mini_round_clock_second_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_second_intensity
-        name: Intensity
-      - type: section
-        label: Timer arc
-      - entity: number.mini_round_clock_timer_hue
-        name: Hue
-      - entity: number.mini_round_clock_timer_saturation
-        name: Saturation
-      - entity: number.mini_round_clock_timer_intensity
-        name: Intensity
-    - type: entities
-      title: Third Clock — Alert
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_alert_pattern
-        name: Pattern
-      - entity: number.mini_round_clock_alert_hue
-        name: Hue
-      - entity: number.mini_round_clock_alert_shows_for
-        name: Clock shows it for
-      - type: section
-        label: The alarm itself
-      - entity: input_button.wall_clock_timer_dismiss
-        name: Dismiss the alarm
-      - entity: input_number.wall_clock_alert_repeat_seconds
-        name: Re-announce every
-      - entity: input_number.wall_clock_alert_repeat_max
-        name: Repeats (0 = until cancelled)
-    - type: markdown
-      content: '**How the grow clock reads.** Sleep colour with stars that go out one by one through the night; amber and a half-awake face for *almost time*; the wake colour and a smile when it is fine to get up; a yawn in the warning before bed. The eyes are Deskimon-style and move on their own — looks, blinks, smiles, yawns when it is late; *Animate the eyes* off leaves them still. While it is on, this clock shows nothing else — no hands, timers or status.
-
-
-        **Sound.** The clock has no microphone. *Test: pretend a sound* is the same helper anything in Home Assistant can pulse — a Voice PE hearing its wake word, a baby monitor, a noise sensor. See `packages/wall_clock_grow.yaml` for a ready-made example. During sleep it brightens in the **sleep** colour and says *shh*; it never shows the wake colour for a noise, because that would reward calling out.
-
-
-        **Overrides** last until the schedule next changes on its own, so *Wake now* at 6:40 lets go by itself at bedtime.'
-    visibility: *id003
-  - type: grid
-    cards:
-    - type: entities
       title: Third Clock — Screen
       show_header_toggle: false
       state_color: true
@@ -1240,53 +1352,6 @@
         label: Background
       - entity: number.mini_round_clock_weather_tint_strength
         name: Weather tint
-    - type: entities
-      title: Third Clock — Ring
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: number.mini_round_clock_ring_led_count
-        name: LED count
-      - entity: number.mini_round_clock_twelve_o_clock_offset
-        name: Twelve o'clock offset
-      - entity: select.mini_round_clock_mode
-        name: Mode
-      - entity: switch.mini_round_clock_ring_leds
-        name: Ring LEDs on
-      - entity: number.mini_round_clock_ring_current_limit
-        name: Current limit
-      - type: section
-        label: Hands
-      - entity: select.mini_round_clock_second_hand_style
-        name: Second hand
-      - entity: switch.mini_round_clock_ring_second_hand
-        name: Show second hand
-      - type: section
-        label: Markers
-      - entity: select.mini_round_clock_ring_hour_markers
-        name: Markers
-      - entity: number.mini_round_clock_hour_marker_brightness
-        name: Marker brightness
-      - type: section
-        label: Timer + status
-      - entity: select.mini_round_clock_timer_countdown_style
-        name: Countdown style
-      - entity: select.mini_round_clock_timer_arc_direction
-        name: Arc direction
-      - entity: switch.mini_round_clock_show_extra_timer_pips
-        name: Extra timer pips
-      - entity: switch.mini_round_clock_show_status_hints
-        name: Status hints
-      - entity: number.mini_round_clock_status_pixel_brightness
-        name: Status brightness
-      - entity: switch.mini_round_clock_status_bin_night
-        name:  Bin night (12 o'clock)
-      - entity: switch.mini_round_clock_status_garage_open
-        name:  Garage open (3 o'clock)
-      - entity: switch.mini_round_clock_status_driveway
-        name:  Driveway (9 o'clock)
-      - entity: switch.mini_round_clock_status_who_is_home
-        name:  Who is home (6 o'clock)
     - type: markdown
       content: '### Third Clock — everything the ring can light
 
@@ -1318,11 +1383,6 @@
 
 
         **A single blue dot just left of 6 o''clock is Sam''s presence pixel.** The twelve hour markers are faintly blue too, but they are dim and there are twelve of them, so one blue dot is the presence one.'
-    - type: markdown
-      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
-
-
-        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
     visibility: *id003
   - type: grid
     cards:
