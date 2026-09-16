@@ -6823,3 +6823,89 @@ While there: the what's-next area's default on the grow and clock faces (292, 26
 grow face's time in 12-hour mode (its "pm" reaches x ≈ 290 at y ≈ 300). Moved to 306, 236 on
 all three clocks by `number.set_value` and as the firmware default for the next build; it is a
 layout number, so drag it wherever it reads best.
+---
+
+## 2026-09-16 — a laser-cut plywood face for the 60
+
+Sam: *"Make a file that I can laser cut wood for the front of the 60LED clock.
+With lines for the LED's to shine through. Those areas won't be cut all the way
+through, but be recessed from the laser so light shines through."*
+
+### The seat was already in the base
+
+`Z_RECESS` in `params.py` has read *"plywood face recess floor"* since v1.
+Nothing had ever been cut for it, and nobody had checked whether it was real.
+It is. Measured on the built `base-60` mesh:
+
+| | |
+|---|---|
+| front face | z = 22.00 |
+| front bore | r = 116.50 (Ø233.00) |
+| the screen collar | r 30.65–35.10, **top face at z = 18.99** |
+
+The collar is the seat, it is 3.01 mm down, and a 3 mm sheet lands flush.
+
+### What shipped
+
+`make_face_svg.py` → `laser/`:
+
+* `face-60-wood.svg` — Ø232.40 disc, Ø54.00 screen window, 60 lines 1.80 mm
+  wide from r 80.0 to 110.5, every 6°, one at 12 o'clock;
+* `face-60-wood-hours.svg` — the twelve hour lines widened to 2.80;
+* `face-60-depth-test.svg` — six real 1.8 mm ticks, **each in its own colour**
+  so the laser gives each its own number of passes, notched at the #1 end.
+
+Filled black = raster engrave; stroked red = cut. The engraving is written
+**before** the cut in the document, because a disc already cut free will lift.
+
+### Two things the geometry decided on its own
+
+**It cannot go on the wrong way round.** The lines are engraved from the back,
+so the obvious worry is mirroring. Every feature in both face files is symmetric
+about the 12–6 axis, so the drawing and its mirror are the same drawing —
+`check11` mirrors the union of the ticks in both axes and measures the symmetric
+difference at 0.0000 mm². The plain face is 60-fold symmetric as well, so any of
+the sixty rotations seats it right.
+
+**The printed diffuser still has a job.** The wood is opaque, so it does not need
+the cell walls to keep light off the face — it *is* the mask. But the cells stop
+LED n lighting tick n+1, and without them one lit LED glows through three or
+four lines. So `mini-round-clock-diffuser-60-cells` is the plain diffuser with
+the front 3 mm sliced off: sixty cells, the light-guide pockets, and the band.
+It tops out at z 18.93 against the wood's 18.99.
+
+Only on the 60. Slicing the 24's diffuser the same way leaves fragments, and the
+build said so before I did: *"no clean float32 mesh after 6 rounds"*.
+
+### check11, and a bug in check11
+
+Ten sections, all measured off the XML that lands on disk and the meshes it has
+to live with. The seating test is a boolean against the real base, because a
+part that goes inside another one gets a boolean against it.
+
+The first run gave ten failures and **every one of them was the checker**: it
+subtracted the SVG group's `translate` from coordinates that were already in the
+part's frame, moving all sixty ticks 117 mm sideways. It now asserts the
+translate equals the document centre instead of correcting for it twice. Worth
+recording because the failure looked exactly like a broken part — ticks outside
+the disc, spacing from 0.03° to 290°, mirror symmetry gone — and the file was
+fine all along.
+
+The seating test also earned its keep. Set down on the collar it reads 8.65 mm³
+of overlap, which is not a collision: it is a 0.01 mm contact film over r
+30.28–35.13, i.e. the wood resting on its seat. A plain `overlap < tolerance`
+would have passed that and would equally have passed a part buried 0.2 mm into a
+boss it never noticed. So it asks two questions — lifted 0.02 mm, is anything in
+the way (0.000 mm³); set down, is the collar the *only* thing it touches.
+
+Independently rendered with cairosvg and measured back out of the pixels:
+Ø232.83 outer cut, engrave r 78.86–111.66. True scale.
+
+### Not verified
+
+Nothing has been cut. The depth that makes plywood glow cannot be computed —
+sheet, glue line, laser and lens all decide it — which is what the coupon is
+for. And 3 mm of ply less the ~0.5 mm you want to leave is **2.5 mm to take away
+by raster on a diode laser**, which is a long hot job that may char before it
+gets deep enough. `PLY_T` drives both the face and the ring behind it, so
+dropping to a 1.5 mm sheet is a regeneration rather than a redraw.

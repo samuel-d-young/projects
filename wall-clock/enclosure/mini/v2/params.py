@@ -2028,3 +2028,45 @@ STANDBOX_TIE_WIN_W  = 4.00     # and the window through the shelf at each tie:
 STANDBOX_TIE_WIN_XI = 15.40    # 4 mm along the shelf, starting 0.4 mm outboard
                                # of the board's own edge (BOARD2_W/2 = 15) so the
                                # tie clears the board on its way down
+
+# =============================================================================
+# v17 -- the laser-cut plywood face for the 60
+# =============================================================================
+# Sam, 2026-09-16: "Make a file that I can laser cut wood for the front of the
+# 60LED clock. With lines for the LED's to shine through. Those areas won't be
+# cut all the way through, but be recessed from the laser so light shines
+# through."
+#
+# The seat was already there and had been since v1. MEASURED on the built
+# base-60 mesh, not taken from here:
+#
+#   front face            z = 22.00   (Z_FRONT)
+#   front bore            r = 116.50  (the lip's inner face, z 19 to 22)
+#   the screen collar     r 30.65 .. 35.10, TOP AT z = 18.99
+#
+# So the collar is the plywood seat, 3.01 mm below the front face, and a 3 mm
+# sheet lands flush. Z_RECESS has said "plywood face recess floor" since the
+# first version of this file; nothing had ever been cut for it.
+PLY_T           = 3.00      # nominal. REAL PLYWOOD VARIES 2.7-3.3 -- measure the
+                            # sheet. The face only sits proud or shy of flush by
+                            # whatever the sheet differs from 3.01
+PLY_CLR         = 0.30      # radial clearance in the 116.50 bore, so 0.60 on
+                            # diameter before kerf. The disc is located by the
+                            # bore and carried by the collar; it does not need to
+                            # be tight and a tight one cannot be got out again
+PLY_KERF        = 0.20      # typical diode-laser kerf in 3 mm ply. NOT applied to
+                            # the geometry -- the cut is drawn on the true line and
+                            # the beam takes this off the part. Documented so the
+                            # 0.30 clearance is read as "0.30 to 0.40 in practice"
+PLY_BORE_R      = DISP_ACTIVE_D/2.0 - 0.50   # 27.00. One millimetre inside the
+                            # 55 mm active area on diameter, which is the rule the
+                            # v1 plywood used: the face covers the ragged PCB edge
+                            # and the flex tab rather than framing them
+PLY_TICK_W      = TICK_W    # 1.80, the same tick the printed diffuser lights
+PLY_HOUR_W      = 2.80      # the hours variant only: every fifth line widened.
+                            # Still mirror-symmetric, so the file is safe to
+                            # engrave from either side -- see make_face_svg.py
+PLY_GLOW_LEFT   = 0.50      # wood left under a tick. 0.4-0.6 glows on birch ply;
+                            # 0.8 does not. This is the number the depth-test
+                            # coupon exists to find on SAM'S sheet and SAM'S
+                            # laser, because it cannot be computed

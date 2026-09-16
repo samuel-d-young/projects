@@ -42,6 +42,8 @@ Pick a body. Everything in one column goes together; nothing crosses over.
 | **diffuser, no numerals** | `-diffuser-plain` | `-diffuser-32-plain` | `-diffuser-60-plain` |
 | **diffuser with the flange**, §12 (`-flange-plain`: no numerals) | `-diffuser-flange` | `-diffuser-32-flange` | — |
 | **stand-box**, §12 *(instead of housing + stand)* | `-standbox` | `-standbox-32` | `-standbox-60` |
+| **plywood face** *(LASER, 60 only)* — `laser/face-60-wood.svg`, 3 mm birch | — | — | see `laser/README.md` |
+| **cells-only diffuser** *(with the plywood face, instead of `-plain`)* | — | — | `-diffuser-60-cells` |
 | **back cover**, §12 *(with the stand-box)* | `-backcover` | `-backcover-32` | `-backcover-60` |
 
 Every filename is prefixed `mini-round-clock`.

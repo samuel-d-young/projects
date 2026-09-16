@@ -65,6 +65,8 @@ All in `enclosure/mini/v2/`, prefixed `mini-round-clock`.
 | **diffuser with the flange** — fills the trough out to the base's lip; `-flange-plain` has no numerals | `-diffuser-flange` | `-diffuser-32-flange` | — (already reaches the lip) |
 | **stand-box** — the whole base in ONE part, open underneath; the S3 lies on two shelves held by **2 cable ties**, clock leans back 12°. Foot down, 8–10% infill | `-standbox` | `-standbox-32` | `-standbox-60` |
 | **back cover** — the flat back for a clock in the stand-box, replaces the housing. Plate down | `-backcover` | `-backcover-32` | `-backcover-60` |
+| **plywood face** — LASER, not printed. 3 mm birch, 232.4 mm disc, 60 lines engraved from the back. See `enclosure/mini/v2/laser/` | — | — | `laser/face-60-wood.svg` |
+| **cells-only diffuser** — goes behind the plywood face INSTEAD of `-plain`; the cells stop one LED lighting three lines. Sliced face down | — | — | `-diffuser-60-cells` |
 
 | File | |
 |---|---|

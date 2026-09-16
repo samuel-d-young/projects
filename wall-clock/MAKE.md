@@ -40,6 +40,8 @@ All in `enclosure/mini/v2/`, all prefixed `mini-round-clock`.
 | diffuser, **no numerals** | `-diffuser-plain` | `-diffuser-32-plain` | `-diffuser-60-plain` |
 | diffuser **with the flange** (`-flange-plain` = no numerals) | `-diffuser-flange` | `-diffuser-32-flange` | — |
 | **stand-box** *(instead of the housing + desk stand)* | `-standbox` | `-standbox-32` | `-standbox-60` |
+| **plywood face**, laser-cut — 60 only, see `enclosure/mini/v2/laser/README.md` | — | — | `laser/face-60-wood.svg` |
+| **cells-only diffuser** — goes with the plywood face instead of `-plain` | — | — | `-diffuser-60-cells` |
 | **back cover** *(with the stand-box)* | `-backcover` | `-backcover-32` | `-backcover-60` |
 
 ### The 1.9" bar screen instead of the round one

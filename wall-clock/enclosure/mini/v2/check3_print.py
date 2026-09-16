@@ -117,6 +117,9 @@ PARTS = [
     ('mini-round-clock-diffuser.stl',            'face down',       0.18),
     ('mini-round-clock-diffuser-32.stl',         'face down',       0.18),
     ('mini-round-clock-diffuser-60.stl',         'face down',       0.18),
+    # the cells-only ring behind the plywood face: no membrane, so it is held
+    # to the ordinary wall minimum and not the diffuser's 0.18
+    ('mini-round-clock-diffuser-60-cells.stl',   'sliced face down', MIN_WALL),
     ('mini-round-clock-diffuser-plain.stl',      'face down',       0.18),
     ('mini-round-clock-diffuser-flange.stl',     'face down',       0.18),
     ('mini-round-clock-diffuser-flange-plain.stl', 'face down',     0.18),

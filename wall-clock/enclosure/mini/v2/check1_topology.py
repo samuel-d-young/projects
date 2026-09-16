@@ -65,6 +65,8 @@ PARTS = [('mini-round-clock-dock.stl', True),
          ('mini-round-clock-standbox-60.stl', True),
          ('mini-round-clock-backcover-60.stl', True),
          ('mini-round-clock-diffuser-60-plain.stl', True),
+         # the cells-only ring that goes behind the laser-cut plywood face
+         ('mini-round-clock-diffuser-60-cells.stl', True),
          # no -60-flange: the 60's diffuser already runs out to its lip
          ('mini-round-clock-diffuser-60-bar-plain.stl', True)]
 # Parts that the build deliberately did not emit -- at HOUSING_DEEP = 25.00 no

@@ -1864,6 +1864,33 @@ def build_standbox(B, depth):
     return stand ^ box_lwh(-300, 300, -300, 300, 0.0, 400.0)
 
 
+def build_diffuser_cells(B):
+    """The 60's diffuser with its front taken off, for use under a PLYWOOD face.
+
+    Sam, 2026-09-16, asked for a laser-cut wooden front with the sixty lines
+    engraved thin so the light comes through. The wood is opaque, so it does not
+    need the cell walls to stop light reaching the face -- but it very much
+    needs them for the other thing the cells do, which is the reason they were
+    ever sixty separate pockets rather than one open annulus: THEY STOP LED n
+    LIGHTING TICK n+1. Take them away and a single lit LED glows through three
+    or four lines, and the hands stop being hands.
+
+    So this is the plain diffuser with the front PLY_T sliced off: no membrane,
+    no face, just the sixty cells and the band that presses them into the ring
+    pocket. The wood lands on the collar at z 18.99 and this ends at 18.92, so
+    they meet.
+
+    The slice also frees the screen collar as a separate island -- it hangs off
+    the face plate that has just been removed -- and the wood covers the screen
+    edge itself, so the inner 60 mm is cut away rather than left to print as a
+    second body nobody asked for.
+    """
+    d = build_diffuser(B, numerals_on=False)
+    d -= box_lwh(-300, 300, -300, 300, -1.0, PLY_T)
+    d -= cyl(60.0, -1.0, 400.0, SEG)        # the orphaned screen collar
+    return d
+
+
 def _wall_yz(prof, x0, x1):
     """A plate of constant thickness in x, whose SIDE PROFILE is prof, a list of
     (y, z) in the desk frame. prism extrudes a cross-section along z, and
@@ -2571,6 +2598,14 @@ def parts_for(B, sam, full=True):
         (build_backstand_clamp(),        f'mini-round-clock-backstand-clamp', True),
         (build_numerals(B),              f'mini-round-clock-numerals{tg}',  False),
     ]
+    # The cells-only diffuser goes with the PLYWOOD face, and only on a body
+    # that HAS light guides -- which today is the 60 alone. On the 24 and 32 the
+    # ticks are lit straight off the LED with no guide and no deep cell, so
+    # slicing the front off leaves fragments rather than a ring, and the build
+    # said so: "no clean float32 mesh after 6 rounds".
+    if B.guides:
+        parts += [(build_diffuser_cells(B), f'mini-round-clock-diffuser{tg}-cells', True)]
+
     # the flange only where there is a trough to fill: the 60's diffuser
     # already runs out to its lip
     if (B.r_lip_i - DIFF_FLANGE_CLR) - B.diff_outer >= DIFF_FLANGE_MIN:
