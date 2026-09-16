@@ -76,14 +76,14 @@ CLOCKS = [
     # 32 LED. COM10, 192.168.1.68, ac:27:6e:a3:de:6c -- the rewired Flight Deck.
     {"slug": "mini_round_clock_4", "label": "Jake's Clock", "tier": "full",
      "backlight": True},
-    # NOT FLASHED YET. Sam, 2026-09-05: "Their is a third clock that I will
-    # flash at a later stage." It costs nothing to list: every card is gated on
-    # binary_sensor.mini_round_clock_status, so until the board is on the
-    # network the picker offers it and the "not connected" notice is all that
-    # renders. The slug is the bare prefix because deleting the two dead config
-    # entries freed it -- flash the third board with `-s device_name
-    # mini-round-clock` and it lands here with no further edits.
-    # Rename the label when it has a name.
+    # ADOPTED 2026-09-16 at 192.168.1.69 (mac a4:cb:8f:ee:6e:94, 60-LED ring):
+    # Sam put it on the WiFi and HA's zeroconf discovery was confirmed with the
+    # wall-clock API key; 56 entities, all under this slug. It runs the
+    # 2026-08-27 build, which predates `platform: status`, the grow clock, the
+    # routines and the weather symbol -- so every card here stays hidden (the
+    # gate is binary_sensor.mini_round_clock_status) until it is flashed from
+    # this branch with `-s device_name mini-round-clock`. Rename the label when
+    # it has a name.
     {"slug": "mini_round_clock", "label": "Third Clock", "tier": "full",
      "backlight": True},
 ]

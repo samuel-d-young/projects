@@ -6763,3 +6763,26 @@ copied from Zac as a starting point), an every-day bedtime routine (Bath 18:00, 
 grow face 19:00–07:30, clock face 07:30–19:00. Both clocks swapped to the clock face within
 seconds of the save **(verified)**. Also: the Layout card sent `number.set_value` with no
 value on a tap without a drag (Sam hit it on the Routines page) — a tap now only selects.
+
+## 2026-09-16 (evening) — The third clock found and adopted
+
+Sam: *"The third clock is connected to wifi. Look for it and connect to it."* mDNS
+(`_esphomelib._tcp`) and a sweep of port 6053 both found three ESPHome clocks: Zac's (.24),
+Jake's (.25) and **`mini-round-clock` at 192.168.1.69**, friendly name *Mini Round Clock*, mac
+`a4:cb:8f:ee:6e:94`, ESPHome 2026.8.1. Home Assistant already held its zeroconf discovery;
+confirming it and supplying the wall-clock API key created the entry **(verified)**: 56
+entities, all `mini_round_clock_*` — the slug the generator has carried for it since
+2026-09-05 — and the device is named *Third Clock*, so the Wall Clock picker's third option
+now points at a real device.
+
+What it runs: the **2026-08-27 20:04 build** (17 switches, 13 selects, 23 numbers, one binary
+sensor, the round panel selected, a 60-LED ring). That predates `platform: status` (2026-09-03),
+the grow clock, the routines and the weather symbol — so `binary_sensor.mini_round_clock_status`
+does not exist and every Third Clock card on the Wall Clock tab stays hidden behind its gate.
+Flashing it from this branch (`-s device_name mini-round-clock`, a wrapper like the other
+two, `routine_slug` for whoever it is for) is the one step left; not done tonight because Sam
+asked to find and connect it, and a flash changes what the clock does.
+
+A wrong turn on the way, corrected: the first lookup by MAC landed on the network
+integration's device record for the same address (the UniFi tracker), which got renamed
+*Third Clock* for a few seconds before the ESPHome device did; reverted.
