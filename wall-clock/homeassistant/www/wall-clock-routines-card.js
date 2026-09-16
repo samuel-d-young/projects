@@ -3,7 +3,7 @@
  *   type: custom:wall-clock-routines-card
  *   clock: zac            # the routine slug (matches routine_slug in the clock's yaml)
  *   name: Zac             # optional, for the header
- *   copy_from: jake       # optional: offer "copy Jake's routine"
+ *   copy_from: [jake, third]   # optional: offer "copy X's routine" / "copy X's face times" per clock listed
  *   img_px: 180           # optional: picture size; must equal routine_img_px in the firmware
  *
  * What it does, and nothing else:
@@ -141,6 +141,8 @@
     }
     _st(id) { return this._hass && this._hass.states[id]; }
     _steps() { const s = this._st(this._ids.steps); const l = (s && s.attributes.steps) || []; return Array.isArray(l) ? l.slice().sort((a, b) => mins(a.start) - mins(b.start)) : []; }
+    _others() { const c = this._config.copy_from; return (Array.isArray(c) ? c : c ? [c] : []).filter((o) => o && o !== this._config.clock); }
+    _label(slug) { return slug === "third" ? "the Third Clock" : slug.charAt(0).toUpperCase() + slug.slice(1); }
     _faces() { const s = this._st(this._ids.fwin); const l = (s && s.attributes.windows) || []; return Array.isArray(l) ? l.slice().sort((a, b) => mins(a.start) - mins(b.start)) : []; }
     _key() {
       const s = this._st(this._ids.steps), n = this._st(this._ids.now), o = this._st(this._ids.on), h = this._st(this._ids.hol);
@@ -220,12 +222,11 @@
             <div class="t">${esc(s.start)} – ${esc(s.end)} · ${esc((DAYS.find((d) => d[0] === s.days) || DAYS[0])[1])}</div></div>
           <div class="acts"><button class="i" data-try="${esc(s.id)}" title="Try it on the clock for 2 minutes">▶</button><button class="i" data-edit="${esc(s.id)}" title="Edit">✎</button><button class="i" data-del="${esc(s.id)}" title="Delete">✕</button></div>
         </div>`).join("");
-      const other = this._config.copy_from;
-      const otherSteps = other ? ((this._st(`sensor.wall_clock_routine_${other}_steps`) || {}).attributes || {}).steps : null;
+      const copyBtns = this._others().map((o) => { const st = ((this._st(`sensor.wall_clock_routine_${o}_steps`) || {}).attributes || {}).steps; return Array.isArray(st) && st.length ? `<button data-copy="${esc(o)}">Copy ${esc(this._label(o))}'s routine</button>` : ""; }).join(" ");
       return `<div class="steps">${rows || `<div class="muted">No steps yet. Add the first one: what should happen, and when.</div>`}</div>
         <div class="row" style="margin-top:12px">
           <button class="p" data-add>＋ Add a step</button>
-          ${Array.isArray(otherSteps) && otherSteps.length ? `<button data-copy="${esc(other)}">Copy ${esc(other)}'s routine</button>` : ""}
+          ${copyBtns}
           ${this._busy ? `<span class="muted">${esc(this._busy)}</span>` : ""}
         </div>
         ${this._renderFaces()}`;
@@ -259,7 +260,7 @@
       }
       return `<div class="fh"><h3>Faces through the day</h3><span class="muted">Now: ${esc(nowTxt)}</span></div>
         <div class="steps">${rows || `<div class="muted">No times set: the clock decides by itself (grow face on the grow schedule, the ordinary clock by day). Add a time to say which face shows when. A routine step always takes over.</div>`}</div>
-        ${editor || `<div class="row"><button data-fadd>\uFF0B Add a time</button></div>`}`;
+        ${editor || `<div class="row"><button data-fadd>\uFF0B Add a time</button>${this._others().map((o) => { const w = ((this._st(`sensor.wall_clock_face_${o}_windows`) || {}).attributes || {}).windows; return Array.isArray(w) && w.length ? ` <button data-fcopy="${esc(o)}">Copy ${esc(this._label(o))}'s face times</button>` : ""; }).join("")}</div>`}`;
     }
     async _commitFace() {
       const e = this._fedit; if (!e) return;
@@ -329,14 +330,22 @@
         catch (e) { this._err = String(e.message || e); }
         this._busy = ""; this._render();
       });
-      const cp = q("[data-copy]"); if (cp) cp.onclick = async () => {
+      qa("[data-copy]").forEach((cp) => cp.onclick = async () => {
         const other = cp.dataset.copy;
         const src = ((this._st(`sensor.wall_clock_routine_${other}_steps`) || {}).attributes || {}).steps || [];
-        if (!confirm(`Replace ${this._config.name || this._config.clock}'s steps with ${other}'s ${src.length}?`)) return;
+        if (!confirm(`Replace ${this._config.name || this._config.clock}'s steps with ${this._label(other)}'s ${src.length}?`)) return;
         try { this._busy = "Copying…"; this._render(); await this._save(src.map((s) => Object.assign({}, s, { id: uid() }))); }
         catch (e) { this._err = String(e.message || e); }
         this._busy = ""; this._render();
-      };
+      });
+      qa("[data-fcopy]").forEach((cp) => cp.onclick = async () => {
+        const other = cp.dataset.fcopy;
+        const src = ((this._st(`sensor.wall_clock_face_${other}_windows`) || {}).attributes || {}).windows || [];
+        if (!confirm(`Replace ${this._config.name || this._config.clock}'s face times with ${this._label(other)}'s ${src.length}?`)) return;
+        try { this._busy = "Copying…"; this._render(); await this._hass.callService("script", "wall_clock_face_save", { clock: this._config.clock, windows: src.map((w) => Object.assign({}, w, { id: uid() })) }); }
+        catch (e) { this._err = String(e.message || e); }
+        this._busy = ""; this._render();
+      });
       // faces through the day
       const fa = q("[data-fadd]"); if (fa) fa.onclick = () => { this._fedit = { id: uid(), face: "grow", start: "18:30", end: "07:30", days: "everyday" }; this._err = ""; this._render(); };
       qa("[data-fedit]").forEach((b) => b.onclick = () => { const w = this._faces().find((x) => x.id === b.dataset.fedit); if (w) { this._fedit = Object.assign({}, w); this._err = ""; this._render(); } });

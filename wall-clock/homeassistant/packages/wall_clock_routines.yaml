@@ -49,8 +49,10 @@
 #   Next now   preview the next step until ITS scheduled end
 #
 # ADDING A CLOCK: copy one clock's block (steps sensor, preview sensor, now
-# sensor, input_boolean) and change the slug, then give the new clock's
-# wrapper yaml the same `routine_slug`.
+# sensor, face windows, input_boolean) and change the slug, add it to the
+# scripts' `options`, then give the new clock's wrapper yaml the same
+# `routine_slug`. Three so far: zac, jake, third (the third clock, slug
+# chosen before it had an owner -- change the label on the card, not the slug).
 #
 # INSTALL
 # -------
@@ -65,6 +67,9 @@ input_boolean:
     icon: mdi:calendar-check
   wall_clock_routine_jake:
     name: "Jake's routine"
+    icon: mdi:calendar-check
+  wall_clock_routine_third:
+    name: "Third Clock's routine"
     icon: mdi:calendar-check
   wall_clock_school_holidays:
     name: "School holidays"
@@ -85,7 +90,7 @@ script:
         required: true
         selector:
           select:
-            options: [zac, jake]
+            options: [zac, jake, third]
       steps:
         name: Steps
         description: "List of {id, label, start, end, days, hue, image, emoji}"
@@ -109,7 +114,7 @@ script:
         required: true
         selector:
           select:
-            options: [zac, jake]
+            options: [zac, jake, third]
       step:
         name: Step
         description: "One step record, as saved"
@@ -143,7 +148,7 @@ script:
         required: true
         selector:
           select:
-            options: [zac, jake]
+            options: [zac, jake, third]
       windows:
         name: Windows
         required: true
@@ -165,7 +170,7 @@ script:
         required: true
         selector:
           select:
-            options: [zac, jake]
+            options: [zac, jake, third]
     sequence:
       - event: wall_clock_routine_preview
         event_data:
@@ -493,6 +498,169 @@ template:
     sensor:
       - name: "Wall clock face Jake now"
         unique_id: wall_clock_face_jake_now
+        icon: mdi:monitor-dashboard
+        state: "{{ win.face if win and win.face in ['grow', 'clock'] else 'auto' }}"
+        attributes:
+          window_id: "{{ win.id | default('') if win else '' }}"
+          until: "{{ win.end | default('') if win else '' }}"
+
+  # ===========================================================================
+  # THIRD CLOCK (routine_slug: third; rename the label, not the slug)
+  # ===========================================================================
+  - triggers:
+      - trigger: event
+        event_type: wall_clock_routine_steps
+        event_data:
+          clock: third
+    sensor:
+      - name: "Wall clock routine Third steps"
+        unique_id: wall_clock_routine_third_steps
+        icon: mdi:format-list-checks
+        state: "{{ trigger.event.data.steps | count }}"
+        attributes:
+          steps: "{{ trigger.event.data.steps }}"
+          saved: "{{ now().isoformat(timespec='seconds') }}"
+
+  - triggers:
+      - trigger: event
+        event_type: wall_clock_routine_preview
+        event_data:
+          clock: third
+    sensor:
+      - name: "Wall clock routine Third preview"
+        unique_id: wall_clock_routine_third_preview
+        icon: mdi:play-circle-outline
+        state: "{{ trigger.event.data.until | int(0) }}"
+        attributes:
+          step: "{{ trigger.event.data.step }}"
+          until: "{{ trigger.event.data.until | int(0) }}"
+
+  - triggers:
+      - trigger: time_pattern
+        minutes: "/1"
+      - trigger: state
+        entity_id:
+          - sensor.wall_clock_routine_third_steps
+          - sensor.wall_clock_routine_third_preview
+          - input_boolean.wall_clock_routine_third
+          - input_boolean.wall_clock_school_holidays
+      - trigger: homeassistant
+        event: start
+    actions:
+      - variables:
+          active: >-
+            {% set t = now() %}
+            {% set secs = t.hour * 3600 + t.minute * 60 + t.second %}
+            {% set ns = namespace(hit=none) %}
+            {% set pv = state_attr('sensor.wall_clock_routine_third_preview', 'step') %}
+            {% set until = state_attr('sensor.wall_clock_routine_third_preview', 'until') | int(0) %}
+            {% if pv and pv.skip is defined and pv.skip and until > as_timestamp(t) %}
+              {# "Done": the step is over early; nothing shows until its scheduled end #}
+            {% elif pv and pv.label is defined and until > as_timestamp(t) %}
+              {% set left = (until - as_timestamp(t)) | int %}
+              {% set ns.hit = dict(pv, start_s=secs, end_s=secs + left, preview=true) %}
+            {% elif is_state('input_boolean.wall_clock_routine_third', 'on') %}
+              {% set weekend = is_state('input_boolean.wall_clock_school_holidays', 'on') or t.isoweekday() >= 6 %}
+              {% for s in (state_attr('sensor.wall_clock_routine_third_steps', 'steps') or []) %}
+                {% set d = s.days | default('everyday') %}
+                {% set dayok = d == 'everyday' or (d == 'weekdays' and not weekend) or (d == 'weekends' and weekend) %}
+                {% set a = (s.start | default('00:00')).split(':') %}
+                {% set b = (s.end | default('00:00')).split(':') %}
+                {% set ss = a[0] | int(0) * 3600 + a[1] | int(0) * 60 %}
+                {% set es = b[0] | int(0) * 3600 + b[1] | int(0) * 60 %}
+                {% if ns.hit is none and dayok and ss <= secs and secs < es %}
+                  {% set ns.hit = dict(s, start_s=ss, end_s=es, preview=false) %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+            {{ ns.hit }}
+          nxt: >-
+            {% set t = now() %}
+            {% set secs = t.hour * 3600 + t.minute * 60 + t.second %}
+            {% set ns = namespace(best=none) %}
+            {% if is_state('input_boolean.wall_clock_routine_third', 'on') %}
+              {% set weekend = is_state('input_boolean.wall_clock_school_holidays', 'on') or t.isoweekday() >= 6 %}
+              {% for s in (state_attr('sensor.wall_clock_routine_third_steps', 'steps') or []) %}
+                {% set d = s.days | default('everyday') %}
+                {% set dayok = d == 'everyday' or (d == 'weekdays' and not weekend) or (d == 'weekends' and weekend) %}
+                {% set a = (s.start | default('00:00')).split(':') %}
+                {% set ss = a[0] | int(0) * 3600 + a[1] | int(0) * 60 %}
+                {% if dayok and ss > secs and (ns.best is none or ss < ns.best.start_s) %}
+                  {% set ns.best = dict(s, start_s=ss) %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+            {{ ns.best }}
+    sensor:
+      - name: "Wall clock routine Third now"
+        unique_id: wall_clock_routine_third_now
+        icon: mdi:progress-clock
+        state: "{{ active.label if active else 'none' }}"
+        attributes:
+          label: "{{ active.label if active else '' }}"
+          image_url: >-
+            {{ 'http://192.168.1.75:8123/api/image/serve/' ~ active.image ~ '/original'
+               if active and active.image else '' }}
+          start_s: "{{ active.start_s if active else 0 }}"
+          end_s: "{{ active.end_s if active else 0 }}"
+          hue: "{{ active.hue | default(173) if active else 173 }}"
+          step_id: "{{ active.id | default('') if active else '' }}"
+          preview: "{{ active.preview if active else false }}"
+          # what's next today, for the small area on the right of the face
+          next_label: "{{ nxt.label if nxt else '' }}"
+          next_start_s: "{{ nxt.start_s if nxt else 0 }}"
+          next_image_url: >-
+            {{ 'http://192.168.1.75:8123/api/image/serve/' ~ nxt.image ~ '/original'
+               if nxt and nxt.image else '' }}
+
+
+  # ---- FACE WINDOWS: which face the clock shows through the day -------------
+  - triggers:
+      - trigger: event
+        event_type: wall_clock_face_windows
+        event_data:
+          clock: third
+    sensor:
+      - name: "Wall clock face Third windows"
+        unique_id: wall_clock_face_third_windows
+        icon: mdi:monitor-dashboard
+        state: "{{ trigger.event.data.windows | count }}"
+        attributes:
+          windows: "{{ trigger.event.data.windows }}"
+          saved: "{{ now().isoformat(timespec='seconds') }}"
+
+  - triggers:
+      - trigger: time_pattern
+        minutes: "/1"
+      - trigger: state
+        entity_id:
+          - sensor.wall_clock_face_third_windows
+          - input_boolean.wall_clock_school_holidays
+      - trigger: homeassistant
+        event: start
+    actions:
+      - variables:
+          win: >-
+            {% set t = now() %}
+            {% set secs = t.hour * 3600 + t.minute * 60 + t.second %}
+            {% set weekend = is_state('input_boolean.wall_clock_school_holidays', 'on') or t.isoweekday() >= 6 %}
+            {% set ns = namespace(hit=none) %}
+            {% for w in (state_attr('sensor.wall_clock_face_third_windows', 'windows') or []) %}
+              {% set d = w.days | default('everyday') %}
+              {% set dayok = d == 'everyday' or (d == 'weekdays' and not weekend) or (d == 'weekends' and weekend) %}
+              {% set a = (w.start | default('00:00')).split(':') %}
+              {% set b = (w.end | default('00:00')).split(':') %}
+              {% set ss = a[0] | int(0) * 3600 + a[1] | int(0) * 60 %}
+              {% set es = b[0] | int(0) * 3600 + b[1] | int(0) * 60 %}
+              {% set inside = (ss <= secs and secs < es) if ss < es else (secs >= ss or secs < es) %}
+              {% if ns.hit is none and dayok and inside %}
+                {% set ns.hit = dict(w, start_s=ss, end_s=es) %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.hit }}
+    sensor:
+      - name: "Wall clock face Third now"
+        unique_id: wall_clock_face_third_now
         icon: mdi:monitor-dashboard
         state: "{{ win.face if win and win.face in ['grow', 'clock'] else 'auto' }}"
         attributes:

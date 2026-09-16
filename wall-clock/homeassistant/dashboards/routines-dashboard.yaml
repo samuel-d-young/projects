@@ -19,10 +19,10 @@ views:
     path: routines
     icon: mdi:calendar-check
     type: sections
-    max_columns: 2
+    max_columns: 3
     sections:
       - type: grid
-        column_span: 2
+        column_span: 3
         cards:
           - type: heading
             heading: Today
@@ -56,7 +56,7 @@ views:
           - type: custom:wall-clock-routines-card
             clock: zac
             name: Zac
-            copy_from: jake
+            copy_from: [jake, third]
           - type: entities
             title: Zac's clock
             show_header_toggle: false
@@ -88,7 +88,7 @@ views:
           - type: custom:wall-clock-routines-card
             clock: jake
             name: Jake
-            copy_from: zac
+            copy_from: [zac, third]
           - type: entities
             title: Jake's clock
             show_header_toggle: false
@@ -112,6 +112,38 @@ views:
                 name: Step wanted now
               - entity: sensor.wall_clock_face_jake_now
                 name: Face wanted now (auto = the clock decides)
+      - type: grid
+        cards:
+          - type: heading
+            heading: Third Clock
+            icon: mdi:clock-outline
+          - type: custom:wall-clock-routines-card
+            clock: third
+            name: Third Clock
+            copy_from: [zac, jake]
+          - type: entities
+            title: Third clock
+            show_header_toggle: false
+            state_color: true
+            entities:
+              - entity: binary_sensor.mini_round_clock_status
+                name: Online
+              - entity: sensor.mini_round_clock_face_showing
+                name: Face showing
+              - entity: sensor.mini_round_clock_routine_showing
+                name: Step showing
+              - entity: binary_sensor.mini_round_clock_routine_picture_loaded
+                name: Picture loaded
+              - entity: select.mini_round_clock_routine_countdown_direction
+                name: Ring empties
+              - entity: number.mini_round_clock_next_step_shows_from
+                name: Next step shows from (min before)
+              - type: section
+                label: Home Assistant's view
+              - entity: sensor.wall_clock_routine_third_now
+                name: Step wanted now
+              - entity: sensor.wall_clock_face_third_now
+                name: Face wanted now (auto = the clock decides)
 
   - title: Layout
     path: layout
@@ -131,6 +163,12 @@ views:
             slug: mini_round_clock_4
             name: Jake
             routine: jake
+      - type: grid
+        cards:
+          - type: custom:wall-clock-layout-card
+            slug: mini_round_clock
+            name: Third Clock
+            routine: third
       - type: grid
         column_span: 2
         cards:
@@ -158,6 +196,10 @@ views:
                 name: Jake's clock free heap
               - entity: sensor.mini_round_clock_4_largest_free_block
                 name: Jake's clock largest free block
+              - entity: sensor.mini_round_clock_free_heap
+                name: Third clock free heap
+              - entity: sensor.mini_round_clock_largest_free_block
+                name: Third clock largest free block
 
   - title: Help
     path: help

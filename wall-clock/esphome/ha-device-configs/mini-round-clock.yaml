@@ -11,11 +11,10 @@ substitutions:
   # Kept as it was, so the entities this firmware adds land straight under
   # mini_round_clock_* -- the slug the Wall Clock tab already uses for it.
   friendly_name: "Mini Round Clock"
-  # No routine yet. When this clock has an owner, put their slug here (zac /
-  # jake / a new one with its own block in wall_clock_routines.yaml) and
-  # reflash; `clock` points at a sensor that does not exist, which the
-  # firmware treats as "no step".
-  routine_slug: clock
+  # Its routine slug: the "Third Clock" column of the Routines dashboard
+  # (wall_clock_routines.yaml carries a `third` block). Rename the label on
+  # the card when the clock has an owner; the slug can stay.
+  routine_slug: third
 
 packages:
   wall_clock:
