@@ -115,6 +115,9 @@
     }
     _sw(key) { const s = this._st(this._id("switch", key)); return !s || s.state === "on"; }
     async _set(key, val) {
+      // A tap without a drag has no position to send; never call the service
+      // without a value (HA answers "required key not provided at 'value'").
+      if (val === undefined || val === null || Number.isNaN(Number(val))) return;
       const id = this._id("number", `layout_${key}`);
       if (!this._st(id)) { this._err = `${id} is not there: flash the firmware with the layout slots first.`; return; }
       try { await this._hass.callService("number", "set_value", { entity_id: id, value: val }); this._err = ""; }
@@ -226,8 +229,13 @@
         const up = (ev) => {
           if (!this._drag || this._drag.g !== g) return;
           const k = this._drag.key; this._drag = null;
-          this._send(k + "_x", this._local[k + "_x"], true); this._send(k + "_y", this._local[k + "_y"], true);
-          setTimeout(() => { delete this._local[k + "_x"]; delete this._local[k + "_y"]; this._lastKey = ""; this._render(); }, 900);
+          const x = this._local[k + "_x"], y = this._local[k + "_y"];
+          if (x !== undefined && y !== undefined) {   // it moved; a plain tap only selects
+            this._send(k + "_x", x, true); this._send(k + "_y", y, true);
+            setTimeout(() => { delete this._local[k + "_x"]; delete this._local[k + "_y"]; this._lastKey = ""; this._render(); }, 900);
+          } else {
+            this._lastKey = ""; this._render();
+          }
         };
         g.addEventListener("pointerup", up); g.addEventListener("pointercancel", up);
       });
