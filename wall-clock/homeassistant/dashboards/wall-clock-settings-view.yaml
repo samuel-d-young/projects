@@ -274,6 +274,8 @@
         name: Face showing
       - entity: select.mini_round_clock_3_routine_countdown_direction
         name: Routine ring empties
+      - entity: number.mini_round_clock_3_next_step_shows_from
+        name: Next step shows from (min before)
       - entity: switch.mini_round_clock_3_weather_symbol
         name: Weather symbol
       - entity: switch.mini_round_clock_3_weather_symbol_shows_the_low
@@ -354,11 +356,6 @@
 
 
         Status **pips** follow the timer arc at 62% and have no separate control. **mono** pins every saturation to zero and is the accessible palette.'
-    - type: markdown
-      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
-
-
-        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
     visibility: *id001
   - type: grid
     cards:
@@ -503,6 +500,11 @@
 
 
         **A single blue dot just left of 6 o''clock is Sam''s presence pixel.** The twelve hour markers are faintly blue too, but they are dim and there are twelve of them, so one blue dot is the presence one.'
+    - type: markdown
+      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
+
+
+        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
     visibility: *id001
   - type: grid
     cards:
@@ -714,6 +716,8 @@
         name: Face showing
       - entity: select.mini_round_clock_4_routine_countdown_direction
         name: Routine ring empties
+      - entity: number.mini_round_clock_4_next_step_shows_from
+        name: Next step shows from (min before)
       - entity: switch.mini_round_clock_4_weather_symbol
         name: Weather symbol
       - entity: switch.mini_round_clock_4_weather_symbol_shows_the_low
@@ -794,11 +798,6 @@
 
 
         Status **pips** follow the timer arc at 62% and have no separate control. **mono** pins every saturation to zero and is the accessible palette.'
-    - type: markdown
-      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
-
-
-        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
     visibility: *id002
   - type: grid
     cards:
@@ -943,6 +942,11 @@
 
 
         **A single blue dot just left of 6 o''clock is Sam''s presence pixel.** The twelve hour markers are faintly blue too, but they are dim and there are twelve of them, so one blue dot is the presence one.'
+    - type: markdown
+      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
+
+
+        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
     visibility: *id002
   - type: grid
     cards:
@@ -1154,6 +1158,8 @@
         name: Face showing
       - entity: select.mini_round_clock_routine_countdown_direction
         name: Routine ring empties
+      - entity: number.mini_round_clock_next_step_shows_from
+        name: Next step shows from (min before)
       - entity: switch.mini_round_clock_weather_symbol
         name: Weather symbol
       - entity: switch.mini_round_clock_weather_symbol_shows_the_low
@@ -1234,11 +1240,6 @@
 
 
         Status **pips** follow the timer arc at 62% and have no separate control. **mono** pins every saturation to zero and is the accessible palette.'
-    - type: markdown
-      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
-
-
-        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
     visibility: *id003
   - type: grid
     cards:
@@ -1383,6 +1384,11 @@
 
 
         **A single blue dot just left of 6 o''clock is Sam''s presence pixel.** The twelve hour markers are faintly blue too, but they are dim and there are twelve of them, so one blue dot is the presence one.'
+    - type: markdown
+      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
+
+
+        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
     visibility: *id003
   - type: grid
     cards:

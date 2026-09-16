@@ -27,6 +27,7 @@
     routine_picture:  { label: "Picture",         faces: ["routine"], size: true },
     routine_minutes:  { label: "Minutes left",    faces: ["routine"], size: true },
     routine_next:     { label: "What's next",     faces: ["routine"], size: true },
+    next_other_faces: { label: "What's next (before a step)", faces: ["grow", "clock"], size: true },
   };
   const FACES = [["grow", "Grow face"], ["routine", "Routine face"], ["clock", "Clock face"]];
   const css = `
@@ -102,6 +103,7 @@
     set hass(hass) { this._hass = hass; const k = this._key(); if (k !== this._lastKey && !this._drag) { this._lastKey = k; this._render(); } }
     _id(kind, key) { return `${kind}.${this._config.slug}_${key}`; }
     _st(id) { return this._hass && this._hass.states[id]; }
+    _numRaw(key, dflt) { const s = this._st(this._id("number", key)); const v = s ? parseFloat(s.state) : NaN; return isNaN(v) ? dflt : v; }
     _num(key, dflt) { const l = this._local[key]; if (l !== undefined) return l; const s = this._st(this._id("number", `layout_${key}`)); const v = s ? parseFloat(s.state) : NaN; return isNaN(v) ? dflt : v; }
     _key() {
       const parts = [this._face, this._sel, this._err];
@@ -144,11 +146,18 @@
       const fontTxt = (sc) => sc < .85 ? 22 : sc < 1.3 ? 32 : 48;
       const out = [];
       const add = (key, x, y, w, h, inner) => out.push({ key, x, y, w, h, inner });
+      const nextBlock = (key, dx, dy, dsz) => {
+        const nsc = this._num(key + "_size", dsz) / 100, npx = Math.round(64 * nsc);
+        const nxt = steps.filter((x) => x.id !== cur.id)[0] || { label: "Brush teeth", emoji: "🪥", start: "08:20" };
+        const nimg = nxt.image ? `<image href="/api/image/serve/${esc(nxt.image)}/original" x="${-npx / 2}" y="${-npx / 2}" width="${npx}" height="${npx}"/>` : `<text font-size="${npx * .7}" text-anchor="middle" dominant-baseline="central">${esc(nxt.emoji || "🕒")}</text>`;
+        add(key, this._num(key + "_x", dx), this._num(key + "_y", dy), npx + 16, npx + 64 * nsc, `<text y="${-(npx / 2 + 14)}" font-size="${nsc < 1.4 ? 22 : 32}" fill="#788296" text-anchor="middle" dominant-baseline="central" font-family="Roboto,sans-serif">next</text>${nimg}<text y="${npx / 2 + 14}" font-size="${nsc < 1.4 ? 22 : 32}" fill="#788296" text-anchor="middle" dominant-baseline="central" font-family="Roboto,sans-serif">${esc(String(nxt.start || "").replace(/^0/, ""))}</text>`);
+      };
       if (this._face === "grow") {
         // fixed: the eyes, roughly where the firmware's animation box puts them
         out.push({ key: "", x: 180, y: 150, w: 0, h: 0, fixed: true, inner: `<rect x="-88" y="-40" width="64" height="86" rx="18" fill="#3c78ff"/><rect x="24" y="-40" width="64" height="86" rx="18" fill="#3c78ff"/>` });
         if (this._sw("grow_clock_show_time")) { const sc = this._num("grow_time_size", 100) / 100, fs = fontNum(sc); add("grow_time", this._num("grow_time_x", 180), this._num("grow_time_y", 300), fs * 2.4 + 34, fs * 1.1, `<text font-size="${fs}" fill="#3c78ff" text-anchor="middle" dominant-baseline="central" font-family="Roboto,sans-serif">${tstr}</text><text x="${fs * 1.35}" y="${fs * .2}" font-size="${fs < 48 ? 22 : 32}" fill="#3c78ff" font-family="Roboto,sans-serif">${t.getHours() < 12 ? "am" : "pm"}</text>`); }
         if (this._sw("weather_symbol")) { const sc = this._num("weather_size", 100) / 100; add("weather", this._num("weather_x", 180), this._num("weather_y", 50), 150 * sc, 70 * sc, wxSvg(cond, H, L, showLow, sc)); }
+        nextBlock("next_other_faces", 292, 262, 100);
       } else if (this._face === "routine") {
         { const sc = this._num("routine_time_size", 100) / 100, fs = sc < .6 ? 22 : sc < .8 ? 32 : fontNum(sc); add("routine_time", this._num("routine_time_x", 180), this._num("routine_time_y", 30), fs * 2.4, fs * 1.1, `<text font-size="${fs}" fill="#788296" text-anchor="middle" dominant-baseline="central" font-family="Roboto,sans-serif">${tstr}</text>`); }
         { const sc = this._num("routine_name_size", 100) / 100, fs = fontTxt(sc); add("routine_name", this._num("routine_name_x", 180), this._num("routine_name_y", 68), Math.max(80, fs * .55 * (cur.label || "").length + 10), fs * 1.1, `<text font-size="${fs}" fill="${col}" text-anchor="middle" dominant-baseline="central" font-family="Roboto,sans-serif">${esc(cur.label)}</text>`); }
@@ -161,6 +170,7 @@
       } else {
         out.push({ key: "", x: 180, y: 180, w: 0, h: 0, fixed: true, inner: `<text font-size="118" fill="#eb9069" text-anchor="middle" dominant-baseline="central" font-family="Roboto,sans-serif">${tstr}</text><text y="78" font-size="22" fill="#9e9e9e" text-anchor="middle" font-family="Roboto,sans-serif">Wed 16/9</text>` });
         if (this._sw("weather_symbol")) { const sc = this._num("weather_size", 100) / 100; add("weather", this._num("weather_x", 180), this._num("weather_y", 50), 150 * sc, 70 * sc, wxSvg(cond, H, L, showLow, sc)); }
+        nextBlock("next_other_faces", 292, 262, 100);
       }
       return out;
     }
@@ -180,7 +190,7 @@
         <div class="wrap">
           <svg viewBox="0 0 360 360" data-svg><circle cx="180" cy="180" r="179" fill="#0a0c12"/><circle cx="180" cy="180" r="179" fill="none" stroke="#333" stroke-width="1"/>${svgEls}</svg>
           <div class="side">
-            <div class="muted">Drag a thing on the mock; the clock follows within a second. Tap one to size it.</div>
+            <div class="muted">Drag a thing on the mock; the clock follows within a second. Tap one to size it. On the grow and clock faces the "next" area only shows from <b>${esc(String(this._numRaw("next_step_shows_from", 60)))} min</b> before the next step (the clock's "Next step shows from" number).</div>
             <label>Selected</label><div>${slot ? esc(slot.label) : "—"}</div>
             ${hasSize ? `<label>Size ${Math.round(sizeVal)}%</label><input type="range" min="40" max="250" step="10" value="${sizeVal}" data-size>` : ""}
             <label>Weather symbol</label>
@@ -206,7 +216,7 @@
       };
       const sp = q("[data-stop]"); if (sp) sp.onclick = () => this._hass.callService("script", "wall_clock_routine_preview_stop", { clock: this._config.routine });
       const rs = q("[data-reset]"); if (rs) rs.onclick = async () => {
-        const D = { weather: [180, 50, 100], routine_weather: [96, 300, 70], grow_time: [180, 300, 100], routine_time: [180, 30, 100], routine_name: [180, 68, 100], routine_picture: [180, 188, 100], routine_minutes: [180, 318, 100], routine_next: [306, 188, 100] };
+        const D = { weather: [180, 50, 100], routine_weather: [96, 300, 70], grow_time: [180, 300, 100], routine_time: [180, 30, 100], routine_name: [180, 68, 100], routine_picture: [180, 188, 100], routine_minutes: [180, 318, 100], routine_next: [306, 188, 100], next_other_faces: [292, 262, 100] };
         for (const k of Object.keys(SLOTS)) if (SLOTS[k].faces.includes(this._face)) { const d = D[k]; await this._set(k + "_x", d[0]); await this._set(k + "_y", d[1]); if (d[2] !== undefined) await this._set(k + "_size", d[2]); }
       };
       const svg = q("[data-svg]"); if (!svg) return;

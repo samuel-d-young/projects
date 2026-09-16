@@ -72,6 +72,8 @@ views:
                 name: Picture loaded
               - entity: select.mini_round_clock_3_routine_countdown_direction
                 name: Ring empties
+              - entity: number.mini_round_clock_3_next_step_shows_from
+                name: Next step shows from (min before)
               - type: section
                 label: Home Assistant's view
               - entity: sensor.wall_clock_routine_zac_now
@@ -102,6 +104,8 @@ views:
                 name: Picture loaded
               - entity: select.mini_round_clock_4_routine_countdown_direction
                 name: Ring empties
+              - entity: number.mini_round_clock_4_next_step_shows_from
+                name: Next step shows from (min before)
               - type: section
                 label: Home Assistant's view
               - entity: sensor.wall_clock_routine_jake_now
@@ -241,5 +245,9 @@ views:
               "Face showing" under the clock tells you what is on the glass.
 
               **What's next.** The routine face keeps a small area on the
-              right with the following step's picture and start time; move
-              and size it on the Layout tab like everything else.
+              right with the following step's picture and start time. The
+              grow face and the clock face show the same area from **60
+              minutes before** the next step (the clock's "Next step shows
+              from" number), so a boy who pressed Done, or who is between
+              steps, still sees what is coming. Each face has its own spot
+              for it on the Layout tab.

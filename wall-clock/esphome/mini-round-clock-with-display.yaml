@@ -1048,6 +1048,59 @@ number:
     initial_value: 100
     optimistic: true
     restore_value: true
+  # the "what's next" area on the GROW and CLOCK faces (the routine face has
+  # its own slot above), shown from `routine_next_horizon` minutes before the
+  # next step so a child who finished early still sees what comes next
+  - platform: template
+    id: lay_next2_x
+    name: "Layout next (other faces) X"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 292
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_next2_y
+    name: "Layout next (other faces) Y"
+    entity_category: config
+    icon: mdi:axis-arrow
+    unit_of_measurement: "px"
+    min_value: 0
+    max_value: 360
+    step: 2
+    initial_value: 262
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: lay_next2_size
+    name: "Layout next (other faces) size"
+    entity_category: config
+    icon: mdi:resize
+    unit_of_measurement: "%"
+    min_value: 40
+    max_value: 250
+    step: 10
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+  # How long before the next step its picture appears on the grow and clock
+  # faces. 0 = only ever on the routine face.
+  - platform: template
+    id: routine_next_horizon
+    name: "Next step shows from"
+    entity_category: config
+    icon: mdi:timer-sand
+    unit_of_measurement: "min"
+    min_value: 0
+    max_value: 240
+    step: 5
+    initial_value: 60
+    optimistic: true
+    restore_value: true
   # the minutes-left line on the routine face
   - platform: template
     id: lay_min_x
@@ -3582,6 +3635,17 @@ interval:
             }
             mix((uint32_t) (int) id(lay_gtime_x).state); mix((uint32_t) (int) id(lay_gtime_y).state);
             mix((uint32_t) (int) id(lay_gtime_size).state);
+            // the what's-next area: its inputs, and whether it is due this minute
+            mixs(id(routine_next_label).state);
+            mix((uint32_t) (int) id(routine_next_start_s).state);
+            mix(id(routine_next_ok) ? 32u : 0u);
+            mix((uint32_t) (int) id(lay_next2_x).state); mix((uint32_t) (int) id(lay_next2_y).state);
+            mix((uint32_t) (int) id(lay_next2_size).state);
+            {
+              const float ns = id(routine_next_start_s).state, hz = id(routine_next_horizon).state;
+              const float t = now.hour * 3600.0f + now.minute * 60.0f;
+              mix((!std::isnan(ns) && ns > t && hz > 0 && (ns - t) <= hz * 60.0f) ? 64u : 0u);
+            }
             mixs(id(grow_sleep_colour).current_option().str());
             mixs(id(grow_wake_colour).current_option().str());
             mixs(id(grow_almost_colour).current_option().str());
@@ -5068,6 +5132,45 @@ display:
         }
       };
 
+      // ---- WHAT'S NEXT: caption, the next step's thumbnail, its start time --
+      // Drawn on the routine face always, and on the grow and clock faces from
+      // `routine_next_horizon` minutes before the step (next_due below), so a
+      // child who finished early still sees what is coming. (nx, ny) centre.
+      auto draw_next = [&](int nx, int ny, float nsc) {
+        const std::string nl = id(routine_next_label).state;
+        if (nl.empty() || nl == "none" || nl == "unknown" || nl == "unavailable") return;
+        const float ns = id(routine_next_start_s).state;
+        const int npx = ${routine_next_px};
+        const int half = (int) lroundf(npx * nsc / 2);
+        const Color grey(120, 130, 150);
+        font::Font *nf = nsc < 1.4f ? id(font_small) : id(font_med);
+        it.print(nx, ny - half - 14, nf, grey, TextAlign::CENTER, "next");
+        if (id(routine_next_ok))
+          draw_scaled(id(routine_next_img), nx, ny, nsc);
+        else
+          it.filled_circle(nx, ny, std::max(4, half - 4), Color(40, 44, 52));
+        if (!std::isnan(ns) && ns > 0) {
+          const int hh = (int) ns / 3600, mm = ((int) ns / 60) % 60;
+          it.printf(nx, ny + half + 14, nf, grey, TextAlign::CENTER,
+                    "%d:%02d", h24 ? hh : (hh % 12 == 0 ? 12 : hh % 12), mm);
+        }
+      };
+      // Is the next step close enough to show on the other faces?
+      auto next_due = [&]() -> bool {
+        const float ns = id(routine_next_start_s).state, hz = id(routine_next_horizon).state;
+        if (std::isnan(ns) || ns <= 0 || std::isnan(hz) || hz <= 0 || !now.is_valid()) return false;
+        const std::string nl = id(routine_next_label).state;
+        if (nl.empty() || nl == "none" || nl == "unknown" || nl == "unavailable") return false;
+        const float t = now.hour * 3600.0f + now.minute * 60.0f + now.second;
+        return ns > t && (ns - t) <= hz * 60.0f;
+      };
+      auto draw_next2 = [&]() {
+        if (!next_due()) return;
+        draw_next(std::isnan(id(lay_next2_x).state) ? 292 : (int) lroundf(id(lay_next2_x).state),
+                  std::isnan(id(lay_next2_y).state) ? 262 : (int) lroundf(id(lay_next2_y).state),
+                  std::isnan(id(lay_next2_size).state) ? 1.0f : id(lay_next2_size).state / 100.0f);
+      };
+
       // ---- THE WEATHER SYMBOL WIDGET -------------------------------------------
       // A child-sized picture of the day -- sun, cloud, rain, storm, snow, fog,
       // wind, moon -- drawn from primitives so one control scales it, with the
@@ -5235,28 +5338,7 @@ display:
         }
 
         // what's next: a caption, the next step's thumbnail and its start time
-        {
-          const std::string nl = id(routine_next_label).state;
-          const float ns = id(routine_next_start_s).state;
-          if (!nl.empty() && nl != "none" && nl != "unknown" && nl != "unavailable") {
-            const int nx = L(id(lay_next_x).state, 306), ny = L(id(lay_next_y).state, 188);
-            const float nsc = S(id(lay_next_size).state);
-            const int npx = ${routine_next_px};
-            const int half = (int) lroundf(npx * nsc / 2);
-            const Color grey(120, 130, 150);
-            font::Font *nf = nsc < 1.4f ? id(font_small) : id(font_med);
-            it.print(nx, ny - half - 14, nf, grey, TextAlign::CENTER, "next");
-            if (id(routine_next_ok))
-              draw_scaled(id(routine_next_img), nx, ny, nsc);
-            else
-              it.filled_circle(nx, ny, std::max(4, half - 4), Color(40, 44, 52));
-            if (!std::isnan(ns) && ns > 0) {
-              const int hh = (int) ns / 3600, mm = ((int) ns / 60) % 60;
-              it.printf(nx, ny + half + 14, nf, grey, TextAlign::CENTER,
-                        "%d:%02d", h24 ? hh : (hh % 12 == 0 ? 12 : hh % 12), mm);
-            }
-          }
-        }
+        draw_next(L(id(lay_next_x).state, 306), L(id(lay_next_y).state, 188), S(id(lay_next_size).state));
 
         if (id(wx_widget).state && id(wx_on_routine).state)
           draw_wx(L(id(lay_rwx_x).state, 96), L(id(lay_rwx_y).state, 300),
@@ -5728,6 +5810,7 @@ display:
           draw_wx(std::isnan(id(lay_wx_x).state) ? CX : (int) lroundf(id(lay_wx_x).state),
                   std::isnan(id(lay_wx_y).state) ? 50 : (int) lroundf(id(lay_wx_y).state),
                   std::isnan(id(lay_wx_size).state) ? 1.0f : id(lay_wx_size).state / 100.0f, field);
+        draw_next2();
         if (partial) { it.end_clipping(); return; }
 
         // The message itself, DRAWN AFTER the partial-frame return above, so it
@@ -5830,6 +5913,7 @@ display:
           draw_wx(std::isnan(id(lay_wx_x).state) ? CX : (int) lroundf(id(lay_wx_x).state),
                   std::isnan(id(lay_wx_y).state) ? 50 : (int) lroundf(id(lay_wx_y).state),
                   std::isnan(id(lay_wx_size).state) ? 1.0f : id(lay_wx_size).state / 100.0f, field);
+        draw_next2();
         return;
       }
 
@@ -6255,6 +6339,7 @@ display:
         draw_wx(std::isnan(id(lay_wx_x).state) ? CX : (int) lroundf(id(lay_wx_x).state),
                 std::isnan(id(lay_wx_y).state) ? 50 : (int) lroundf(id(lay_wx_y).state),
                 std::isnan(id(lay_wx_size).state) ? 1.0f : id(lay_wx_size).state / 100.0f, bg);
+      draw_next2();
 
 # -----------------------------------------------------------------------------
 # THE BAR DISPLAY — 1.9" ST7789V2, 170x320 native, drawn landscape as 320x170

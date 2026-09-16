@@ -248,6 +248,7 @@ def clock_cards(slug, label):
             row(e("sensor", "routine_showing"), "Routine step showing"),
             row(e("sensor", "face_showing"), "Face showing"),
             row(e("select", "routine_countdown_direction"), "Routine ring empties"),
+            row(e("number", "next_step_shows_from"), "Next step shows from (min before)"),
             row(e("switch", "weather_symbol"), "Weather symbol"),
             row(e("switch", "weather_symbol_shows_the_low"), " with the low"),
             row(e("switch", "weather_symbol_on_the_routine_face"), " on the routine face"),

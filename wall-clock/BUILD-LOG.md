@@ -6743,3 +6743,23 @@ Routines tab opens with a Today strip (weather tiles, the holidays toggle) and o
 per boy; the Layout tab lists clock health (free heap, largest block). `test_routines.py`
 gained the Done/Undo pair: **21/21** on Zac's clock **(verified)**; the cards were checked in
 the harness (buttons render, no console errors).
+
+## 2026-09-16 (evening) — What's next on every face; the schedule loaded
+
+Sam: *"Make sure that what's coming up next shows up on the right so that they know what's
+next if they're ahead."* The what's-next area (caption, the next step's thumbnail, its start
+time) now draws on the grow face and the ordinary clock too, from `Next step shows from`
+minutes before the step (a number, default 60, 0 = routine face only), at its own layout
+slot (`Layout next (other faces)`, default 292,262) so it clears the big digital time. A boy
+who presses Done, or who is between steps, sees the next picture on the right; at night the
+grow face shows breakfast from 06:30. The repaint hash carries the area's inputs and a
+"due this minute" bit. Zac 17:23, Jake 17:25 (OTA, patch 7); `test_routines.py` 21/21 checks passed
+after the flash **(verified)**.
+
+Earlier in the afternoon the schedule went in for both boys: the school-morning steps
+(Breakfast 07:30, Get dressed 08:00, Brush teeth 08:20, Shoes and bag 08:30–08:40, Jake
+copied from Zac as a starting point), an every-day bedtime routine (Bath 18:00, Brush teeth
+18:20, Story time 18:30, Into bed 18:50–19:00, Noto emoji JPEGs), and two face windows each:
+grow face 19:00–07:30, clock face 07:30–19:00. Both clocks swapped to the clock face within
+seconds of the save **(verified)**. Also: the Layout card sent `number.set_value` with no
+value on a tap without a drag (Sam hit it on the Routines page) — a tap now only selects.

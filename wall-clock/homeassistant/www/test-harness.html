@@ -34,7 +34,8 @@
   S("sensor.wall_clock_face_zac_now", "grow", { window_id: "w1", until: "07:30" });
   S("sensor.wall_clock_weather_today", "rainy", { high: 11.2, low: 6.0 }); S("sensor.wall_clock_weather_high", "11"); S("sensor.wall_clock_weather_low", "6");
   const slug = "mini_round_clock_3";
-  const nums = { weather: [180, 50, 100], routine_weather: [96, 300, 70], grow_time: [180, 300, 100], routine_time: [180, 30, 100], routine_name: [180, 68, 100], routine_picture: [180, 188, 100], routine_minutes: [180, 318, 100], routine_next: [306, 188, 100] };
+  const nums = { weather: [180, 50, 100], routine_weather: [96, 300, 70], grow_time: [180, 300, 100], routine_time: [180, 30, 100], routine_name: [180, 68, 100], routine_picture: [180, 188, 100], routine_minutes: [180, 318, 100], routine_next: [306, 188, 100], next_other_faces: [292, 262, 100] };
+  S(`number.${slug}_next_step_shows_from`, 60);
   for (const [k, v] of Object.entries(nums)) { S(`number.${slug}_layout_${k}_x`, v[0]); S(`number.${slug}_layout_${k}_y`, v[1]); if (v[2] !== undefined) S(`number.${slug}_layout_${k}_size`, v[2]); }
   for (const sw of ["weather_symbol", "weather_symbol_shows_the_low", "grow_clock_show_time"]) S(`switch.${slug}_${sw}`, "on");
   S(`switch.${slug}_weather_symbol_on_the_routine_face`, "off");

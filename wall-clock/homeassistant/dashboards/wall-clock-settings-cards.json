@@ -241,6 +241,10 @@
         "name": "Routine ring empties"
       },
       {
+        "entity": "number.mini_round_clock_3_next_step_shows_from",
+        "name": "Next step shows from (min before)"
+      },
+      {
         "entity": "switch.mini_round_clock_3_weather_symbol",
         "name": "Weather symbol"
       },
@@ -1109,6 +1113,10 @@
         "name": "Routine ring empties"
       },
       {
+        "entity": "number.mini_round_clock_4_next_step_shows_from",
+        "name": "Next step shows from (min before)"
+      },
+      {
         "entity": "switch.mini_round_clock_4_weather_symbol",
         "name": "Weather symbol"
       },
@@ -1975,6 +1983,10 @@
       {
         "entity": "select.mini_round_clock_routine_countdown_direction",
         "name": "Routine ring empties"
+      },
+      {
+        "entity": "number.mini_round_clock_next_step_shows_from",
+        "name": "Next step shows from (min before)"
       },
       {
         "entity": "switch.mini_round_clock_weather_symbol",
