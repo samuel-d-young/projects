@@ -1,0 +1,25 @@
+# Third Clock — the file that lives in /config/esphome on the Home Assistant box.
+#
+# THE WHOLE FIRMWARE IS PULLED FROM GITHUB, exactly like zacs-clock.yaml: the
+# package below fetches mini-round-clock-with-display.yaml at build time, so
+# "update the clock" is Install -> Wirelessly in the ESPHome Device Builder.
+#
+# 60 LEDs (the ring count is a number on the device and survives a reflash).
+# Adopted 2026-09-16 at 192.168.1.69, mac a4:cb:8f:ee:6e:94.
+substitutions:
+  device_name: mini-round-clock
+  # Kept as it was, so the entities this firmware adds land straight under
+  # mini_round_clock_* -- the slug the Wall Clock tab already uses for it.
+  friendly_name: "Mini Round Clock"
+  # No routine yet. When this clock has an owner, put their slug here (zac /
+  # jake / a new one with its own block in wall_clock_routines.yaml) and
+  # reflash; `clock` points at a sensor that does not exist, which the
+  # firmware treats as "no step".
+  routine_slug: clock
+
+packages:
+  wall_clock:
+    url: https://github.com/samuel-d-young/projects
+    ref: claude/home-assistant-wall-clock-om42v2
+    files: [wall-clock/esphome/mini-round-clock-with-display.yaml]
+    refresh: always
