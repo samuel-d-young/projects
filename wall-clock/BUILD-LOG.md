@@ -7291,3 +7291,52 @@ fits the clock it was designed for. What was wrong was that the deliverable had
 a prerequisite and the delivery did not carry it — a correct part, handed over
 in a way that let it be used incorrectly, which is a defect in the handover and
 not a difference of opinion about whose job it was to read line 98.
+
+### And the actual cause: the hole was sized by the wrong requirement
+
+Sam, narrowing it: *"The hole in the middle was too small for the 3D printed
+housing."*
+
+```python
+PLY_BORE_R = DISP_ACTIVE_D/2.0 - 0.50   # 27.00
+```
+
+One millimetre inside the 55 mm active area, so the face covers the ragged PCB
+edge rather than framing it. That is a **real rule, correctly applied, answering
+a question nobody asked.** It decides *how much of the screen to show*. The
+binding constraint is *what has to pass through the hole*, and that is the
+screen collar at r 28.05–29.95 — **59.9 mm across**, standing to z 21.90,
+straight through where the wood goes. The display's own round PCB is 60.0.
+
+**5.9 mm too small on diameter.** Not a tolerance; the wood could not go over
+the middle at all.
+
+This is why it survived review. A parameter derived from the wrong requirement
+is not *wrong-looking*: 54.0 really is one millimetre inside the active area,
+the arithmetic is right, the comment is accurate and the intent is sound. There
+is nothing to spot. The only thing that catches it is asking what the number is
+**for** — and then measuring against that.
+
+`PLY_BORE_R` is a `max()` of both requirements now, so whichever binds wins and
+neither can be quietly forgotten:
+
+```python
+PLY_BORE_R = max(DISP_ACTIVE_D/2.0 - 0.50,            # frame the panel...
+                 PLY_CENTRE_OD/2.0 + PLY_CENTRE_CLR)  # ...but CLEAR it first
+```
+
+61.20 mm. The cost is real and Sam should know it before cutting: the hole is
+now bigger than the 55 mm active area, so the wood no longer frames the panel
+and the housing ring shows.
+
+**And it is still not verified.** `PLY_CENTRE_OD = 60.00` is the largest thing
+this repo knows about, which is not the same as the largest thing in Sam's
+clock. So `centre-hole-gauge.svg`: concentric circles 52–66 on A4, with a
+100 mm scale bar because a printer that quietly scales turns a gauge into a
+confident lie. Hold it over the middle, read off the smallest circle the housing
+fits inside. A sheet of paper instead of a sheet of plywood — the same shape as
+the depth coupon and the plug fit test, and it should have existed before the
+first face was cut, not after.
+
+Its first version stacked all eight labels at twelve o'clock, one millimetre
+apart, completely illegible. Found by rendering it. That is three for three.

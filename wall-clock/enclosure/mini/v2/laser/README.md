@@ -1,5 +1,21 @@
 # Laser-cut plywood face — 60-LED clock
 
+> ## ⚠ THE MIDDLE HOLE WAS 5.9 mm TOO SMALL, AND IT IS NOT VERIFIED YET
+>
+> `PLY_BORE_R` was 27.00 — `DISP_ACTIVE_D/2 - 0.50`, sized to frame the 55 mm
+> panel. That is a real rule answering the wrong question. The hole has to
+> **clear the screen collar first**, and the collar is r 28.05–29.95: **59.9 mm
+> across**, standing to z 21.90, right through where the wood goes. The
+> display's own PCB is 60.0. The hole is now **61.20**.
+>
+> **This number is still not confirmed against the real clock.** Print
+> `centre-hole-gauge.svg` on A4 at 100%, check its scale bar reads 100 mm with a
+> ruler, hold it over the middle and read off the smallest circle the housing
+> fits inside. A sheet of paper instead of a sheet of plywood.
+>
+> Cost: the hole is now bigger than the 55 mm active area, so the wood no
+> longer frames the panel — you will see the housing ring around the screen.
+
 > ## ⚠ PRINT `mini-round-clock-diffuser-60-cells` BEFORE YOU CUT ANY WOOD
 >
 > **The face physically cannot go into a clock that has a plain diffuser in

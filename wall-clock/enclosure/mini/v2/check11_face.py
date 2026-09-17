@@ -107,9 +107,23 @@ ck(0.20 <= gap <= 0.60, 'the disc clears the base bore without being loose',
    f'{2*r_out:.2f} mm disc in a {2*B.r_lip_i:.2f} bore: {gap:.2f} radial')
 ck(gap - PLY_KERF/2 > 0.10, 'and still clears once the kerf has taken its half',
    f'{gap - PLY_KERF/2:.2f} mm at a {PLY_KERF:.2f} kerf')
-ck(2*r_scr < DISP_ACTIVE_D, 'the screen bore is inside the active area, so the '
-   'face covers the panel edge',
-   f'{2*r_scr:.2f} bore in a {DISP_ACTIVE_D:.1f} active area')
+# THE HOLE IS SIZED BY WHAT PASSES THROUGH IT. This used to assert the
+# opposite -- that the bore was INSIDE the 55 mm active area, so the face would
+# cover the panel edge -- and that assertion passed happily on a face whose
+# middle hole was 5.9 mm too small to go over the 59.9 mm screen collar. It was
+# checking a preference against a part that could not be assembled.
+ck(2*r_scr >= PLY_CENTRE_OD + 2*PLY_CENTRE_CLR - 0.01,
+   f'the middle hole clears the {PLY_CENTRE_OD:.1f} mm housing that has to pass '
+   f'through it',
+   f'{2*r_scr:.2f} bore over a {PLY_CENTRE_OD:.1f} housing: '
+   f'{r_scr - PLY_CENTRE_OD/2:.2f} radial')
+ck(2*r_scr - PLY_KERF > PLY_CENTRE_OD,
+   'and still clears once the kerf has taken its half',
+   f'{2*r_scr - PLY_KERF:.2f} vs {PLY_CENTRE_OD:.1f}')
+if 2*r_scr > DISP_ACTIVE_D:
+    print(f'  [note] the hole is bigger than the {DISP_ACTIVE_D:.1f} mm active '
+          f'area, so the wood no longer frames the panel — the housing ring '
+          f'shows. That is the cost of clearing it.')
 
 print('\n3. Seated in the base — booleaned, not reasoned about')
 base = trimesh.load(csg.part('mini-round-clock-base-60.stl'), process=False)
@@ -146,9 +160,17 @@ ck(abs((seat + PLY_T) - Z_FRONT) < 0.25,
 rr = np.arange(20.0, 45.0, 0.05)
 c2 = base.contains(np.column_stack([rr, np.zeros(rr.size), np.full(rr.size, seat - 0.05)]))
 c_ri, c_ro = rr[c2].min(), rr[c2].max()
-ck(c_ri > r_scr and c_ro < r_out,
-   'the screen collar is a full ring under the wood, not a step it misses',
-   f'collar r {c_ri:.2f}..{c_ro:.2f}, wood spans {r_scr:.2f}..{r_out:.2f}')
+# What matters is how WIDE the seat is, not whether the collar is completely
+# hidden. The old test demanded the collar's inner edge sit outboard of the
+# hole, which is a statement about looks; once the hole grew to clear the
+# housing a 0.3 mm ring of collar shows through it and the wood still has 4.5 mm
+# of annular seat to land on.
+seat_w = min(c_ro, r_out) - max(c_ri, r_scr)
+ck(seat_w > 2.0, 'the wood lands on a real width of collar, not an edge',
+   f'collar r {c_ri:.2f}..{c_ro:.2f}, wood from {r_scr:.2f}: '
+   f'{seat_w:.2f} mm of seat')
+ck(c_ro < r_out, 'and the collar is inboard of the disc, so nothing overhangs',
+   f'collar out to {c_ro:.2f}, disc to {r_out:.2f}')
 
 print('\n3b. Against the part DIRECTLY BEHIND IT, which section 3 never did')
 # Sam, 2026-09-17, after cutting a face: "That laser cut svg didn't fit the
@@ -186,6 +208,34 @@ for nm, want_clear in (('mini-round-clock-diffuser-60-cells.stl', True),
         ck(v > 1000.0,
            f'{nm} does NOT -- and the check records that rather than assuming it',
            f'{v/1000:.1f} cm3 of clash, tops out at z={d.bounds[1][2]:.2f}')
+
+print('\n3c. Does the middle hole actually pass over the middle?')
+# Sam cut a face and it would not go on: "The hole in the middle was too small
+# for the 3D printed housing." The hole was 54.0 and the screen collar is 59.9
+# across. Eleven sections and none of them asked this.
+#
+# The first version of this check tried to derive the housing from the mesh by
+# clipping the plain diffuser at r=40 -- and then measured the clip. Worse, it
+# was the wrong question: at the wood's height the plain diffuser is solid from
+# r 28.05 ALL THE WAY OUT, because its face is there. With a plain diffuser in
+# the clock there is no hole size that works, which is what 3b says.
+#
+# So the honest check is on the parameter: PLY_CENTRE_OD is the one number that
+# decides this hole, it has to cover everything that could be in the middle, and
+# it has to be confirmed against the real clock rather than inferred here.
+CANDIDATES = {
+    'the screen collar (COLLAR_EXT_RO x 2)': 2 * COLLAR_EXT_RO,
+    "the display's round PCB (DISP_PCB_D)": DISP_PCB_D,
+}
+for what, od in CANDIDATES.items():
+    ck(PLY_CENTRE_OD >= od, f'the hole is sized to clear {what}',
+       f'{PLY_CENTRE_OD:.2f} vs {od:.2f}')
+ck(2 * r_scr - PLY_KERF - PLY_CENTRE_OD > 0.5,
+   'with enough left over that a tenth of drift does not jam it',
+   f'{2*r_scr - PLY_KERF - PLY_CENTRE_OD:.2f} mm on diameter')
+print('  [note] PLY_CENTRE_OD is NOT verified against Sam\'s clock. It is the '
+      'largest thing this repo knows about. Measure the real housing before '
+      'cutting: it is the number that wasted a sheet.')
 
 print('\n4. The lines sit where the light comes out')
 # The printed diffuser is the authority: its pockets are the places the design

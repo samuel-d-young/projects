@@ -2058,10 +2058,32 @@ PLY_KERF        = 0.20      # typical diode-laser kerf in 3 mm ply. NOT applied 
                             # the geometry -- the cut is drawn on the true line and
                             # the beam takes this off the part. Documented so the
                             # 0.30 clearance is read as "0.30 to 0.40 in practice"
-PLY_BORE_R      = DISP_ACTIVE_D/2.0 - 0.50   # 27.00. One millimetre inside the
-                            # 55 mm active area on diameter, which is the rule the
-                            # v1 plywood used: the face covers the ragged PCB edge
-                            # and the flex tab rather than framing them
+# THE MIDDLE HOLE IS SIZED BY WHAT HAS TO PASS THROUGH IT, NOT BY THE SCREEN.
+# Sam, 2026-09-17, after cutting a face: "The hole in the middle was too small
+# for the 3D printed housing."
+#
+# It was 27.00 -- DISP_ACTIVE_D/2 - 0.50, one millimetre inside the 55 mm active
+# area, the rule the v1 plywood used so the face covered the ragged PCB edge and
+# the flex tab rather than framing them. That rule answers "how much of the
+# screen do we want to show". It is not the binding constraint and never was.
+# The binding constraint is the screen collar, which is r 28.05 to 29.95 --
+# 59.9 mm across -- and stands up to z 21.90, straight through where the wood
+# goes. The display's own round PCB is 60.0. Either way the hole was 5.9 mm too
+# small on diameter and the wood could not pass over the middle at all.
+#
+# A parameter derived from the wrong requirement measures something true and
+# answers the wrong question, which is why it looked right in review: 54 really
+# is 1 mm inside the active area.
+PLY_CENTRE_OD   = 60.00     # the widest thing that must pass through the middle.
+                            # From params: the collar is 59.90, the PCB 60.0.
+                            # CONFIRM WITH CALIPERS on the real clock before
+                            # cutting -- this is the number that wasted a sheet.
+PLY_CENTRE_CLR  = 0.60      # radial clearance over it. The kerf only adds to
+                            # this, so it is a floor and not a target.
+PLY_BORE_R      = max(DISP_ACTIVE_D/2.0 - 0.50,        # frame the panel...
+                      PLY_CENTRE_OD/2.0 + PLY_CENTRE_CLR)  # ...but CLEAR the
+                            # housing first. max(), so whichever requirement is
+                            # binding wins and neither can be quietly forgotten.
 PLY_TICK_W      = TICK_W    # 1.80, the same tick the printed diffuser lights
 PLY_HOUR_W      = 2.80      # the hours variant only: every fifth line widened.
                             # Still mirror-symmetric, so the file is safe to

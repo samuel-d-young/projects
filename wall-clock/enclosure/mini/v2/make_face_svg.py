@@ -238,6 +238,62 @@ def slot_coupon(n=6):
                     f'Plug fit test - {n} real {PLY_TICK_W:.2f} mm slots')
 
 
+def number(n, cx, cy, h):
+    """A multi-digit number, centred on (cx, cy)."""
+    ds = [int(c) for c in str(n)]
+    w = h * 0.62
+    gap = w * 0.25
+    total = len(ds) * w + (len(ds) - 1) * gap
+    out = []
+    for i, d in enumerate(ds):
+        x = cx - total / 2.0 + w / 2.0 + i * (w + gap)
+        out += digit(d, x, cy, h)
+    return out
+
+
+def centre_gauge(lo=52, hi=66, step=2):
+    """A PAPER gauge for the one number that wasted a sheet.
+
+    Sam, 2026-09-17: "The hole in the middle was too small for the 3D printed
+    housing." The housing's diameter is a fact about his clock, not about this
+    repo -- params only knows the screen collar is 59.90 and the display's PCB
+    is 60.0, and neither is a promise about what is actually in there.
+
+    Print on A4 AT 100% -- no "fit to page", and check the scale bar reads
+    100 mm with a ruler before trusting anything else. Cut roughly round the
+    outside, hold it over the middle of the clock, and read off the smallest
+    circle the housing fits inside. That number rebuilds the face in one line.
+
+    Costs a sheet of paper instead of a sheet of plywood.
+
+    The labels are spread AROUND the circles, not stacked at twelve o'clock.
+    The first version put every one at (0, r + 3.2) and the radii are only a
+    millimetre apart, so all eight landed on top of each other and the gauge was
+    unreadable -- found by rendering it, which is becoming a habit.
+    """
+    black = '#000000'
+    parts, n = [], len(range(lo, hi + 1, step))
+    for i, d in enumerate(range(lo, hi + 1, step)):
+        parts.append(circle(d / 2.0, stroke=black, layer=f'gauge-{d}'))
+        a = math.radians(100.0 + i * (150.0 / max(1, n - 1)))
+        r = d / 2.0 + 4.0
+        parts += [poly(g, fill=ENG, layer='engrave-labels')
+                  for g in number(d, r * math.cos(a), r * math.sin(a), 4.5)]
+    # A SCALE BAR, because a printer that quietly scales turns this into a
+    # confident lie. 100.00 mm between the two end ticks.
+    y = -hi / 2.0 - 14.0
+    parts.append(poly([(-50.0, y), (50.0, y)], stroke=black, layer='gauge-scale'))
+    for x in (-50.0, 50.0):
+        parts.append(poly([(x, y - 3.0), (x, y + 3.0)], stroke=black,
+                          layer='gauge-scale'))
+    parts += [poly(g, fill=ENG, layer='engrave-labels')
+              for g in number(100, 0.0, y - 8.0, 5.0)]
+    W = 108.0                      # the scale bar is the widest thing on it
+    H = 2.0 * (hi / 2.0 + 14.0 + 8.0 + 6.0)
+    return document(parts, W, H,
+                    'Centre-hole gauge - print at 100%, check the 100 mm bar')
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     files = {'face-60-wood.svg':             face(hours=False),
@@ -246,7 +302,8 @@ def main():
              'face-60-wood-cut.svg':         face(hours=False, through=True),
              'face-60-wood-cut-hours.svg':   face(hours=True,  through=True),
              'face-60-depth-test.svg':       coupon(),
-             'face-60-slot-test.svg':        slot_coupon()}
+             'face-60-slot-test.svg':        slot_coupon(),
+             'centre-hole-gauge.svg':        centre_gauge()}
     for name, svg in files.items():
         with open(os.path.join(OUT, name), 'w') as f:
             f.write(svg)
