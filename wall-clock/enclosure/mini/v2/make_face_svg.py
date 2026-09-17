@@ -90,23 +90,38 @@ def document(body, w, h, title):
 
 
 # ---------------------------------------------------------------- the face
-def face(hours=False):
+def face(hours=False, through=False):
+    """The plywood face. `through` cuts the sixty lines out instead of
+    engraving them, for the version whose lines are filled with printed plugs.
+
+    Sam, 2026-09-17: "I will be cutting out the 60 lines instead of engraving."
+
+    THE ORDER IS THE SAME AND IT MATTERS MORE, not less. Glowforge runs steps in
+    the order it finds them, and every one of these operations needs the disc
+    still attached to the sheet. Cut the outline first and the piece lifts,
+    shifts, or catches the gantry -- and with sixty through-slots in it, the
+    disc that is left is a lot more fragile than the engraved one was. Lines
+    first, screen bore next, outline last.
+
+    The lines are drawn at their TRUE width, 1.80. The beam takes its kerf off
+    the part, so the hole comes out about 2.00 -- which is the number the plugs
+    are built to, and the reason they are not drawn at 1.80 either.
+    """
     r_out = B.r_lip_i - PLY_CLR
     parts = []
-    # ENGRAVE FIRST. Glowforge runs steps in the order it finds them and the
-    # disc must still be attached to the sheet while it is being engraved: cut
-    # the outline first and the piece lifts, shifts, or catches the gantry.
     for k in range(B.n):
         a = 90.0 - k*(360.0/B.n)          # k = 0 at 12 o'clock, clockwise
         w = PLY_HOUR_W if (hours and k % 5 == 0) else PLY_TICK_W
-        parts.append(poly(stadium(B.tick_ri, B.tick_ro, w, a),
-                          fill=ENG, layer='engrave-ticks'))
+        pts = stadium(B.tick_ri, B.tick_ro, w, a)
+        parts.append(poly(pts, stroke=CUT, layer='cut-ticks') if through
+                     else poly(pts, fill=ENG, layer='engrave-ticks'))
     parts.append(circle(PLY_BORE_R, stroke=CUT, layer='cut-screen'))
     parts.append(circle(r_out,      stroke=CUT, layer='cut-outline'))
     d = 2*r_out + 2.0
+    what = 'lines cut through' if through else 'lines engraved'
     return document(parts, d, d,
                     f'60-LED clock face - {PLY_T:.0f} mm plywood - '
-                    f'{"hours emphasised" if hours else "plain"}')
+                    f'{"hours emphasised" if hours else "plain"} - {what}')
 
 
 # ---------------------------------------------------------------- the coupon
@@ -189,11 +204,49 @@ def coupon(n=5):
                     f'Engrave depth coupon - {n} settings + a bare reference')
 
 
+def slot_coupon(n=6):
+    """The other half of the plug fit test: six REAL slots to press them into.
+
+    A set of test plugs with nothing to test them in is half an experiment. Cut
+    this from the same sheet, on the same settings, with the same lens -- then
+    the kerf in it is the kerf in the face, which is the whole unknown.
+
+    The slots are drawn at the true 1.80 like the face is, so the hole this
+    leaves IS the hole the plugs meet. Numbered 1..6 to match the numbers on
+    the plugs, though every slot is identical -- it is the PLUGS that differ,
+    and the numbers are there so you can say which one went in.
+    """
+    tick_len = B.tick_ro - B.tick_ri
+    pitch = 11.0
+    W = pitch * n + 10.0
+    H = tick_len + 22.0
+    parts = []
+    for i in range(n):
+        x = -W/2.0 + 5.0 + pitch*i + pitch/2.0
+        # engrave the number first -- the sheet must still be whole
+        for g in digit(i + 1, x, -H/2.0 + 7.0, 7.0):
+            parts.append(poly(g, fill=ENG, layer='engrave-labels'))
+    for i in range(n):
+        x = -W/2.0 + 5.0 + pitch*i + pitch/2.0
+        pts = [(x + px, 3.0 + py)
+               for px, py in stadium(-tick_len/2.0, tick_len/2.0,
+                                     PLY_TICK_W, 90.0)]
+        parts.append(poly(pts, stroke=CUT, layer='cut-slots'))
+    parts.append(poly([(-W/2, -H/2), (W/2, -H/2), (W/2, H/2), (-W/2, H/2)],
+                      stroke=CUT, layer='cut-outline'))
+    return document(parts, W + 2.0, H + 2.0,
+                    f'Plug fit test - {n} real {PLY_TICK_W:.2f} mm slots')
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
-    files = {'face-60-wood.svg':       face(hours=False),
-             'face-60-wood-hours.svg': face(hours=True),
-             'face-60-depth-test.svg': coupon()}
+    files = {'face-60-wood.svg':             face(hours=False),
+             'face-60-wood-hours.svg':       face(hours=True),
+             # the cut-through pair, for the printed-plug build
+             'face-60-wood-cut.svg':         face(hours=False, through=True),
+             'face-60-wood-cut-hours.svg':   face(hours=True,  through=True),
+             'face-60-depth-test.svg':       coupon(),
+             'face-60-slot-test.svg':        slot_coupon()}
     for name, svg in files.items():
         with open(os.path.join(OUT, name), 'w') as f:
             f.write(svg)

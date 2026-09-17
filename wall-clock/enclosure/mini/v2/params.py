@@ -2070,3 +2070,82 @@ PLY_GLOW_LEFT   = 0.50      # wood left under a tick. 0.4-0.6 glows on birch ply
                             # 0.8 does not. This is the number the depth-test
                             # coupon exists to find on SAM'S sheet and SAM'S
                             # laser, because it cannot be computed
+
+
+# =============================================================================
+# v18 -- WHITE PRESS-FIT PLUGS, for a face whose lines are CUT THROUGH
+# =============================================================================
+# Sam, 2026-09-17: "I will be cutting out the 60 lines instead of engraving.
+# Create a 3d printed file that can be pushed into the 60 cut lines from the
+# back. I want them to be individual pieces that are a press fit. They will be
+# printed in white."
+#
+# This replaces the engrave-depth problem with a press-fit problem, and it is a
+# better trade: PLY_GLOW_LEFT could only ever be found by burning coupons, and a
+# through-cut is a through-cut. But it moves the unknown rather than removing
+# it -- see PLUG_FIT.
+#
+# THE MEASUREMENTS THIS IS BUILT ON, taken off the seated cell ring rather than
+# read out of these parameters (check12 re-measures them):
+#   the pocket behind each tick     6.65 mm wide, 3.25 mm deep (z 15.68..18.93)
+#   the wood's back face            z 19.00, so 0.07 mm above the cell walls
+#   a fitted 3 mm perspex guide     tops out at z 18.50
+#   => clear height for a flange    0.43 mm if the guides are in, 3.25 if not
+# The flange is sized for the WORSE case, so one part works either way.
+
+PLUG_KERF       = PLY_KERF   # 0.20. The slot is drawn on the true line and the
+                             # beam takes this off the PART, so a 1.80 line
+                             # leaves a 2.00 hole. This is the whole reason a
+                             # plug drawn at 1.80 would rattle.
+PLUG_FIT        = 0.10       # interference on width, i.e. how much wider than
+                             # the hole the plug is made. UNVERIFIED -- it
+                             # depends on Sam's kerf, his sheet and his
+                             # printer's flow, none of which can be computed
+                             # from here. face-60-plug-fit-test.stl exists to
+                             # find it, exactly as the depth coupon found the
+                             # engrave depth.
+PLUG_W          = PLY_TICK_W + PLUG_KERF + PLUG_FIT      # 2.10
+PLUG_HOUR_W     = PLY_HOUR_W + PLUG_KERF + PLUG_FIT      # 3.10
+PLUG_LEN_CLR    = 0.15       # ON LENGTH, clearance not interference. A press
+                             # fit wants to be tight across ONE axis; tight on
+                             # both is a part that goes in crooked and splits
+                             # the ply at the end of the slot.
+PLUG_T          = PLY_T      # body height = the sheet. Flush front and back at
+                             # nominal; real ply is 2.7-3.3, so MEASURE THE
+                             # SHEET and rebuild if it is not 3.0. Shy is
+                             # invisible, proud is not.
+PLUG_FLANGE_T   = 0.40       # <= the 0.43 measured clear above a fitted guide.
+PLUG_FLANGE_W   = 5.60       # in a 6.65 pocket: 0.52 a side. It does NOT get
+                             # longer than the body -- the slot already reaches
+                             # r 79.1 and the guide channel starts at 79.0, so
+                             # there is room at the sides and none at the ends.
+PLUG_FLANGE_LEN = 32.00      # MEASURED, not chosen. The pocket runs r 79.0 to
+                             # 113.5 and is NOT centred on the slot, which runs
+                             # 79.10 to 111.40: 0.10 spare at the inner end and
+                             # 2.10 at the outer. So the flange cannot simply be
+                             # the body grown all round. At 32.00 centred on the
+                             # slot it spans 79.25..111.25 -- 0.25 clear of the
+                             # channel's inner wall, which is the tight end.
+PLUG_END_INSET  = 0.20       # how much SHORTER the body is than the flange, at
+                             # each end. Not a style choice: made the same
+                             # length, the two stadiums touch TANGENTIALLY at
+                             # their end points and the union comes back
+                             # NotManifold -- do not create a face where one
+                             # already is, and a tangent point is that face
+                             # shrunk to nothing. The body is strictly inside
+                             # the flange now. Costs 0.45 mm of unlit line at
+                             # each end of a 32.5 mm slot.
+PLUG_BODY_SINK  = 0.20       # the body is extended this far DOWN into the
+                             # flange before the union. Do not create a face
+                             # where one already is; overlap instead. Down and
+                             # not up, because a wider section anywhere above
+                             # z=0 would not enter the slot at all.
+PLUG_TEST_FLANGE_T = 1.20    # the fit-test pieces only: thick enough to grip
+                             # and to carry a number. They are NOT for the
+                             # clock -- this would foul a fitted guide.
+PLUG_TEST_MARK_H   = 0.40    # how far the number stands off the test flange
+PLUG_TEST_MARK_SIZE = 4.50   # digit height. 3.00 put the thinnest segment at
+                             # 0.48 mm -- about one extrusion at a 0.4 nozzle,
+                             # which is how you get a number you cannot read.
+                             # 4.50 puts it at 0.72 and still fits the 5.60
+                             # flange (a digit is 0.62 of its height wide).

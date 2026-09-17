@@ -125,3 +125,101 @@ Nothing here has been cut. The fit, the line positions and the seat are measured
 against the built meshes by `check11_face.py`; the engrave depth, the char and
 whether 3 mm is simply too much to raster away are questions only the coupon can
 answer, on your machine, with your wood.
+
+---
+
+# The cut-through build, with printed plugs
+
+Sam, 2026-09-17: *"I will be cutting out the 60 lines instead of engraving.
+Create a 3d printed file that can be pushed into the 60 cut lines from the back.
+I want them to be individual pieces that are a press fit. They will be printed
+in white."*
+
+This replaces the engrave-depth problem with a press-fit problem, and it is the
+better trade. `PLY_GLOW_LEFT` could only ever be found by burning coupons and
+then living with whatever the sheet did on the day; a through-cut is a
+through-cut. **If you are doing this, `face-60-depth-test.svg` is no longer
+relevant** — the engrave depth is not a question any more.
+
+## The files
+
+| file | |
+|---|---|
+| `face-60-wood-cut.svg` | the face, sixty lines **cut through**, all 1.80 |
+| `face-60-wood-cut-hours.svg` | same, twelve hour lines widened to 2.80 |
+| `face-60-slot-test.svg` | **cut this first.** Six real slots to press the test plugs into |
+| `stl/mini-round-clock-face-60-plug-fit-test.stl` | six plugs, 1.95 to 2.20, numbered |
+| `stl/mini-round-clock-face-60-plugs.stl` | the sixty, once you know the number |
+| `stl/mini-round-clock-face-60-plugs-hours.stl` | 48 narrow + 12 wide, for the hours face |
+
+## Do the fit test first, and do it on the real sheet
+
+The slot the laser leaves is the line it was given **plus its kerf** — about
+0.20 in 3 mm ply, so a 1.80 line leaves roughly a 2.00 hole. About. Kerf depends
+on the sheet, the lens, the power and the speed, and a plug sized from a guess
+at it will either rattle or split the ply.
+
+So: cut `face-60-slot-test.svg` **from the same sheet, on the same settings you
+will cut the face with**, print the six test plugs, and press them in.
+
+- **1** is 1.95, **6** is 2.20, in 0.05 steps.
+- You want the one that needs a firm push and then stays put. Not the one you
+  can push with a thumb, and not the one that needs a mallet — the ply splits
+  along the grain at the end of a slot and you will not see it until the face
+  is cut.
+- Tell me the number and I will rebuild the sixty at that width. It is one
+  parameter (`PLUG_FIT`); nothing else moves.
+
+The test plugs have a **thick flange with the number raised on it** so you can
+tell them apart and get a grip. That flange is deliberately too thick for the
+clock — the real ones are 0.40.
+
+## The plug
+
+Stadium body, the slot's own section, with a wider thinner flange behind it.
+Pushed in **from the back**: the body fills the 3 mm of ply and finishes flush
+at the front, the flange stops against the wood's back face so it cannot go
+through, and gives you something to push on that is not the 2 mm sliver itself.
+
+| | |
+|---|---|
+| body | **2.10** × 31.60, 3.00 tall (= `PLY_T`, the sheet) |
+| flange | **5.60** × 32.00, **0.40** thick |
+| interference | 0.10 on width only |
+
+**Why the flange is 0.40 and no more.** Measured off the seated cell ring, not
+chosen: the pocket behind each tick is 6.65 wide and 3.25 deep, the wood's back
+face is at z 19.00, and a fitted 3 mm perspex guide tops out at 18.50 — leaving
+**0.43**. So 0.40 clears the guides if they are in and obviously clears if they
+are not. One part, either build.
+
+**Why it is only wider at the sides, not the ends.** The slot already reaches
+r 79.10 and the guide channel wall starts at 79.00. There is room at the sides
+and none at the ends.
+
+## Printing
+
+White, and the whiter and more translucent the better — the plug *is* the
+diffuser now.
+
+Lay them **flange-down on the bed**. The flange is a flat 5.60 × 32.00 footprint
+and the body rises 3 mm from the middle of it: no overhangs, no supports, and
+the layer lines run across the light path rather than along it. 60 of them is
+about 16 cm³.
+
+The plate is sixty **separate bodies** with no sprue, because Sam asked for
+individual pieces and a sprue on a 2 mm part breaks the part when you cut it.
+Your slicer will treat the file as one object with sixty parts.
+
+## Assembly order
+
+1. Cut the face. **The outline is the last cut in the file** and that matters
+   more here than it did for the engraved version — a disc with sixty
+   through-slots in it is a lot more fragile, and a piece that comes free early
+   takes the gantry with it.
+2. Lay the face **face-down** on something soft.
+3. Press the sixty plugs in from the back. They finish flush at the front.
+4. Then seat the whole face onto the clock, on the collar as before.
+
+`diffuser-60-cells` is still the part behind it — the wood is the mask, but the
+cells are what stop LED n lighting tick n+1.

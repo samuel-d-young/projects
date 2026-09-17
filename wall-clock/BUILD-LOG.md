@@ -7147,3 +7147,87 @@ and it was baselined **both ways**: against the broken file, where it exits 1
 naming `grow_daytime` twice, and against the good one, where it exits 0. A new
 check that has only ever been seen to pass is half a test.
 
+
+---
+
+## 2026-09-17 — cut the lines through, and plug them with white
+
+Sam: *"I will be cutting out the 60 lines instead of engraving. Create a 3d
+printed file that can be pushed into the 60 cut lines from the back. I want them
+to be individual pieces that are a press fit. They will be printed in white."*
+
+A better trade than it first looks. `PLY_GLOW_LEFT` was never going to be a
+number this repo could hold — it depended on the sheet, the glue line, the lens
+and the day — and 2.5 mm of raster on a diode laser was a long hot job that
+might char before it got deep enough. A through-cut is a through-cut. The
+unknown does not disappear, but it moves from *how deep did it burn* to *how
+wide is the hole*, and the second one you can measure with a plug.
+
+### What the geometry actually allowed
+
+Everything here is measured off the seated cell ring, not chosen:
+
+| | |
+|---|---|
+| pocket behind each tick | **6.65** wide, **3.25** deep (z 15.68–18.93) |
+| the wood's back face | z **19.00** |
+| a fitted 3 mm perspex guide | tops out at **18.50** |
+| so, clear height for a flange | **0.43** with the guides in, 3.25 without |
+
+The flange is **0.40**, sized for the worse case, so one part works whether or
+not the guides are fitted. And it is wider only at the **sides**: the slot
+already reaches r 79.10 and the guide channel wall starts at 79.00. Room at the
+sides, none at the ends.
+
+### Two traps, one of them float32 again
+
+**The body and the flange started the same length**, both stadiums, both
+centred — so their rounded ends touched at exactly one point each. A tangent
+point is a coincident face shrunk to nothing, and the union came back
+`NotManifold`. Same rule as always: *do not create a face where one already
+is*. The body is 0.40 shorter than the flange now and strictly inside it, which
+costs 0.45 mm of unlit line at each end of a 32.5 mm slot.
+
+**The pocket is not centred on the slot.** Obvious in hindsight, invisible until
+measured: the slot runs r 79.10–111.40 and the pocket 79.0–113.5. Two point one
+millimetres spare at the outer end and **one tenth** at the inner. The flange
+could not simply be the body grown all round; it is 32.00, which clears the
+tight end by 0.25.
+
+### The checker measured the wrong thing three times
+
+Worth writing down because the part was right on all three, and each failure
+read like a broken part:
+
+1. **Width** — `extents[0]` is the bounding box, which is the **flange**. The
+   flange is 5.60 on every plug by design, so the checker reported that all
+   sixty were identical, that the hours plate had *no* wide ones, and that the
+   six test plugs were all the same width. It was reading the one dimension the
+   part deliberately holds constant. Fixed with a real section at mid-body.
+2. **Numeral volume** — the convex hull of a flat section, which is a
+   zero-thickness solid whose volume is noise.
+3. **The render** — `slice_plane(cap=True)` caps across the whole flange
+   cross-section, so projecting it drew six solid stadiums with no numbers on
+   them. *Which is exactly what an unreadable digit would have looked like.*
+
+The third is the interesting one. The check said the marks were 0.80–2.84 mm³
+and the render said there were no marks, and **the render was the thing that was
+wrong** — the exact opposite of the coupon, where the check lied and the render
+told the truth. A disagreement between two instruments does not tell you which
+one to believe.
+
+Also caught by rendering: at 3.00 mm tall the numerals' thinnest stroke was
+0.48 mm, about one extrusion at a 0.4 nozzle. 4.50 puts it at 0.72.
+
+### The experiment, both halves of it
+
+A set of test plugs with nothing to test them in is half an experiment, so there
+are two files: **six plugs at 1.95–2.20 in 0.05 steps, numbered**, and
+`face-60-slot-test.svg` — six real slots drawn at the same 1.80 the face uses,
+to be cut **from the same sheet on the same settings**. Then the kerf in the
+coupon is the kerf in the face, which is the whole unknown. Sam reports a
+number; `PLUG_FIT` moves; nothing else does.
+
+check12 is new and in `runchecks.sh`: counts, widths measured at mid-body, the
+plug booleaned against the seated cell ring and against a fitted guide (0.000
+mm³ each), flush at z 22.000, and 97.3% of the slot filled.

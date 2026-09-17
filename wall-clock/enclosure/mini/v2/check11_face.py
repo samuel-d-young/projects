@@ -265,6 +265,56 @@ solid = cells.contains(pts)
 ck(solid.mean() > 0.90, 'there is wall between every tick and the next one',
    f'{100*solid.mean():.0f}% of the gap between two ticks is solid')
 
+print('\n8b. The CUT-THROUGH pair, for the printed-plug build')
+for nm, nwide in (('face-60-wood-cut.svg', 0), ('face-60-wood-cut-hours.svg', 12)):
+    sh, _, _ = load(nm)
+    tk = [x for x in sh if x['layer'] == 'cut-ticks']
+    ck(len(tk) == B.n, f'{nm}: sixty lines, and they are CUTS not engraves',
+       f'{len(tk)} cut-ticks')
+    ck(all(x['fill'] in (None, 'none') for x in tk),
+       '   none of them filled, or the laser rasters instead of cutting')
+    ck(not [x for x in sh if str(x['layer']).startswith('engrave')],
+       '   and nothing is left engraved')
+    if nwide:
+        w = [round(slot_wh(x['poly'])[0], 2) for x in tk]
+        ck(w.count(round(PLY_HOUR_W, 2)) == nwide,
+           f'   twelve widened to {PLY_HOUR_W:.2f}', f'{w.count(round(PLY_HOUR_W,2))}')
+    # ORDER: every tick before the screen bore, and the outline dead last. A
+    # disc with sixty through-slots in it is far more fragile than the engraved
+    # one, and a piece that comes free early takes the gantry with it.
+    order = [x['layer'] for x in sh]
+    ck(order[-1] == 'cut-outline', '   the outline is the last cut in the file',
+       f'last op is {order[-1]}')
+    ck(max(i for i, l in enumerate(order) if l == 'cut-ticks')
+       < order.index('cut-screen'),
+       '   and every line is cut while the disc is still attached')
+
+print('\n8c. The slot test -- the other half of the plug experiment')
+sl, _, _ = load('face-60-slot-test.svg')
+slots = [x for x in sl if x['layer'] == 'cut-slots']
+ck(len(slots) == 6, 'six slots, one per test plug', f'{len(slots)}')
+sw = sorted(round(slot_wh(x['poly'])[0], 2) for x in slots)
+ck(set(sw) == {round(PLY_TICK_W, 2)},
+   f'drawn at the SAME {PLY_TICK_W:.2f} as the face, so the kerf is the same kerf',
+   f'widths {sorted(set(sw))}')
+sl_len = sorted(round(slot_wh(x['poly'])[1], 1) for x in slots)
+want_l = round((B.tick_ro - B.tick_ri) + PLY_TICK_W, 1)
+ck(all(abs(v - want_l) < 1.1 for v in sl_len),
+   'and at the real length, so a plug is tested over its whole run',
+   f'lengths {sorted(set(sl_len))}')
+ck(all(x['fill'] in (None, 'none') for x in slots),
+   'they are cuts, not engraves')
+lab = [x for x in sl if x['layer'] == 'engrave-labels']
+ck(len(lab) > 0 and min(x['poly'].area for x in lab) > 0.5,
+   'the numbers are engraved and every segment has area',
+   f'{len(lab)} segments, smallest {min(x["poly"].area for x in lab):.2f} mm2')
+order = [x['layer'] for x in sl]
+ck(order[-1] == 'cut-outline', 'the outline is cut last',
+   f'last op is {order[-1]}')
+ck(max(i for i, l in enumerate(order) if l == 'engrave-labels')
+   < min(i for i, l in enumerate(order) if l == 'cut-slots'),
+   'and the numbers are engraved while the sheet is still whole')
+
 print('\n9. The depth coupon')
 cp, cw, chh = load('face-60-depth-test.svg')
 patches = [s for s in cp if s['layer'].startswith('engrave-test-')]

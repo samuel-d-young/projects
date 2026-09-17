@@ -18,6 +18,10 @@ Repo: `samuel-d-young/projects`, branch `claude/home-assistant-wall-clock-om42v2
 |---|---|
 | `esphome/mini-round-clock-with-display.yaml` | **THE firmware.** What all three clocks run. Ring + display. |
 | `esphome/mini-round-clock.yaml` | The August **ring-only fallback** — 24 LEDs, display commented out. NOT what is flashed. Its default `device_name` is `mini-round-clock`, the third clock's, so flashing it there gives a 60-LED clock 24 LEDs and a dark screen. |
+| `enclosure/mini/v2/laser/face-60-wood-cut.svg` | The 60's face with the lines **cut through**, for the printed-plug build |
+| `enclosure/mini/v2/laser/face-60-slot-test.svg` | Six real slots, to find the kerf before cutting the face |
+| `enclosure/mini/v2/stl/mini-round-clock-face-60-plugs.stl` | The sixty white press-fit plugs |
+| `enclosure/mini/v2/stl/mini-round-clock-face-60-plug-fit-test.stl` | Six plugs, 1.95–2.20, numbered — print these first |
 | `esphome/secrets.yaml.example` | Template — your filled-in copy was sent separately |
 | `esphome/wall-clock.yaml` | The future 60-LED production build |
 | `esphome/test-clock-d1mini.yaml` | ESP8266 port — superseded, kept for reference |
