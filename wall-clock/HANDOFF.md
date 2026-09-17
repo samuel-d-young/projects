@@ -194,8 +194,23 @@ the recovery path, and that is now in: a `safe_mode:` block and a
 
 | clock | address | mDNS |
 |---|---|---|
-| Zac's Clock | `192.168.1.69` | `mini-round-clock-3.local` |
+| Zac's Clock | `192.168.1.69` (**disputed, see below**) | `mini-round-clock-3.local` |
 | Jake's Clock | `192.168.1.68` | `mini-round-clock-4.local` |
+| Third Clock | `192.168.1.69` (**disputed**) | `mini-round-clock.local` |
+
+> **TWO CLOCKS ARE RECORDED AT .69 AND ONLY ONE CAN HAVE IT.** Zac's Clock
+> (`ac:27:6e:a3:3b:ac`, 24 LED) and the Third Clock (`a4:cb:8f:ee:6e:94`,
+> 60 LED, adopted 2026-09-16) are both documented at `192.168.1.69`. One of
+> those is a stale lease and nothing here can tell which — this container has
+> no route to the LAN. Noticed 2026-09-17 while writing flashing instructions;
+> **not resolved.**
+>
+> It matters because of the silent-rename hazard two paragraphs down: an OTA
+> aimed at the wrong `--device <ip>` renames a clock and takes its entities
+> with it. **Flash by name, not by address** — the Device Builder targets the
+> device, and mDNS follows the name. If you do need the address, read it off
+> the device page in Home Assistant first; do not trust this table until
+> someone has checked the MAC.
 
 Three routes, all of them from inside Sam's LAN:
 
