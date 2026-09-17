@@ -1835,18 +1835,6 @@ number:
     restore_value: true
     mode: slider
 
-  # How many stars the screen counts down through the night.
-  - platform: template
-    id: grow_star_count
-    name: "Grow clock star count"
-    entity_category: config
-    icon: mdi:star-four-points
-    min_value: 3
-    max_value: 12
-    step: 1
-    initial_value: 8
-    optimistic: true
-    restore_value: true
   # With "clock by day" on, the grow face gives way to the ordinary clock this
   # long after wake time, and comes back for the bedtime warning.
   - platform: template
@@ -2292,18 +2280,6 @@ select:
       - "purple"
       - "blue"
     initial_option: "orange"
-    optimistic: true
-    restore_value: true
-  # The stars on the screen: plain dots, or little four-point sparkles.
-  - platform: template
-    id: grow_star_shape
-    name: "Grow clock star shape"
-    entity_category: config
-    icon: mdi:star-four-points-outline
-    options:
-      - "dots"
-      - "stars"
-    initial_option: "stars"
     optimistic: true
     restore_value: true
   # What the ring does for the first minutes after wake: the wake colour, a
@@ -2767,15 +2743,18 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
-  # The Gro-Clock's best idea: stars that go out one by one through the night,
-  # so "how long until morning" is something a child can count. Here the ring
-  # is the stars -- a 60-LED ring loses one about every ten minutes over a
-  # ten-hour night -- and the panel shows a row of eight.
+  # The Gro-Clock's best idea: lights that go out one by one through the
+  # night, so "how long until morning" is something a child can count. The
+  # RING is that countdown and, since 2026-09-17, the only one -- a 60-LED
+  # ring loses one about every twelve minutes over a twelve-hour night. The
+  # screen used to carry a row of eight stars saying the same thing; Sam:
+  # "I don't want the stars in a line anymore, just the LED RING countdown."
+  # Renamed from `grow_stars` with the row, so the switch says what it does.
   - platform: template
-    id: grow_stars
-    name: "Grow clock stars"
+    id: grow_night_countdown
+    name: "Grow clock night countdown"
     entity_category: config
-    icon: mdi:star-four-points
+    icon: mdi:progress-clock
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
@@ -3659,16 +3638,11 @@ interval:
                 && (uint32_t)(millis() - id(grow_sound_since))
                    < (uint32_t) lroundf(id(grow_sound_secs).state * 1000.0f);
             mix(sound ? 4u : 0u);
-            // The star row: what is drawn is the COUNT lit, not the fraction,
-            // so hash the count. grow_frac slides continuously and would
-            // otherwise force a repaint every single second for a row of dots
-            // that changes about once every few minutes.
-            if (id(grow_stars).state && (st == 0 || st == 4)) {
-              const int NS = std::max(3, std::min(12, (int) id(grow_star_count).state));
-              int lit = (int) ceilf(id(grow_frac) * NS); if (lit > NS) lit = NS;
-              mix(0xA1u); mix((uint32_t) NS); mix((uint32_t) lit);
-              mixs(id(grow_star_shape).current_option().str());
-            }
+            // The night countdown is the RING's alone (Sam, 2026-09-17: "I
+            // don't want the stars in a line anymore, just the LED RING
+            // countdown"), so nothing about it goes into the screen's repaint
+            // hash. grow_frac slides continuously; hashing it would have cost
+            // a full repaint a second for a picture that never changes.
             if (id(grow_show_countdown).state && (st == 1 || st == 3) && id(grow_min_to) >= 0) {
               mix(0xB2u); mix((uint32_t) id(grow_min_to));
             }
@@ -4253,7 +4227,7 @@ light:
                 else if (sc == "purple") { r = 60;  g = 0;  b = 90;  }
                 else if (sc == "off")    { r = 0;   g = 0;  b = 0;   }
                 else                     { r = 0;   g = 20; b = 120; }
-                stars = id(grow_stars).state;
+                stars = id(grow_night_countdown).state;
               } else if (st == 1) {
                 if      (ac == "yellow") { r = 255; g = 200; b = 0;   }
                 else if (ac == "green")  { r = 0;   g = 200; b = 40;  }
@@ -5859,30 +5833,10 @@ display:
           it.print(CX, msg_y, f, ink, TextAlign::CENTER, out.c_str());
         }
 
-        // Stars until morning: a row under the eyes, lit ones solid, spent
-        // ones faint. The row is grow_star_count wide at up to 28 px pitch;
-        // y = CY + 72 has 165 px of half-width on the round panel.
-        if (msg.empty() && id(grow_stars).state && (st == 0 || st == 4)) {
-          const int NS = std::max(3, std::min(12, (int) id(grow_star_count).state));
-          const int pitch = std::min(28, 220 / std::max(1, NS - 1));
-          const bool pointy = id(grow_star_shape).current_option().str() == "stars";
-          int lit = (int) ceilf(id(grow_frac) * NS); if (lit > NS) lit = NS;
-          for (int i = 0; i < NS; i++) {
-            const int x = CX - (NS - 1) * pitch / 2 + i * pitch, y = CY + 72;
-            const Color c = i < lit ? ink : dim(ink, 0.18f);
-            if (id(grow_flat_art).state) {         // straight edges only
-              it.filled_rectangle(x - 6, y - 6, 13, 13, c);
-            } else if (id(grow_block_art).state) {  // a sparkle from two bars
-              it.filled_rectangle(x - 2, y - 7, 5, 15, c);
-              it.filled_rectangle(x - 7, y - 2, 15, 5, c);
-            } else if (pointy) {                   // a four-point sparkle
-              it.filled_triangle(x, y - 9, x - 3, y, x + 3, y, c);
-              it.filled_triangle(x, y + 9, x - 3, y, x + 3, y, c);
-              it.filled_triangle(x - 9, y, x, y - 3, x, y + 3, c);
-              it.filled_triangle(x + 9, y, x, y - 3, x, y + 3, c);
-            } else it.filled_circle(x, y, 6, c);
-          }
-        }
+        // The row of stars under the eyes used to live here. Removed
+        // 2026-09-17 at Sam's word -- the ring is the countdown, and two of
+        // them saying the same thing was one too many. `grow_night_countdown`
+        // still switches it; it just only has the ring to switch now.
 
         // The time, digital, along the bottom. 48 px digits centred at
         // CY + 120: "12:34" is about 119 px wide and the chord there is 249.
@@ -6615,22 +6569,9 @@ display:
         }
         if (sound) it.print(W - 12, 10, id(font_med), ink, TextAlign::TOP_RIGHT, "shh");
         if (partial) { it.end_clipping(); return; }
-        if (id(grow_stars).state && (st == 0 || st == 4)) {
-          const int NS = std::max(3, std::min(12, (int) id(grow_star_count).state));
-          const int pitch = std::min(20, 160 / std::max(1, NS - 1));
-          const bool pointy = id(grow_star_shape).current_option().str() == "stars";
-          int lit = (int) ceilf(id(grow_frac) * NS); if (lit > NS) lit = NS;
-          for (int i = 0; i < NS; i++) {
-            const int x = FX - (NS - 1) * pitch / 2 + i * pitch, y = 120;
-            const Color c = i < lit ? ink : dim(ink, 0.18f);
-            if (pointy) {
-              it.filled_triangle(x, y - 6, x - 2, y, x + 2, y, c);
-              it.filled_triangle(x, y + 6, x - 2, y, x + 2, y, c);
-              it.filled_triangle(x - 6, y, x, y - 2, x, y + 2, c);
-              it.filled_triangle(x + 6, y, x, y - 2, x, y + 2, c);
-            } else it.filled_circle(x, y, 4, c);
-          }
-        }
+        // The star row is gone from this panel too (2026-09-17) -- see the
+        // round face. y = 120 is free again; the "N min" countdown below
+        // already prints there when it is almost morning.
         if (id(grow_show_countdown).state && (st == 1 || st == 3) && id(grow_min_to) >= 0) {
           char cb[12]; snprintf(cb, sizeof(cb), "%d min", id(grow_min_to));
           if (fs == "sun and moon") it.print(12, 10, id(font_small), ink, TextAlign::TOP_LEFT, cb);

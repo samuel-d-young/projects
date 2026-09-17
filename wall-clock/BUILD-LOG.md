@@ -6881,3 +6881,46 @@ one at 12 at wake time. If the gap is in the upper *right*, the old build is sti
 Noted, not changed: the ring's night brightness is 1 % on all three (`grow_clock_ring_night_
 brightness`), which is deliberate for a dark bedroom but does mean the countdown is very faint
 to an adult standing in the doorway. It is a number — turn it up if it reads as "not working".
+
+## 2026-09-17 (late) — The star row removed; the ring is the countdown
+
+Sam: *"I actually don't want the stars in a line anymore, just the LED RING countdown. Can you
+fix this and remove the settings from HA?"* The row of stars under the eyes and the ring were
+saying the same thing in two places; the ring says it better, and it says it while the screen
+is off.
+
+Gone from the firmware:
+
+- the star row on the round face (it was `msg`-guarded, at `CY + 72`) and on the
+  rectangular face (at `y = 120`, where the "N min" countdown already prints);
+- the row's entry in the grow face's repaint hash — `grow_frac` slides continuously, so the
+  hash only ever held the *count* of lit stars to avoid a repaint a second. With no row,
+  nothing about the countdown reaches the screen's hash at all;
+- `grow_star_count` (number) and `grow_star_shape` (select), which only ever fed the row.
+
+`grow_stars` is now **`grow_night_countdown`**, "Grow clock night countdown", icon
+`mdi:progress-clock` — the switch only has the ring to switch, so it should not say stars.
+`grow_flat_art` and `grow_block_art` outlived the row; they still shape the rest of the face.
+
+Compiled (RAM 58.8 %, flash 72.3 % — 1 336 bytes smaller) and flashed to all three at
+22:17–22:20, `OTA successful` each time.
+
+**On the HA side, all of it done and verified:**
+
+- The three old entities — `grow_clock_stars`, `grow_clock_star_count`,
+  `grow_clock_star_shape` — are gone from the state machine *and* the entity registry on all
+  three clocks. The ESPHome integration retired them itself on reconnect; nothing to delete
+  by hand, and no orphans left behind **(verified against `config/entity_registry/list`)**.
+- The new switch arrived as `switch.<friendly name>_grow_clock_night_countdown` —
+  `zac_s_clock_…`, `jake_s_clock_…`, `third_clock_…` — because a new entity is named from the
+  device's HA name, not from `device_name`. Every other entity on these clocks uses the
+  `mini_round_clock*` prefix (that is what the 2026-09-16 rename of 107 entities settled on),
+  so these were renamed to match: `switch.mini_round_clock_3_…`, `_4_…` and
+  `switch.mini_round_clock_…`. Worth knowing for the next entity added to these clocks — it
+  will land under the friendly name too.
+- All three switches are `on` — a renamed id is a new preference key, so `RESTORE_DEFAULT_ON`
+  applied and the countdown did not have to be switched on again.
+- Nothing in the HA repo referenced the star settings, so no dashboard or script changed.
+
+The rings, read back after the flash: Zac's 18/24, Jake's 23/32, the third 43/60, all ticking
+down (Jake's had been 24/32 and the third 45/60 fifteen minutes earlier) **(verified)**.
