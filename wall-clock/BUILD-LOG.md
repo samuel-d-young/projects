@@ -7025,7 +7025,7 @@ So, two checks:
 
 ### The coupon
 
-Smaller — **88 × 52 mm** — and it answers more. Six columns: **0 is not
+Smaller — **88 × 52.5 mm** — and it answers more. Six columns: **0 is not
 engraved at all**, the honest reference for "is this one glowing", and 1–5 are
 five settings each in its own colour. Each setting is a **pair**: the 1.80 mm
 minute line and the 2.80 mm hour line, at the **real 30.5 mm length**, because
@@ -7041,3 +7041,51 @@ were defined as rectangles of zero width; the digits came out as a few vertical
 ticks. check11 passed anyway, because it counted segments and never asked
 whether they had any area. *Rendering it is what found it* — the same lesson as
 the crescent that read as the letter C. There is a test for segment area now.
+
+---
+
+## 2026-09-17 — the grow clock's night was draining the wrong way
+
+Sam: *"the LED's didn't count down anti clockwise overnight for the grow clock.
+Is that a setting, or is there something wrong?"*
+
+Both, in a way. The countdown exists and it was running — it is **"Stars until
+morning"** (`grow_stars`, on by default), which turns the whole ring into the
+Gro-Clock's stars: `lit = ceil(grow_frac × N)`, measured bed→wake, so a
+"sleep now" at 18:30 still counts down to 07:00. On a 60-LED ring over a
+ten-hour night that is one LED out about every ten minutes, which is invisible
+over a glance and obvious over an hour.
+
+**But it was draining clockwise, and the routine ring drains anticlockwise.**
+Two countdowns on the same wall running opposite ways, and only one of them
+had a setting. Simulated against the real `P()` and the real indices:
+
+| | order the LEDs go dark | what the eye sees |
+|---|---|---|
+| grow stars (before) | 1, 2, 3, 4 … | clockwise |
+| `routine_dir: anticlockwise` | 59, 58, 57, 56 … | anticlockwise |
+
+The sign convention is the trap. Both arcs end with **LED 0 at 12 o'clock as
+the last one standing** — that part was always right and is why it looked
+deliberate. What differs is which way the boundary between lit and dark
+travels, and that is the only thing anyone actually watches. The old comment
+said *"anticlockwise from 12"*, which described how the arc is **laid out**,
+not how its end **walks** — and `routine_dir` is named for the walk. Two true
+sentences about the same line of code, using the same word for opposite things.
+
+`grow_star_dir` now, spelled exactly like `routine_dir` and defaulting to
+**anticlockwise** — which is what Sam asked for on 2026-09-16 ("the LED rings
+count down anti clockwise until the time is up") and what the routine ring has
+done ever since. A row on the Settings view under "Stars until morning" for all
+three clocks. 414 view references, 0 dangling.
+
+The panel's star row was left alone: it is a straight row of dots, the spent
+ones go faint from the right end, and a row has no clockwise to get wrong.
+
+**The lesson.** A direction can be described by the layout or by the motion,
+the two are opposite for the same code, and a comment that picks one without
+saying which will read as agreeing with a setting that picked the other. Name
+it by what moves. And the check that found it was not reading the code again —
+it was running the real `P()` over the real indices and printing which pixel
+goes dark first.
+

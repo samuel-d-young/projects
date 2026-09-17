@@ -102,6 +102,8 @@
         name: Size of everything
       - entity: switch.mini_round_clock_3_grow_clock_stars
         name: Stars until morning
+      - entity: select.mini_round_clock_3_grow_clock_stars_direction
+        name: '...counting down which way'
       - entity: number.mini_round_clock_3_grow_clock_star_count
         name: How many stars
       - entity: select.mini_round_clock_3_grow_clock_star_shape
@@ -548,6 +550,8 @@
         name: Size of everything
       - entity: switch.mini_round_clock_4_grow_clock_stars
         name: Stars until morning
+      - entity: select.mini_round_clock_4_grow_clock_stars_direction
+        name: '...counting down which way'
       - entity: number.mini_round_clock_4_grow_clock_star_count
         name: How many stars
       - entity: select.mini_round_clock_4_grow_clock_star_shape
@@ -994,6 +998,8 @@
         name: Size of everything
       - entity: switch.mini_round_clock_grow_clock_stars
         name: Stars until morning
+      - entity: select.mini_round_clock_grow_clock_stars_direction
+        name: '...counting down which way'
       - entity: number.mini_round_clock_grow_clock_star_count
         name: How many stars
       - entity: select.mini_round_clock_grow_clock_star_shape

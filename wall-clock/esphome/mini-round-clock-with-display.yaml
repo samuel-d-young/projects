@@ -2294,6 +2294,31 @@ select:
     initial_option: "orange"
     optimistic: true
     restore_value: true
+  # WHICH WAY THE NIGHT DRAINS. Named the same way routine_dir is -- by what
+  # the eye follows, which is the boundary between lit and dark, not the order
+  # the pixels are indexed in.
+  #
+  # Sam, 2026-09-17: "the LED's didn't count down anti clockwise overnight for
+  # the grow clock." They were counting down; they were going the other way.
+  # The grow stars were hard-coded to drain clockwise while the routine ring
+  # defaults to anticlockwise, so the two countdowns on the same wall ran in
+  # opposite directions and only one of them had a setting. This is that
+  # setting, and it defaults to anticlockwise to match the routines and to
+  # match what he asked for on 2026-09-16.
+  #
+  # Either way the LAST star standing is at 12 o'clock, where the sun comes up.
+  # Only the direction the dark travels changes.
+  - platform: template
+    id: grow_star_dir
+    name: "Grow clock stars direction"
+    entity_category: config
+    icon: mdi:rotate-left
+    options:
+      - "anticlockwise"
+      - "clockwise"
+    initial_option: "anticlockwise"
+    optimistic: true
+    restore_value: true
   # The stars on the screen: plain dots, or little four-point sparkles.
   - platform: template
     id: grow_star_shape
@@ -4417,8 +4442,16 @@ light:
                 return;
               }
 
-              // Stars go out from the far end, anticlockwise from 12, so the
-              // last one standing is at the top -- where the sun comes up.
+              // Stars go out one by one through the night and the last one
+              // standing is at 12 o'clock, where the sun comes up. The
+              // DIRECTION the dark travels is grow_star_dir, and it is spelled
+              // exactly like the routine ring's: the arc is laid out the
+              // opposite way to the way its end walks, so "anticlockwise"
+              // (the end walks anticlockwise) lays the arc out CLOCKWISE from
+              // 12 with +i/N, which is the same sign routine_dir uses for the
+              // same word. Getting these two to agree is the whole point --
+              // they were opposite, and only one of them was settable.
+              const bool sacw = id(grow_star_dir).current_option().str() == "anticlockwise";
               int lit = N;
               if (stars) {
                 lit = (int) ceilf(id(grow_frac) * N);
@@ -4426,7 +4459,8 @@ light:
               }
               for (int i = 0; i < PHYS; i++) it[i] = Color::BLACK;
               for (int i = 0; i < lit; i++) {
-                const int p = P(stars ? -(float) i / N : (float) i / N);
+                const int p = P(!stars ? (float) i / N
+                                       : (sacw ? (float) i / N : -(float) i / N));
                 it[p] = Color((uint8_t) lroundf(r * k * bri),
                               (uint8_t) lroundf(g * k * bri),
                               (uint8_t) lroundf(b * k * bri));
