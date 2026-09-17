@@ -16,15 +16,24 @@ lives HERE, versioned, where either a poked session or Sam typing
 ## Preconditions — check every one, stop on the first that fails
 
 1. You are on Sam's LAN: `ping -n 1 192.168.1.75` (HA) answers.
-2. The repo is on the right branch and current:
+2. The repo is on the right branch and current. It is at `K:\Claude\projects`:
    ```powershell
-   cd projects
+   cd K:\Claude\projects
    git fetch origin claude/home-assistant-wall-clock-om42v2
    git checkout claude/home-assistant-wall-clock-om42v2
    git pull origin claude/home-assistant-wall-clock-om42v2
    ```
-3. `esphome version` reports **2026.8.x** or newer. The firmware uses
-   `online_image` as an `image:` platform, which 2026.6 rejects.
+3. ESPHome is in a venv INSIDE the repo on this PC — the record shows
+   `K:\Claude\projects\.esphome-venv\Scripts\esphome.exe`. It is not on
+   PATH in a fresh shell. Activate it first, then check the version:
+   ```powershell
+   cd K:\Claude\projects
+   .\.esphome-venv\Scripts\Activate.ps1
+   esphome version
+   ```
+   It must report **2026.8.x** or newer. The firmware uses `online_image` as
+   an `image:` platform, which 2026.6 rejects. If the venv is missing, say so
+   and stop — do not pip-install a different version over the top.
 4. **`wall-clock/esphome/secrets.yaml` exists.** It is gitignored and lives
    only on this PC and the HA box. It must carry `wall_clock_ota_password` and
    `wall_clock_api_key` matching the RUNNING firmware, or OTA is rejected and
@@ -45,7 +54,8 @@ taking its 112 entities with it. Check the name in the build banner before
 letting an OTA proceed.
 
 ```powershell
-cd wall-clock\esphome
+# with the venv from step 3 still active
+cd K:\Claude\projects\wall-clock\esphome
 
 # Zac's Clock — 24 LED
 esphome -s device_name mini-round-clock-3 -s friendly_name "Zac's Clock" -s routine_slug zac `
