@@ -6924,3 +6924,7 @@ Compiled (RAM 58.8 %, flash 72.3 % — 1 336 bytes smaller) and flashed to all t
 
 The rings, read back after the flash: Zac's 18/24, Jake's 23/32, the third 43/60, all ticking
 down (Jake's had been 24/32 and the third 45/60 fifteen minutes earlier) **(verified)**.
+
+**Confirmed on the hardware, 2026-09-17.** Sam, looking at the clocks after the flash: *"Yep,
+looks great"* — the ring counts down anticlockwise to wake time and the screen no longer
+carries the row **(verified)**.
