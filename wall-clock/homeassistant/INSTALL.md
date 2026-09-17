@@ -209,8 +209,18 @@ relative. A GC9B71 table on this panel lights it and renders stripes — see the
 
 ## 9. Flash it
 
-Paste `mini-round-clock.yaml` into the `mini-round-clock` device in Device
+Paste **`mini-round-clock-with-display.yaml`** into the device in Device
 Builder, then **Install → Manual download → `.factory.bin`**.
+
+> **Not `mini-round-clock.yaml`.** This step said that until 2026-09-17 and it
+> was written in August, when that file was the firmware. It is now the
+> ring-only fallback with the display commented out, and its default
+> `device_name` is `mini-round-clock` — the third clock's. Following the old
+> instruction gives that clock 24 LEDs and a dark screen.
+>
+> For a clock that is already adopted, none of this applies: use the wrapper in
+> `esphome/ha-device-configs/`, which pulls the firmware from GitHub, and the
+> update is **Install → Wirelessly**.
 
 The first flash must be the **factory** image, not the OTA `.bin` — there is no
 ESPHome firmware on the board yet to update.

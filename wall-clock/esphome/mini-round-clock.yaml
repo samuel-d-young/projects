@@ -1,5 +1,24 @@
 # =============================================================================
-# mini-round-clock.yaml — THE build
+# !! THIS IS NOT THE CURRENT FIRMWARE. READ THE NEXT TEN LINES. !!
+#
+# The firmware every clock runs is `mini-round-clock-with-display.yaml`. This
+# file is the AUGUST ring-only fallback: 24 LEDs, and the display section
+# commented out further down.
+#
+# It is dangerous in one specific way. Its `device_name` below defaults to
+# `mini-round-clock`, which is the THIRD CLOCK's device name -- the 60-LED one.
+# Flash this at that device and it takes the clock over with the wrong LED
+# count and NO SCREEN AT ALL, which does not look like a mis-flash. It looks
+# like dead hardware.
+#
+# There is also a name trap: `ha-device-configs/mini-round-clock.yaml` is the
+# third clock's real wrapper and has the SAME BASENAME as this file. The one
+# that belongs in /config/esphome is the one under ha-device-configs/.
+#
+# Kept because it is a known-good ring-only build to fall back to if the panel
+# ever has to be taken out of the picture. Flagged 2026-09-17.
+# =============================================================================
+# mini-round-clock.yaml — the August ring-only build
 # ESP32-S3-N16R8  +  Mokungi 24-LED WS2812B ring (92/71 mm)  +  360x360 round LCD
 # =============================================================================
 # Analogue time on the ring, digital time and weather on the display in the
