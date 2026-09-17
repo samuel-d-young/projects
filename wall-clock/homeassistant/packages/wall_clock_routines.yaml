@@ -34,9 +34,18 @@
 # school-morning steps stop and the weekend ones run.
 #
 # FACE WINDOWS. A second list per clock says which FACE the clock shows
-# through the day when no step is on: {face: grow|clock, start, end, days},
-# and a window may cross midnight. `sensor.wall_clock_face_<clock>_now` is
-# grow / clock / auto and the clock's firmware follows it (face_want_in).
+# through the day when no step is on: {face: grow|clock|routine, start, end,
+# days}, and a window may cross midnight. `sensor.wall_clock_face_<clock>_now`
+# is grow / clock / routine / auto and the clock's firmware follows it
+# (face_want_in).
+#
+# `routine` is the one that is not a face so much as a promise. Sam,
+# 2026-09-17: "I dont like the clock face during the day. I'd like to be able
+# to show the routine during the day." A window is hours long and a step is
+# minutes long, so most of that window has no step running -- and the firmware
+# fills it with WHAT IS COMING: the next step's name, its picture and when it
+# starts, with the time still on the LED ring. If there is no next step left
+# today it falls back to the clock face rather than showing an empty disc.
 #
 # PREVIEW. `script.wall_clock_routine_preview` puts one step on a clock for
 # a couple of minutes without touching the schedule -- the card's "Try it on
@@ -337,7 +346,7 @@ template:
       - name: "Wall clock face Zac now"
         unique_id: wall_clock_face_zac_now
         icon: mdi:monitor-dashboard
-        state: "{{ win.face if win and win.face in ['grow', 'clock'] else 'auto' }}"
+        state: "{{ win.face if win and win.face in ['grow', 'clock', 'routine'] else 'auto' }}"
         attributes:
           window_id: "{{ win.id | default('') if win else '' }}"
           until: "{{ win.end | default('') if win else '' }}"
@@ -499,7 +508,7 @@ template:
       - name: "Wall clock face Jake now"
         unique_id: wall_clock_face_jake_now
         icon: mdi:monitor-dashboard
-        state: "{{ win.face if win and win.face in ['grow', 'clock'] else 'auto' }}"
+        state: "{{ win.face if win and win.face in ['grow', 'clock', 'routine'] else 'auto' }}"
         attributes:
           window_id: "{{ win.id | default('') if win else '' }}"
           until: "{{ win.end | default('') if win else '' }}"
@@ -662,7 +671,7 @@ template:
       - name: "Wall clock face Third now"
         unique_id: wall_clock_face_third_now
         icon: mdi:monitor-dashboard
-        state: "{{ win.face if win and win.face in ['grow', 'clock'] else 'auto' }}"
+        state: "{{ win.face if win and win.face in ['grow', 'clock', 'routine'] else 'auto' }}"
         attributes:
           window_id: "{{ win.id | default('') if win else '' }}"
           until: "{{ win.end | default('') if win else '' }}"

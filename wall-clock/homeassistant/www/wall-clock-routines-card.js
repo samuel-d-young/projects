@@ -35,8 +35,13 @@
     { hue: 275, name: "purple" }, { hue: 215, name: "blue" },
   ];
   const DAYS = [["everyday", "Every day"], ["weekdays", "School days"], ["weekends", "Weekends"]];
-  const FACES = [["grow", "Grow face"], ["clock", "Clock face"]];
-  const FACE_ICON = { grow: "🙂", clock: "🕘" };
+  // Sam, 2026-09-17: "I dont like the clock face during the day. I'd like to be
+  // able to show the routine during the day, instead of the clock face."
+  // A routine window is hours long and a step is minutes, so for most of it the
+  // clock shows WHAT IS COMING -- next step, picture, start time -- and falls
+  // back to the clock face if there is nothing left today.
+  const FACES = [["grow", "Grow face"], ["routine", "Routine"], ["clock", "Clock face"]];
+  const FACE_ICON = { grow: "🙂", routine: "📋", clock: "🕘" };
 
   const css = `
     :host { display: block; }
@@ -237,12 +242,12 @@
     _renderFaces() {
       const fnow = this._st(this._ids.fnow);
       if (!this._st(this._ids.fwin) && !fnow) return "";
-      const nowTxt = fnow ? (fnow.state === "grow" ? "Grow face" : fnow.state === "clock" ? "Clock face" : "the clock decides (auto)") : "";
+      const nowTxt = fnow ? ((FACES.find((f) => f[0] === fnow.state) || [])[1] || "the clock decides (auto)") : "";
       const wins = this._faces();
       const rows = wins.map((w) => `
         <div class="step ${fnow && fnow.attributes.window_id === w.id ? "on" : ""}">
           <div class="thumb" style="font-size:28px">${FACE_ICON[w.face] || FACE_ICON.clock}</div>
-          <div class="meta"><div class="l">${esc((FACES.find((f) => f[0] === w.face) || FACES[1])[1])}</div>
+          <div class="meta"><div class="l">${esc((FACES.find((f) => f[0] === w.face) || ["clock", "Clock face"])[1])}</div>
             <div class="t">${esc(w.start)} \u2013 ${esc(w.end)}${mins(w.end) <= mins(w.start) ? " (over midnight)" : ""} \u00b7 ${esc((DAYS.find((d) => d[0] === w.days) || DAYS[0])[1])}</div></div>
           <div class="acts"><button class="i" data-fedit="${esc(w.id)}" title="Edit">\u270E</button><button class="i" data-fdel="${esc(w.id)}" title="Delete">\u2715</button></div>
         </div>`).join("");

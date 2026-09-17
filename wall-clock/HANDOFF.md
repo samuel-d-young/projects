@@ -357,6 +357,34 @@ fit that could never have worked. `STANDBOX_SLOT_W = 30.20` fixed it. There is
 no tray any more; the shelves are `STANDBOX_SHELF_XI`, and the board is located
 by the ties, not by a slot.
 
+## Faces and weather, 2026-09-17
+
+**Weather is per face now.** `Weather symbol` is still the master; under it sit
+`on the clock face`, `on the grow face` and `on the routine face`. Clock and
+grow default on, routine off — exactly what the single switch did before. So
+"weather on the routine face but not the grow face" is: routine on, grow off.
+
+`Show weather` is a different switch and always was: it is the ordinary clock
+face's temperature line and colour wash, not the symbol.
+
+**A face window can be `routine`.** Routines dashboard → faces through the day →
+the third button. A window is hours long and a step is minutes, so for most of
+it the clock shows **what is coming** — next step's name, picture, and "in 25
+min" or "at 3:30" — with the ordinary hands still running on the LED ring. If
+there is no next step left today it falls back to the clock face.
+
+Flash both clocks to get this; the HA side needs
+`packages/wall_clock_routines.yaml` and `www/wall-clock-routines-card.js`
+re-copied, and the Settings view re-imported for the two new switch rows.
+
+**Local ESPHome cannot validate this file.** The clocks run 2026.8.1; the newest
+release installable in the sandbox is 2026.6.5, where `online_image` was a
+top-level component rather than an `image:` platform, so `esphome config` fails
+here on syntax that is correct on the bench. Two checks stand in for it:
+`esphome/test/check_lambdas.py` (every `id()` resolves, braces balance) and
+`homeassistant/test/check.py` (all six packages, both firmwares, and the
+Settings view's 411 entity references). Neither replaces a compile.
+
 ## Blocked, needing Samuel's hands
 
 * **The flash route is dead.** Seven pokes to the bench session, all delivered,

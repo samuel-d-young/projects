@@ -2381,8 +2381,34 @@ switch:
     icon: mdi:thermometer-chevron-down
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
-  # Also on the routine (picture) face, at its own slot. Off by default: the
-  # picture is the message there.
+  # ONE SWITCH PER FACE, under the master above.
+  # Sam, 2026-09-17: "I want to be able to customise when the weather shows on
+  # each screen. For example, I want the weather to be shown on the routine
+  # face but not the grow face."
+  #
+  # `wx_widget` used to be the whole answer, and it drew the symbol on the grow
+  # face AND the ordinary clock face together -- there was no way to have it on
+  # one and not the other. The routine face was the only one with its own
+  # switch. So the master stays (off there is off everywhere, which is the
+  # thing you want at 2 a.m.) and each face gets its own, the same shape as the
+  # ambient hints further down and the ring/screen power pair above it.
+  #
+  # Clock and grow default ON and routine defaults OFF, which is exactly what
+  # the single switch used to do, so nobody who never touches these sees a
+  # change.
+  - platform: template
+    id: wx_on_clock
+    name: "Weather symbol on the clock face"
+    icon: mdi:weather-partly-cloudy
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+  - platform: template
+    id: wx_on_grow
+    name: "Weather symbol on the grow face"
+    icon: mdi:weather-partly-cloudy
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+  # The routine (picture) face. Off by default: the picture is the message.
   - platform: template
     id: wx_on_routine
     name: "Weather symbol on the routine face"
@@ -2654,6 +2680,10 @@ switch:
     optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
 
+  # NOT the symbol -- that is `wx_widget` and its three per-face switches. This
+  # is the ordinary CLOCK face's own weather: the temperature line and the wash
+  # of colour the condition puts behind the digits. Clock faces only; the grow
+  # and routine faces never had it.
   - platform: template
     id: show_weather
     name: "Show weather"
@@ -3306,6 +3336,34 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  # THE ROUTINE FACE IS NOT THE SAME THING AS A ROUTINE STEP.
+  # Sam, 2026-09-17: "I dont like the clock face during the day. I'd like to be
+  # able to show the routine during the day, instead of the clock face."
+  #
+  # A face window can now ask for `routine`, and a window is on for hours while
+  # a step is on for minutes. So there are two booleans where there was one:
+  #   routine_on    a step is running RIGHT NOW -- the picture, the minutes
+  #                 left, the draining ring. Unchanged.
+  #   routine_idle  the window wants the routine face, no step is running, and
+  #                 there IS a next step to show. The panel shows what is
+  #                 coming; the RING falls through to the ordinary hands,
+  #                 because there is nothing to drain and the time is still
+  #                 worth having.
+  # routine_face is the OR, and it is what owns the panel. Every gate that used
+  # to ask routine_on for ownership asks this instead; the one that asks about
+  # a step's progress (the draining ring) still asks routine_on.
+  #
+  # No next step and the window still says routine? Then routine_idle is false
+  # and the clock face comes back. A blank disc that says "0 s" is worse than
+  # the face he was trying to get away from.
+  - id: routine_idle
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: routine_face
+    type: bool
+    restore_value: no
+    initial_value: 'false'
   - id: routine_frac              # share of the step still to go, 0..1
     type: float
     restore_value: no
@@ -3511,10 +3569,24 @@ interval:
           else if (fx == "bedtime")  st = 3;
           if (fx != "auto") id(grow_daytime) = false;   // a demo shows the face
           // ---- FACE SCHEDULE: a window from HA overrides "clock by day" ----
-          if (fx == "auto") {
-            const std::string fw = id(face_want_in).state;
+          // grow / clock / routine / auto. A running step still outranks all of
+          // them -- the parent scheduled that for this minute.
+          {
+            const std::string fw = (fx == "auto") ? id(face_want_in).state : std::string("auto");
             if      (fw == "clock") id(grow_daytime) = true;
             else if (fw == "grow")  id(grow_daytime) = false;
+            // "routine" only holds while there is something to put on the glass
+            const std::string nl = id(routine_next_label).state;
+            const bool has_next = !nl.empty() && nl != "none" && nl != "unknown"
+                                  && nl != "unavailable";
+            id(routine_idle) = (fw == "routine") && !id(routine_on) && has_next;
+            id(routine_face) = id(routine_on) || id(routine_idle);
+            // grow_daytime is deliberately NOT forced here. Every gate that
+            // matters already asks routine_face, and forcing it would drag the
+            // BACKLIGHT with it: an idle routine face at 7 pm in a child's
+            // bedroom would come up at full daylight brightness. Left alone, an
+            // idle face at night dims with the grow clock and a real step still
+            // overrides it below, which is the right way round.
           }
 
           id(grow_sched) = sched;
@@ -3531,7 +3603,7 @@ interval:
           static const char *names[] = {"sleep", "almost", "awake", "bedtime", "nap"};
           if (id(grow_state).state != names[st]) id(grow_state).publish_state(names[st]);
           {
-            const char *fs = id(routine_on) ? "routine"
+            const char *fs = id(routine_face) ? "routine"
                            : (id(grow_mode).state && !id(grow_daytime)) ? "grow" : "clock";
             if (id(face_showing).state != fs) id(face_showing).publish_state(fs);
           }
@@ -3562,8 +3634,12 @@ interval:
                 && (uint32_t)(millis() - id(grow_sound_since))
                    < (uint32_t) lroundf(id(grow_sound_secs).state * 1000.0f);
             if (sound && b < 0.6f) b = 0.6f;
-            // A routine step is daytime by definition: the picture has to be
-            // seen, whatever the grow schedule thinks of the hour.
+            // A routine STEP is daytime by definition: the picture has to be
+            // seen, whatever the grow schedule thinks of the hour. An idle
+            // routine face is not -- it is just what is on the glass between
+            // steps, and at night it should dim like everything else. So this
+            // one stays on routine_on where the ownership gates moved to
+            // routine_face.
             if (id(routine_on)) b = bd;
             if (fabsf(b - id(grow_bl_last)) > 0.005f) {
               auto c = id(backlight).turn_on(); c.set_brightness(b); c.perform();
@@ -3619,15 +3695,17 @@ interval:
           // A routine step repaints every second like the ordinary clock does
           // (its minutes-left line changes), so it skips the grow hash gate.
           if (id(grow_mode).state && !id(grow_daytime) && !id(grow_paint_1s).state
-              && !id(routine_on)) {
+              && !id(routine_face)) {
             const auto now = id(ha_time).now();
             const int st = id(grow_st);
             mix((uint32_t) st);
             mix(id(display_on).state ? 1u : 0u);
             mix(id(screen_on).state ? 2u : 0u);
             mixs(id(grow_face).current_option().str());
-            // the weather symbol and the layout slots it and the time use
-            if (id(wx_widget).state) {
+            // the weather symbol and the layout slots it and the time use.
+            // Gated on the GROW switch as well, or a weather change repaints a
+            // face that is not showing the weather.
+            if (id(wx_widget).state && id(wx_on_grow).state) {
               mix(0xD4u); mixs(id(wx_cond).state); mixs(id(weather_condition).state);
               mix((uint32_t) (int) lroundf(std::isnan(id(wx_high).state) ? -999.0f : id(wx_high).state * 10.0f));
               mix((uint32_t) (int) lroundf(std::isnan(id(wx_low).state)  ? -999.0f : id(wx_low).state  * 10.0f));
@@ -3720,7 +3798,7 @@ interval:
   - interval: 100ms
     then:
       - lambda: |-
-          if (!id(grow_mode).state || id(grow_daytime) || id(routine_on)) { id(an_clip) = 0; return; }
+          if (!id(grow_mode).state || id(grow_daytime) || id(routine_face)) { id(an_clip) = 0; return; }
           const uint32_t ms = millis();
           const int st = id(grow_st);
 
@@ -3862,7 +3940,7 @@ interval:
           condition:
             lambda: |-
               if (id(screen_freeze).state) return false;      // see screen_freeze
-              if (id(routine_on)) return false;               // the picture owns the panel
+              if (id(routine_face)) return false;             // the picture owns the panel
               if (!id(grow_mode).state || id(grow_daytime) || !id(grow_animate).state) return false;
               if (!id(display_on).state || !id(screen_on).state) return false;
               if (id(clock_face).current_option().str() == "colour test") return false;
@@ -4235,8 +4313,21 @@ light:
 
             // ---- GROW CLOCK: the ring is the colour, and the stars ---------
             // Takes the whole ring and returns. Nothing below -- hands, timers,
-            // status -- is for a child's bedroom. A routine step is the one
-            // thing that outranks it: the parent scheduled it for this minute.
+            // status -- is for a child's bedroom. A routine STEP is the one
+            // thing that outranks it: the parent scheduled it for this minute,
+            // and the ring is that step's countdown.
+            //
+            // routine_on, NOT routine_face, and this is the ring's sleep cue so
+            // it is worth saying why. An idle routine face owns the PANEL; it
+            // has nothing to put on the ring. Gate this on ownership and a
+            // routine window overlapping the evening -- which is exactly when a
+            // parent would schedule one -- drops the red "stay in bed" ring and
+            // falls through to ordinary clock hands for the whole window. The
+            // panel shows what is coming, the ring keeps the cue. Same reason
+            // the backlight above stayed on routine_on.
+            //
+            // By day this line is already false on !grow_daytime, so the two
+            // spellings only differ at night, where routine_on is the right one.
             if (id(grow_mode).state && !id(grow_daytime) && !id(routine_on)) {
               const int st = id(grow_st);
               const std::string sc = id(grow_sleep_colour).current_option().str();
@@ -5292,7 +5383,11 @@ display:
       // wash: the parent scheduled this for this minute. A timer ALARM still
       // wins on the ring, but the panel keeps the picture -- the alarm is
       // loud enough without taking the child's cue away.
-      if (id(routine_on)) {
+      if (id(routine_face)) {
+        // live = a step is running. Idle = the window asked for this face and
+        // the next step is what there is to say. Same slots either way, so the
+        // Layout card keeps working on both.
+        const bool live = id(routine_on);
         const int *R_ = id(pal_scr) + 12;
         const Color c_rt = Color(R_[0], R_[1], R_[2]);
         const int px = ${routine_img_px};
@@ -5312,35 +5407,70 @@ display:
                       "%d:%02d", hour12(now.hour), now.minute);
         }
 
-        // the step's name
-        const std::string lbl = id(routine_label_in).state;
+        // the step's name -- or, idle, the name of the one coming
+        const int lx = L(id(lay_label_x).state, 180), ly = L(id(lay_label_y).state, 68);
+        const std::string lbl = live ? id(routine_label_in).state
+                                     : id(routine_next_label).state;
+        if (!live)
+          it.print(lx, ly - 26, id(font_small), Color(120, 130, 150),
+                   TextAlign::CENTER, "next");
         if (!lbl.empty() && lbl != "none")
-          it.printf(L(id(lay_label_x).state, 180), L(id(lay_label_y).state, 68),
-                    font_txt(S(id(lay_label_size).state)), c_rt, TextAlign::CENTER, "%s", lbl.c_str());
+          it.printf(lx, ly, font_txt(S(id(lay_label_size).state)), c_rt,
+                    TextAlign::CENTER, "%s", lbl.c_str());
 
         // the picture, by its centre
         {
           const int pcx = L(id(lay_pic_x).state, 180), pcy = L(id(lay_pic_y).state, 188);
           const float pk = std::min(2.0f, std::max(0.4f, S(id(lay_pic_size).state)));
-          if (id(routine_img_ok))
+          if (live && id(routine_img_ok)) {
             draw_scaled(id(routine_img), pcx, pcy, pk);
-          else
-            it.filled_circle(pcx, pcy, (int) lroundf(px * pk / 2) - 8, dim(c_rt, 0.18f));
+          } else if (!live && id(routine_next_ok)) {
+            // the next step's picture is a 64 px thumbnail, not the 180 px one.
+            // Blown up to the main slot it is a mosaic, so it is capped at 1.8x
+            // and the LABEL carries the message instead.
+            const float nk = std::min(1.8f, pk * (float) px / ${routine_next_px});
+            draw_scaled(id(routine_next_img), pcx, pcy, nk);
+          } else {
+            const int rad = live ? (int) lroundf(px * pk / 2) - 8
+                                 : (int) lroundf(${routine_next_px} * 1.8f / 2) - 4;
+            it.filled_circle(pcx, pcy, std::max(6, rad), dim(c_rt, 0.18f));
+          }
         }
 
         // minutes left; seconds inside the last minute
         {
-          const int left = id(routine_left);
           const int mx = L(id(lay_min_x).state, 180), my = L(id(lay_min_y).state, 318);
           font::Font *mf = font_txt(S(id(lay_min_size).state));
-          if (left > 60)
-            it.printf(mx, my, mf, c_rt, TextAlign::CENTER, "%d min", (left + 59) / 60);
-          else
-            it.printf(mx, my, mf, c_rt, TextAlign::CENTER, "%d s", left);
+          if (live) {
+            const int left = id(routine_left);
+            if (left > 60)
+              it.printf(mx, my, mf, c_rt, TextAlign::CENTER, "%d min", (left + 59) / 60);
+            else
+              it.printf(mx, my, mf, c_rt, TextAlign::CENTER, "%d s", left);
+          } else {
+            // when it starts. "in 25 min" while that still means something to a
+            // child; a clock time once it does not.
+            const float ns = id(routine_next_start_s).state;
+            if (!std::isnan(ns) && now.is_valid()) {
+              const int tod = now.hour * 3600 + now.minute * 60 + now.second;
+              int d = (int) ns - tod; if (d < 0) d += 86400;
+              if (d <= 3600)
+                it.printf(mx, my, mf, c_rt, TextAlign::CENTER, "in %d min", (d + 59) / 60);
+              else {
+                const int hh = (int) ns / 3600, mm = ((int) ns / 60) % 60;
+                it.printf(mx, my, mf, c_rt, TextAlign::CENTER, "at %d:%02d",
+                          h24 ? hh : (hh % 12 == 0 ? 12 : hh % 12), mm);
+              }
+            }
+          }
         }
 
-        // what's next: a caption, the next step's thumbnail and its start time
-        draw_next(L(id(lay_next_x).state, 306), L(id(lay_next_y).state, 188), S(id(lay_next_size).state));
+        // what's next, in the corner -- only while a step is running. Idle,
+        // the next step IS the face and a second copy of it in the corner is
+        // the same picture twice.
+        if (live)
+          draw_next(L(id(lay_next_x).state, 306), L(id(lay_next_y).state, 188),
+                    S(id(lay_next_size).state));
 
         if (id(wx_widget).state && id(wx_on_routine).state)
           draw_wx(L(id(lay_rwx_x).state, 96), L(id(lay_rwx_y).state, 300),
@@ -5353,7 +5483,7 @@ display:
       // to be visible at night. Before the weather and the timers because none
       // of that belongs in a child's room. The backlight level is set by the
       // dispatcher, so the field here can be drawn at full colour.
-      if (id(grow_mode).state && !id(grow_daytime) && !id(routine_on)) {
+      if (id(grow_mode).state && !id(grow_daytime) && !id(routine_face)) {
         const int st = id(grow_st);
         const std::string sc = id(grow_sleep_colour).current_option().str();
         const std::string wc = id(grow_wake_colour).current_option().str();
@@ -5808,7 +5938,7 @@ display:
         // partial (animation) frames too: inside the clip it is repainted
         // with the eyes, outside it the clip discards the pixels and the full
         // frame's copy stays. Either way what is on the glass is one picture.
-        if (id(wx_widget).state)
+        if (id(wx_widget).state && id(wx_on_grow).state)
           draw_wx(std::isnan(id(lay_wx_x).state) ? CX : (int) lroundf(id(lay_wx_x).state),
                   std::isnan(id(lay_wx_y).state) ? 50 : (int) lroundf(id(lay_wx_y).state),
                   std::isnan(id(lay_wx_size).state) ? 1.0f : id(lay_wx_size).state / 100.0f, field);
@@ -5911,7 +6041,7 @@ display:
         }
         // The weather symbol on the full frame too (the partial-frame copy
         // above only covers the clip); drawn last so it sits on top.
-        if (id(wx_widget).state)
+        if (id(wx_widget).state && id(wx_on_grow).state)
           draw_wx(std::isnan(id(lay_wx_x).state) ? CX : (int) lroundf(id(lay_wx_x).state),
                   std::isnan(id(lay_wx_y).state) ? 50 : (int) lroundf(id(lay_wx_y).state),
                   std::isnan(id(lay_wx_size).state) ? 1.0f : id(lay_wx_size).state / 100.0f, field);
@@ -6337,7 +6467,7 @@ display:
         it.filled_circle(CX, CY + 140, 4, Color(120, 30, 30));
 
       // The weather symbol on the ordinary faces too, last so it sits on top.
-      if (id(wx_widget).state)
+      if (id(wx_widget).state && id(wx_on_clock).state)
         draw_wx(std::isnan(id(lay_wx_x).state) ? CX : (int) lroundf(id(lay_wx_x).state),
                 std::isnan(id(lay_wx_y).state) ? 50 : (int) lroundf(id(lay_wx_y).state),
                 std::isnan(id(lay_wx_size).state) ? 1.0f : id(lay_wx_size).state / 100.0f, bg);
@@ -6419,29 +6549,51 @@ display:
       // ---- ROUTINE STEP on the bar: name, minutes left, a draining bar ------
       // No picture here: the bar panel is 170 px tall and the picture buffer
       // is sized for the round face. The words and the bar carry it.
-      if (id(routine_on)) {
+      if (id(routine_face)) {
+        const bool live = id(routine_on);
         const Color c_rt = Color(id(pal_scr)[12], id(pal_scr)[13], id(pal_scr)[14]);
         it.fill(Color::BLACK);
         char rb[16];
         int hh = now.hour; if (!id(fmt_24h).state) { hh = hh % 12; if (hh == 0) hh = 12; }
         snprintf(rb, sizeof(rb), "%d:%02d", hh, now.minute);
         it.print(10, 6, id(font_small), Color(120, 130, 150), TextAlign::TOP_LEFT, rb);
-        const std::string lbl = id(routine_label_in).state;
+        if (!live)
+          it.print(W / 2, 34, id(font_small), Color(120, 130, 150),
+                   TextAlign::CENTER, "next");
+        const std::string lbl = live ? id(routine_label_in).state
+                                     : id(routine_next_label).state;
         if (!lbl.empty() && lbl != "none")
           it.print(W / 2, 62, id(font_med), c_rt, TextAlign::CENTER, lbl.c_str());
-        const int left = id(routine_left);
-        if (left > 60) snprintf(rb, sizeof(rb), "%d min", (left + 59) / 60);
-        else           snprintf(rb, sizeof(rb), "%d s", left);
-        it.print(W / 2, 108, id(font_med), c_rt, TextAlign::CENTER, rb);
-        const int bx0 = 10, bx1 = W - 10, by = H - 22;
-        it.rectangle(bx0, by, bx1 - bx0, 12, Color(40, 44, 52));
-        const int w = (int) lroundf((bx1 - bx0 - 2) * id(routine_frac));
-        if (w > 0) it.filled_rectangle(bx0 + 1, by + 1, w, 10, c_rt);
+        if (live) {
+          const int left = id(routine_left);
+          if (left > 60) snprintf(rb, sizeof(rb), "%d min", (left + 59) / 60);
+          else           snprintf(rb, sizeof(rb), "%d s", left);
+          it.print(W / 2, 108, id(font_med), c_rt, TextAlign::CENTER, rb);
+          // the draining bar belongs to a STEP. Idle there is nothing to drain,
+          // and an empty trough reads as a step that has already run out.
+          const int bx0 = 10, bx1 = W - 10, by = H - 22;
+          it.rectangle(bx0, by, bx1 - bx0, 12, Color(40, 44, 52));
+          const int w = (int) lroundf((bx1 - bx0 - 2) * id(routine_frac));
+          if (w > 0) it.filled_rectangle(bx0 + 1, by + 1, w, 10, c_rt);
+        } else {
+          const float ns = id(routine_next_start_s).state;
+          if (!std::isnan(ns)) {
+            const int tod = now.hour * 3600 + now.minute * 60 + now.second;
+            int d = (int) ns - tod; if (d < 0) d += 86400;
+            if (d <= 3600) snprintf(rb, sizeof(rb), "in %d min", (d + 59) / 60);
+            else {
+              const int nh = (int) ns / 3600, nm = ((int) ns / 60) % 60;
+              snprintf(rb, sizeof(rb), "at %d:%02d",
+                       id(fmt_24h).state ? nh : (nh % 12 == 0 ? 12 : nh % 12), nm);
+            }
+            it.print(W / 2, 108, id(font_med), c_rt, TextAlign::CENTER, rb);
+          }
+        }
         return;
       }
 
       // ---- GROW CLOCK, on the bar: the same states, laid out for 320 x 170 --
-      if (id(grow_mode).state && !id(grow_daytime) && !id(routine_on)) {
+      if (id(grow_mode).state && !id(grow_daytime) && !id(routine_face)) {
         const int st = id(grow_st);
         const std::string sc = id(grow_sleep_colour).current_option().str();
         const std::string wc = id(grow_wake_colour).current_option().str();

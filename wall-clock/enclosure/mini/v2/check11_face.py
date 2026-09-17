@@ -268,18 +268,70 @@ ck(solid.mean() > 0.90, 'there is wall between every tick and the next one',
 print('\n9. The depth coupon')
 cp, cw, chh = load('face-60-depth-test.svg')
 patches = [s for s in cp if s['layer'].startswith('engrave-test-')]
-ck(len(patches) >= 4, 'several test patches', f'{len(patches)}')
-cols = [s['fill'] for s in patches]
-ck(len(set(cols)) == len(cols),
-   'each in its own colour, so each can be given its own number of passes',
-   f'{len(set(cols))} colours for {len(patches)} patches')
-pw = [slot_wh(s['poly'])[0] for s in patches]
-ck(all(abs(x - PLY_TICK_W) < 0.03 for x in pw),
-   f'and each is a real {PLY_TICK_W:.2f} mm tick, not a square swatch',
-   f'{min(pw):.2f} to {max(pw):.2f} mm')
-ck(any(s['layer'] == 'cut-notch' for s in cp),
-   'with a notch so you can tell which end is setting 1')
-ck(max(cw, chh) < 300.0, 'and it fits a small bed', f'{cw:.0f} x {chh:.0f} mm')
+labels = [s for s in cp if s['layer'] == 'engrave-labels']
+ck(len(patches) >= 8, 'a pair of ticks at each setting', f'{len(patches)} patches')
+cols = {s['fill'] for s in patches}
+ck(len(cols) == len(patches)//2,
+   'each setting in its own colour, so each can be given its own passes',
+   f'{len(cols)} colours over {len(patches)} patches')
+pw = sorted(round(slot_wh(s['poly'])[0], 2) for s in patches)
+ck(set(pw) == {round(PLY_TICK_W, 2), round(PLY_HOUR_W, 2)},
+   f'and each pair is a real {PLY_TICK_W:.2f} and {PLY_HOUR_W:.2f} mm line, not a swatch',
+   f'widths {sorted(set(pw))}')
+pl = {round(slot_wh(s['poly'])[1], 1) for s in patches}
+want = round((B.tick_ro - B.tick_ri) + PLY_TICK_W, 1)
+ck(all(abs(v - want) < 1.1 for v in pl),
+   f'at the real {B.tick_ro - B.tick_ri:.1f} mm length, so the glow can be judged along it',
+   f'lengths {sorted(pl)}')
+ck(len(labels) > 0 and all(s['fill'] == '#000000' for s in labels),
+   'the numerals are engraved in their own colour, at one constant depth',
+   f'{len(labels)} segments')
+# ...and they have to be SHAPES. The first version drew the three horizontal
+# bars as zero-width rectangles and this test did not exist, so a coupon whose
+# numerals were unreadable passed. A segment with no area is not a numeral.
+seg_a = [s['poly'].area for s in labels]
+ck(min(seg_a) > 0.5, 'and every segment of them has real area',
+   f'smallest segment {min(seg_a):.2f} mm2, largest {max(seg_a):.2f}')
+# the bare reference: one column with a numeral and no tick
+def columns(shapes, gap=5.0):
+    """Group shapes into columns by x. A seven-segment digit is SEVEN shapes
+    at slightly different x, so counting distinct centroids counts segments and
+    reports fifteen columns for six digits."""
+    xs = sorted(sh['poly'].centroid.x for sh in shapes)
+    cols, run = [], [xs[0]]
+    for x in xs[1:]:
+        if x - run[-1] <= gap:
+            run.append(x)
+        else:
+            cols.append(run)
+            run = [x]
+    cols.append(run)
+    return [sum(c)/len(c) for c in cols]
+# 6.5 mm for the ticks. The two widths of one setting sit 5.2 apart and belong
+# to the same column; the nearest ticks of ADJACENT settings are 13 - 5.2 = 7.8
+# apart. So the gap has to fall between those two, and 8.0 merged the lot into
+# one column and reported a coupon with a single setting on it.
+xs_t = columns(patches, 6.5)
+xs_l = columns(labels, 5.0)
+bare = [x for x in xs_l if all(abs(x - t) > 5.0 for t in xs_t)]
+ck(len(xs_l) == len(xs_t) + 1, 'a numeral under every setting, and one more',
+   f'{len(xs_l)} numerals, {len(xs_t)} tick columns')
+ck(len(bare) == 1, 'and that one is left bare, as the unlit reference',
+   f'{len(bare)} bare column(s) of {len(xs_l)}')
+# The size that matters is the CUT rectangle -- the bit of ply Sam ends up
+# holding -- not the document, which carries a millimetre of margin all round.
+# Reporting the document read 90 x 54 against a part that is 88 x 52.5, and a
+# check whose number disagrees with the drawing's own caption is a check nobody
+# trusts twice.
+cut = [s for s in cp if s['layer'] == 'cut-outline']
+ck(len(cut) == 1, 'one cut outline, so it comes off the bed as one piece',
+   f'{len(cut)} cut path(s)')
+x0, y0, x1, y1 = cut[0]['poly'].bounds
+kw, kh = x1 - x0, y1 - y0
+ck(max(kw, kh) < 120.0, 'the coupon is small', f'{kw:.1f} x {kh:.1f} mm cut')
+ck(kw < cw and kh < chh,
+   'and the cut sits inside the sheet with margin, not on its edge',
+   f'cut {kw:.1f} x {kh:.1f} in a {cw:.1f} x {chh:.1f} document')
 
 print()
 if FAIL:

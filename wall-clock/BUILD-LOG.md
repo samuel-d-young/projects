@@ -6909,3 +6909,135 @@ for. And 3 mm of ply less the ~0.5 mm you want to leave is **2.5 mm to take away
 by raster on a diode laser**, which is a long hot job that may char before it
 gets deep enough. `PLY_T` drives both the face and the ring behind it, so
 dropping to a 1.5 mm sheet is a regeneration rather than a redraw.
+
+---
+
+## 2026-09-17 — weather per face, the routine face by day, and a smaller coupon
+
+Sam, three things: *"Create a small test cut to check the depth cut for the
+LED's to shine through."* / *"I want to be able to customise when the weather
+shows on each screen. For example, I want the weather to be shown on the
+routine face but not the grow face."* / *"I dont like the clock face during the
+day. I'd like to be able to show the routine during the day, instead of the
+clock face under faces through the day."*
+
+### Weather, one switch per face
+
+`wx_widget` drew the symbol on the grow face **and** the ordinary clock face
+together; only the routine face had its own switch. So there was no way to ask
+for exactly what Sam asked for. The master stays — off there is off everywhere,
+which is the thing you want at 2 a.m. — and each face gets its own under it,
+the same shape as the ambient hints and the ring/screen power pair:
+
+| switch | default |
+|---|---|
+| Weather symbol *(master)* | on |
+| ⇢ on the clock face | on |
+| ⇢ on the grow face | on |
+| ⇢ on the routine face | off |
+
+Clock and grow default ON and routine OFF, which is exactly what the single
+switch used to do, so nobody who never touches these sees a change. The grow
+face's repaint hash is gated on its own switch too, or a weather change wakes a
+panel that is not showing the weather.
+
+`Show weather` is a different thing and keeps its name: the ordinary clock
+face's temperature line and the wash of colour the condition puts behind the
+digits. Clock faces only, as before. Its comment now says so.
+
+### The routine face is not the same thing as a routine step
+
+A face window can now be `routine`. A window is hours long and a step is
+minutes, so most of a routine window has no step running — which is the whole
+problem, and why "just let the window pick routine" is not a one-line change.
+
+Two booleans where there was one:
+
+* `routine_on` — a step is running now. The picture, the minutes left, the
+  draining ring. Unchanged.
+* `routine_idle` — the window wants this face, no step is running, and there
+  **is** a next step to show. The panel shows what is coming: the next step's
+  name, its picture and either "in 25 min" or "at 3:30". The ring shows the
+  ordinary hands, because there is nothing to drain and the time is still worth
+  having — which also means Sam gets the time without the clock face he does
+  not like.
+
+`routine_face` is the OR and it is what owns the **panel**. Every gate that
+asked `routine_on` for panel ownership asks it now.
+
+Three gates deliberately did **not** move, and all three are on the surfaces
+that are not the panel:
+
+* the **draining ring**, which asks about a step's progress — there is no
+  progress to draw between steps;
+* the **backlight**'s force-to-daylight, which is a step saying "this picture
+  has to be seen";
+* the **grow ring**'s night cue.
+
+The last two were bugs I wrote and caught before pushing, and they are the same
+bug twice. Moving the backlight to `routine_face` would light an idle face at
+full daylight brightness at 7 pm in a child's bedroom. Moving the grow ring
+there was worse: by day that gate is already false on `!grow_daytime`, so the
+two spellings differ **only at night** — where a routine window scheduled over
+the evening, which is exactly when a parent would schedule one, would have
+dropped the red "stay in bed" ring and put ordinary clock hands up for the
+whole window. The panel shows what is coming; the ring keeps the cue.
+
+A step overrides the grow dimming and takes the ring; an idle face takes
+neither.
+
+No next step left today and the window still says routine? `routine_idle` is
+false and the clock face comes back. A blank disc reading "0 s" is worse than
+the face he was trying to get away from.
+
+HA side: the window sensor's allow-list was `['grow', 'clock']` for all three
+clocks. The Routines card gets a third button — and its fallback label was
+`FACES[1]`, which silently becomes "Routine" the moment a third entry is added
+in the middle, so that is named explicitly now.
+
+### Verification, and what it cost to get any
+
+**The clocks run ESPHome 2026.8.1 and the newest release installable here is
+2026.6.5**, in which `online_image` was still a top-level component rather than
+an `image:` platform. So `esphome config` fails here on a syntax that is
+correct on the bench, and `esphome compile` is further out of reach still. That
+left ~100 lines of hand-written C++ that nobody could build until Sam flashed
+it. I confirmed the failure is pre-existing by stashing and re-running on HEAD,
+rather than assuming.
+
+So, two checks:
+
+* **`esphome/test/check_lambdas.py`** (new) — every `id(...)` in all 66 lambdas
+  names something the file declares, and braces balance. It will not type-check
+  anything; it catches the two mistakes that actually happen when you edit a
+  lambda you cannot compile. Baselined on HEAD before trusting it: clean there,
+  clean after. 271 declared ids before, 275 after — the four new globals.
+* **`homeassistant/test/check.py`** — was reading *one* package against the
+  *old* firmware, so it reported three entities missing that exist and checked
+  none of the round clock's. It reads all six packages and both firmwares now,
+  expands `${routine_slug}` over the real wrappers, and **checks the Settings
+  view**: 411 clock entity references, 0 dangling. BUILD-LOG claimed that check
+  had been done by hand once; it is code now. Proved it fails by typo'ing one
+  entity id, then put it back.
+
+169 Jinja templates, 26 firmware subscriptions across 2 firmwares and 3 clocks,
+0 unsatisfied.
+
+### The coupon
+
+Smaller — **88 × 52 mm** — and it answers more. Six columns: **0 is not
+engraved at all**, the honest reference for "is this one glowing", and 1–5 are
+five settings each in its own colour. Each setting is a **pair**: the 1.80 mm
+minute line and the 2.80 mm hour line, at the **real 30.5 mm length**, because
+a wider slot glows brighter at the same depth and because the question is not
+only "does it glow" but "does it glow evenly along its length".
+
+The numerals are seven-segment shapes rather than text — no font, nothing for a
+renderer to substitute — engraved in a sixth colour at one shallow setting, so
+the label stays legible at the setting that makes the patch hardest to read.
+
+**And the first version of them was unreadable.** The three horizontal bars
+were defined as rectangles of zero width; the digits came out as a few vertical
+ticks. check11 passed anyway, because it counted segments and never asked
+whether they had any area. *Rendering it is what found it* — the same lesson as
+the crescent that read as the letter C. There is a test for segment area now.

@@ -54,18 +54,26 @@ a1.set_title('lit — 0.5 mm of veneer left on each line', fontsize=9)
 
 # ---- 3. the coupon ------------------------------------------------------------
 a2 = ax[2]
-W, H, n = 110.0, 46.0, 6
-cols = ['#000000', '#FF00FF', '#00A0A0', '#804000', '#008000', '#606060']
+from make_face_svg import digit, PLY_HOUR_W
+n, pitch = 5, 13.0
+W = pitch*(n + 1) + 10.0
+tick_len = B.tick_ro - B.tick_ri
+H = tick_len + 22.0
+cols = ['#FF00FF', '#00A0A0', '#804000', '#008000', '#606060']
 a2.add_patch(MPoly([(-W/2, -H/2), (W/2, -H/2), (W/2, H/2), (-W/2, H/2)],
                    fc='#efe6d6', ec='#FF0000', lw=1.0))
-a2.add_patch(MPoly([(-W/2, -3), (-W/2 + 4, 0), (-W/2, 3)], fc='white', ec='#FF0000', lw=1.0))
-for i in range(n):
-    x = -W/2 + W/(n + 1)*(i + 1)
-    a2.add_patch(MPoly([(x + px, py) for px, py in stadium(-12.5, 12.5, PLY_TICK_W, 90.0)],
-                       fc=cols[i], ec='none'))
-    a2.text(x, -18, str(i + 1), ha='center', va='center', fontsize=8, color='#555')
-a2.set_title('depth coupon — six settings, notch marks #1', fontsize=9)
-for a, lim in ((a0, R + 4), (a1, B.r_body + 3), (a2, 60)):
+for i in range(n + 1):
+    x = -W/2 + 5.0 + pitch*i + pitch/2
+    if i:
+        for dx, w in ((-2.6, PLY_TICK_W), (2.6, PLY_HOUR_W)):
+            a2.add_patch(MPoly([(x + dx + px, 3.0 + py)
+                                for px, py in stadium(-tick_len/2, tick_len/2, w, 90.0)],
+                               fc=cols[(i - 1) % len(cols)], ec='none'))
+    for g in digit(i, x, -H/2 + 7.0, 7.0):
+        a2.add_patch(MPoly(g, fc='black', ec='none'))
+a2.set_title(f'depth coupon — {W:.0f} x {H:.1f} mm, 0 is left bare', fontsize=9)
+
+for a, lim in ((a0, R + 4), (a1, B.r_body + 3), (a2, 48)):
     a.set_xlim(-lim, lim); a.set_ylim(-lim*0.62 if a is a2 else -lim, lim*0.62 if a is a2 else lim)
     a.set_aspect('equal'); a.axis('off')
 fig.suptitle(f'60-LED clock — laser-cut {PLY_T:.0f} mm plywood face, '

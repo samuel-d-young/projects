@@ -110,30 +110,83 @@ def face(hours=False):
 
 
 # ---------------------------------------------------------------- the coupon
-def coupon(n=6):
-    """Six real ticks at six settings, each its own colour so the laser can be
-    given a different number of passes for each. Cut it, hold it over a lit LED
-    in a dark room, and the one that glows without going translucent at the
-    edges is the setting for the face.
+# A seven-segment digit, drawn as rectangles. No font, no text-to-path tool and
+# nothing to go wrong between here and the laser: the label has to survive being
+# engraved at a DIFFERENT depth from the patch it labels, so it is its own
+# colour and its own shape rather than a string somebody's SVG renderer might
+# substitute a font for.
+# (x0, y0, x1, y1) as fractions of the digit's box. The first version of this
+# had the three horizontal bars as x 0.5 -> 0.5, which is a rectangle of zero
+# width: the digits came out as a few vertical ticks and were unreadable. The
+# check passed anyway because it counted segments and never asked whether they
+# had any area. Rendering it is what found it.
+SEGS = {
+    'a': (0.16, 0.84, 0.84, 1.00),   # top
+    'g': (0.16, 0.42, 0.84, 0.58),   # middle
+    'd': (0.16, 0.00, 0.84, 0.16),   # bottom
+    'f': (0.00, 0.50, 0.16, 1.00),   # upper left
+    'b': (0.84, 0.50, 1.00, 1.00),   # upper right
+    'e': (0.00, 0.00, 0.16, 0.50),   # lower left
+    'c': (0.84, 0.00, 1.00, 0.50),   # lower right
+}
+DIGIT = {0: 'abcdef', 1: 'bc', 2: 'abged', 3: 'abgcd', 4: 'fgbc',
+         5: 'afgcd', 6: 'afgecd', 7: 'abc', 8: 'abcdefg', 9: 'afgbcd'}
 
-    There is no way to compute this. It depends on the sheet, the glue line, the
-    laser and the lens, so it is measured on the bench and written down.
+
+def digit(n, cx, cy, h):
+    """One digit, centred on (cx, cy), h tall. Returns a list of polygons."""
+    w = h * 0.62
+    out = []
+    for seg in DIGIT[n]:
+        x0, y0, x1, y1 = SEGS[seg]
+        # the fractions above are of a unit box laid out a..g; scale and place
+        ax, ay = cx - w/2.0, cy - h/2.0
+        out.append([(ax + x0*w, ay + y0*h), (ax + x1*w, ay + y0*h),
+                    (ax + x1*w, ay + y1*h), (ax + x0*w, ay + y1*h)])
+    return out
+
+
+def coupon(n=5):
+    """The real tick, at its real length, at n settings -- plus a 0 that is not
+    engraved at all.
+
+    Sam, 2026-09-17: "Create a small test cut to check the depth cut for the
+    LED's to shine through."
+
+    Each step is a PAIR: the 1.80 mm minute line and the 2.80 mm hour line. A
+    wider slot glows brighter at the same depth, so a setting that is right for
+    one can be wrong for the other, and testing only the narrow one is how you
+    find that out after cutting a 232 mm disc.
+
+    Every step is its own colour, so the laser gives each its own passes. The
+    NUMERALS are a colour of their own too, engraved shallow and identically:
+    a label that got deeper along with the patch it labels would be unreadable
+    at exactly the setting you most want to identify.
+
+    Column 0 is left bare on purpose. Wood that has not been touched is the
+    only honest reference for "is this one glowing".
     """
-    W, H = 110.0, 46.0
-    pitch = W/(n + 1)
-    cols = ['#000000', '#FF00FF', '#00A0A0', '#804000', '#008000', '#606060']
+    pitch = 13.0
+    W = pitch * (n + 1) + 10.0
+    tick_len = B.tick_ro - B.tick_ri            # the real 30.5 mm
+    H = tick_len + 22.0
+    cols = ['#FF00FF', '#00A0A0', '#804000', '#008000', '#606060', '#FF8000']
     parts = []
-    for i in range(n):
-        x = -W/2 + pitch*(i + 1)
-        pts = [(x + px, py) for (px, py) in stadium(-12.5, 12.5, PLY_TICK_W, 90.0)]
-        parts.append(poly(pts, fill=cols[i % len(cols)], layer=f'engrave-test-{i+1}'))
-    # the orientation notch: pass 1 is the end with the notch
-    notch = [(-W/2, -3.0), (-W/2 + 4.0, 0.0), (-W/2, 3.0)]
-    body = [(-W/2, -H/2), (W/2, -H/2), (W/2, H/2), (-W/2, H/2)]
-    parts.append(poly(notch, stroke=CUT, layer='cut-notch'))
-    parts.append(poly(body,  stroke=CUT, layer='cut-outline'))
+    ty = 3.0                                    # ticks centred a little high
+    for i in range(n + 1):
+        x = -W/2.0 + 5.0 + pitch*i + pitch/2.0
+        if i:                                   # 0 is the bare reference
+            c = cols[(i - 1) % len(cols)]
+            for dx, w in ((-2.6, PLY_TICK_W), (2.6, PLY_HOUR_W)):
+                pts = stadium(-tick_len/2.0, tick_len/2.0, w, 90.0)
+                parts.append(poly([(x + dx + px, ty + py) for px, py in pts],
+                                  fill=c, layer=f'engrave-test-{i}'))
+        for g in digit(i, x, -H/2.0 + 7.0, 7.0):
+            parts.append(poly(g, fill=ENG, layer='engrave-labels'))
+    body = [(-W/2.0, -H/2.0), (W/2.0, -H/2.0), (W/2.0, H/2.0), (-W/2.0, H/2.0)]
+    parts.append(poly(body, stroke=CUT, layer='cut-outline'))
     return document(parts, W + 2.0, H + 2.0,
-                    f'Engrave depth coupon - {n} settings - notched end is #1')
+                    f'Engrave depth coupon - {n} settings + a bare reference')
 
 
 def main():
