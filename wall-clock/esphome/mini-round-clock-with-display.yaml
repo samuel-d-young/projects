@@ -2319,6 +2319,34 @@ select:
     initial_option: "anticlockwise"
     optimistic: true
     restore_value: true
+  # WHEN THE NIGHT STARTS COUNTING DOWN.
+  # Sam, 2026-09-17: "Why aren't the LED rings counting down when bedtime has
+  # started? They need to count down around the clock LED's until wake up time."
+  #
+  # They were not, because `frac` was only ever computed for st == 0. Through
+  # the bedtime warning the ring sat FULL, and at "almost morning" it went full
+  # again -- so the one continuous countdown Sam is describing was actually
+  # three separate windows with a drain in only the middle one.
+  #
+  #   bedtime      one run from the moment the bedtime warning starts, all the
+  #                way to wake. What he asked for, and the default.
+  #   lights out   the old behaviour: full through the warning, drains from
+  #                lights-out. Kept because it is a different message -- "the
+  #                night starts now" rather than "you are already on the clock".
+  #
+  # Either way it now runs THROUGH "almost morning" instead of resetting to
+  # full there, because "until wake up time" means until wake up time.
+  - platform: template
+    id: grow_stars_from
+    name: "Grow clock stars count from"
+    entity_category: config
+    icon: mdi:timer-sand-full
+    options:
+      - "bedtime"
+      - "lights out"
+    initial_option: "bedtime"
+    optimistic: true
+    restore_value: true
   # The stars on the screen: plain dots, or little four-point sparkles.
   - platform: template
     id: grow_star_shape
@@ -3569,11 +3597,22 @@ interval:
             if (id(grow_override) == 1) st = 2;
             if (id(grow_override) == 2) st = 0;
 
-            // Stars: the fraction of the night still to go. Measured from bed
-            // to wake so a "sleep now" at 18:30 still counts down to 7:00.
-            if (st == 0) {
-              int total = span(bed, wake); if (total <= 0) total = 1;
-              int left  = span(m, wake);   if (left > total) left = total;
+            // Stars: the share of the night still to go, as ONE run from
+            // whenever the night starts to wake. Measured to WAKE rather than
+            // by elapsed time, so a "sleep now" override at 18:30 still counts
+            // down to 7:00 and a schedule change mid-night lands correctly.
+            //
+            // Computed for bedtime (3), sleep (0) and almost (1) -- all three,
+            // or the ring resets to full at each boundary, which is what Sam
+            // was seeing. In "lights out" mode the bedtime leg clamps to 1.0 on
+            // its own (m is before bed, so left > total), which is exactly the
+            // old full-ring-through-the-warning behaviour with no special case.
+            if (st == 3 || st == 0 || st == 1) {
+              const bool from_bed =
+                  id(grow_stars_from).current_option().str() == "bedtime";
+              const int start = (from_bed && bwarn > 0) ? bwarn0 : bed;
+              int total = span(start, wake); if (total <= 0) total = 1;
+              int left  = span(m, wake);     if (left > total) left = total;
               frac = (float) left / (float) total;
             }
 
@@ -3795,7 +3834,7 @@ interval:
             // so hash the count. grow_frac slides continuously and would
             // otherwise force a repaint every single second for a row of dots
             // that changes about once every few minutes.
-            if (id(grow_stars).state && (st == 0 || st == 4)) {
+            if (id(grow_stars).state && st != 2) {
               const int NS = std::max(3, std::min(12, (int) id(grow_star_count).state));
               int lit = (int) ceilf(id(grow_frac) * NS); if (lit > NS) lit = NS;
               mix(0xA1u); mix((uint32_t) NS); mix((uint32_t) lit);
@@ -4395,13 +4434,16 @@ light:
               float k = 1.0f;
               const float ph = (id(frame) % 80) / 80.0f;               // 4 s breathe
               const float breathe = 0.55f + 0.45f * fabsf(1.0f - 2.0f * ph);
-              bool stars = false;
+              // Stars whenever it is not the awake window. They used to be
+              // set only inside the sleep branch below, which is why the
+              // bedtime and almost rings were solid. frac carries the meaning;
+              // this only says whether to draw an arc or a full ring.
+              bool stars = id(grow_stars).state && st != 2;
               if (st == 0 || st == 4) {
                 if      (sc == "red")    { r = 120; g = 0;  b = 0;   }
                 else if (sc == "purple") { r = 60;  g = 0;  b = 90;  }
                 else if (sc == "off")    { r = 0;   g = 0;  b = 0;   }
                 else                     { r = 0;   g = 20; b = 120; }
-                stars = id(grow_stars).state;
               } else if (st == 1) {
                 if      (ac == "yellow") { r = 255; g = 200; b = 0;   }
                 else if (ac == "green")  { r = 0;   g = 200; b = 40;  }
@@ -6048,7 +6090,7 @@ display:
         // Stars until morning: a row under the eyes, lit ones solid, spent
         // ones faint. The row is grow_star_count wide at up to 28 px pitch;
         // y = CY + 72 has 165 px of half-width on the round panel.
-        if (msg.empty() && id(grow_stars).state && (st == 0 || st == 4)) {
+        if (msg.empty() && id(grow_stars).state && st != 2) {
           const int NS = std::max(3, std::min(12, (int) id(grow_star_count).state));
           const int pitch = std::min(28, 220 / std::max(1, NS - 1));
           const bool pointy = id(grow_star_shape).current_option().str() == "stars";
@@ -6823,7 +6865,7 @@ display:
         }
         if (sound) it.print(W - 12, 10, id(font_med), ink, TextAlign::TOP_RIGHT, "shh");
         if (partial) { it.end_clipping(); return; }
-        if (id(grow_stars).state && (st == 0 || st == 4)) {
+        if (id(grow_stars).state && st != 2) {
           const int NS = std::max(3, std::min(12, (int) id(grow_star_count).state));
           const int pitch = std::min(20, 160 / std::max(1, NS - 1));
           const bool pointy = id(grow_star_shape).current_option().str() == "stars";

@@ -7340,3 +7340,64 @@ first face was cut, not after.
 
 Its first version stacked all eight labels at twelve o'clock, one millimetre
 apart, completely illegible. Found by rendering it. That is three for three.
+
+---
+
+## 2026-09-17 — the collar goes under the wood, and the night counts from bedtime
+
+### Keep the 54 mm frame, cut the housing down instead
+
+Sam: *"keep the 54mm frame, do the diffuser variant"*.
+
+Two ways out of a 54 mm hole and a 59.9 mm collar. Opening the hole costs the
+frame — the wood stops covering the panel edge and the housing ring shows. So:
+**end the collar below the wood** instead.
+
+The cells slice already did that. Taking the front `PLY_T` off the plain
+diffuser leaves the collar running seated **15.10 → 18.93**, under the wood's
+back face at 19.00. `build_diffuser_cells` was then *deleting* it as an
+"orphaned island" — right while nothing needed it, wrong the moment the wood
+arrived, because with a wooden face it is the only thing round the screen.
+
+So it becomes a part: `mini-round-clock-screen-collar-60`, and every number on
+it is a fit rather than a preference.
+
+| | |
+|---|---|
+| r 27.63 → 29.94 | bore outboard of the 55 mm active area so it never covers a pixel; OD 0.25 inside the base's display bore, which locates it |
+| z 14.30 → 18.93 | 0.10 clear of the panel's front face, stopping on the same plane the cell ring stops on |
+
+**Capped, not clamped.** 18.93 against a back face at 19.00 leaves 0.07, and the
+54 mm hole overhangs its bore by 0.63 — so it cannot come forward and it never
+leans on the glass. `PLY_BORE_R` is back to 27.00 and `PLY_CENTRE_OD` is a named
+**zero**: nothing passes through the middle any more. Section 3c booleans the
+whole stack against the wood (0.000 mm³) rather than comparing parameters,
+which is what was wrong the first time.
+
+### "Why aren't the LED rings counting down when bedtime has started?"
+
+Because `frac` was only ever computed for `st == 0`. Through the bedtime warning
+the ring sat **full**, and at *almost morning* it went **full again** — so the
+one continuous countdown Sam is describing was three windows with a drain in
+only the middle one.
+
+It is now computed across bedtime (3), sleep (0) **and** almost (1), as a single
+run to wake, with `grow_stars_from` choosing where it starts:
+
+| | 19:00 | 19:29 | 00:00 | 06:30 | 06:59 |
+|---|---|---|---|---|---|
+| **bedtime** (default) | 60/60 | 58/60 | 35/60 | 3/60 | 1/60 |
+| lights out | 60/60 | 60/60 | 37/60 | 3/60 | 1/60 |
+
+`lights out` needs no special case: `m` is before `bed`, so `left > total`,
+the existing clamp pins it at 1.0, and the old full-ring-through-the-warning
+behaviour falls out of the same three lines.
+
+Measured to **wake** rather than by elapsed time, so a "sleep now" override at
+18:30 still counts down to 7:00. And the ring's `stars` flag is now
+`grow_stars && st != 2` — set once, before the colour branches, instead of
+inside the sleep branch, which is why bedtime and almost were solid. The panel's
+star row follows the same rule at all three of its sites.
+
+Simulated across a night before pushing, the same way the anticlockwise fix was:
+the table above is output, not intention.

@@ -1887,8 +1887,39 @@ def build_diffuser_cells(B):
     """
     d = build_diffuser(B, numerals_on=False)
     d -= box_lwh(-300, 300, -300, 300, -1.0, PLY_T)
-    d -= cyl(60.0, -1.0, 400.0, SEG)        # the orphaned screen collar
+    # The inner 60 mm comes away as its own part rather than being deleted. It
+    # WAS deleted -- "the orphaned screen collar" -- and that was right only
+    # while nothing needed it. With a wooden face there is nothing else around
+    # the screen at all, so it is built properly by build_screen_collar() and
+    # printed separately. Sam, 2026-09-17: "keep the 54mm frame, do the
+    # diffuser variant."
+    d -= cyl(60.0, -1.0, 400.0, SEG)
     return d
+
+
+def build_screen_collar(B):
+    """The ring round the screen, for the plywood build.
+
+    With a printed face the diffuser's own collar did this job as part of the
+    face plate. The wood replaces the face plate, the cells slice takes the
+    collar's top off with it, and what is left has to stand on its own.
+
+    It is a plain tube and deliberately so -- every number on it is a fit:
+
+        r 27.63 .. 29.94   inboard edge is outboard of the 55 mm active area, so
+                           it never covers a pixel; outboard edge is 0.25 inside
+                           the base's display bore, which is what locates it
+        z 14.30 .. 18.93   0.10 above the panel's front face, and stopping on
+                           the same plane the cell ring stops on
+
+    It is CAPPED by the wood rather than clamped by it: 18.93 against a back
+    face at 19.00 leaves 0.07, and the 54 mm hole overhangs the ring's bore by
+    0.63, so it cannot come forward and cannot press on the glass.
+    """
+    return tube(SCREEN_COLLAR_RI, SCREEN_COLLAR_RO,
+                DIFF_SEAT_Z - SCREEN_COLLAR_TOP,      # 3.00 local
+                DIFF_SEAT_Z - SCREEN_COLLAR_BOT,      # 7.63 local
+                SEG)
 
 
 def _wall_yz(prof, x0, x1):
@@ -2669,6 +2700,7 @@ if __name__ == '__main__':
               f'{HOUSING_DEEP:.2f}. No internal battery in this build.')
     if not args.custom and args.only in (None, '-60'):
         parts.append((build_light_guides(BODY60), 'mini-round-clock-light-guides-60', True))
+        parts.append((build_screen_collar(BODY60), 'mini-round-clock-screen-collar-60', True))
     if not args.custom and args.only is None:
         parts.append((build_collar_gauges(), 'mini-round-clock-collar-gauges', False))
         parts.append((build_board_clamp(), 'mini-round-clock-board-clamp', True))

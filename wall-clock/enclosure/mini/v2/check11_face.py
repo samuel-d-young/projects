@@ -120,10 +120,10 @@ ck(2*r_scr >= PLY_CENTRE_OD + 2*PLY_CENTRE_CLR - 0.01,
 ck(2*r_scr - PLY_KERF > PLY_CENTRE_OD,
    'and still clears once the kerf has taken its half',
    f'{2*r_scr - PLY_KERF:.2f} vs {PLY_CENTRE_OD:.1f}')
-if 2*r_scr > DISP_ACTIVE_D:
-    print(f'  [note] the hole is bigger than the {DISP_ACTIVE_D:.1f} mm active '
-          f'area, so the wood no longer frames the panel — the housing ring '
-          f'shows. That is the cost of clearing it.')
+ck(2*r_scr < DISP_ACTIVE_D,
+   'and it still FRAMES the panel, which is what Sam wanted kept',
+   f'{2*r_scr:.2f} bore inside a {DISP_ACTIVE_D:.1f} active area: '
+   f'{(DISP_ACTIVE_D - 2*r_scr)/2:.2f} mm of wood over the panel edge')
 
 print('\n3. Seated in the base — booleaned, not reasoned about')
 base = trimesh.load(csg.part('mini-round-clock-base-60.stl'), process=False)
@@ -209,33 +209,55 @@ for nm, want_clear in (('mini-round-clock-diffuser-60-cells.stl', True),
            f'{nm} does NOT -- and the check records that rather than assuming it',
            f'{v/1000:.1f} cm3 of clash, tops out at z={d.bounds[1][2]:.2f}')
 
-print('\n3c. Does the middle hole actually pass over the middle?')
+print('\n3c. Nothing in the middle reaches the wood any more')
 # Sam cut a face and it would not go on: "The hole in the middle was too small
-# for the 3D printed housing." The hole was 54.0 and the screen collar is 59.9
-# across. Eleven sections and none of them asked this.
+# for the 3D printed housing." The hole was 54.0 and the screen collar 59.9.
 #
-# The first version of this check tried to derive the housing from the mesh by
-# clipping the plain diffuser at r=40 -- and then measured the clip. Worse, it
-# was the wrong question: at the wood's height the plain diffuser is solid from
-# r 28.05 ALL THE WAY OUT, because its face is there. With a plain diffuser in
-# the clock there is no hole size that works, which is what 3b says.
-#
-# So the honest check is on the parameter: PLY_CENTRE_OD is the one number that
-# decides this hole, it has to cover everything that could be in the middle, and
-# it has to be confirmed against the real clock rather than inferred here.
-CANDIDATES = {
-    'the screen collar (COLLAR_EXT_RO x 2)': 2 * COLLAR_EXT_RO,
-    "the display's round PCB (DISP_PCB_D)": DISP_PCB_D,
-}
-for what, od in CANDIDATES.items():
-    ck(PLY_CENTRE_OD >= od, f'the hole is sized to clear {what}',
-       f'{PLY_CENTRE_OD:.2f} vs {od:.2f}')
-ck(2 * r_scr - PLY_KERF - PLY_CENTRE_OD > 0.5,
-   'with enough left over that a tenth of drift does not jam it',
-   f'{2*r_scr - PLY_KERF - PLY_CENTRE_OD:.2f} mm on diameter')
-print('  [note] PLY_CENTRE_OD is NOT verified against Sam\'s clock. It is the '
-      'largest thing this repo knows about. Measure the real housing before '
-      'cutting: it is the number that wasted a sheet.')
+# Two ways out: open the hole to clear the collar, or cut the collar down to
+# pass under the wood. Sam chose the second -- "keep the 54mm frame, do the
+# diffuser variant" -- so this is the check that the choice actually holds.
+# It is a boolean against the parts, not a comparison of parameters, because
+# the parameter comparison is what was wrong in the first place.
+wood_vol = (cyl(r_out, 19.00, 22.00, 256)
+            - cyl(r_scr, 18.0, 23.0, 256))
+stack = None
+for nm in ('mini-round-clock-diffuser-60-cells.stl',
+           'mini-round-clock-screen-collar-60.stl'):
+    m = trimesh.load(csg.part(nm), process=False)
+    m.merge_vertices()
+    m.apply_transform(np.diag([1.0, -1.0, -1.0, 1.0]))
+    m.apply_translation([0, 0, DIFF_SEAT_Z])
+    ck(m.bounds[1][2] <= 19.00 + 1e-6,
+       f'{nm.replace("mini-round-clock-", "")} stops below the wood',
+       f'tops out at z={m.bounds[1][2]:.2f}, wood back face is 19.00')
+    stack = to_manifold(m) if stack is None else stack + to_manifold(m)
+clash = (stack ^ wood_vol).volume()
+ck(clash < 1.0, 'so the whole stack clears the wood -- booleaned, not argued',
+   f'{clash:.3f} mm3')
+
+# and the collar has to still DO something: sit in the base bore, round the
+# screen, without standing in front of a pixel or leaning on the glass
+col = trimesh.load(csg.part('mini-round-clock-screen-collar-60.stl'),
+                   process=False)
+col.merge_vertices()
+col.apply_transform(np.diag([1.0, -1.0, -1.0, 1.0]))
+col.apply_translation([0, 0, DIFF_SEAT_Z])
+crr = np.hypot(col.vertices[:, 0], col.vertices[:, 1])
+ck(crr.min() * 2 > DISP_ACTIVE_D - 0.01,
+   'the collar never stands in front of a pixel',
+   f'bore {2*crr.min():.2f} vs a {DISP_ACTIVE_D:.1f} active area')
+ck(crr.min() > r_scr,
+   'and the wood caps it, so it cannot come forward',
+   f'collar bore r {crr.min():.2f} vs hole r {r_scr:.2f}: '
+   f'{crr.min() - r_scr:.2f} mm of overhang')
+ck(col.bounds[0][2] > Z_SEAT + DISP_T,
+   'and it stops clear of the panel rather than resting on the glass',
+   f'collar bottom z={col.bounds[0][2]:.2f}, panel front {Z_SEAT + DISP_T:.2f}')
+base_c = trimesh.load(csg.part('mini-round-clock-base-60.stl'), process=False)
+base_c.merge_vertices()
+bv = (to_manifold(base_c) ^ to_manifold(col)).volume()
+ck(bv < 1.0, 'and it drops into the base bore without fouling it',
+   f'{bv:.3f} mm3')
 
 print('\n4. The lines sit where the light comes out')
 # The printed diffuser is the authority: its pockets are the places the design

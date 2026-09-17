@@ -2074,10 +2074,16 @@ PLY_KERF        = 0.20      # typical diode-laser kerf in 3 mm ply. NOT applied 
 # A parameter derived from the wrong requirement measures something true and
 # answers the wrong question, which is why it looked right in review: 54 really
 # is 1 mm inside the active area.
-PLY_CENTRE_OD   = 60.00     # the widest thing that must pass through the middle.
-                            # From params: the collar is 59.90, the PCB 60.0.
-                            # CONFIRM WITH CALIPERS on the real clock before
-                            # cutting -- this is the number that wasted a sheet.
+# Sam, 2026-09-17: "keep the 54mm frame, do the diffuser variant". So the
+# housing is cut down to pass UNDER the wood instead of the hole being opened up
+# to pass over it -- see build_screen_collar(). Nothing in the middle now rises
+# above the wood's back face at z 19.00, so nothing has to pass through the hole
+# and the frame rule binds again. check11 section 3c proves that by boolean
+# rather than by this comment.
+PLY_CENTRE_OD   = 0.00      # nothing passes through the middle any more.
+                            # Kept as a named zero rather than deleted: the
+                            # requirement is real and the day something tall
+                            # comes back, this is where it gets written down.
 PLY_CENTRE_CLR  = 0.60      # radial clearance over it. The kerf only adds to
                             # this, so it is a floor and not a target.
 PLY_BORE_R      = max(DISP_ACTIVE_D/2.0 - 0.50,        # frame the panel...
@@ -2171,3 +2177,42 @@ PLUG_TEST_MARK_SIZE = 4.50   # digit height. 3.00 put the thinnest segment at
                              # which is how you get a number you cannot read.
                              # 4.50 puts it at 0.72 and still fits the 5.60
                              # flange (a digit is 0.62 of its height wide).
+
+
+# =============================================================================
+# v19 -- THE SCREEN COLLAR AS ITS OWN PART
+# =============================================================================
+# Sam, 2026-09-17: "keep the 54mm frame, do the diffuser variant".
+#
+# The 54 mm hole frames the panel, which is what it was always for. What broke
+# was that the screen collar -- r 28.05..29.95, rising to seated z 21.91 --
+# went straight through where the wood goes, so the wood could not pass over it.
+#
+# The fix is not a bigger hole. It is to END THE COLLAR BELOW THE WOOD. The
+# cells slice already does exactly that: cutting the front PLY_T off the plain
+# diffuser leaves the collar running seated 15.10 to 18.93, which is under the
+# wood's back face at 19.00. build_diffuser_cells was then DELETING it as an
+# "orphaned" island -- correct when nothing needed it, wrong the moment the
+# wood arrived, because it is the only thing round the screen.
+#
+# So it becomes a part in its own right rather than a fragment of another one.
+SCREEN_COLLAR_RI  = DIFF_BORE_RI              # 27.63. Outboard of the 55 mm
+                                              # active area (r 27.50), so it
+                                              # never stands in front of a pixel,
+                                              # and inboard of nothing the wood
+                                              # needs -- the 54 mm hole (r 27.00)
+                                              # overhangs it by 0.63 and caps it.
+SCREEN_COLLAR_CLR = 0.25                      # radial, in the base's display
+                                              # bore, which is what locates it
+SCREEN_COLLAR_RO  = R_DISP_BORE - SCREEN_COLLAR_CLR   # 29.94
+SCREEN_COLLAR_TOP = DIFF_SEAT_Z - PLY_T       # 18.93 seated. The same plane the
+                                              # cell ring is cut at, so both
+                                              # parts stop together and the wood
+                                              # lands on the base's collar, not
+                                              # on these.
+SCREEN_COLLAR_GAP = 0.10                      # above the panel's front face.
+                                              # NOT zero: the collar is capped
+                                              # by the wood and floats in
+                                              # 0.16 mm, so it is located without
+                                              # ever pressing on the glass.
+SCREEN_COLLAR_BOT = Z_SEAT + DISP_T + SCREEN_COLLAR_GAP   # 14.30 seated
