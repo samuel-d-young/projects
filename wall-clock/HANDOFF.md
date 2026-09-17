@@ -402,9 +402,16 @@ Settings view's 411 entity references). Neither replaces a compile.
 
 ## Blocked, needing Samuel's hands
 
-* **The flash route is dead.** Seven pokes to the bench session, all delivered,
-  none executed. Flash directly instead — the command is in "How to resume on
-  Windows" below.
+* **The flash route needs the bridge up, and it is not.** Corrected 2026-09-17:
+  "flash over WiFi" only ever worked by handing the job to a Claude Code
+  **Remote Control** session running on Sam's PC (`claude remote-control`),
+  which is on the LAN. Every bridge session on the account is now
+  `disconnected` / `computer_unreachable` — the last one dropped at 05:30 UTC
+  on 2026-09-17. Nothing a cloud session does can restart a process on the PC.
+  **Sam runs `claude remote-control` on the PC; then the cloud session fires
+  `FLASH-JOB.md` at it.** The job is in the repo now so it also works typed
+  straight into a local session, which sidesteps the earlier failure of
+  pokes being delivered and not executed.
 * Clocks 1 and 2 are off the network (task #27).
 * HA packages still not installed: ports 22/445 closed on the guest. Needs the
   Samba share or Terminal & SSH add-on. Note the hypervisor `.66` **does** have
