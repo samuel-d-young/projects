@@ -1,5 +1,22 @@
 # Laser-cut plywood face — 60-LED clock
 
+> ## ⚠ PRINT `mini-round-clock-diffuser-60-cells` BEFORE YOU CUT ANY WOOD
+>
+> **The face physically cannot go into a clock that has a plain diffuser in
+> it.** Not tight, not fiddly — the plain diffuser tops out at z 21.93 and the
+> wood wants z 19.00 to 22.00. They overlap by **105 cm³**, which is the whole
+> part.
+>
+> `-cells` is the same diffuser with its front 3 mm sliced off, because the wood
+> is the mask now. It tops out at 18.93 and the wood lands at 18.99.
+>
+> This was written at line 98 of this file and mentioned in passing in chat,
+> and Sam cut a face and wasted the material on 2026-09-17. It is at the top
+> now, and `check11_face.py` section 3b booleans the face against **both**
+> diffusers rather than taking it on trust — which is what it should have done
+> from the first version.
+
+
 Sam, 2026-09-16: *"Make a file that I can laser cut wood for the front of the
 60LED clock. With lines for the LED's to shine through. Those areas won't be cut
 all the way through, but be recessed from the laser so light shines through."*

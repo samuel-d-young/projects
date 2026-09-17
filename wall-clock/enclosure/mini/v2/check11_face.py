@@ -150,6 +150,43 @@ ck(c_ri > r_scr and c_ro < r_out,
    'the screen collar is a full ring under the wood, not a step it misses',
    f'collar r {c_ri:.2f}..{c_ro:.2f}, wood spans {r_scr:.2f}..{r_out:.2f}')
 
+print('\n3b. Against the part DIRECTLY BEHIND IT, which section 3 never did')
+# Sam, 2026-09-17, after cutting a face: "That laser cut svg didn't fit the
+# middle part at all. I wasted material."
+#
+# Section 3 booleans the disc against the BASE and stops there. It proved the
+# wood lands on the collar and clears the bore -- and never once put it against
+# the diffuser, which is the part occupying the very space the wood wants.
+#
+# The plain diffuser tops out at 21.93 and the wood wants 19.00 to 22.00: they
+# overlap by about 105 CUBIC CENTIMETRES. With a plain diffuser in the clock the
+# face cannot go in at all. That is not a tolerance, it is the whole part, and
+# seven checks measured this face without asking the question.
+#
+# The same lesson as the plinth that sat inside the clock: a part that goes
+# inside another one gets a boolean against it. I applied it to the base and
+# not to the thing immediately behind the base.
+wood_solid = (cyl(r_out, seat, seat + PLY_T, 256)
+              - cyl(r_scr, seat - 1.0, seat + PLY_T + 1.0, 256))
+for nm, want_clear in (('mini-round-clock-diffuser-60-cells.stl', True),
+                       ('mini-round-clock-diffuser-60-plain.stl', False),
+                       ('mini-round-clock-diffuser-60.stl', False)):
+    pth = csg.part(nm)
+    if not os.path.exists(pth):
+        continue
+    d = trimesh.load(pth, process=False)
+    d.merge_vertices()
+    d.apply_transform(np.diag([1.0, -1.0, -1.0, 1.0]))
+    d.apply_translation([0, 0, DIFF_SEAT_Z])
+    v = (to_manifold(d) ^ wood_solid).volume()
+    if want_clear:
+        ck(v < 1.0, f'{nm} is the one that lets the wood in',
+           f'{v:.2f} mm3 of clash, tops out at z={d.bounds[1][2]:.2f}')
+    else:
+        ck(v > 1000.0,
+           f'{nm} does NOT -- and the check records that rather than assuming it',
+           f'{v/1000:.1f} cm3 of clash, tops out at z={d.bounds[1][2]:.2f}')
+
 print('\n4. The lines sit where the light comes out')
 # The printed diffuser is the authority: its pockets are the places the design
 # lets light reach the face. Every tick's centreline is sampled against it.

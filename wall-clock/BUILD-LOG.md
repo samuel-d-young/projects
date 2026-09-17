@@ -7231,3 +7231,63 @@ number; `PLUG_FIT` moves; nothing else does.
 check12 is new and in `runchecks.sh`: counts, widths measured at mid-body, the
 plug booleaned against the seated cell ring and against a fitted guide (0.000
 mm³ each), flush at z 22.000, and 97.3% of the slot filled.
+
+---
+
+## 2026-09-17 — the face could never have fitted, and no check asked
+
+Sam, having cut one: *"That laser cut svg didn't fit the middle part at all. I
+wasted material."*
+
+Measured, not guessed:
+
+| what is behind the wood | tops out at | clash with the wood |
+|---|---|---|
+| `diffuser-60-cells` | z 18.93 | **0.0 mm³** |
+| `diffuser-60-plain` | z 21.93 | **105.4 cm³** |
+| `diffuser-60` | z 21.93 | **105.2 cm³** |
+
+The wood occupies z 19.00–22.00. A plain diffuser occupies the same space. That
+is not a tolerance problem or a fiddly fit — **it is the entire part**, and with
+one in the clock the face cannot go in at all.
+
+`diffuser-60-cells` exists precisely for this and has since the face was first
+drawn. It was documented. It was documented at **line 98 of the laser README**,
+in a table entry in MAKE.md, and in one sentence of a chat message that led with
+"cut the coupon first". None of which is the same as making it impossible to
+miss.
+
+### The checking failure, which is the part worth keeping
+
+check11 had, by this point, **eleven sections and forty-odd assertions** about
+this face. It measured the disc against the bore, the collar, the tick pockets,
+the mirror symmetry, the kerf, the cut order. Section 3 is even titled *"Seated
+in the base — booleaned, not reasoned about"* and it does exactly that — against
+`base-60.stl`, and nothing else.
+
+**It never booleaned the face against the part directly behind it.**
+
+This is the plinth again, in a new costume. On 2026-09-09: *"a part that goes
+inside another one gets a boolean against it"* — 1134 mm³ of plinth had been
+sitting inside a clock because seven checks measured the stand and none put the
+clock in it. I wrote that lesson down, applied it to the base, and did not
+carry it to the diffuser. A lesson applied to the specific part that taught it
+is not a lesson learned; it is a patch.
+
+The tell was available the whole time and I walked past it: `build_diffuser_cells`
+exists **only** because the plain one does not fit. Writing a part whose entire
+reason for existing is a clash is knowing about the clash. What was missing was
+a test that would fail if someone did the obvious thing.
+
+Section 3b now booleans the face against all three diffusers and asserts the
+plain ones **do** clash — recording the incompatibility as a fact the suite
+enforces rather than a sentence in a README. And the warning is the first thing
+in that README, above the file table.
+
+### What this did not cost, and what it did
+
+Nothing in the geometry was wrong. The SVG is the same file it was; the face
+fits the clock it was designed for. What was wrong was that the deliverable had
+a prerequisite and the delivery did not carry it — a correct part, handed over
+in a way that let it be used incorrectly, which is a defect in the handover and
+not a difference of opinion about whose job it was to read line 98.
