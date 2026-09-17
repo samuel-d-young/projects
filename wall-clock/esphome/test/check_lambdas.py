@@ -76,8 +76,34 @@ for path, body in lambdas:
         if d:
             bad_bal.append((path, open_c, d))
 
-print(f'{len(lambdas)} lambdas, {len(ids)} declared ids')
+# ---- globals: every one needs a type -------------------------------------
+# NOT about lambdas, but it belongs to the same job: things `esphome config`
+# would catch in a second and nothing here can. Added because I inserted a new
+# global directly after `- id: grow_daytime` and above its `type:`, which
+# silently handed grow_daytime's type to the new entry and left the old one
+# with none. Every lambda still balanced and every id still resolved, so this
+# file said the firmware was fine. A checker only sees what it looks at.
+REQUIRED = ('type', 'restore_value')
+bad_glob = []
+for g in (doc.get('globals') or []):
+    if not isinstance(g, dict):
+        bad_glob.append((str(g), 'not a mapping'))
+        continue
+    gid = g.get('id', '<no id>')
+    for key in REQUIRED:
+        if key not in g:
+            bad_glob.append((gid, f'no {key}:'))
+
+print(f'{len(lambdas)} lambdas, {len(ids)} declared ids, '
+      f'{len(doc.get("globals") or [])} globals')
 ok = True
+if bad_glob:
+    ok = False
+    print(f'\n{len(bad_glob)} MALFORMED globals:')
+    for gid, why in bad_glob:
+        print(f'   {gid}   {why}')
+else:
+    print('  [ok  ] every global declares a type and a restore_value')
 if bad_ids:
     ok = False
     print(f'\n{len(bad_ids)} UNDECLARED id() references:')

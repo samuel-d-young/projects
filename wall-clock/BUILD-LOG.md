@@ -7089,3 +7089,61 @@ it by what moves. And the check that found it was not reading the code again —
 it was running the real `P()` over the real indices and printing which pixel
 goes dark first.
 
+
+---
+
+## 2026-09-17 — "faces by the hour" took the night off the ring
+
+Sam: *"The countdown I want back is where the LED ring counts down overnight."*
+
+**Back** is the word that mattered. It had worked; something took it away.
+
+`git log -S 'fw == "clock"'` returns exactly one commit — **611eb7b, "picture
+routines, weather symbol, draggable layout, faces by the hour"**. Nothing in
+that commit was about the ring, and it is what stopped the ring.
+
+`grow_daytime` meant *"it is daytime, the ordinary clock has the panel"*, and
+both the panel and the ring read it. Face windows then started forcing it
+**true** so a window could ask for the clock face:
+
+```cpp
+if (fw == "clock") id(grow_daytime) = true;
+```
+
+A window saying "clock" over the evening therefore switched the **ring** out of
+grow mode for the whole night — sleep colour gone, stars not draining, ordinary
+hands instead. Nothing looked broken and no setting looked like the cause,
+because the cause was a *face preference* three layers away.
+
+`grow_ring_day` now, snapshotted from `grow_daytime` immediately before the
+windows get a say. A `clock` window moves the panel only. A `grow` window still
+moves both — asking for the grow face and getting the grow ring with it is what
+that word means. `routine` windows never touched it.
+
+**Third time in two days**, and it is the same shape every time: one boolean
+answering two questions, and in all three the **ring was quietly following the
+panel** —
+
+| flag | the panel's question | the ring's question | got it wrong first? |
+|---|---|---|---|
+| `routine_on` → `routine_face` | who owns the glass | is a step draining | caught before pushing |
+| backlight force-to-daylight | — | — | caught before pushing |
+| `grow_daytime` → `grow_ring_day` | which face | is it night | **shipped, and Sam found it** |
+
+The two I caught were caught because I was already looking; this one shipped
+because I was adding a feature to the panel and never asked what else read the
+flag. **When you make an existing flag settable from a new place, the question
+is not "is the new value right" — it is "who else reads this".**
+
+### The checker could not see the bug it was written for
+
+Inserting the new global directly after `- id: grow_daytime` and above its
+`type:` handed grow_daytime's type to the new entry and left the old one with
+none. `check_lambdas.py` said the firmware was fine: every lambda balanced,
+every `id()` resolved. It had never been asked to look at a declaration.
+
+It checks `globals:` now — every one needs a `type` and a `restore_value` —
+and it was baselined **both ways**: against the broken file, where it exits 1
+naming `grow_daytime` twice, and against the good one, where it exits 0. A new
+check that has only ever been seen to pass is half a test.
+

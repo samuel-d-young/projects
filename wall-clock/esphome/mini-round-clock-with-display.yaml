@@ -3299,6 +3299,29 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  # THE RING'S DAYTIME, WHICH IS NOT THE PANEL'S.
+  # Sam, 2026-09-17: "The countdown I want back is where the LED ring counts
+  # down overnight." It went away in "faces by the hour" (611eb7b) and nothing
+  # in that commit was about the ring.
+  #
+  # grow_daytime had been one flag meaning "it is daytime, the ordinary clock
+  # has the panel". Face windows then started forcing it TRUE so a window could
+  # ask for the clock face -- and because the RING read the same flag, a window
+  # that said "clock" at 8 pm also switched the ring out of grow mode for the
+  # whole night. The stars stopped draining and there was no setting that
+  # looked like the cause, because the cause was a face preference.
+  #
+  # So: grow_daytime is the PANEL's, and this is the RING's. They are the same
+  # value until the face windows get a say, and a "clock" window moves only the
+  # panel. A "grow" window still moves both -- asking for the grow face and
+  # getting the grow ring with it is the thing that word means.
+  #
+  # Third time in two days that one boolean turned out to be answering two
+  # questions, and all three were the ring quietly following the panel.
+  - id: grow_ring_day
+    type: bool
+    restore_value: no
+    initial_value: 'false'
 
   # Drives pulses and the test chase. Deliberately independent of wall-clock
   # time so animations still run before the first sync.
@@ -3596,10 +3619,16 @@ interval:
           // ---- FACE SCHEDULE: a window from HA overrides "clock by day" ----
           // grow / clock / routine / auto. A running step still outranks all of
           // them -- the parent scheduled that for this minute.
+          // The ring's daytime is fixed HERE, before the windows get a say.
+          id(grow_ring_day) = id(grow_daytime);
           {
             const std::string fw = (fx == "auto") ? id(face_want_in).state : std::string("auto");
+            // "clock" takes the PANEL and leaves the ring alone -- at night the
+            // ring keeps the sleep colour and the draining stars whatever face
+            // is on the glass. "grow" takes both.
             if      (fw == "clock") id(grow_daytime) = true;
-            else if (fw == "grow")  id(grow_daytime) = false;
+            else if (fw == "grow")  { id(grow_daytime) = false;
+                                      id(grow_ring_day) = false; }
             // "routine" only holds while there is something to put on the glass
             const std::string nl = id(routine_next_label).state;
             const bool has_next = !nl.empty() && nl != "none" && nl != "unknown"
@@ -4351,9 +4380,12 @@ light:
             // panel shows what is coming, the ring keeps the cue. Same reason
             // the backlight above stayed on routine_on.
             //
-            // By day this line is already false on !grow_daytime, so the two
+            // By day this line is already false on !grow_ring_day, so the two
             // spellings only differ at night, where routine_on is the right one.
-            if (id(grow_mode).state && !id(grow_daytime) && !id(routine_on)) {
+            //
+            // grow_ring_day, not grow_daytime: a face window asking for the
+            // clock FACE must not take the night off the ring. See the global.
+            if (id(grow_mode).state && !id(grow_ring_day) && !id(routine_on)) {
               const int st = id(grow_st);
               const std::string sc = id(grow_sleep_colour).current_option().str();
               const std::string wc = id(grow_wake_colour).current_option().str();
