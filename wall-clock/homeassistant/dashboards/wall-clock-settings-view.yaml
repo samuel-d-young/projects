@@ -18,6 +18,8 @@
         Everything below is this clock. Tap another button to switch.'
     - type: markdown
       content: 'Adding another clock: give it a different `name:` in ESPHome (that sets its entity prefix, hostname and OTA target), add it to `CLOCKS` in `build_clock_dashboard.py`, and to the options of the input_select.'
+    - type: markdown
+      content: '**Update every clock** installs the firmware currently on the branch, one clock at a time. Each reboots when its own install finishes — they do not go together, and a clock is offline for a minute or so while it does. Read the notification it raises: if Home Assistant has no ESPHome `update` entities it says so rather than doing nothing quietly.'
     - type: entities
       show_header_toggle: false
       entities:
@@ -77,6 +79,13 @@
         name: Timer 4
       - entity: timer.wall_clock_5
         name: Timer 5
+    - type: entities
+      title: Firmware (all clocks)
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: script.wall_clock_update_all
+        name: Update every clock now
   - type: grid
     cards:
     - type: markdown
@@ -103,9 +112,9 @@
       - entity: switch.mini_round_clock_3_grow_clock_stars
         name: Stars until morning
       - entity: select.mini_round_clock_3_grow_clock_stars_direction
-        name: '...counting down which way'
+        name:  counting down which way
       - entity: select.mini_round_clock_3_grow_clock_stars_count_from
-        name: '...counting down from when'
+        name:  counting down from when
       - entity: number.mini_round_clock_3_grow_clock_star_count
         name: How many stars
       - entity: select.mini_round_clock_3_grow_clock_star_shape
@@ -335,35 +344,42 @@
         name: Saturation
       - entity: number.mini_round_clock_3_timer_intensity
         name: Intensity
-    - type: entities
-      title: Zac's Clock — Alert
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_3_alert_pattern
-        name: Pattern
-      - entity: number.mini_round_clock_3_alert_hue
-        name: Hue
-      - entity: number.mini_round_clock_3_alert_shows_for
-        name: Clock shows it for
-      - type: section
-        label: The alarm itself
-      - entity: input_button.wall_clock_timer_dismiss
-        name: Dismiss the alarm
-      - entity: input_number.wall_clock_alert_repeat_seconds
-        name: Re-announce every
-      - entity: input_number.wall_clock_alert_repeat_max
-        name: Repeats (0 = until cancelled)
     - type: markdown
-      content: '### Zac''s Clock — Colour
+      content: '### Zac''s Clock — everything the ring can light
 
-        The presets **default, warm, cool, mono** ignore the sliders below. Set **Theme** to **custom** first, then they apply immediately, no reflash.
+        | what | where | colour | switch |
+
+        |---|---|---|---|
+
+        | Hour hand | the hour | orange | always on |
+
+        | Minute hand | the minute | blue | always on |
+
+        | Second hand | the second | grey | *Show second hand* |
+
+        | Hour markers | all twelve | dim blue-white | *Markers* |
+
+        | Timer arc | from 12 | teal | only while a timer runs |
+
+        | Timer pips | where each one finishes | dim teal | *Extra timer pips* |
+
+        | Bin night | 12 o''clock | breathing green, yellow for recycling | *Bin night* |
+
+        | Garage open | 3 o''clock | amber | *Garage open* |
+
+        | Driveway | 9 o''clock | blinking red | *Driveway* |
+
+        | Who is home | either side of 6 | Sam **blue**, Laura magenta, Amanda green, Zac amber | *Who is home* |
+
+        | Home Assistant dropped | 6 o''clock | dim red | automatic |
 
 
-        *Intensity* is the ring''s brightness for that element, not the screen''s — the screen reuses the same hue at its own brightness, because a bare LED and a backlit panel don''t want the same value.
+        **A single blue dot just left of 6 o''clock is Sam''s presence pixel.** The twelve hour markers are faintly blue too, but they are dim and there are twelve of them, so one blue dot is the presence one.'
+    - type: markdown
+      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
 
 
-        Status **pips** follow the timer arc at 62% and have no separate control. **mono** pins every saturation to zero and is the accessible palette.'
+        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
     visibility: *id001
   - type: grid
     cards:
@@ -477,42 +493,35 @@
         label: Background
       - entity: number.mini_round_clock_3_weather_tint_strength
         name: Weather tint
+    - type: entities
+      title: Zac's Clock — Alert
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_3_alert_pattern
+        name: Pattern
+      - entity: number.mini_round_clock_3_alert_hue
+        name: Hue
+      - entity: number.mini_round_clock_3_alert_shows_for
+        name: Clock shows it for
+      - type: section
+        label: The alarm itself
+      - entity: input_button.wall_clock_timer_dismiss
+        name: Dismiss the alarm
+      - entity: input_number.wall_clock_alert_repeat_seconds
+        name: Re-announce every
+      - entity: input_number.wall_clock_alert_repeat_max
+        name: Repeats (0 = until cancelled)
     - type: markdown
-      content: '### Zac''s Clock — everything the ring can light
+      content: '### Zac''s Clock — Colour
 
-        | what | where | colour | switch |
-
-        |---|---|---|---|
-
-        | Hour hand | the hour | orange | always on |
-
-        | Minute hand | the minute | blue | always on |
-
-        | Second hand | the second | grey | *Show second hand* |
-
-        | Hour markers | all twelve | dim blue-white | *Markers* |
-
-        | Timer arc | from 12 | teal | only while a timer runs |
-
-        | Timer pips | where each one finishes | dim teal | *Extra timer pips* |
-
-        | Bin night | 12 o''clock | breathing green, yellow for recycling | *Bin night* |
-
-        | Garage open | 3 o''clock | amber | *Garage open* |
-
-        | Driveway | 9 o''clock | blinking red | *Driveway* |
-
-        | Who is home | either side of 6 | Sam **blue**, Laura magenta, Amanda green, Zac amber | *Who is home* |
-
-        | Home Assistant dropped | 6 o''clock | dim red | automatic |
+        The presets **default, warm, cool, mono** ignore the sliders below. Set **Theme** to **custom** first, then they apply immediately, no reflash.
 
 
-        **A single blue dot just left of 6 o''clock is Sam''s presence pixel.** The twelve hour markers are faintly blue too, but they are dim and there are twelve of them, so one blue dot is the presence one.'
-    - type: markdown
-      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
+        *Intensity* is the ring''s brightness for that element, not the screen''s — the screen reuses the same hue at its own brightness, because a bare LED and a backlit panel don''t want the same value.
 
 
-        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
+        Status **pips** follow the timer arc at 62% and have no separate control. **mono** pins every saturation to zero and is the accessible palette.'
     visibility: *id001
   - type: grid
     cards:
@@ -553,9 +562,9 @@
       - entity: switch.mini_round_clock_4_grow_clock_stars
         name: Stars until morning
       - entity: select.mini_round_clock_4_grow_clock_stars_direction
-        name: '...counting down which way'
+        name:  counting down which way
       - entity: select.mini_round_clock_4_grow_clock_stars_count_from
-        name: '...counting down from when'
+        name:  counting down from when
       - entity: number.mini_round_clock_4_grow_clock_star_count
         name: How many stars
       - entity: select.mini_round_clock_4_grow_clock_star_shape
@@ -785,35 +794,42 @@
         name: Saturation
       - entity: number.mini_round_clock_4_timer_intensity
         name: Intensity
-    - type: entities
-      title: Jake's Clock — Alert
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_4_alert_pattern
-        name: Pattern
-      - entity: number.mini_round_clock_4_alert_hue
-        name: Hue
-      - entity: number.mini_round_clock_4_alert_shows_for
-        name: Clock shows it for
-      - type: section
-        label: The alarm itself
-      - entity: input_button.wall_clock_timer_dismiss
-        name: Dismiss the alarm
-      - entity: input_number.wall_clock_alert_repeat_seconds
-        name: Re-announce every
-      - entity: input_number.wall_clock_alert_repeat_max
-        name: Repeats (0 = until cancelled)
     - type: markdown
-      content: '### Jake''s Clock — Colour
+      content: '### Jake''s Clock — everything the ring can light
 
-        The presets **default, warm, cool, mono** ignore the sliders below. Set **Theme** to **custom** first, then they apply immediately, no reflash.
+        | what | where | colour | switch |
+
+        |---|---|---|---|
+
+        | Hour hand | the hour | orange | always on |
+
+        | Minute hand | the minute | blue | always on |
+
+        | Second hand | the second | grey | *Show second hand* |
+
+        | Hour markers | all twelve | dim blue-white | *Markers* |
+
+        | Timer arc | from 12 | teal | only while a timer runs |
+
+        | Timer pips | where each one finishes | dim teal | *Extra timer pips* |
+
+        | Bin night | 12 o''clock | breathing green, yellow for recycling | *Bin night* |
+
+        | Garage open | 3 o''clock | amber | *Garage open* |
+
+        | Driveway | 9 o''clock | blinking red | *Driveway* |
+
+        | Who is home | either side of 6 | Sam **blue**, Laura magenta, Amanda green, Zac amber | *Who is home* |
+
+        | Home Assistant dropped | 6 o''clock | dim red | automatic |
 
 
-        *Intensity* is the ring''s brightness for that element, not the screen''s — the screen reuses the same hue at its own brightness, because a bare LED and a backlit panel don''t want the same value.
+        **A single blue dot just left of 6 o''clock is Sam''s presence pixel.** The twelve hour markers are faintly blue too, but they are dim and there are twelve of them, so one blue dot is the presence one.'
+    - type: markdown
+      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
 
 
-        Status **pips** follow the timer arc at 62% and have no separate control. **mono** pins every saturation to zero and is the accessible palette.'
+        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
     visibility: *id002
   - type: grid
     cards:
@@ -927,42 +943,35 @@
         label: Background
       - entity: number.mini_round_clock_4_weather_tint_strength
         name: Weather tint
+    - type: entities
+      title: Jake's Clock — Alert
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_4_alert_pattern
+        name: Pattern
+      - entity: number.mini_round_clock_4_alert_hue
+        name: Hue
+      - entity: number.mini_round_clock_4_alert_shows_for
+        name: Clock shows it for
+      - type: section
+        label: The alarm itself
+      - entity: input_button.wall_clock_timer_dismiss
+        name: Dismiss the alarm
+      - entity: input_number.wall_clock_alert_repeat_seconds
+        name: Re-announce every
+      - entity: input_number.wall_clock_alert_repeat_max
+        name: Repeats (0 = until cancelled)
     - type: markdown
-      content: '### Jake''s Clock — everything the ring can light
+      content: '### Jake''s Clock — Colour
 
-        | what | where | colour | switch |
-
-        |---|---|---|---|
-
-        | Hour hand | the hour | orange | always on |
-
-        | Minute hand | the minute | blue | always on |
-
-        | Second hand | the second | grey | *Show second hand* |
-
-        | Hour markers | all twelve | dim blue-white | *Markers* |
-
-        | Timer arc | from 12 | teal | only while a timer runs |
-
-        | Timer pips | where each one finishes | dim teal | *Extra timer pips* |
-
-        | Bin night | 12 o''clock | breathing green, yellow for recycling | *Bin night* |
-
-        | Garage open | 3 o''clock | amber | *Garage open* |
-
-        | Driveway | 9 o''clock | blinking red | *Driveway* |
-
-        | Who is home | either side of 6 | Sam **blue**, Laura magenta, Amanda green, Zac amber | *Who is home* |
-
-        | Home Assistant dropped | 6 o''clock | dim red | automatic |
+        The presets **default, warm, cool, mono** ignore the sliders below. Set **Theme** to **custom** first, then they apply immediately, no reflash.
 
 
-        **A single blue dot just left of 6 o''clock is Sam''s presence pixel.** The twelve hour markers are faintly blue too, but they are dim and there are twelve of them, so one blue dot is the presence one.'
-    - type: markdown
-      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
+        *Intensity* is the ring''s brightness for that element, not the screen''s — the screen reuses the same hue at its own brightness, because a bare LED and a backlit panel don''t want the same value.
 
 
-        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
+        Status **pips** follow the timer arc at 62% and have no separate control. **mono** pins every saturation to zero and is the accessible palette.'
     visibility: *id002
   - type: grid
     cards:
@@ -1003,9 +1012,9 @@
       - entity: switch.mini_round_clock_grow_clock_stars
         name: Stars until morning
       - entity: select.mini_round_clock_grow_clock_stars_direction
-        name: '...counting down which way'
+        name:  counting down which way
       - entity: select.mini_round_clock_grow_clock_stars_count_from
-        name: '...counting down from when'
+        name:  counting down from when
       - entity: number.mini_round_clock_grow_clock_star_count
         name: How many stars
       - entity: select.mini_round_clock_grow_clock_star_shape
@@ -1235,35 +1244,42 @@
         name: Saturation
       - entity: number.mini_round_clock_timer_intensity
         name: Intensity
-    - type: entities
-      title: Third Clock — Alert
-      show_header_toggle: false
-      state_color: true
-      entities:
-      - entity: select.mini_round_clock_alert_pattern
-        name: Pattern
-      - entity: number.mini_round_clock_alert_hue
-        name: Hue
-      - entity: number.mini_round_clock_alert_shows_for
-        name: Clock shows it for
-      - type: section
-        label: The alarm itself
-      - entity: input_button.wall_clock_timer_dismiss
-        name: Dismiss the alarm
-      - entity: input_number.wall_clock_alert_repeat_seconds
-        name: Re-announce every
-      - entity: input_number.wall_clock_alert_repeat_max
-        name: Repeats (0 = until cancelled)
     - type: markdown
-      content: '### Third Clock — Colour
+      content: '### Third Clock — everything the ring can light
 
-        The presets **default, warm, cool, mono** ignore the sliders below. Set **Theme** to **custom** first, then they apply immediately, no reflash.
+        | what | where | colour | switch |
+
+        |---|---|---|---|
+
+        | Hour hand | the hour | orange | always on |
+
+        | Minute hand | the minute | blue | always on |
+
+        | Second hand | the second | grey | *Show second hand* |
+
+        | Hour markers | all twelve | dim blue-white | *Markers* |
+
+        | Timer arc | from 12 | teal | only while a timer runs |
+
+        | Timer pips | where each one finishes | dim teal | *Extra timer pips* |
+
+        | Bin night | 12 o''clock | breathing green, yellow for recycling | *Bin night* |
+
+        | Garage open | 3 o''clock | amber | *Garage open* |
+
+        | Driveway | 9 o''clock | blinking red | *Driveway* |
+
+        | Who is home | either side of 6 | Sam **blue**, Laura magenta, Amanda green, Zac amber | *Who is home* |
+
+        | Home Assistant dropped | 6 o''clock | dim red | automatic |
 
 
-        *Intensity* is the ring''s brightness for that element, not the screen''s — the screen reuses the same hue at its own brightness, because a bare LED and a backlit panel don''t want the same value.
+        **A single blue dot just left of 6 o''clock is Sam''s presence pixel.** The twelve hour markers are faintly blue too, but they are dim and there are twelve of them, so one blue dot is the presence one.'
+    - type: markdown
+      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
 
 
-        Status **pips** follow the timer arc at 62% and have no separate control. **mono** pins every saturation to zero and is the accessible palette.'
+        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
     visibility: *id003
   - type: grid
     cards:
@@ -1377,42 +1393,35 @@
         label: Background
       - entity: number.mini_round_clock_weather_tint_strength
         name: Weather tint
+    - type: entities
+      title: Third Clock — Alert
+      show_header_toggle: false
+      state_color: true
+      entities:
+      - entity: select.mini_round_clock_alert_pattern
+        name: Pattern
+      - entity: number.mini_round_clock_alert_hue
+        name: Hue
+      - entity: number.mini_round_clock_alert_shows_for
+        name: Clock shows it for
+      - type: section
+        label: The alarm itself
+      - entity: input_button.wall_clock_timer_dismiss
+        name: Dismiss the alarm
+      - entity: input_number.wall_clock_alert_repeat_seconds
+        name: Re-announce every
+      - entity: input_number.wall_clock_alert_repeat_max
+        name: Repeats (0 = until cancelled)
     - type: markdown
-      content: '### Third Clock — everything the ring can light
+      content: '### Third Clock — Colour
 
-        | what | where | colour | switch |
-
-        |---|---|---|---|
-
-        | Hour hand | the hour | orange | always on |
-
-        | Minute hand | the minute | blue | always on |
-
-        | Second hand | the second | grey | *Show second hand* |
-
-        | Hour markers | all twelve | dim blue-white | *Markers* |
-
-        | Timer arc | from 12 | teal | only while a timer runs |
-
-        | Timer pips | where each one finishes | dim teal | *Extra timer pips* |
-
-        | Bin night | 12 o''clock | breathing green, yellow for recycling | *Bin night* |
-
-        | Garage open | 3 o''clock | amber | *Garage open* |
-
-        | Driveway | 9 o''clock | blinking red | *Driveway* |
-
-        | Who is home | either side of 6 | Sam **blue**, Laura magenta, Amanda green, Zac amber | *Who is home* |
-
-        | Home Assistant dropped | 6 o''clock | dim red | automatic |
+        The presets **default, warm, cool, mono** ignore the sliders below. Set **Theme** to **custom** first, then they apply immediately, no reflash.
 
 
-        **A single blue dot just left of 6 o''clock is Sam''s presence pixel.** The twelve hour markers are faintly blue too, but they are dim and there are twelve of them, so one blue dot is the presence one.'
-    - type: markdown
-      content: 'The **alarm** sounds until it is cancelled — the dismiss button above, saying *stop the timer*, or starting another one.
+        *Intensity* is the ring''s brightness for that element, not the screen''s — the screen reuses the same hue at its own brightness, because a bare LED and a backlit panel don''t want the same value.
 
 
-        **Clock shows it for** is only how long the ring and the screen keep flashing if nothing cancels it. A cancel clears them instantly either way. Set it to 0 and the lights last exactly as long as the sound.'
+        Status **pips** follow the timer arc at 62% and have no separate control. **mono** pins every saturation to zero and is the accessible palette.'
     visibility: *id003
   - type: grid
     cards:

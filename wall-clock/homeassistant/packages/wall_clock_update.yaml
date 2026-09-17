@@ -1,0 +1,69 @@
+# =============================================================================
+# wall_clock_update.yaml — flash every clock from one button
+# =============================================================================
+# Sam, 2026-09-17, for the third time in a day: "flash all three again".
+#
+# Every firmware change so far has ended the same way: I cannot reach the LAN
+# from a cloud session, so I write "Device Builder -> each device -> Install ->
+# Wirelessly" and Sam does nine clicks. This turns that into one.
+#
+# IT DISCOVERS THE ENTITIES RATHER THAN NAMING THEM. The obvious version
+# hard-codes `update.mini_round_clock_3_firmware` and friends -- and I cannot
+# verify those ids from here, which is exactly the kind of guess that has cost
+# this project a sheet of plywood already. `integration_entities('esphome')`
+# resolves live on the box, so the script finds whatever is actually there and
+# says so when it finds nothing, instead of silently doing nothing.
+#
+# UNVERIFIED, and it will tell you which: the ESPHome update entities only
+# exist if the ESPHome Device Builder add-on is installed AND the ESPHome
+# integration has its dashboard configured. If that is not so, this script
+# raises a notification naming the problem rather than failing quietly. Run it
+# once and read the notification before trusting it.
+
+script:
+  wall_clock_update_all:
+    alias: "Wall clock: update every clock"
+    icon: mdi:chip
+    mode: single
+    sequence:
+      - variables:
+          # every ESPHome update entity whose id looks like one of the clocks
+          targets: >-
+            {{ integration_entities('esphome')
+               | select('match', 'update\.')
+               | select('search', 'mini_round_clock')
+               | list }}
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ targets | count == 0 }}"
+            sequence:
+              - service: persistent_notification.create
+                data:
+                  title: "Wall clock: nothing to update"
+                  notification_id: wall_clock_update
+                  message: >-
+                    No ESPHome `update.*` entities matching `mini_round_clock`
+                    were found. That usually means the ESPHome Device Builder
+                    add-on is not installed, or the ESPHome integration has no
+                    dashboard configured — without it Home Assistant cannot
+                    trigger an OTA. Update from the add-on directly this time.
+        default:
+          - service: persistent_notification.create
+            data:
+              title: "Wall clock: updating"
+              notification_id: wall_clock_update
+              message: >-
+                Installing firmware on {{ targets | count }} clock(s):
+                {{ targets | map('replace', 'update.', '') | join(', ') }}.
+                Each one reboots when its own install finishes; they do not
+                go together.
+          # One at a time. Three simultaneous OTA builds on the HA box is how
+          # you find out how much RAM the add-on wanted.
+          - repeat:
+              for_each: "{{ targets }}"
+              sequence:
+                - service: update.install
+                  target:
+                    entity_id: "{{ repeat.item }}"
+                - delay: "00:00:05"

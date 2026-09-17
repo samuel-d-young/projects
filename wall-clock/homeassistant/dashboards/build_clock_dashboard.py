@@ -251,6 +251,12 @@ def clock_cards(slug, label):
             row(e("number", "next_step_shows_from"), "Next step shows from (min before)"),
             row(e("switch", "weather_symbol"), "Weather symbol"),
             row(e("switch", "weather_symbol_shows_the_low"), " with the low"),
+            # One per face, under the master above. The master used to draw
+            # the symbol on the grow face AND the clock face together with no
+            # way to split them. Sam, 2026-09-17: "I want the weather to be
+            # shown on the routine face but not the grow face."
+            row(e("switch", "weather_symbol_on_the_clock_face"), " on the clock face"),
+            row(e("switch", "weather_symbol_on_the_grow_face"), " on the grow face"),
             row(e("switch", "weather_symbol_on_the_routine_face"), " on the routine face"),
             row(e("number", "layout_weather_size"), "Weather symbol size"),
             row(e("sensor", "free_heap"), "Free heap"),
@@ -440,6 +446,12 @@ def clock_cards(slug, label):
             # past the edge of the fixed window the anti-flicker fix draws in.
             row(e("number", "grow_clock_size"), "Size of everything"),
             row(e("switch", "grow_clock_stars"), "Stars until morning"),
+            # Which way the dark travels, and when the run starts. Both added
+            # 2026-09-17: the ring drained clockwise while the routine ring
+            # drained anticlockwise, and it did not count down at all until
+            # lights-out even though bedtime had started.
+            row(e("select", "grow_clock_stars_direction"), " counting down which way"),
+            row(e("select", "grow_clock_stars_count_from"), " counting down from when"),
             row(e("number", "grow_clock_star_count"), "How many stars"),
             row(e("select", "grow_clock_star_shape"), "Star shape"),
             # Scattered, gently twinkling stars behind the face at night.
@@ -594,6 +606,33 @@ def build():
                 "in `build_clock_dashboard.py`, and to the options of the input_select."
             ),
         },
+        # FLASHING, for all of them at once. Outside the per-clock switching on
+        # purpose: it updates every clock, not the one the picker is on.
+        #
+        # Sam asked to "flash all three" three times in one day, and every time
+        # the answer was nine clicks in the Device Builder add-on, because a
+        # cloud session has no route to the LAN and never will. This is the
+        # nine clicks as one. The script finds the ESPHome update entities at
+        # runtime rather than naming them, and raises a notification if there
+        # are none -- see packages/wall_clock_update.yaml.
+        {
+            "type": "entities", "title": "Firmware (all clocks)",
+            "show_header_toggle": False, "state_color": True,
+            "entities": [
+                row("script.wall_clock_update_all", "Update every clock now"),
+            ],
+        },
+        {
+            "type": "markdown",
+            "content": (
+                "**Update every clock** installs the firmware currently on the "
+                "branch, one clock at a time. Each reboots when its own install "
+                "finishes — they do not go together, and a clock is offline for "
+                "a minute or so while it does. Read the notification it raises: "
+                "if Home Assistant has no ESPHome `update` entities it says so "
+                "rather than doing nothing quietly."
+            ),
+        },
         # Timers are Home Assistant's, not any one clock's — the pool is shared,
         # so this card is deliberately outside the per-clock switching.
         {
@@ -715,8 +754,15 @@ if __name__ == "__main__":
                         secs.append(grid(col, vis))
 
             # ---- row 1: the always-visible header, and the shared timers
+            # Every GLOBAL entities card, not one picked out by its title. It
+            # used to be `c.get("title") == "Timers (shared)"`, which silently
+            # dropped the next global card anyone added -- the firmware one
+            # above was written, generated, and simply not there, with nothing
+            # to say so. A filter that names one member of a category is a
+            # filter that is wrong the moment the category gains a second.
             shared = [c for c in cards
-                      if c.get("type") == "entities" and c.get("title") == "Timers (shared)"]
+                      if c.get("type") == "entities" and "visibility" not in c
+                      and c not in top]
             notes = [c for c in cards
                      if c.get("type") == "markdown" and "visibility" not in c
                      and c not in head]
