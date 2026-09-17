@@ -4326,8 +4326,18 @@ light:
                 return;
               }
 
-              // Stars go out from the far end, anticlockwise from 12, so the
-              // last one standing is at the top -- where the sun comes up.
+              // Stars go out ANTICLOCKWISE, which here means what it means
+              // for the routine countdown (`routine_dir`) and not the opposite
+              // reading: the arc is laid out CLOCKWISE from 12, so the LED that
+              // goes out first is the one just left of 12, then 11, 10, 9 ...
+              // and the last one standing is at 12 -- the top, where the sun
+              // comes up. Sam, 2026-09-17: "make sure that the LED rings
+              // actually count down anticlockwise until its wake time."
+              //
+              // It used to lay the arc out the other way (`-i/N`). That is the
+              // mirror image: the same last LED at 12, but the lit edge walked
+              // CLOCKWISE, so the night ran backwards against every timer and
+              // routine countdown on the same ring.
               int lit = N;
               if (stars) {
                 lit = (int) ceilf(id(grow_frac) * N);
@@ -4335,7 +4345,7 @@ light:
               }
               for (int i = 0; i < PHYS; i++) it[i] = Color::BLACK;
               for (int i = 0; i < lit; i++) {
-                const int p = P(stars ? -(float) i / N : (float) i / N);
+                const int p = P((float) i / N);
                 it[p] = Color((uint8_t) lroundf(r * k * bri),
                               (uint8_t) lroundf(g * k * bri),
                               (uint8_t) lroundf(b * k * bri));

@@ -6843,3 +6843,41 @@ layout, faces by the hour) and `4ea1fbf` (what's next on the grow and clock face
 Verified after the reflash, from the HA API: all three status sensors on; all three
 `layout_next_other_faces` at x 306, y 236; and the ring LED counts survived — 24 on Zac's,
 32 on Jake's, 60 on the third **(verified)**.
+
+## 2026-09-17 (night) — The night countdown: switched off, and running the wrong way
+
+Sam: *"Make sure that the LED rings actually count down anticlockwise until its wake time."*
+Two separate faults, both now fixed on the hardware.
+
+**It was switched off.** `switch.<clock>_grow_clock_stars` was `off` on all three clocks, so
+through the whole night the ring just held the flat sleep colour — nothing to read, nothing
+counting. The firmware ships it `RESTORE_DEFAULT_ON`; these had a stored `off` from some
+earlier session, and a stored value beats the default on every boot, so no amount of
+reflashing would have brought it back. Turned on over the API; it survived the reflash.
+
+**It ran the wrong way.** The ring's star arc was laid out at `P(-i/N)` — anticlockwise from
+12 — and emptied from the far end. That is the MIRROR of the routine countdown: same last LED
+standing at 12, but the lit edge walked *clockwise*, so a night read backwards against every
+timer and routine on the same ring. This is exactly the trap `routine_dir`'s comment warned
+about: "anticlockwise" names either the layout or the direction the edge travels, and the two
+readings are opposites. Now `P(i/N)` — laid out clockwise from 12, so the LED that goes out
+first is the one just left of 12, then 11, 10, 9, and the dark grows anticlockwise. Sam's
+reading, and the same as the routine countdown.
+
+Flashed to all three at 22:04–22:07; 1 328 960 bytes, `OTA successful` each time.
+
+What it should look like tonight, measured from the API right after the flash **(verified)**:
+
+| clock | ring | night | to wake | lit | one LED out every |
+|---|---|---|---|---|---|
+| Zac's | 24 | 705 min (19:00 → 06:45) | 517 min | 18 / 24 | 29.4 min |
+| Jake's | 32 | 705 min | 517 min | 24 / 32 | 22.0 min |
+| Third | 60 | 720 min (19:00 → 07:00) | 532 min | 45 / 60 | 12.0 min |
+
+The eyeball check: the DARK gap sits in the upper left — about 9 o'clock round to 12 on Zac's
+tonight — and it grows anticlockwise as the night goes on, until the last LED standing is the
+one at 12 at wake time. If the gap is in the upper *right*, the old build is still on the box.
+
+Noted, not changed: the ring's night brightness is 1 % on all three (`grow_clock_ring_night_
+brightness`), which is deliberate for a dark bedroom but does mean the countdown is very faint
+to an adult standing in the doorway. It is a number — turn it up if it reads as "not working".
