@@ -6823,3 +6823,23 @@ While there: the what's-next area's default on the grow and clock faces (292, 26
 grow face's time in 12-hour mode (its "pm" reaches x ≈ 290 at y ≈ 300). Moved to 306, 236 on
 all three clocks by `number.set_value` and as the firmware default for the next build; it is a
 layout number, so drag it wherever it reads best.
+
+## 2026-09-17 (night) — All three clocks flashed with `b9449b8`
+
+Sam: *"Flash the three clocks."* Done over the air from this branch, one after the other:
+Zac's `mini-round-clock-3` (192.168.1.24) at 21:51, Jake's `mini-round-clock-4` (192.168.1.25)
+at 21:53, the third `mini-round-clock` (192.168.1.69) at 21:55. Same build on all three —
+RAM 58.9 %, flash 72.4 %, 1 328 976 bytes, uploads of 8–10 s, `OTA successful` each time.
+The local wrappers (`local-zac.yaml`, `local-jake.yaml`, `local-third.yaml`) build the
+workbench copy of `mini-round-clock-with-display.yaml` rather than the GitHub branch, so the
+firmware on the boxes is now exactly the tip.
+
+What this bakes in: the what's-next area's **306, 236** default on the grow and clock faces,
+which until now only existed as a live `number.set_value` on the three clocks and would have
+come back as 292, 262 on any fresh flash. Zac's and Jake's had also been a day behind — their
+last flash was 2026-09-15, before `611eb7b` (picture routines, weather symbol, draggable
+layout, faces by the hour) and `4ea1fbf` (what's next on the grow and clock faces).
+
+Verified after the reflash, from the HA API: all three status sensors on; all three
+`layout_next_other_faces` at x 306, y 236; and the ring LED counts survived — 24 on Zac's,
+32 on Jake's, 60 on the third **(verified)**.
