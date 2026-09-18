@@ -2237,8 +2237,19 @@ SCREEN_COLLAR_BOT = Z_SEAT + DISP_T + SCREEN_COLLAR_GAP   # 14.30 seated
 # The open bore still lands on the base's screen collar (r 30.30..35.10), with
 # 4.50 mm of annular seat under it -- check11 booleans that rather than assuming
 # it, because a hole grown far enough would walk off its own seat.
-PLY_HOUSING_OD   = 60.00    # the biggest thing this repo knows of in the middle:
-                            # the diffuser collar is 59.90, the display PCB 60.0.
-                            # Measure the real one before cutting -- that is what
-                            # centre-hole-gauge.svg is for.
+PLY_HOUSING_OD   = 70.20    # MEASURED off base-60.stl: the BASE's screen collar
+                            # is solid r 30.26..35.10 with its top face at 18.99.
+                            # 70.20 across, and it is what Sam meant by "at least
+                            # 70mm".
+                            #
+                            # I had this at 60.00 -- the DIFFUSER's collar (59.90)
+                            # and the display PCB (60.0) -- because those are the
+                            # things params.py names. The part actually in the way
+                            # was the one nothing had a parameter for, and it was
+                            # 10 mm bigger. Reading the mesh would have found it;
+                            # reading the parameter list could not.
+                            #
+                            # Sam: "The hole needs to go around the collar not on
+                            # it." At 61.2 the face LANDED on that collar. Now it
+                            # clears it, and the cell ring carries the face.
 PLY_BORE_OPEN_R  = PLY_HOUSING_OD/2.0 + PLY_CENTRE_CLR    # 30.60 -> 61.2 mm

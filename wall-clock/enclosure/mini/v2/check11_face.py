@@ -188,8 +188,12 @@ print('\n3b. Against the part DIRECTLY BEHIND IT, which section 3 never did')
 # The same lesson as the plinth that sat inside the clock: a part that goes
 # inside another one gets a boolean against it. I applied it to the base and
 # not to the thing immediately behind the base.
-wood_solid = (cyl(r_out, seat, seat + PLY_T, 256)
-              - cyl(r_scr, seat - 1.0, seat + PLY_T + 1.0, 256))
+# At Z_RECESS, which is where the wood sits -- NOT at the base collar's measured
+# top. Those differ by 0.01, and once the cell ring was raised to Z_RECESS to
+# carry the face, modelling the wood 0.01 low turned that whole 38 mm annulus
+# into 95.69 mm3 of "clash". The part was right; the datum was stale.
+wood_solid = (cyl(r_out, Z_RECESS, Z_RECESS + PLY_T, 256)
+              - cyl(r_scr, Z_RECESS - 1.0, Z_RECESS + PLY_T + 1.0, 256))
 for nm, want_clear in (('mini-round-clock-diffuser-60-cells.stl', True),
                        ('mini-round-clock-diffuser-60-plain.stl', False),
                        ('mini-round-clock-diffuser-60.stl', False)):
@@ -259,7 +263,7 @@ bv = (to_manifold(base_c) ^ to_manifold(col)).volume()
 ck(bv < 1.0, 'and it drops into the base bore without fouling it',
    f'{bv:.3f} mm3')
 
-print('\n3d. The OPEN-CENTRE pair -- 61.2 mm, over the housing instead of under it')
+print('\n3d. The OPEN-CENTRE pair -- 71.4 mm, AROUND the collar rather than on it')
 # Sam, 2026-09-18: "the updated SVG file with the larger circle in the middle."
 # The other answer to the same clash: rather than cutting the housing down to
 # pass under the wood, make the hole big enough to pass over it. Two things have
@@ -278,20 +282,31 @@ for nm in ('face-60-wood-cut-open.svg', 'face-60-wood-cut-open-hours.svg'):
     ck(rb < min(math.hypot(*p) for t in tk for p in t['pts']),
        '   and the bore does not eat into the innermost line',
        f'bore {rb:.2f}, nearest tick {min(math.hypot(*p) for t in tk for p in t["pts"]):.2f}')
-# ...and it still lands on the base's collar. Booleaned at the seated height.
-disc_open = (cyl(r_out, seat, seat + PLY_T, 256)
-             - cyl(PLY_BORE_OPEN_R, seat - 1.0, seat + PLY_T + 1.0, 256))
-t_open = to_manifold(base) ^ disc_open
-ck(t_open.volume() > 0.5, 'the open-centre disc still lands on the collar',
-   f'{t_open.volume():.2f} mm3 of contact film')
-tro = np.hypot(csg.to_trimesh(t_open).vertices[:, 0],
-               csg.to_trimesh(t_open).vertices[:, 1])
-ck(tro.max() - tro.min() > 2.0,
-   'on a real width of it, not an edge -- a bigger hole walks off its seat',
-   f'seat r {tro.min():.2f}..{tro.max():.2f} = {tro.max()-tro.min():.2f} mm')
-ck((to_manifold(base) ^ (cyl(r_out, seat + 0.02, seat + 0.02 + PLY_T, 256)
-    - cyl(PLY_BORE_OPEN_R, seat - 1.0, seat + PLY_T + 1.0, 256))).volume() < 0.01,
-   'and lifted clear, nothing is in its way either')
+# WHAT CARRIES IT. Sam, 2026-09-18: "The hole needs to go around the collar not
+# on it." So the base's screen collar must now be CLEAR of the wood entirely --
+# and the thing that catches it instead is the cell ring, which had to be raised
+# 0.07 to Z_RECESS to do the job. Both halves are booleaned: the old seat gone,
+# the new seat real. Checking only the first would pass a face that falls in.
+disc_open = (cyl(r_out, Z_RECESS, Z_RECESS + PLY_T, 256)
+             - cyl(PLY_BORE_OPEN_R, Z_RECESS - 1.0, Z_RECESS + PLY_T + 1.0, 256))
+ck((to_manifold(base) ^ disc_open).volume() < 0.01,
+   'the open disc goes AROUND the base collar, not onto it',
+   f'{(to_manifold(base) ^ disc_open).volume():.4f} mm3 against the base')
+cells_o = trimesh.load(csg.part('mini-round-clock-diffuser-60-cells.stl'),
+                       process=False)
+cells_o.merge_vertices()
+cells_o.apply_transform(np.diag([1.0, -1.0, -1.0, 1.0]))
+cells_o.apply_translation([0, 0, DIFF_SEAT_Z])
+ck(abs(cells_o.bounds[1][2] - Z_RECESS) < 1e-6,
+   'and the cell ring comes all the way up to the recess floor to catch it',
+   f'ring tops at z={cells_o.bounds[1][2]:.3f}, the wood sits at {Z_RECESS:.2f}')
+cro = np.hypot(cells_o.vertices[:, 0], cells_o.vertices[:, 1])
+seat_w = cro.max() - max(PLY_BORE_OPEN_R, cro.min())
+ck(seat_w > 20.0, 'on a seat far wider than the collar ever was',
+   f'r {max(PLY_BORE_OPEN_R, cro.min()):.2f}..{cro.max():.2f} = {seat_w:.1f} mm of annulus')
+ck(cro.min() > PLY_BORE_OPEN_R,
+   'and the ring is entirely outboard of the hole, so none of it shows through',
+   f'ring from r {cro.min():.2f}, hole to r {PLY_BORE_OPEN_R:.2f}')
 
 print('\n4. The lines sit where the light comes out')
 # The printed diffuser is the authority: its pockets are the places the design
@@ -386,8 +401,12 @@ ck(cells.body_count == 1, 'it is one ring, not a ring and an orphaned collar',
 ov = (to_manifold(base) ^ cm).volume()
 ck(ov < 5.0, 'it still seats in the base', f'{ov:.2f} mm3')
 top = cells.bounds[1][2]
-ck(0.0 <= seat - top <= 0.30, 'and its top comes up to meet the wood',
-   f'ring tops out at z={top:.2f}, the wood sits at {seat:.2f}: {seat-top:.2f} mm apart')
+# It used to be enough that this stopped just SHORT of the wood -- the base's
+# screen collar was the seat and this only had to not foul it. With a bore that
+# clears that collar there is nothing else under the face, so "just short" is a
+# face resting on nothing. It has to MEET the wood exactly.
+ck(abs(top - Z_RECESS) < 1e-6, 'and its top comes up to meet the wood exactly',
+   f'ring tops out at z={top:.3f}, the recess floor is {Z_RECESS:.2f}')
 # a light guide has to drop into a cell and be held by it
 g = box_lwh(GUIDE_RI, GUIDE_RO, -GUIDE_W/2, GUIDE_W/2, 15.50, 15.50 + GUIDE_T)
 ck((cm ^ g).volume() < 1.0, 'a 6 x 3 mm guide drops into a cell without fouling it',

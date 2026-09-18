@@ -1886,7 +1886,17 @@ def build_diffuser_cells(B):
     second body nobody asked for.
     """
     d = build_diffuser(B, numerals_on=False)
-    d -= box_lwh(-300, 300, -300, 300, -1.0, PLY_T)
+    # Sliced to Z_RECESS, not by PLY_T. Those differ by 0.07 -- the diffuser
+    # front sits at 21.93 and the clock's face is 22.00 -- and that 0.07 used to
+    # be the gap between this ring and the wood.
+    #
+    # It did not matter while the face landed on the base's screen collar. It
+    # matters entirely now: Sam, 2026-09-18, "The hole needs to go around the
+    # collar not on it." A hole that clears a 70.20 mm collar has nothing else
+    # under it, and 0.07 short of the wood is a face resting on nothing at all.
+    # Cut here and this ring IS the seat -- r 78 to 116, 38 mm of annulus rather
+    # than 4.5 mm of collar ring.
+    d -= box_lwh(-300, 300, -300, 300, -1.0, DIFF_SEAT_Z - Z_RECESS)
     # The inner 60 mm comes away as its own part rather than being deleted. It
     # WAS deleted -- "the orphaned screen collar" -- and that was right only
     # while nothing needed it. With a wooden face there is nothing else around

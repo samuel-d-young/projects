@@ -7474,3 +7474,70 @@ every global entities card now.
 is generated is a file whose source is somewhere else, and editing the output
 is the same mistake as documenting a prerequisite at line 98 — the change is
 real, it is just not where the machinery will look for it.
+
+---
+
+## 2026-09-18 — the hole goes AROUND the collar, and the cell ring becomes the seat
+
+Sam: *"That middle hole still wasn't big enough. It's at least 70mm"* — then the
+sentence that explained everything: *"The hole needs to go around the collar not
+on it."*
+
+### The parameter named the wrong collar
+
+`PLY_HOUSING_OD` was **60.00**, and I had sourced it carefully: the diffuser's
+screen collar is 59.90 and the display's round PCB is 60.0. Both true, both
+named in `params.py`, both **not the part in the way**.
+
+The part in the way is the **base's** screen collar, and nothing in `params.py`
+names it. Measured off `base-60.stl`: solid from **r 30.26 to r 35.10** with its
+top face at 18.99 — **70.20 mm across**. Exactly Sam's "at least 70mm".
+
+Reading the parameter list could not have found this. Reading the mesh would
+have, and that is the second time in two days the same trap has caught me:
+`PLY_BORE_R` was derived from the screen's active area, and `PLY_HOUSING_OD`
+from the collars that happened to have names. **A parameter list is a list of
+the things someone thought to name.** The thing in the way is whatever is
+actually there.
+
+### Clearing it takes the seat away
+
+The face landed on that collar — that *was* the seat, 4.5 mm of ring. A bore
+that goes around it has nothing under it at all:
+
+| at z = 18.95, what is under the wood | |
+|---|---|
+| base | r 30.5–35.0 (the collar) and r 117.0–119.5 (outside the disc) |
+| cell ring | r 78.0–116.0, **topping out at 18.93** |
+
+`Z_RECESS` — commented *"plywood face recess floor"* — is **19.0000**. The cell
+ring stopped **0.07 short of it**. Irrelevant while the collar carried the face;
+fatal the moment it does not, because 0.07 short is a face resting on nothing.
+
+So `build_diffuser_cells` slices at `DIFF_SEAT_Z - Z_RECESS` (2.93) instead of
+`PLY_T` (3.00). The ring now tops at exactly **19.000** and becomes the seat:
+**38.7 mm of annulus**, r 77.64–116.30, against the collar's 4.5.
+
+Bore: **71.40 mm**, 1.20 clear all round on the 70.20 collar, kerf included.
+
+### Both halves get booleaned, because one of them alone passes a broken face
+
+check11 3d asserts the clearance **and** the seat: the open disc against the
+base is **0.0000 mm³** (it goes around), and the cell ring tops at **19.000**
+with the wood at 19.00. Checking only the first would happily pass a face that
+drops straight through the clock.
+
+### Two stale datums fell out of it
+
+Raising the ring 0.07 broke two assertions, and both were the checker holding an
+out-of-date reference rather than the part being wrong:
+
+* **3b** modelled the wood at the base collar's measured top (18.99) rather than
+  at `Z_RECESS` (19.00). Once the ring reached 19.00 that 0.01 turned the whole
+  38 mm annulus into **95.69 mm³ of "clash"**.
+* **Section 8** asserted the ring stopped *short* of the wood (`0 <= seat - top
+  <= 0.30`). That was the correct test while the collar was the seat. Now the
+  ring **is** the seat, so it must meet the wood exactly.
+
+A datum that was right under the old design does not announce itself when the
+design moves. It just starts reporting failures in the part.

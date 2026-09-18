@@ -4,14 +4,20 @@
 >
 > | file | centre | what it needs |
 > |---|---|---|
-> | `face-60-wood-cut-open*.svg` | **61.2 mm** | nothing extra — it passes **over** a 60 mm housing |
+> | `face-60-wood-cut-open*.svg` | **71.4 mm** | goes **around** the base's 70.20 mm screen collar; the cell ring carries the face |
 > | `face-60-wood-cut*.svg` | 54.0 mm | the housing must end below the wood: print `screen-collar-60` |
 >
-> The open one is more forgiving and does not care what is in the middle or how
-> tall it is. The cost is that 61.2 is wider than the 55 mm active area, so the
-> wood no longer frames the panel — you see the housing ring around the screen.
-> Both land on the base's collar: 4.53 mm of seat at 61.2, booleaned in
-> check11 section 3d, not assumed.
+> **They are carried by different things, and that is the point.** The 54 mm
+> face lands ON the base's screen collar (r 30.26–35.10, top 18.99). The 71.4
+> goes right around that collar — so it needs another seat, and
+> `diffuser-60-cells` was raised 0.07 mm to `Z_RECESS` to be it: **38.7 mm of
+> annulus** from r 77.64 to 116.30, against the collar's 4.5. Both halves are
+> booleaned in check11 3d — collar clear at 0.0000 mm³, ring meeting the wood at
+> exactly 19.000 — because checking only the clearance would pass a face that
+> falls straight through.
+>
+> The cost of the open bore: 71.4 is far wider than the 55 mm active area, so
+> the wood frames nothing — you see the collar ring and the screen inside it.
 >
 > **Either way print `diffuser-60-cells` first** — see below. That is not
 > optional for either bore.
