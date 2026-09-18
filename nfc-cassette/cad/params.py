@@ -16,6 +16,7 @@ buttons. Millimetres.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 
@@ -155,6 +156,17 @@ _P: list[Param] = [
     Param("k_vu_r1", 15.0, 13.5, 15.5, "choice", "outer radius of the wedge slots; has to overlap the LED circle generously, not swallow it"),
     Param("k_vu_gap_deg", 9.0, 7.0, 14.0, "choice", "web between wedges, degrees"),
     Param("k_vu_centre_d", 3.5, 2.5, 4.5, "choice", "hole the single LED shows through"),
+    # ---- the diffuser (Samuel, 2026-09-18: "a diffuser for where the LED rings
+    # will be... printed in white PLA"). A disc that glues into the dial's dish,
+    # like the knobs glue into their recesses. It does NOT plug the wedge slots:
+    # the 2.4 mm slot behind it collimates, and a plug would only carry light
+    # sideways. Segmentation is kept by grooves on the back, one per web.
+    Param("k_vu_diff_t", 1.2, 0.8, 1.6, "choice", "diffuser disc thickness. White PLA: 1.2 is six layers at 0.2 - enough to scatter the 5050 dies, thin enough to stay bright"),
+    Param("k_vu_diff_clr", 0.3, 0.2, 0.5, "choice", "diffuser to the wall of its dish, per side"),
+    Param("k_vu_diff_groove_d", 0.6, 0.3, 0.9, "choice", "depth of the light-break groove on the back face, one per web between wedges"),
+    Param("k_vu_diff_groove_margin", 0.45, 0.40, 0.60, "choice", "web left either side of a groove, in mm, measured at k_vu_r0 where the web is narrowest. In mm and not degrees because the web narrows with radius and the inner end is what pinches"),
+    Param("k_vu_diff_groove_min", 0.40, 0.35, 0.60, "choice", "narrowest groove worth cutting - one nozzle width. Below this the disc comes out plain and the wall's webs do the segmenting on their own"),
+    Param("k_vu_diff_over", 1.0, 0.5, 2.0, "choice", "how far a groove runs past the wedges at each end, radially"),
 ]
 PARAMS: dict[str, Param] = {p.name: p for p in _P}
 
@@ -336,6 +348,30 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     # the dial, right of centre: far enough in that the bezel clears the corner radius
     D["k_vu_c"] = (36.5, 25.0)
     D["k_vu_bezel_od"] = 2 * v["k_vu_r1"] + 2 * 1.5 + 2 * v["k_vu_bezel_w"]
+    # the diffuser: a disc in the dish, standing k_vu_diff_t - k_dimple off the
+    # face and so still sunk below the bezel rim. The grooves follow the webs, so
+    # they are annular sectors, not straight slots: at r0 the web is only
+    # radians(gap) * r0 wide and a straight slot would open into a wedge.
+    D["k_vu_diff_r"] = D["k_vu_bezel_od"] / 2 - v["k_vu_bezel_w"] - v["k_vu_diff_clr"]
+    # The disc drops into the dial's dish, which is k_dimple deep, and must never
+    # stand above the bezel rim - so the bezel, not the wish, sets the thickness.
+    # Clamping here rather than deepening the dish keeps the BODY untouched: the
+    # diffuser is a new part, not a change to the player.
+    D["k_vu_diff_t_eff"] = min(v["k_vu_diff_t"], v["k_dimple"] + v["k_vu_bezel_proud"] - 0.2)
+    D["k_vu_diff_proud"] = D["k_vu_diff_t_eff"] - v["k_dimple"]
+    D["k_vu_diff_groove_d_eff"] = min(v["k_vu_diff_groove_d"], D["k_vu_diff_t_eff"] - 0.4)
+    D["k_vu_diff_web"] = v["k_vu_r1"] * math.radians(v["k_vu_gap_deg"])      # web arc at the outer radius
+    # the groove is whatever is left of the web after a margin each side, measured
+    # at k_vu_r0 where the web pinches. If that leaves less than a nozzle, the
+    # disc comes out plain rather than carrying a groove the slicer would drop.
+    D["k_vu_diff_web0"] = math.radians(v["k_vu_gap_deg"]) * v["k_vu_r0"]
+    D["k_vu_diff_groove_w0"] = D["k_vu_diff_web0"] - 2 * v["k_vu_diff_groove_margin"]
+    D["k_vu_diff_grooved"] = (D["k_vu_diff_groove_w0"] >= v["k_vu_diff_groove_min"]
+                              and D["k_vu_diff_groove_d_eff"] >= 0.2)
+    D["k_vu_diff_groove_half"] = (D["k_vu_diff_groove_w0"] / 2) / v["k_vu_r0"] if D["k_vu_diff_grooved"] else 0.0
+    D["k_vu_diff_groove_r0"] = max(v["k_vu_r0"] - v["k_vu_diff_over"], 1.0)
+    D["k_vu_diff_groove_r1"] = min(v["k_vu_r1"] + v["k_vu_diff_over"], D["k_vu_diff_r"] - 0.4)
+    # the tightest place on a groove: the web is narrowest at the inner radius
     D["s_ring_cx"], D["s_ring_cz"] = D["k_vu_c"]
     # the lid's two posts sit under the rim, off to each side; their tops follow
     # the circle, or they would hold the board 2 mm below where it belongs

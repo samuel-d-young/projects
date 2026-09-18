@@ -337,3 +337,56 @@ fastened when plugging in the cable"). Two small straps cross the board.
 
 **Checks.** `fitcheck_slot.py` passes. The four tie parameters swept against the
 four that move the D1 mini — 256 corners — give **0 failures**.
+
+---
+
+## 2026-09-18 (evening) — A diffuser for the dial, in white PLA
+
+Samuel: "create a diffuser for where the LED rings will be. It will be printed
+in white PLA." One new part, `vu_diffuser` — the ninth. **The body does not
+change**, on purpose: the disc is clamped to what the existing dish and bezel
+allow rather than the dish being deepened to suit it, so nothing that was
+already verified moves.
+
+**A disc, not plugs.** The obvious design fills each wedge slot with a plug.
+That is worse: the 2.4 mm slot behind the face is a collimator, and a plug
+would carry light sideways into the web instead of letting the wall block it.
+The diffuser is a plain disc that caps the slots and the centre hole, r = 16.20
+against the dish's 16.50, and it glues in like the knobs glue into their
+recesses.
+
+**It sits inside the bezel.** The dish is `k_dimple` = 0.80 deep and the disc is
+1.20 thick, so it stands **0.40 mm off the face and 0.60 mm below the bezel
+rim** — proud enough to glue against a flat floor, sunk enough that the bezel
+takes any knock. `k_vu_diff_t_eff` clamps the thickness to
+`k_dimple + k_vu_bezel_proud - 0.2`, so no corner of the sweep can push the disc
+above the rim.
+
+**The grooves, and why they taper.** A continuous disc lets light cross the web
+between neighbouring wedges, which blurs the eight segments Samuel picked the
+dial for. Eight grooves on the back face, one per web, cut that path in half
+(0.60 mm of PLA left of 1.20). They keep a **constant 0.45 mm margin of web at
+every radius**, so they are not annular sectors: the web is an annular strip and
+widens with radius, and a constant-angle slot is starved at `k_vu_r0` or opens
+into a wedge at `k_vu_r1`. Half-angle is `gap/2 - margin/r`:
+
+| radius | web | groove | margin each side |
+|---|---|---|---|
+| 8.50 (`k_vu_r0`) | 1.34 | 0.44 | 0.45 |
+| 12.75 (LED circle) | 2.00 | **1.10** | 0.45 |
+| 15.00 (`k_vu_r1`) | 2.36 | 1.46 | 0.45 |
+
+**Where the groove cannot go, it does not go.** The web pinches at `k_vu_r0`,
+and over the dial's full parameter ranges most corners leave less than a nozzle
+width once the margins are taken. `k_vu_diff_grooved` is derived, and the disc
+comes out **plain** rather than carrying a groove the slicer would silently
+drop. **3072 of 4096 corners come out plain; nominal is grooved, at 0.44 mm.**
+The wall's 1.60 mm webs are still doing most of the segmenting either way — the
+groove is an improvement, not the mechanism.
+
+**Prints smooth-face-down, grooves up.** No supports. The face that shows gets
+the bed's finish. 951.8 mm³, about 1.2 g.
+
+**Checks.** The six diffuser parameters swept against the six that move the dial
+and the wall — 4096 corners — give **0 diffuser failures**. `fitcheck_slot.py`
+is unchanged, as it must be: the body did not move.

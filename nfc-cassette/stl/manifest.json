@@ -158,5 +158,25 @@
   "supports": "none",
   "note": "glue into the right recess",
   "errors": []
+ },
+ "vu_diffuser": {
+  "name": "vu_diffuser",
+  "triangles": 1332,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 951.4,
+  "brep_volume_mm3": 951.81,
+  "volume_drift": 0.000431,
+  "extents_mm": [
+   32.4,
+   32.39,
+   1.2
+  ],
+  "fits_build_volume": true,
+  "mass_g_pla": 0.6,
+  "orientation": "smooth face down, grooves up",
+  "supports": "none",
+  "note": "WHITE PLA; glue into the dial's dish inside the bezel",
+  "errors": []
  }
 }

@@ -54,6 +54,7 @@ def tape(D, lift=0.0, dz_extra=0.0):
 
 
 KNOB = (0.16, 0.16, 0.17)
+DIFF = (0.94, 0.94, 0.96)      # white PLA
 
 
 def knobs(D, out=0.0):
@@ -67,9 +68,18 @@ def knobs(D, out=0.0):
     return items
 
 
+def diffuser(D, out=0.0):
+    """The white disc in the dial's dish: axis forward like the knobs, its back
+    face on the dish floor at k_dimple in from the outer face."""
+    R = rotation_matrix(np.pi / 2, [1, 0, 0])
+    cx, cz = D["k_vu_c"]
+    return [(load("vu_diffuser", R, dx=cx, dy=-D["s_W"] / 2 + D["k_dimple"] - out, dz=cz), DIFF)]
+
+
 def scene(D, explode=0.0):
     items = [(load("slot_lid", dz=-explode), LID), (load("slot_body"), BODY)]
     items += knobs(D, out=explode * 0.5)
+    items += diffuser(D, out=explode * 0.5)
     items += tape(D, lift=explode * 1.6)
     return items
 
@@ -95,9 +105,9 @@ def main():
     frame(axes[0], scene(D), azim=-35, elev=22)
     axes[0].set_title(f"in use - {D['s_L']:.0f} x {D['s_W']:.0f} x {D['s_H']:.0f} mm, tape stands {D['s_proud']:.0f} mm out of the top", fontsize=11)
     frame(axes[1], scene(D), azim=0, elev=8)
-    axes[1].set_title("straight on - knobs, counter window, REC lamp, transport keys, LED, speaker grille", fontsize=11)
+    axes[1].set_title("straight on - knobs, counter window, REC lamp, transport keys, LED, VU dial", fontsize=11)
     frame(axes[2], scene(D, explode=30.0), azim=-35, elev=22)
-    axes[2].set_title("exploded - lid drops away, tape lifts out of the top", fontsize=11)
+    axes[2].set_title("exploded - lid drops away, tape lifts out, diffuser off the dial", fontsize=11)
     fig.suptitle("NFC cassette player, slot version - PN532 upright behind the slot, D1 mini on the lid", fontsize=14, fontweight="bold")
     OUT.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT / "nfc-cassette-slot.png", dpi=130, bbox_inches="tight", facecolor="white")

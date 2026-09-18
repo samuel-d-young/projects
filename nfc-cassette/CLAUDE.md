@@ -15,18 +15,21 @@ This repo is only the enclosure. Read `BUILD-LOG.md` last entry first.
 ```
 cad/params.py        every dimension, with provenance (datasheet / derived / choice / assumed)
 cad/cassette.py      tray + lid
-cad/player_slot.py   THE player: body with the slot and the front face, bottom lid, two knobs
+cad/player_slot.py   THE player: body with the slot and the front face, bottom lid, two
+                     knobs, and the VU dial's white-PLA diffuser
 cad/player.py        the earlier flat-bay player (base + top slab), kept as an alternative
-cad/verify.py        the gate: build, export, invariants, corner sweep - all eight parts
+cad/verify.py        the gate: build, export, invariants, corner sweep - all nine parts
 cad/fitcheck_slot.py "does the reader sit inside?": the electronics as solids, exact
                      intersections with body and lid, the two printed parts against
                      each other, and the module's and the lid's insertion paths
 cad/shots_slot.py    docs/nfc-cassette-slot.png; shots.py does the flat version
 cad/_lib.py          export gate (watertight, winding, volume drift, build volume)
 stl/ step/           build output + manifest.json. Regenerating is always safe.
-                     STEP carries an export timestamp in its header, so all eight
-                     files go dirty on every run even when nothing moved. If the
-                     STLs are unchanged, the geometry is unchanged: check out step/.
+                     STEP carries an export timestamp in its header, so all nine
+                     files go dirty on every run even when nothing moved - and so
+                     do the STLs, which re-tessellate. Neither file going dirty
+                     means a part moved: diff manifest.json on volume_mm3 and
+                     extents_mm, and check out whatever reads 0.000.
 ```
 
 ## Run

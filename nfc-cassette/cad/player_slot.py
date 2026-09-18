@@ -185,6 +185,21 @@ def _sector(r0: float, r1: float, a0: float, a1: float, t: float, n: int = 16):
     return extrude(Plane.XY * Polygon(*pts, align=None), t / 2, both=True)
 
 
+def _web_groove(r0: float, r1: float, a_mid: float, gap: float, margin: float,
+                t: float, n: int = 12):
+    """A groove that follows a web between two wedge slots, keeping `margin` mm of
+    web either side at EVERY radius. The web is an annular strip, so it widens
+    with radius - a constant-angle slot would be starved at r0 or would open into
+    a wedge at r1. Half-angle at radius r is gap/2 - margin/r."""
+    from build123d import Polygon, extrude, Plane
+    def half(r):
+        return max(gap / 2 - margin / r, 1e-4)
+    inner = [(r0 + (r1 - r0) * i / n) for i in range(n + 1)]
+    pts = [(r * math.cos(a_mid - half(r)), r * math.sin(a_mid - half(r))) for r in inner]
+    pts += [(r * math.cos(a_mid + half(r)), r * math.sin(a_mid + half(r))) for r in reversed(inner)]
+    return extrude(Plane.XY * Polygon(*pts, align=None), t / 2, both=True)
+
+
 def _wedge(length: float, size: float):
     """A 45-degree triangular prism, `size` on both legs, `length` long along Z
     (rotate to taste). Used to chamfer the keys' overhanging edge."""
@@ -209,6 +224,31 @@ def build_knob(D: dict, d: float):
     # chamfer the top edge a little
     knob = knob - Pos(0, 0, h) * (Cylinder(d / 2 + 1, 1.0, align=CC) - Cylinder(d / 2 - 0.8, 1.2, align=CC))
     return knob
+
+
+def build_diffuser(D: dict):
+    """The VU dial's diffuser: a white-PLA disc that glues into the dish inside
+    the bezel, the way the knobs glue into their recesses. It caps the eight
+    wedge slots and the centre hole without plugging them - the 2.4 mm slot
+    behind it collimates, and a plug would only pipe light sideways.
+
+    Eight grooves on the BACK face, one per web, break the lateral path a disc
+    would otherwise give light between neighbouring wedges. They are annular
+    sectors following the web, because at the inner radius the web is only
+    radians(k_vu_gap_deg) * k_vu_r0 wide and a straight slot would open into a
+    wedge. Prints smooth-face-down, grooves up: no overhang, and the face that
+    shows gets the bed's finish.
+    """
+    t = D["k_vu_diff_t_eff"]
+    disc = Cylinder(D["k_vu_diff_r"], t, align=C)
+    if D["k_vu_diff_grooved"]:
+        for k in range(8):
+            a = math.pi / 2 + 2 * math.pi * k / 8 + math.pi / 8   # centred on a web
+            disc = disc - Pos(0, 0, t - D["k_vu_diff_groove_d_eff"] / 2) * _web_groove(
+                D["k_vu_diff_groove_r0"], D["k_vu_diff_groove_r1"], a,
+                math.radians(D["k_vu_gap_deg"]), D["k_vu_diff_groove_margin"],
+                D["k_vu_diff_groove_d_eff"] + 0.02)
+    return disc
 
 
 def build_lid(D: dict):
@@ -271,6 +311,8 @@ if __name__ == "__main__":
          note=f"4 x M3 x {D['screw_len']:.0f} pan head from below; the lid recesses into the body; "
               f"2 small zip ties ({D['s_tie_slot_l']:.1f} x {D['s_tie_slot_w']:.1f} mm slots) hold the D1 mini down, "
               f"return run in the groove on the outside face")
+    emit(build_diffuser(D), "vu_diffuser", "smooth face down, grooves up",
+         note="WHITE PLA; glue into the dial's dish inside the bezel")
     emit(build_knob(D, D["k_knob_big_d"]), "knob_big", "flat, base down", note="glue into the left recess")
     emit(build_knob(D, D["k_knob_small_d"]), "knob_small", "flat, base down", note="glue into the right recess")
     write_manifest()

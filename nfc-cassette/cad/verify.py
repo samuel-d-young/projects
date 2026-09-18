@@ -21,7 +21,7 @@ import params  # noqa: E402
 from _lib import emit, write_manifest  # noqa: E402
 from cassette import build_lid, build_tray  # noqa: E402
 from player import build_base, build_top  # noqa: E402
-from player_slot import build_body as build_slot_body, build_lid as build_slot_lid, build_knob  # noqa: E402
+from player_slot import build_body as build_slot_body, build_lid as build_slot_lid, build_knob, build_diffuser  # noqa: E402
 
 
 def invariants(v: dict, D: dict) -> list[str]:
@@ -211,6 +211,15 @@ def invariants(v: dict, D: dict) -> list[str]:
         chk(abs(x - D["s_ring_cx"]) > v["s_ring_od"] / 2 + v["s_ring_clr"] + v["post_d"] / 2
             or y - v["post_d"] / 2 > D["s_ring_y1"] + 0.5,
             "slot: the VU ring runs into a screw post")
+    # the VU diffuser: sunk below the bezel rim, material left at the grooves,
+    # and each groove inside its web at the radius where the web is narrowest
+    chk(D["k_vu_diff_r"] < D["k_vu_bezel_od"] / 2 - v["k_vu_bezel_w"] - 1e-6, "slot: the diffuser does not fit its dish")
+    chk(D["k_vu_diff_proud"] <= v["k_vu_bezel_proud"] - 0.2 + 1e-9, "slot: the diffuser stands proud of the bezel rim")
+    chk(not D["k_vu_diff_grooved"] or D["k_vu_diff_t_eff"] - D["k_vu_diff_groove_d_eff"] >= 0.4 - 1e-9, "slot: the diffuser's light-break groove leaves too little material")
+    chk(not D["k_vu_diff_grooved"] or D["k_vu_diff_groove_w0"] >= v["k_vu_diff_groove_min"], "slot: a diffuser groove is narrower than a nozzle at k_vu_r0")
+    chk(not D["k_vu_diff_grooved"] or D["k_vu_diff_groove_half"] < math.radians(v["k_vu_gap_deg"]) / 2, "slot: a diffuser groove opens into a wedge")
+    chk(D["k_vu_diff_groove_r1"] <= D["k_vu_diff_r"] - 0.2, "slot: a diffuser groove runs off the edge of the disc")
+    chk(D["k_vu_diff_groove_r0"] > 0.5, "slot: a diffuser groove reaches the centre of the disc")
     return bad
 
 
@@ -218,6 +227,7 @@ def build_all(D: dict):
     return {"cassette_tray": build_tray(D), "cassette_lid": build_lid(D),
             "player_base": build_base(D), "player_top": build_top(D),
             "slot_body": build_slot_body(D), "slot_lid": build_slot_lid(D),
+            "vu_diffuser": build_diffuser(D),
             "knob_big": build_knob(D, D["k_knob_big_d"]), "knob_small": build_knob(D, D["k_knob_small_d"])}
 
 
@@ -254,6 +264,8 @@ def main() -> int:
          note=f"4 x M3 x {D['screw_len']:.0f} pan head from below; the lid recesses into the body; "
               f"2 small zip ties ({D['s_tie_slot_l']:.1f} x {D['s_tie_slot_w']:.1f} mm slots) hold the D1 mini down, "
               f"return run in the groove on the outside face")
+    emit(parts["vu_diffuser"], "vu_diffuser", "smooth face down, grooves up",
+         note="WHITE PLA; glue into the dial's dish inside the bezel")
     emit(parts["knob_big"], "knob_big", "flat, base down", note="glue into the left recess")
     emit(parts["knob_small"], "knob_small", "flat, base down", note="glue into the right recess")
     write_manifest()
