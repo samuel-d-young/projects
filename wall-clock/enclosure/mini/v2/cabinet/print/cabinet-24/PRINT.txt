@@ -18,7 +18,7 @@ on the plate as they are — do not let the slicer auto-orient them.
 LASER (Glowforge, 3 mm plywood)
   mini-round-clock-cabinet-fronts.svg — all six fronts, laid out as they sit
   on the box so the grain runs on. Red = cut. Cut the holes first, outline last.
-  MEASURE YOUR PLY FIRST. The files assume 3.20 mm. If yours differs, set PLY_T
+  MEASURE YOUR PLY FIRST. The files assume 3.00 mm. If yours differs, set PLY_T
   in params.py and run: python cabinet.py
 
 BUY

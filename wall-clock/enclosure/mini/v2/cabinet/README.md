@@ -85,8 +85,9 @@ Only the top row's fronts are handed (round in the corner they share with the
 sleeve, square elsewhere); the lower ones are plain rectangles. Every front is
 drawn where it belongs, so there is nothing to work out at the laser.
 
-**Measure the sheet first.** `PLY_T` = 3.20 sets how far back the clock sits.
-If the sheet is not 3.20, set `PLY_T` and `PLY_KERF` and rebuild.
+**Measure the sheet first.** `PLY_T` = 3.00 sets how far back the clock sits.
+It is the same constant the 60's laser-cut face uses -- one sheet, one number --
+so if yours is not 3.00, set `PLY_T` once in params.py and rebuild both.
 
 ## Buy
 
