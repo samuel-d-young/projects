@@ -314,13 +314,16 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     # front face furniture. Through-holes (LED) stay below the slot floor plate;
     # the cosmetics only add material or dent the 2.4 mm wall by k_dimple, so
     # they may sit anywhere on the face.
-    D["s_led_cx"], D["s_led_cz"] = -51.0, 8.0        # as far left as the front-left screw post allows
-    D["s_buttons_x0"], D["s_buttons_pitch"], D["s_buttons_cz"] = -41.0, v["k_key_w"] + 2.0, 9.0
+    D["s_led_cx"], D["s_led_cz"] = -49.5, 8.0        # as far left as the front-left screw post allows
+    # ...which is set by the WORST sweep corner, not nominal: a thick wall grows
+    # s_L through d1_needs but pulls the post inward faster, and at wall 3.0 with
+    # the tightest clearances -51.0 left 0.05 mm between the LED body and the post
+    D["s_buttons_x0"], D["s_buttons_pitch"], D["s_buttons_cz"] = -39.5, v["k_key_w"] + 2.0, 9.0
     D["k_knob_big_c"] = (-48.0, 30.0)            # volume, top-left
     D["k_knob_small_c"] = (-30.0, 30.0)          # tuning, next to it
     D["k_counter_c"], D["k_counter_w"], D["k_counter_h"] = (-8.0, 30.0), 22.0, 8.0   # tape counter window
     # the dial, right of centre: far enough in that the bezel clears the corner radius
-    D["k_vu_c"] = (35.5, 25.0)
+    D["k_vu_c"] = (36.5, 25.0)
     D["k_vu_bezel_od"] = 2 * v["k_vu_r1"] + 2 * 1.5 + 2 * v["k_vu_bezel_w"]
     D["s_ring_cx"], D["s_ring_cz"] = D["k_vu_c"]
     # the lid's two posts sit under the rim, off to each side; their tops follow

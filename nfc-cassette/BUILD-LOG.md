@@ -261,10 +261,18 @@ from the **outer** edge 3.1 mm proud. The rim curves away, so across the post's
 width it is lowest at the **inner** edge, and that is what sets the top.
 
 **The face had to be re-laid-out.** A 38 mm dial put the ring straight through
-the front-right screw post. The front LED moves to **x = −51** (as far left as
-the front-left post allows, which the fit check enforces) and the keys to
-**−41**. The dimpled speaker grille is gone; the dial replaced it, and the body
-dropped from 55k triangles to 13k.
+the front-right screw post. The front LED moves left and the keys with it; the
+dimpled speaker grille is gone, the dial replaced it, and the body dropped from
+55k triangles to 13k.
+
+**And the sweep caught the re-layout.** The first attempt put the LED at −51,
+which is fine at nominal and **failed 16 of 128 corners**. At `wall` = 3.0 a
+thicker wall grows `s_L` through `d1_needs` but pulls the screw post inward
+faster, and −51 left **0.05 mm between the LED body and the post** — touching.
+The face is now LED **−49.5**, keys **−39.5**, dial **36.5**, which passes all
+128. Tightest margins across the sweep: ring to post **+0.65**, LED to post
+**+1.05**, keys to dial **+2.00**. A face this crowded has to be placed against
+the worst corner, not against nominal.
 
 **One compromise, written down.** The wedges reach r = 15 and the LEDs' outer
 corners are at 15.25, so **0.25 mm of each pixel sits behind the wall**. Making
