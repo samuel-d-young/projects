@@ -7541,3 +7541,169 @@ out-of-date reference rather than the part being wrong:
 
 A datum that was right under the old design does not announce itself when the
 design moves. It just starts reporting failures in the part.
+**Confirmed on the hardware, 2026-09-17.** Sam, looking at the clocks after the flash: *"Yep,
+looks great"* — the ring counts down anticlockwise to wake time and the screen no longer
+carries the row **(verified)**.
+
+## 2026-09-17 (late) — The cabinet: the clock in a desk box with a drawer underneath
+
+Sam: *"Create a full housing for the home assistant wall clock project that looks sleeker and
+integrates with a drawer underneath. Similar to this design. It will be wood paneled front
+too."* The references were small desk drawer units: black sleeve, big corner radii, flush wood
+fronts, a slim bar pull.
+
+New in `enclosure/mini/v2/`: `cabinet.py` (build), `check13_cabinet.py` (168 checks, both
+bodies, added to `runchecks.sh`), `render_cabinet.py` (colour renders), and `cabinet/` with
+the Glowforge SVGs, renders and a README that is the print sheet. Parameters are appended to
+`params.py` under THE CABINET. Nothing about the clock changes: it goes in as base + flange
+diffuser + back cover.
+
+Built for the 24 and the 32. The 60's sleeve would be 376 mm wide, so it is skipped and says so.
+The 32's box is 226 × 181 × 120 mm, landscape (`CAB_ASPECT` 1.25), with a 217 × 99 × 42 drawer.
+
+Found by walking the assembly rather than by looking at it, and fixed before anything
+was printed:
+
+- **The back panel's bottom tongue could not be assembled.** A tongue dropped into a
+  floor groove needs the panel lifted by the tongue's depth to clear the groove's rear lip,
+  and the top edge had only 0.25 mm under the ceiling. It is now two tabs that slide straight
+  in under two slotted keepers. The keepers are also the drawer stop, so closing the drawer
+  never pushes on the panel.
+- **The keepers' 45° fronts would have let the drawer ride up them.** A 2.5 mm vertical
+  face at the foot now takes the stop. 2.5 mm is short enough to print as a plain overhang.
+- **The drawer printed front-down was a 200 × 42 mm bridge** (its back wall). It prints
+  open side up now. Its bottom corners are chords of the bay's round corners, not rounds,
+  because a round corner starts as a 2.5 mm overhang on the second layer.
+- **A drawer corner placed exactly where the bay's arc meets the floor had 0.01 mm of
+  sideways play**, because the arc is tangent there. That corner is pulled in by the side
+  clearance, and the drawer now has the full 0.50 mm.
+
+Not printed, not cut. The board is modelled as a 64 × 30 × 14 mm block with USB-C on top of
+the PCB. The face panel is held by tape on six stop tabs.
+
+## 2026-09-18 — Drawers either side of the clock
+
+Sam, on the cabinet: *"That looks great! You could even put drawers on the sides of the clock
+too."* He is right that the space was there: the clock is round, its bay was a rectangle, and
+the corners either side of the dial were dead volume.
+
+Two partitions (`CAB_PART_T` 2.40) split the top row into three: a **full-height drawer each
+side**, and in the middle the clock's own square bay, which is what the face panel covers now.
+`CAB_ASPECT` went 1.25 → 1.35 so the side bays come out ~50 mm wide rather than ~43. Four
+drawers in all, and the bottom one got wider with the box: 235 mm on the 32.
+
+| | 24 | 32 |
+|---|---|---|
+| sleeve | 229.3 × 169.2 × 120 | 244.4 × 181.0 × 120 |
+| side drawer, inside | 46 × 104 × 116 | 48 × 104 × 128 |
+| plastic, all 7 printed parts | 680 cm³ (~865 g) | 744 cm³ (~945 g) |
+
+The mass is the one real cost — most of a 1 kg spool. `CAB_ASPECT = 1.0` gives back the single
+wide clock bay with no partitions and no side drawers (the code says so and skips them when the
+side bay falls under `CAB_SIDE_MIN`), and that build is ~450 g.
+
+Three things the design had to move, none of them obvious from the front:
+
+- **The back panel's screw bosses were in the side bays.** They sat in the sleeve's own rounded
+  corners, which are now inside the side drawers' travel. All four bosses are in the CENTRE
+  bay's corners now — on the partitions, the ceiling and the divider — and check13 measures the
+  drawers sweeping past them.
+- **Each side drawer needed its own stop**, or closing one would push on the back panel 45 mm
+  from the nearest screw. Each gets the keeper trick: a 2.5 mm vertical step at the back of its
+  own floor, which is short enough to print as a plain overhang.
+- **The face panel's stop tabs moved to the partitions.** They were on the side walls, which
+  are no longer beside the panel.
+
+Left and right are mirror images. Both drawer STLs are emitted rather than one being flipped
+in the slicer; the side pull is symmetric, so that one part is printed twice.
+
+check13 is now **264 checks** across both bodies and all of them pass, including, per side
+drawer: the reveal on all four sides, the stop, the full slide out, 0.50 mm of sideways play
+and 0.80 up with the chorded top corner included, and both pull screws running clear into
+their legs. The Glowforge sheet is checked by matching each outline against the ply part it is
+meant to be — needed because with side drawers the face panel came out exactly square and the
+old "the round one is the window" test would have picked the wrong contour.
+
+Still not printed, not cut.
+
+## 2026-09-18 (later) — Two drawers a side, not one tall one
+
+Sam: *"Make two smaller drawers on each side, rather than 1 tall drawer."* Each side bay is
+divided into `CAB_SIDE_ROWS` rows (2) with a `CAB_SIDE_SHELF` of 2.40 between them, so the box
+now carries **five drawers**: four small ones flanking the clock and the wide one underneath.
+
+| | 24 | 32 |
+|---|---|---|
+| side drawer, inside | 46 × 104 × 56 | 48 × 104 × 62 |
+| plastic, all printed parts | 723 cm³ (~920 g) | 789 cm³ (~1000 g) |
+
+Set `CAB_SIDE_ROWS` to 1 for the tall drawer back; raise it and it stops where a row would
+fall under `CAB_SIDE_ROW_MIN` (25 mm) and prints which it built.
+
+Only the TOP row is handed. Its outer corner is the sleeve's own rounded corner, so that
+drawer and its wood front are mirror images left to right; every row below is a plain
+rectangle. All four drawer STLs are still emitted rather than mirrored in the slicer, and the
+side pull is one part printed four times.
+
+The thing that made this cheap to do was putting the drawer list in one place:
+`side_instances(F)` in cabinet.py yields every side drawer with its side, row, z range, pull
+height and file names, and the sleeve's voids, its stops, the SVG, the renderer and check13
+all read it. Changing 2 rows to 3 is one number, not five edits.
+
+check13 is **392 checks** on both bodies, all passing, and two of them are new in kind:
+
+- the **shelves** are probed for solid material the same way the partitions are, because a
+  shelf that came out as two cantilevers either side of a gap would still have passed every
+  drawer test;
+- the **laser sheet is matched one front at a time**. Counting outlines by size broke as soon
+  as there were two rows: both rows are the same height, and left and right are mirror
+  images, so four outlines share one size. Each ply part now claims an outline of its own and
+  the check fails if any outline is left unclaimed.
+
+Still not printed, not cut.
+
+## 2026-09-18 (later still) — The back closes itself; only the clock's hatch comes off
+
+Sam: *"I want the rear of the drawers to be one piece, and only the back of where the clock
+goes in to be removable. I'd like that piece to be recessed."*
+
+The full-width back panel is gone. The sleeve's own back wall closes all five drawer bays and
+is what those drawers stop against, and the clock's bay alone is open at the back, closed by a
+**hatch** that sits 2 mm inside the back face. Four screws and the clock, its leads and the S3
+are in front of you.
+
+**The sleeve now prints BACK FACE DOWN, and it has to.** With the back closed, printing it
+front down puts a 2.4 mm roof over every bay — 219 × 107 mm of bridge over the bottom drawer
+alone. Back down, that wall is the first layer and every bay is a vertical channel. Flipping
+the part moved which faces are overhangs, so the saddle's 45° ramp moved with it: it used to
+rise toward the back from the panel, and now it runs BACK from the rear lip down to the floor.
+
+Four things this broke, each found by check13 stepping the real meshes rather than by looking
+at the model:
+
+1. **The hatch could not be seated.** The rebate has to taper — printed back face down, a flat
+   ledge for the hatch to land on is an overhang standing over the opening — and a
+   straight-edged plate small enough to pass the taper's narrow end has nothing to land on. It
+   falls through. The hatch's edge is chamfered to match the rebate now, so it wedges in,
+   centres itself, and lands 1.55 mm inside the back face. And the taper is not 45°: it runs
+   CAB_HATCH_LEDGE out over the 4.4 mm it has to do it in, and the hatch's edge matches THAT,
+   or its back corner digs into the rebate's wall.
+2. **The clock no longer fits through its own opening lifted.** The rebate eats 2.5 mm off the
+   top of the opening and the lift over the rear lip eats the rest. So the journey is in two
+   stages now, and the check models it that way: in flat from outside the box, lift 2.51 mm
+   once it is behind the lip's ramp, then on to the seat and down. The README says so too.
+3. **The bosses filled their own pilot holes**, because the rebate's seat is built after them
+   and covers the same corner. They are built after it now — and they sit halfway along the
+   top and bottom edges rather than in the corners, because each boss reaches its wall on a 45°
+   cone and a cone off a corner is √2 longer, which the screw has to cross before it bites.
+   That is the difference between M3 × 35 and M3 × 30.
+4. **The rear lip's own back face was the widest overhang on the part** where the board's lane
+   is cut through it. The lip goes with the ramp over that lane now — it still runs from |x| 17
+   out to 41 on both sides, which is all the stop the clock needs — and the lane is 1.50 mm
+   clear of the board rather than 2.00, because the strip of saddle left standing between the
+   lane and where the arcs start at |x| 13 was 3.55 mm on the 24 body against a 3.50 limit.
+
+Also gone: the keepers, the panel's tabs and their groove. The drawers are 8 mm deeper for it
+(107 mm inside) and the bottom drawer no longer pushes on anything removable.
+
+412 checks, both bodies, all passing. Still not printed, not cut.

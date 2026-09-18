@@ -1,0 +1,477 @@
+#!/usr/bin/env python3
+"""CHECK 13 -- the cabinet: the clock in the top bay, the drawer under it.
+
+    python cabinet.py && python check13_cabinet.py [tag]
+
+Everything is measured on the files cabinet.py wrote (cabinet/world/*.stl, the
+parts in the world frame) and the clock parts build_v2.py wrote (stl/), never
+on the parameters that made them. Where a thing has to MOVE to be assembled or
+used, the check moves it, in steps, against the real mesh: the clock in over
+its lip, the board in along its rails, the hatch into its rebate, every drawer
+all the way out.
+"""
+import os, sys, math, re
+import numpy as np, trimesh
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import csg
+from csg import to_manifold, box_lwh, cyl
+from params import *
+from cabinet import (Frame, world_dir, boss_points, boss_axis, side_instances,
+                     hatch_outline, CLOCK_Z_FRONT, CLOCK_Z_BACK, HERE)
+
+FAILS = []
+
+
+def ck(ok, what, detail=''):
+    print(f'  [{"ok" if ok else "FAIL"}] {what}' + (f'  ({detail})' if detail else ''))
+    if not ok:
+        FAILS.append(what)
+
+
+def W(fn):
+    t = trimesh.load(os.path.join(world_dir(), fn), process=False)
+    t.merge_vertices()
+    return t
+
+
+def moved(man, dx=0.0, dy=0.0, dz=0.0):
+    return man.translate([dx, dy, dz])
+
+
+def vol(a, b):
+    return (a ^ b).volume()
+
+
+def run(tag):
+    F = Frame(tag)
+    pre = f'mini-round-clock-cabinet{tag}'
+    print(f'\n=== cabinet{tag or " (24)"}: {F.W:.1f} x {F.H:.1f} x {F.D:.1f} mm ===')
+
+    # ------------------------------------------------------------------ 1
+    print('\n1. The parts are closed solids, and each fits the bed as printed')
+    meshes = {}
+    printed = ['sleeve', 'hatch', 'drawer', 'pull']
+    plys = ['face-ply', 'drawer-ply']
+    insts = side_instances(F) if F.sides else []
+    if F.sides:
+        printed += [i['drawer'].lstrip('-') for i in insts]
+        printed += [i['pull'].lstrip('-') for i in insts]
+        plys += [i['ply'].lstrip('-') for i in insts]
+    for k in printed + plys:
+        t = W(f'{pre}-{k}.stl')
+        ck(t.is_watertight and t.body_count == 1, f'{k}: one closed body',
+           f'watertight={t.is_watertight}, bodies={t.body_count}')
+        meshes[k] = t
+    S, B, D, P = (to_manifold(meshes[k]) for k in ('sleeve', 'hatch', 'drawer', 'pull'))
+    FP, DP = to_manifold(meshes['face-ply']), to_manifold(meshes['drawer-ply'])
+    M_ = {k: to_manifold(meshes[k]) for k in printed + plys}
+    # the parts with a file of their own in stl/: every side pull is the same
+    # print, so only the first is written, under the name the print sheet uses
+    on_disk = {}
+    for j, k in enumerate(printed):
+        if insts and k == insts[0]['pull'].lstrip('-'):
+            on_disk[k] = 'pull-side'
+        elif k not in [i['pull'].lstrip('-') for i in insts[1:]]:
+            on_disk[k] = k
+    for k, nm in on_disk.items():
+        t = trimesh.load(csg.part(f'{pre}-{nm}.stl'), process=False)
+        ext = t.bounds[1] - t.bounds[0]
+        ck(max(ext[0], ext[1]) <= CAB_BED and ext[2] <= CAB_BED,
+           f'{nm} as printed fits a {CAB_BED:.0f} bed', f'{ext[0]:.1f} x {ext[1]:.1f} x {ext[2]:.1f}')
+    mass = sum(meshes[k].volume for k in printed) / 1000.0
+    print(f'       printed solid volume {mass:.0f} cm3, about {mass * 1.27:.0f} g of PETG')
+
+    # ------------------------------------------------------------------ 2
+    print('\n2. Nothing in the box occupies the same space as anything else')
+    pairs = [('sleeve', S, 'hatch', B), ('sleeve', S, 'drawer', D), ('sleeve', S, 'face ply', FP),
+             ('sleeve', S, 'drawer ply', DP), ('hatch', B, 'drawer', D), ('drawer', D, 'drawer ply', DP),
+             ('drawer ply', DP, 'pull', P), ('drawer', D, 'pull', P), ('face ply', FP, 'drawer ply', DP)]
+    for i in insts:
+        nm = f'{i["side"]}{i["row"] + 1}'
+        DS, SP_, PU = (M_[i[k].lstrip('-')] for k in ('drawer', 'ply', 'pull'))
+        pairs += [('sleeve', S, f'side drawer {nm}', DS), ('hatch', B, f'side drawer {nm}', DS),
+                  ('sleeve', S, f'side ply {nm}', SP_), ('sleeve', S, f'side pull {nm}', PU),
+                  ('face ply', FP, f'side ply {nm}', SP_),
+                  (f'side drawer {nm}', DS, f'side ply {nm}', SP_),
+                  (f'side ply {nm}', SP_, f'side pull {nm}', PU),
+                  ('drawer', D, f'side drawer {nm}', DS), ('drawer ply', DP, f'side ply {nm}', SP_)]
+    for i, j in [(a, b) for k, a in enumerate(insts) for b in insts[k + 1:]]:
+        pairs.append((f'side drawer {i["side"]}{i["row"] + 1}', M_[i['drawer'].lstrip('-')],
+                      f'side drawer {j["side"]}{j["row"] + 1}', M_[j['drawer'].lstrip('-')]))
+        pairs.append((f'side ply {i["side"]}{i["row"] + 1}', M_[i['ply'].lstrip('-')],
+                      f'side ply {j["side"]}{j["row"] + 1}', M_[j['ply'].lstrip('-')]))
+    for an, a, bn, b in pairs:
+        v = vol(a, b)
+        ck(v < 1e-3, f'{an} / {bn}: no overlap', f'{v:.3f} mm3')
+
+    # ------------------------------------------------------------------ 3
+    print('\n3. The clock: real base, back cover and flange diffuser, where the box puts them')
+    M = F.clock_matrix()
+    def clock_part(fn, pre_m=None):
+        t = trimesh.load(csg.part(fn), process=False); t.merge_vertices()
+        if pre_m is not None:
+            t.apply_transform(pre_m)
+        t.apply_transform(M)
+        return t
+    seat = np.diag([1.0, -1.0, -1.0, 1.0]); seat[2, 3] = DIFF_SEAT_Z
+    base_t = clock_part(f'mini-round-clock-base{tag}.stl')
+    cover_t = clock_part(f'mini-round-clock-backcover{tag}.stl')
+    diff_t = clock_part(f'mini-round-clock-diffuser{tag}-flange.stl', seat)
+    # Sam's base carries inherited bad edges, so interference is measured
+    # against the body's own envelope -- a solid cylinder the size of the base,
+    # front face to back cover -- which is what the saddle has to clear anyway.
+    env = cyl(F.r_body, CLOCK_Z_BACK, CLOCK_Z_FRONT, 288)
+    env = csg.to_manifold(csg.to_trimesh(env))
+    Mm = M[:3, :].tolist()
+    ENV = env.transform(np.array(Mm))
+    ext = base_t.bounds[1] - base_t.bounds[0]
+    ck(abs(ext[0] - 2 * F.r_body) < 0.2 and abs(ext[2] - 2 * F.r_body) < 0.2,
+       'the placed base is the body the envelope stands for', f'{ext[0]:.2f} x {ext[2]:.2f}')
+    ck(abs(base_t.bounds[1][2] - (F.z_clock + F.r_body)) < 0.1 and abs(base_t.bounds[0][0] + F.r_body) < 0.1,
+       '...and it is upright and centred', f'top z {base_t.bounds[1][2]:.2f}')
+    for nm, other in (('sleeve', S), ('hatch', B), ('face ply', FP), ('drawer', D)):
+        v = vol(ENV, other)
+        ck(v < 1e-3, f'clock / {nm}: no overlap', f'{v:.3f} mm3')
+    v = vol(ENV.translate([0, 0, -0.10]), S)
+    ck(v > 1e-3, 'it RESTS on the saddle: 0.10 lower and it is in the plastic', f'{v:.3f} mm3')
+    front = min(base_t.bounds[0][1], diff_t.bounds[0][1], cover_t.bounds[0][1])
+    ck(front >= F.y_ply1 - 1e-3, 'nothing of the clock reaches in front of the panel\'s back face',
+       f'clock front y={front:.2f}, panel back y={F.y_ply1:.2f}')
+    ck(cover_t.bounds[1][1] <= F.y_lip0 + 1e-3, 'its back cover stops short of the rear lip',
+       f'{F.y_lip0 - cover_t.bounds[1][1]:.2f} mm')
+
+    # the face you see
+    dv = diff_t.vertices
+    r_diff = np.hypot(dv[:, 0], dv[:, 2] - F.z_clock).max()
+    ck(r_diff <= F.aper_r - 0.2, 'the whole diffuser, flange included, is inside the aperture',
+       f'diffuser r {r_diff:.2f}, aperture r {F.aper_r:.2f}')
+    ck(F.aper_r <= F.r_body - 1.0, 'and the wood still lands on the base, hiding its rim',
+       f'aperture r {F.aper_r:.2f}, body r {F.r_body:.2f}')
+    # probe the aperture as cut: a ring just inside it must be clear of the ply
+    probe = (csg.tube(F.aper_r - 0.15, F.aper_r - 0.05, -1.0, 1.0, 288)
+             .rotate([90, 0, 0]).translate([0, 0, F.z_clock]))
+    probe = csg.to_manifold(csg.to_trimesh(probe)).translate([0, F.y_ply0 + PLY_T / 2, 0])
+    ck(vol(probe, FP) < 1e-3, 'the aperture as cut is concentric with the clock at rest')
+
+    # ------------------------------------------------------------------ 4
+    print('\n4. The clock goes in from the back, lifted over the rear lip')
+    lift = CAB_LIP_V + F.drop + 0.15
+    # THE JOURNEY IS IN TWO STAGES, and it has to be: the lift that clears the
+    # rear lip does not fit through the hatch's rebate, because the rebate eats
+    # CAB_HATCH_LEDGE off the top of the opening and the lift eats the rest.
+    # So the clock goes in flat, and is lifted once it is inside the bay.
+    y_out = F.D + 5.0 - F.y_clock_f
+    y_hold = F.y_ramp1 + 0.5 - F.y_clock_f         # behind the lip's ramp, and
+                                                   # far enough in to clear the rebate
+    flat = max(vol(ENV.translate([0, y_out - (y_out - y_hold) * k / 40.0, 0.0]), S)
+               for k in range(41))
+    ck(flat < 1e-3, 'it goes in flat, from outside the box to just behind the lip',
+       f'worst {flat:.3f} mm3 over 41 steps')
+    up = max(vol(ENV.translate([0, y_hold, lift * k / 20.0]), S) for k in range(21))
+    ck(up < 1e-3, f'there it lifts {lift:.2f} with room to spare', f'{up:.3f} mm3')
+    worst = max(vol(ENV.translate([0, y_hold * (1 - k / 40.0), lift]), S) for k in range(41))
+    ck(worst < 1e-3, 'and carries on over the lip to its seat',
+       f'worst {worst:.3f} mm3 over 41 steps')
+    top = F.z_clock + lift + F.r_body
+    ck(top <= F.z_ct - 0.2, 'and the lift fits under the ceiling', f'{F.z_ct - top:.2f} mm to spare')
+    worst = max(vol(ENV.translate([0, 0, lift * (1 - k / 20.0)]), S) for k in range(21))
+    ck(worst < 1e-3, 'then it drops straight down onto the saddle', f'{worst:.3f} mm3')
+    v = vol(ENV.translate([0, CAB_LIP_CLR + 0.3, 0]), S)
+    ck(v > 1e-3, 'seated, it cannot slide back: the rear lip stops it', f'{v:.2f} mm3 at +{CAB_LIP_CLR + 0.3:.2f}')
+    v = vol(ENV.translate([0, -(CAB_AIR + 0.2), 0]), FP)
+    ck(v > 1e-3, 'and it cannot come forward: the face panel stops it', f'{v:.2f} mm3')
+    # the leads: out of the back cover notch at 6 o'clock, down, and back to the board
+    lane = box_lwh(-CABLE_W / 2, CABLE_W / 2, F.y_clock_b - BACKCOVER_POCKET, F.y_bstop0,
+                   F.z_cf + 0.1, F.z_clock - F.r_body + 0.0)
+    lane2 = box_lwh(-CABLE_W / 2, CABLE_W / 2, F.y_clock_b - BACKCOVER_POCKET, F.y_bstop0,
+                    F.z_cf + 0.1, F.z_cf + 3.5)
+    ck(vol(lane, S) < 1e-3 and vol(lane2, S) < 1e-3,
+       f'a {CABLE_W:.0f} mm lane from the notch, down, and along the floor to the board is clear')
+
+    # ------------------------------------------------------------------ 5
+    print('\n5. The face panel')
+    fb = meshes['face-ply'].bounds
+    ck(abs(fb[0][1] - CAB_RECESS) < 1e-3, 'its face sits CAB_RECESS behind the sleeve front',
+       f'y={fb[0][1]:.2f}')
+    v = vol(FP.translate([0, 0.1, 0]), S)
+    ck(v > 1e-3, 'pushed, it lands on the stop tabs', f'{v:.2f} mm3 at +0.10')
+    # with side drawers the panel's sides are the partitions, not the sleeve
+    gaps = [fb[0][0] + F.cw / 2, F.cw / 2 - fb[1][0], fb[0][2] - F.z_cf, F.z_ct - fb[1][2]]
+    ck(all(abs(g - CAB_REVEAL) < 0.02 for g in gaps), 'reveal to the sleeve on all four sides',
+       ' / '.join(f'{g:.2f}' for g in gaps))
+
+    # ------------------------------------------------------------------ 6
+    print('\n6. The drawer')
+    DR = D + DP + P
+    db = meshes['drawer-ply'].bounds
+    ck(abs(db[0][1] - fb[0][1]) < 1e-3, 'its front is in the same plane as the face panel',
+       f'{db[0][1]:.2f} / {fb[0][1]:.2f}')
+    v = vol(D.translate([0, 0.1, 0]), S)
+    ck(v > 1e-3, "closed, it stops on the sleeve's own back wall", f'{v:.2f} mm3 at +0.10')
+    ck(vol(D.translate([0, 0.1, 0]), B) < 1e-3, '...and never touches the hatch')
+    worst, travel = 0.0, F.D
+    for k in range(0, 81):
+        worst = max(worst, vol(DR.translate([0, -travel * k / 80.0, 0]), S))
+    ck(worst < 1e-3, 'it slides all the way out touching nothing but the floor', f'{worst:.3f} mm3')
+    v = vol(D.translate([0, 0, -0.05]), S)
+    ck(v > 1e-3, 'it is carried by the floor', f'{v:.2f} mm3 at -0.05')
+    def play(dx, dz):
+        lo, hi = 0.0, 3.0
+        for _ in range(24):
+            m = (lo + hi) / 2
+            if vol(D.translate([dx * m, 0, dz * m]), S) < 1e-4: lo = m
+            else: hi = m
+        return lo
+    side, up = play(1, 0), play(0, 1)
+    ck(side >= CAB_DR_SIDE_CLR - 0.02, f'it can move {side:.2f} sideways before it touches, corners included')
+    ck(up >= CAB_DR_TOP_CLR - 0.02, f'and lift {up:.2f} before it touches the divider')
+    inner = (F.w_in - 2 * CAB_DR_SIDE_CLR - 2 * CAB_DR_WALL,
+             F.y_wall - F.y_ply1 - CAB_DR_FRONT_T - CAB_DR_WALL,
+             CAB_DRAWER_H - CAB_DR_TOP_CLR - CAB_DR_FLOOR)
+    print(f'       inside the drawer: {inner[0]:.0f} wide x {inner[1]:.0f} deep x {inner[2]:.0f} high')
+    # the pull's screws: through drawer front, ply, into the legs, all on one axis
+    for sx in (1, -1):
+        x = sx * F.pull_x
+        def ypin(r, y0, y1, x=x):
+            return cyl(r, -y1, -y0, 32).rotate([90, 0, 0]).translate([x, 0, F.z_pull])
+        rod = ypin(1.5, F.y_ply0 + 0.01, F.y_ply1 + CAB_DR_FRONT_T - 0.01)
+        ck(vol(rod, D) < 1e-3 and vol(rod, DP) < 1e-3, f'pull screw at x={x:+.1f}: clear through ply and drawer front')
+        bite = ypin(1.0, F.y_ply0 - CAB_PULL_PILOT + 0.2, F.y_ply0 - 0.2)
+        ck(vol(bite, P) < 1e-3, f'...and into a {CAB_PULL_PILOT:.0f} mm pilot in the leg')
+        shell = (box_lwh(x - 3.2, x + 3.2, F.y_ply0 - CAB_PULL_PILOT, F.y_ply0 - 0.2,
+                         F.z_pull - 3.2, F.z_pull + 3.2)
+                 - box_lwh(x - 1.4, x + 1.4, F.y_ply0 - 20, F.y_ply0 + 1, F.z_pull - 1.4, F.z_pull + 1.4))
+        frac = vol(shell, P) / shell.volume()
+        ck(frac > 0.97, '...with solid plastic all round the pilot', f'{frac * 100:.0f}%')
+    print(f'       screws: M3 x 12 self-tapping ({CAB_DR_FRONT_T:.1f} front + {PLY_T:.1f} ply + '
+          f'{12 - CAB_DR_FRONT_T - PLY_T:.1f} into the leg of {CAB_PULL_PILOT:.0f})')
+
+    # ------------------------------------------------------------------ 6b
+    if F.sides:
+        print('\n6b. The side drawers: {} rows each side of the clock'.format(F.side_rows))
+        depth_in = F.y_wall - F.y_ply1 - CAB_DR_FRONT_T - CAB_DR_WALL
+        print(f'       {2 * F.side_rows} drawers, each {F.side_w - 2 * CAB_DR_SIDE_CLR - 2 * CAB_DR_WALL:.0f} '
+              f'wide x {depth_in:.0f} deep x {F.side_row_h - CAB_DR_TOP_CLR - CAB_DR_FLOOR:.0f} high inside')
+        # the partitions, and the shelf between the rows, are solid
+        for sx in (1, -1):
+            slab = box_lwh(min(sx * (F.x_part_i + 0.2), sx * (F.x_part_o - 0.2)),
+                           max(sx * (F.x_part_i + 0.2), sx * (F.x_part_o - 0.2)),
+                           F.y_ply1 + 2.0, F.y_hatch0 - 2.0,
+                           F.z_cf + 2.0, F.z_ct - 2.0)
+            frac = vol(slab, S) / slab.volume()
+            ck(frac > 0.97, f'the partition on the {"right" if sx > 0 else "left"} is solid '
+                            f'floor to ceiling, front to back', f'{frac * 100:.0f}%')
+        for row in range(F.side_rows - 1):
+            z = F.side_z[row][1]
+            for sx in (1, -1):
+                shelf = box_lwh(min(sx * (F.x_part_o + 0.4), sx * (F.w_in / 2 - 0.4)),
+                                max(sx * (F.x_part_o + 0.4), sx * (F.w_in / 2 - 0.4)),
+                                F.y_ply1 + 2.0, F.y_wall - 2.0,
+                                z + 0.2, z + CAB_SIDE_SHELF - 0.2)
+                frac = vol(shelf, S) / shelf.volume()
+                ck(frac > 0.97, f'the shelf over row {row + 1} on the '
+                                f'{"right" if sx > 0 else "left"} is solid', f'{frac * 100:.0f}%')
+        for i in insts:
+            nm = f'{"right" if i["sx"] > 0 else "left"} row {i["row"] + 1}'
+            DS, SPP, PU = (M_[i[k].lstrip('-')] for k in ('drawer', 'ply', 'pull'))
+            sb = meshes[i['ply'].lstrip('-')].bounds
+            ck(abs(sb[0][1] - CAB_RECESS) < 1e-3,
+               f'{nm}: its front is in the same plane as every other front', f'y={sb[0][1]:.2f}')
+            if i['sx'] > 0:
+                inner_g, outer_g = sb[0][0] - F.x_part_o, F.w_in / 2 - sb[1][0]
+            else:
+                inner_g, outer_g = -F.x_part_o - sb[1][0], sb[0][0] + F.w_in / 2
+            gaps = [inner_g, outer_g, sb[0][2] - i['z0'], i['z1'] - sb[1][2]]
+            ck(all(abs(g - CAB_REVEAL) < 0.02 for g in gaps),
+               f'{nm}: the same {CAB_REVEAL:.1f} reveal all four sides',
+               ' / '.join(f'{g:.2f}' for g in gaps))
+            v = vol(DS.translate([0, 0.1, 0]), S)
+            ck(v > 1e-3, f'{nm}: closed, it stops on the back wall', f'{v:.2f} mm3 at +0.10')
+            ck(vol(DS.translate([0, 0.1, 0]), S) > 1e-3, f"{nm}: on the sleeve's own back wall")
+            SD = DS + SPP + PU
+            worst = max(vol(SD.translate([0, -F.D * k / 60.0, 0]), S) for k in range(61))
+            ck(worst < 1e-3, f'{nm}: it slides all the way out touching nothing but its floor',
+               f'{worst:.3f} mm3')
+            ck(vol(DS.translate([0, 0, -0.05]), S) > 1e-3,
+               f'{nm}: it is carried by the floor under it')
+            def play(dx, dz, D_=DS):
+                lo, hi = 0.0, 3.0
+                for _ in range(24):
+                    m = (lo + hi) / 2
+                    if vol(D_.translate([dx * m, 0, dz * m]), S) < 1e-4: lo = m
+                    else: hi = m
+                return lo
+            sp, upp = min(play(1, 0), play(-1, 0)), play(0, 1)
+            ck(sp >= CAB_DR_SIDE_CLR - 0.02 and upp >= CAB_DR_TOP_CLR - 0.02,
+               f'{nm}: {sp:.2f} of sideways play and {upp:.2f} up')
+            for s2 in (1, -1):
+                x = i['sx'] * F.x_side_c + s2 * F.side_pull_x
+                def ypin(r, y0, y1, x=x, zp=i['z_pull']):
+                    return cyl(r, -y1, -y0, 32).rotate([90, 0, 0]).translate([x, 0, zp])
+                rod = ypin(1.5, F.y_ply0 + 0.01, F.y_ply1 + CAB_DR_FRONT_T - 0.01)
+                bite = ypin(1.0, F.y_ply0 - CAB_PULL_PILOT + 0.2, F.y_ply0 - 0.2)
+                ck(vol(rod, DS) < 1e-3 and vol(rod, SPP) < 1e-3 and vol(bite, PU) < 1e-3,
+                   f'{nm}: pull screw at x={x:+.1f} runs clear into its leg')
+
+
+    # ------------------------------------------------------------------ 7
+    print('\n7. The ESP32-S3: in along its rails from the back, USB-C out through the panel')
+    zb = F.z_cf + CAB_TAPE
+    pcb = box_lwh(-BOARD2_W / 2, BOARD2_W / 2, F.y_board0, F.y_board1, zb, zb + BOARD_T)
+    parts_top = box_lwh(-BOARD2_W / 2 + 1.5, BOARD2_W / 2 - 1.5, F.y_board0, F.y_board1,
+                        zb + BOARD_T - 0.01, zb + BOARD2_H)
+    board = pcb + parts_top
+    for nm, other in (('sleeve', S), ('hatch', B)):
+        ck(vol(board, other) < 1e-3, f'board ({BOARD2_L:.0f} x {BOARD2_W:.0f} x {BOARD2_H:.0f}) / {nm}: no overlap')
+    worst = max(vol(board.translate([0, (F.D + 2 - F.y_board0) * k / 40.0, 0]), S) for k in range(41))
+    ck(worst < 1e-3, 'it slides in from behind the box along the rails', f'{worst:.3f} mm3')
+    ck(vol(pcb.translate([0.45, 0, 0]), S) > 1e-3 and vol(pcb.translate([-0.45, 0, 0]), S) > 1e-3,
+       f'the rails locate it across ({HOUSING_S3_SLOT_W - BOARD2_W:.2f} total play)')
+    ck(vol(pcb.translate([0, -(CAB_STOP_GAP + 0.1), 0]), S) > 1e-3, 'the end stop locates it forward')
+    ck(vol(board.translate([0, HOUSING_S3_USB_GAP + 0.1, 0]), B) > 1e-3,
+       f'the hatch locates it rearward ({HOUSING_S3_USB_GAP:.2f} of play)')
+    zc = zb + BOARD_T + 1.6
+    plug = box_lwh(-12.35 / 2, 12.35 / 2, F.y_board1 + 0.3, F.D + 20, zc - 6.5 / 2, zc + 6.5 / 2)
+    ck(vol(plug, B) < 1e-3 and vol(plug, S) < 1e-3,
+       'a full-size USB-C overmould (12.35 x 6.50) reaches the socket through the window')
+
+    # ------------------------------------------------------------------ 8
+    print('\n8. The back: closed over every drawer, one recessed hatch over the clock')
+    # the drawer bays are closed by the sleeve itself
+    bays = [('the bottom drawer', -F.w_in / 2 + 6, F.w_in / 2 - 6, F.z_dr0 + 4, F.z_dr1 - 4)]
+    for i in insts:
+        bays.append((f'side bay {i["side"]}{i["row"] + 1}',
+                     min(i['sx'] * (F.x_part_o + 4), i['sx'] * (F.w_in / 2 - 4)),
+                     max(i['sx'] * (F.x_part_o + 4), i['sx'] * (F.w_in / 2 - 4)),
+                     i['z0'] + 4, i['z1'] - 4))
+    for nm, x0, x1, z0, z1 in bays:
+        wall = box_lwh(x0, x1, F.y_wall + 0.2, F.D - 0.2, z0, z1)
+        frac = vol(wall, S) / wall.volume()
+        ck(frac > 0.98, f'{nm} is closed by the sleeve, not by a panel', f'{frac * 100:.0f}% solid')
+    # ...and the clock bay is not: the hatch opening goes right through
+    thru = box_lwh(-F.cw / 2 + CAB_HATCH_LEDGE + 2, F.cw / 2 - CAB_HATCH_LEDGE - 2,
+                   F.y_hatch0 - 0.2, F.D + 0.2, F.z_cf + CAB_HATCH_LEDGE + 2,
+                   F.z_ct - CAB_HATCH_LEDGE - 2)
+    ck(vol(thru, S) < 1e-3, 'the clock bay is open at the back, the full size of the hatch')
+
+    hb = meshes['hatch'].bounds
+    ck(abs(hb[1][1] - (F.D - CAB_HATCH_INSET)) < 1e-3,
+       f'the hatch is recessed {CAB_HATCH_INSET:.1f} mm into the back face',
+       f'hatch back y={hb[1][1]:.2f}, sleeve back y={F.D:.2f}')
+    ck(abs(meshes['sleeve'].bounds[1][1] - F.D) < 1e-3, '...which is a flat face all round it')
+    seat_at = next((0.05 * k for k in range(1, 40)
+                    if vol(B.translate([0, -0.05 * k, 0]), S) > 1e-3), None)
+    ck(vol(B.translate([0, 0.2, 0]), S) < 1e-3 and seat_at is not None and seat_at < 0.8,
+       "it wedges into the rebate's taper rather than falling through it",
+       f'it bites {seat_at:.2f} mm in, so it lands {CAB_HATCH_INSET - seat_at:.2f} deep')
+    worst = max(vol(B.translate([0, 40.0 * (1 - k / 40.0), 0]), S) for k in range(41))
+    ck(worst < 1e-3, 'it goes straight in from behind, nothing to lift or hook', f'{worst:.3f} mm3')
+    for (bx, bz, t0, t1) in boss_axis(F):
+        hole = box_lwh(bx - 1.0, bx + 1.0, F.y_hatch0 - 0.1, F.y_hatch1 + 0.1, bz - 1.0, bz + 1.0)
+        ck(vol(hole, B) < 1e-3, f'hatch hole at ({bx:+.1f}, {bz:.1f}) is open')
+        pilot = box_lwh(bx - 0.8, bx + 0.8, t0 + 1.2, t1 - 0.1, bz - 0.8, bz + 0.8)
+        ring = (box_lwh(bx - 2.4, bx + 2.4, t0 + 1.2, t1 - 0.1, bz - 2.4, bz + 2.4)
+                - box_lwh(bx - 1.4, bx + 1.4, 0, F.D + 5, bz - 1.4, bz + 1.4))
+        frac = vol(ring, S) / ring.volume()
+        ck(vol(pilot, S) < 1e-3 and frac > 0.97,
+           f'...into a {t1 - t0:.0f} mm pilot on the same axis, solid all round', f'{frac * 100:.0f}%')
+        run_ = box_lwh(bx - 1.4, bx + 1.4, F.y_hatch1 - 0.1, t0, bz - 1.4, bz + 1.4)
+        ck(vol(run_, S) < 1e-3 and vol(run_, B) < 1e-3,
+           f'...and the screw reaches it: {F.y_hatch1 - t0:.0f} mm from the hatch face, so M3 x '
+           f'{int(math.ceil((F.y_hatch1 - t0 + 6) / 5.0) * 5)}')
+    # the clock has to fit through the hatch opening on its way in
+    op = (F.cw - 2 * CAB_HATCH_LEDGE, F.h_clock - 2 * CAB_HATCH_LEDGE)
+    ck(op[0] >= 2 * F.r_body + 1.0 and op[1] >= 2 * F.r_body + 1.0,
+       'and the clock passes through that opening flat',
+       f'opening {op[0]:.1f} x {op[1]:.1f}, clock {2 * F.r_body:.1f}')
+
+
+    # ------------------------------------------------------------------ 9
+    print('\n9. Printing: no overhang flatter than 45 degrees wider than 3.5 mm, as printed')
+    for k, nm in on_disk.items():
+        t = trimesh.load(csg.part(f'{pre}-{nm}.stl'), process=False)
+        t.merge_vertices()
+        n = t.face_normals
+        zmin = t.vertices[t.faces][:, :, 2].min(axis=1)
+        over = np.nonzero((n[:, 2] < -0.72) & (zmin > 0.05))[0]
+        # width of each connected patch = its projected area over its length,
+        # so a long thin strip on a diagonal is measured as the strip it is
+        worst_w, worst_at, area = 0.0, None, t.area_faces[over].sum()
+        if len(over):
+            sub = t.submesh([over], append=True)
+            for comp in sub.split(only_watertight=False):
+                ext = comp.bounds[1] - comp.bounds[0]
+                proj = (comp.area_faces * np.abs(comp.face_normals[:, 2])).sum()
+                w = proj / max(ext[0], ext[1], 1e-6)
+                if w > worst_w:
+                    worst_w, worst_at = w, comp.bounds.mean(axis=0)
+        where = '' if worst_at is None else f' at print xyz {worst_at[0]:.0f},{worst_at[1]:.0f},{worst_at[2]:.0f}'
+        ck(worst_w <= 3.5 + 1e-6, f'{nm}: overhangs {area:.0f} mm2 in all, the widest patch {worst_w:.2f} mm across{where}')
+
+    # ------------------------------------------------------------------ 10
+    print('\n10. The Glowforge file is the parts')
+    svg = open(os.path.join(HERE, 'cabinet', f'{pre}-fronts.svg'), encoding='utf-8').read()
+    paths = re.findall(r'd="M ([^"]+) Z"', svg)
+    polys = [np.array([[float(v) for v in p.split()] for p in d.split(' L ')]) for d in paths]
+    k = PLY_KERF
+    exts = [(p[:, 0].max() - p[:, 0].min(), p[:, 1].max() - p[:, 1].min()) for p in polys]
+    def area(p):
+        x, y = p[:, 0], p[:, 1]
+        return abs(np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y)) / 2
+
+    # a panel fills its own bounding box; a circle fills pi/4 of it. Matching on
+    # size alone is not enough -- with side drawers the face panel is square.
+    def matches(i, w, h, boxy=True):
+        a, b = exts[i]
+        fill = area(polys[i]) / max(a * b, 1e-9)
+        return abs(a - w) < 0.05 and abs(b - h) < 0.05 and (fill > 0.90) == boxy
+    # every ply part must have an outline of its own, and no outline may be
+    # left over. Sizes repeat -- two mirror-image fronts, and two rows of the
+    # same height -- so they are matched off one for one rather than counted.
+    expect = ['face-ply', 'drawer-ply'] + [i['ply'].lstrip('-') for i in insts]
+    boxy = [i for i in range(len(polys)) if area(polys[i]) / max(exts[i][0] * exts[i][1], 1e-9) > 0.90
+            and exts[i][0] > 10]
+    left = list(boxy)
+    missing = []
+    for key in expect:
+        b = meshes[key].bounds
+        w, h = b[1][0] - b[0][0] + k, b[1][2] - b[0][2] + k
+        hit = next((i for i in left if matches(i, w, h)), None)
+        if hit is None:
+            missing.append(f'{key} ({w:.2f} x {h:.2f})')
+        else:
+            left.remove(hit)
+    ck(not missing, f'all {len(expect)} fronts are cut at the ply size plus kerf',
+       'missing ' + ', '.join(missing) if missing else
+       f'{len(expect)} outlines, nothing else')
+    ck(not left, 'and the sheet carries nothing else',
+       f'{len(left)} unexplained outline(s)')
+    circ = [i for i in range(len(polys))
+            if exts[i][0] > 10 and abs(exts[i][0] - exts[i][1]) < 0.05
+            and area(polys[i]) / (exts[i][0] * exts[i][1]) < 0.85]
+    ck(len(circ) == 1 and abs(exts[circ[0]][0] - (2 * F.aper_r - k)) < 0.05,
+       'one window, the clock aperture less kerf', f'{exts[circ[0]][0]:.2f}' if circ else 'none')
+    small = [p for p in polys if p[:, 0].max() - p[:, 0].min() < 10]
+    want_holes = 2 + 4 * F.side_rows if F.sides else 2
+    ck(len(small) == want_holes, f'{want_holes} pull holes', f'{len(small)} found')
+    cxs = sorted(p[:, 0].mean() for p in small)
+    pitches = [round(cxs[i + 1] - cxs[i], 2) for i in range(len(cxs) - 1)]
+    ck(round(2 * F.pull_x, 2) in pitches, "the main pull's holes are at its own pitch",
+       f'pitches {pitches}, pull {2 * F.pull_x:.2f}')
+    if F.sides:
+        ck(round(2 * F.side_pull_x, 2) in pitches, "and the side pulls' at theirs",
+           f'side pull {2 * F.side_pull_x:.2f}')
+    ck('stroke="#FF0000"' in svg and '<text' not in svg, 'red cut lines only, no text')
+
+
+if __name__ == '__main__':
+    tags = sys.argv[1:] if len(sys.argv) > 1 else ['', '-32']
+    for tg in tags:
+        run('' if tg in ('24', '""') else tg)
+    print()
+    if FAILS:
+        print(f'check13: {len(FAILS)} FAILED')
+        for f in FAILS:
+            print('   -', f)
+        sys.exit(1)
+    print('check13: all passed')

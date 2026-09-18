@@ -2253,3 +2253,140 @@ PLY_HOUSING_OD   = 70.20    # MEASURED off base-60.stl: the BASE's screen collar
                             # it." At 61.2 the face LANDED on that collar. Now it
                             # clears it, and the cell ring carries the face.
 PLY_BORE_OPEN_R  = PLY_HOUSING_OD/2.0 + PLY_CENTRE_CLR    # 30.60 -> 61.2 mm
+
+# =============================================================================
+# THE CABINET -- a desk box with the clock in the top bay and a drawer under it
+# =============================================================================
+# Sam, 2026-09-17: "Create a full housing for the home assistant wall clock
+# project that looks sleeker and integrates with a drawer underneath. Similar to
+# this design. It will be wood paneled front too." The references were small
+# desk drawer units: a black sleeve with big rounded corners, flush wood fronts
+# set a hair back from the sleeve, a slim black bar pull.
+#
+# Built by cabinet.py, checked by check13_cabinet.py. World frame for all of it:
+# X across (right +), Y front to back (the sleeve's front plane is Y = 0),
+# Z up (the sleeve's underside is Z = 0; the feet stand below it).
+#
+# The clock goes in whole -- base, diffuser, back cover, exactly as printed for
+# the stand-box -- so nothing about the clock changes. It stands upright,
+# 12 o'clock up, face to the front.
+
+CAB_WALL        = 2.40   # sleeve walls, top, bottom. 3.20 made a 490 g sleeve
+CAB_R_OUT       = 18.00  # outer corner radius, all four corners, seen from the front
+CAB_EDGE_CHAMF  = 0.80   # 45 degree break on the front and back edges
+CAB_GAP         = 5.00   # clock body to the bay walls, all round
+CAB_DIV_T       = 2.40   # the web between the clock bay and the drawer bay
+CAB_DRAWER_H    = 44.00  # the drawer bay, clear height
+CAB_ASPECT      = 1.35   # outer width over outer height. The references are
+                         # landscape; a bay only as wide as the clock made a
+                         # tall narrow box. 0 = as narrow as the clock allows.
+                         # 1.35 rather than 1.25 so the side drawers below are
+                         # ~50 mm wide rather than ~43
+# Sam, 2026-09-18: "You could even put drawers on the sides of the clock too."
+# The clock is round and its bay is a rectangle, so the space either side of it
+# was dead. Two partitions turn it into a full-height drawer each side; the
+# centre bay narrows to the clock's own square, which is what the face panel
+# covers now. Whatever the aspect leaves over is the side bays' width, and if
+# that is under CAB_SIDE_MIN there are no side drawers and no partitions -- the
+# bay goes back to being one box the full width.
+CAB_PART_T      = 2.40   # the partition between the clock and a side drawer
+CAB_SIDE_MIN    = 30.00  # a side bay narrower than this is not worth a drawer
+CAB_SIDE_PULL   = 0.62   # side pull length, as a fraction of the bay's width
+# Sam, 2026-09-18: "Make two smaller drawers on each side, rather than 1 tall
+# drawer." Each side bay is divided into this many rows, bottom up, with a
+# shelf between them. Only the top row meets the sleeve's rounded corner, so
+# only the top row's drawer is handed; the rest are plain rectangles.
+CAB_SIDE_ROWS   = 2
+CAB_SIDE_SHELF  = 2.40   # the shelf between two side drawers
+CAB_SIDE_ROW_MIN = 25.00 # a row shorter than this is not worth a drawer: the
+                         # bay falls back to one tall one
+CAB_DEPTH       = 120.00 # overall, front to back. Asserted against what the
+                         # clock + board stack actually needs.
+CAB_BED         = 256.00 # the printer's bed, square. A sleeve that will not fit
+                         # is skipped and said out loud (the 60 body: 256.4 wide)
+
+# --- the fronts: 3 mm plywood on the Glowforge ------------------------------
+# PLY_T and PLY_KERF are the ones v17 declared for the 60's face, above: it is
+# the same sheet on the same laser, so there is one number for it. The cabinet
+# defined its own 3.20 for a while and silently overrode v17's 3.00, which is
+# the kind of thing a duplicate constant does quietly. MEASURE THE SHEET and
+# set it once, up there.
+CAB_REVEAL      = 0.80   # gap between each wood front and the sleeve, per side
+CAB_RECESS      = 1.00   # the wood's face sits this far behind the sleeve's front
+
+# --- the clock bay ----------------------------------------------------------
+CAB_APER_CLR    = 0.20   # the face aperture's radius over the base's lip radius:
+                         # the wood lands on the lip and the diffuser is clear
+CAB_AIR         = 0.30   # panel back to the clock's front plane
+CAB_SADDLE_CLR  = 0.35   # radial, saddle arc over the clock body
+CAB_SADDLE_A0   = 14.0   # degrees either side of 6 o'clock: the saddle's gap,
+                         # where the leads come down out of the back cover notch
+CAB_SADDLE_A1   = 50.0   # and where each saddle arc stops
+CAB_SADDLE_FOOT = 2.00   # the saddle's front rises 45 degrees from this height,
+                         # so it prints without support
+CAB_LIP_V       = 2.00   # the rear lip stands this far above the saddle, measured
+                         # VERTICALLY: the clock lifts exactly this much to pass it
+CAB_LIP_T       = 3.00   # rear lip thickness, front to back
+CAB_LIP_CLR     = 0.40   # clock's back face to the lip
+CAB_STOP_T      = 3.00   # the tabs the face panel sits back against: protrusion
+CAB_STOP_W      = 12.00  # width
+CAB_STOP_L      = 6.00   # length, front to back
+
+# --- the board --------------------------------------------------------------
+CAB_TAPE        = 1.00   # foam tape under the S3: it holds the board down and
+                         # keeps pads and wire tails off the floor
+CAB_RAIL_T      = 2.50
+CAB_RAIL_OVER   = 0.40   # rail top over the PCB's top face
+CAB_STOP_GAP    = 0.30   # the board's front end to its end stop
+CAB_BSTOP_L     = 3.00   # end stop length, front to back
+CAB_LEAD_ROOM   = 3.00   # between the saddle's rear lip and the board's end stop
+
+# --- the back: closed, except for one recessed hatch ------------------------
+# Sam, 2026-09-18: "I want the rear of the drawers to be one piece, and only
+# the back of where the clock goes in to be removable. I'd like that piece to
+# be recessed." So the sleeve's own back wall closes every drawer bay, and the
+# clock bay alone is open at the back and closed by a hatch sitting CAB_HATCH_
+# INSET inside the rear face.
+#
+# THIS IS WHY THE SLEEVE PRINTS BACK FACE DOWN. Printed front down, a closed
+# back is a 2.4 mm roof bridging the whole of every bay -- 219 x 99 mm over the
+# bottom drawer. Back down, the wall is the first layer, every bay is a
+# vertical channel, and the only faces left pointing at the bed are the ones
+# listed in check11's overhang pass.
+CAB_BACK_T      = 2.40   # the closed rear wall, part of the sleeve
+CAB_HATCH_T     = 2.40   # the hatch itself
+CAB_HATCH_INSET = 2.00   # how far its outside face sits inside the rear face
+CAB_HATCH_LEDGE = 2.50   # how far the rebate closes in from the bay, per side:
+                         # the seat the hatch lands on, reached by a 45 degree
+                         # taper from the back face rather than a flat ledge,
+                         # which printed back face down would be an overhang
+CAB_BACK_CLR    = 0.25   # per side, in the opening
+# The drawers stop on the sleeve's own back wall now. The keepers and tabs that
+# held the old full-width back panel are gone with it, and so is its groove.
+CAB_BOSS_R      = 3.25
+CAB_BOSS_L      = 10.00
+CAB_BOSS_IN     = 6.50   # boss centre to the wall(s) it grows from. Far enough
+                         # in that the screw lands well inside the hatch, and
+                         # the boss reaches the corner behind it on a 45 degree
+                         # cone -- printed back face down there is nothing under
+                         # a boss but the opening the hatch sits in
+CAB_PILOT_D     = 2.50   # M3 self-tapping
+CAB_VENTS       = 5
+CAB_VENT_H      = 2.50
+
+# --- the drawer -------------------------------------------------------------
+CAB_DR_SIDE_CLR = 0.50   # per side, and under the bay's round corners
+CAB_DR_TOP_CLR  = 0.80
+CAB_DR_WALL     = 1.60
+CAB_DR_FLOOR    = 1.20
+CAB_DR_FRONT_T  = 2.40
+
+# --- the pull ---------------------------------------------------------------
+CAB_PULL_FRAC   = 0.42   # length, as a fraction of the sleeve's width
+CAB_PULL_H      = 9.00   # grip height; its ends are full rounds
+CAB_PULL_D      = 5.00   # grip thickness, front to back
+CAB_PULL_STAND  = 16.00  # standoff: grip's back face to the wood
+CAB_PULL_PILOT  = 9.00   # pilot depth into each leg
+CAB_FEET_H      = 1.60
+CAB_FEET_W      = 8.00
+CAB_FEET_IN     = 10.00  # from the front and back edges

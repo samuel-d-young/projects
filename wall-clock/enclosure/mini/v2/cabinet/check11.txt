@@ -1,0 +1,470 @@
+
+=== cabinet (24): 228.4 x 169.2 x 120.0 mm ===
+
+1. The parts are closed solids, and each fits the bed as printed
+  [ok] sleeve: one closed body  (watertight=True, bodies=1)
+  [ok] hatch: one closed body  (watertight=True, bodies=1)
+  [ok] drawer: one closed body  (watertight=True, bodies=1)
+  [ok] pull: one closed body  (watertight=True, bodies=1)
+  [ok] drawer-side-r1: one closed body  (watertight=True, bodies=1)
+  [ok] drawer-side-r2: one closed body  (watertight=True, bodies=1)
+  [ok] drawer-side-l1: one closed body  (watertight=True, bodies=1)
+  [ok] drawer-side-l2: one closed body  (watertight=True, bodies=1)
+  [ok] pull-side-r1: one closed body  (watertight=True, bodies=1)
+  [ok] pull-side-r2: one closed body  (watertight=True, bodies=1)
+  [ok] pull-side-l1: one closed body  (watertight=True, bodies=1)
+  [ok] pull-side-l2: one closed body  (watertight=True, bodies=1)
+  [ok] face-ply: one closed body  (watertight=True, bodies=1)
+  [ok] drawer-ply: one closed body  (watertight=True, bodies=1)
+  [ok] side-ply-r1: one closed body  (watertight=True, bodies=1)
+  [ok] side-ply-r2: one closed body  (watertight=True, bodies=1)
+  [ok] side-ply-l1: one closed body  (watertight=True, bodies=1)
+  [ok] side-ply-l2: one closed body  (watertight=True, bodies=1)
+  [ok] sleeve as printed fits a 256 bed  (228.4 x 170.8 x 120.0)
+  [ok] hatch as printed fits a 256 bed  (115.2 x 115.2 x 2.4)
+  [ok] drawer as printed fits a 256 bed  (222.6 x 113.6 x 43.2)
+  [ok] pull as printed fits a 256 bed  (96.0 x 9.0 x 21.0)
+  [ok] drawer-side-r1 as printed fits a 256 bed  (49.4 x 113.6 x 57.0)
+  [ok] drawer-side-r2 as printed fits a 256 bed  (49.4 x 113.6 x 57.0)
+  [ok] drawer-side-l1 as printed fits a 256 bed  (49.4 x 113.6 x 57.0)
+  [ok] drawer-side-l2 as printed fits a 256 bed  (49.4 x 113.6 x 57.0)
+  [ok] pull-side as printed fits a 256 bed  (32.0 x 9.0 x 21.0)
+       printed solid volume 763 cm3, about 969 g of PETG
+
+2. Nothing in the box occupies the same space as anything else
+  [ok] sleeve / hatch: no overlap  (0.000 mm3)
+  [ok] sleeve / drawer: no overlap  (0.000 mm3)
+  [ok] sleeve / face ply: no overlap  (0.000 mm3)
+  [ok] sleeve / drawer ply: no overlap  (0.000 mm3)
+  [ok] hatch / drawer: no overlap  (0.000 mm3)
+  [ok] drawer / drawer ply: no overlap  (-0.000 mm3)
+  [ok] drawer ply / pull: no overlap  (-0.000 mm3)
+  [ok] drawer / pull: no overlap  (0.000 mm3)
+  [ok] face ply / drawer ply: no overlap  (0.000 mm3)
+  [ok] sleeve / side drawer r1: no overlap  (0.000 mm3)
+  [ok] hatch / side drawer r1: no overlap  (0.000 mm3)
+  [ok] sleeve / side ply r1: no overlap  (0.000 mm3)
+  [ok] sleeve / side pull r1: no overlap  (0.000 mm3)
+  [ok] face ply / side ply r1: no overlap  (0.000 mm3)
+  [ok] side drawer r1 / side ply r1: no overlap  (0.000 mm3)
+  [ok] side ply r1 / side pull r1: no overlap  (-0.000 mm3)
+  [ok] drawer / side drawer r1: no overlap  (0.000 mm3)
+  [ok] drawer ply / side ply r1: no overlap  (0.000 mm3)
+  [ok] sleeve / side drawer r2: no overlap  (0.000 mm3)
+  [ok] hatch / side drawer r2: no overlap  (0.000 mm3)
+  [ok] sleeve / side ply r2: no overlap  (0.000 mm3)
+  [ok] sleeve / side pull r2: no overlap  (0.000 mm3)
+  [ok] face ply / side ply r2: no overlap  (0.000 mm3)
+  [ok] side drawer r2 / side ply r2: no overlap  (-0.000 mm3)
+  [ok] side ply r2 / side pull r2: no overlap  (-0.000 mm3)
+  [ok] drawer / side drawer r2: no overlap  (0.000 mm3)
+  [ok] drawer ply / side ply r2: no overlap  (0.000 mm3)
+  [ok] sleeve / side drawer l1: no overlap  (0.000 mm3)
+  [ok] hatch / side drawer l1: no overlap  (0.000 mm3)
+  [ok] sleeve / side ply l1: no overlap  (0.000 mm3)
+  [ok] sleeve / side pull l1: no overlap  (0.000 mm3)
+  [ok] face ply / side ply l1: no overlap  (0.000 mm3)
+  [ok] side drawer l1 / side ply l1: no overlap  (0.000 mm3)
+  [ok] side ply l1 / side pull l1: no overlap  (-0.000 mm3)
+  [ok] drawer / side drawer l1: no overlap  (0.000 mm3)
+  [ok] drawer ply / side ply l1: no overlap  (0.000 mm3)
+  [ok] sleeve / side drawer l2: no overlap  (0.000 mm3)
+  [ok] hatch / side drawer l2: no overlap  (0.000 mm3)
+  [ok] sleeve / side ply l2: no overlap  (0.000 mm3)
+  [ok] sleeve / side pull l2: no overlap  (0.000 mm3)
+  [ok] face ply / side ply l2: no overlap  (0.000 mm3)
+  [ok] side drawer l2 / side ply l2: no overlap  (-0.000 mm3)
+  [ok] side ply l2 / side pull l2: no overlap  (-0.000 mm3)
+  [ok] drawer / side drawer l2: no overlap  (0.000 mm3)
+  [ok] drawer ply / side ply l2: no overlap  (0.000 mm3)
+  [ok] side drawer r1 / side drawer r2: no overlap  (0.000 mm3)
+  [ok] side ply r1 / side ply r2: no overlap  (0.000 mm3)
+  [ok] side drawer r1 / side drawer l1: no overlap  (0.000 mm3)
+  [ok] side ply r1 / side ply l1: no overlap  (0.000 mm3)
+  [ok] side drawer r1 / side drawer l2: no overlap  (0.000 mm3)
+  [ok] side ply r1 / side ply l2: no overlap  (0.000 mm3)
+  [ok] side drawer r2 / side drawer l1: no overlap  (0.000 mm3)
+  [ok] side ply r2 / side ply l1: no overlap  (0.000 mm3)
+  [ok] side drawer r2 / side drawer l2: no overlap  (0.000 mm3)
+  [ok] side ply r2 / side ply l2: no overlap  (0.000 mm3)
+  [ok] side drawer l1 / side drawer l2: no overlap  (0.000 mm3)
+  [ok] side ply l1 / side ply l2: no overlap  (0.000 mm3)
+
+3. The clock: real base, back cover and flange diffuser, where the box puts them
+  [ok] the placed base is the body the envelope stands for  (108.00 x 107.99)
+  [ok] ...and it is upright and centred  (top z 161.43)
+  [ok] clock / sleeve: no overlap  (0.000 mm3)
+  [ok] clock / hatch: no overlap  (0.000 mm3)
+  [ok] clock / face ply: no overlap  (0.000 mm3)
+  [ok] clock / drawer: no overlap  (0.000 mm3)
+  [ok] it RESTS on the saddle: 0.10 lower and it is in the plastic  (91.286 mm3)
+  [ok] nothing of the clock reaches in front of the panel's back face  (clock front y=4.30, panel back y=4.00)
+  [ok] its back cover stops short of the rear lip  (0.40 mm)
+  [ok] the whole diffuser, flange included, is inside the aperture  (diffuser r 51.68, aperture r 52.18)
+  [ok] and the wood still lands on the base, hiding its rim  (aperture r 52.18, body r 53.99)
+  [ok] the aperture as cut is concentric with the clock at rest
+
+4. The clock goes in from the back, lifted over the rear lip
+  [ok] it goes in flat, from outside the box to just behind the lip  (worst 0.000 mm3 over 41 steps)
+  [ok] there it lifts 2.51 with room to spare  (0.000 mm3)
+  [ok] and carries on over the lip to its seat  (worst 0.000 mm3 over 41 steps)
+  [ok] and the lift fits under the ceiling  (2.85 mm to spare)
+  [ok] then it drops straight down onto the saddle  (0.000 mm3)
+  [ok] seated, it cannot slide back: the rear lip stops it  (29.13 mm3 at +0.70)
+  [ok] and it cannot come forward: the face panel stops it  (121.27 mm3)
+  [ok] a 12 mm lane from the notch, down, and along the floor to the board is clear
+
+5. The face panel
+  [ok] its face sits CAB_RECESS behind the sleeve front  (y=1.00)
+  [ok] pushed, it lands on the stop tabs  (85.70 mm3 at +0.10)
+  [ok] reveal to the sleeve on all four sides  (0.80 / 0.80 / 0.80 / 0.80)
+
+6. The drawer
+  [ok] its front is in the same plane as the face panel  (1.00 / 1.00)
+  [ok] closed, it stops on the sleeve's own back wall  (937.30 mm3 at +0.10)
+  [ok] ...and never touches the hatch
+  [ok] it slides all the way out touching nothing but the floor  (0.000 mm3)
+  [ok] it is carried by the floor  (1087.44 mm3 at -0.05)
+  [ok] it can move 0.50 sideways before it touches, corners included
+  [ok] and lift 0.80 before it touches the divider
+       inside the drawer: 219 wide x 110 deep x 42 high
+  [ok] pull screw at x=+43.5: clear through ply and drawer front
+  [ok] ...and into a 9 mm pilot in the leg
+  [ok] ...with solid plastic all round the pilot  (100%)
+  [ok] pull screw at x=-43.5: clear through ply and drawer front
+  [ok] ...and into a 9 mm pilot in the leg
+  [ok] ...with solid plastic all round the pilot  (100%)
+       screws: M3 x 12 self-tapping (2.4 front + 3.0 ply + 6.6 into the leg of 9)
+
+6b. The side drawers: 2 rows each side of the clock
+       4 drawers, each 46 wide x 110 deep x 56 high inside
+  [ok] the partition on the right is solid floor to ceiling, front to back  (100%)
+  [ok] the partition on the left is solid floor to ceiling, front to back  (100%)
+  [ok] the shelf over row 1 on the right is solid  (100%)
+  [ok] the shelf over row 1 on the left is solid  (100%)
+  [ok] right row 1: its front is in the same plane as every other front  (y=1.00)
+  [ok] right row 1: the same 0.8 reveal all four sides  (0.80 / 0.80 / 0.80 / 0.80)
+  [ok] right row 1: closed, it stops on the back wall  (281.59 mm3 at +0.10)
+  [ok] right row 1: on the sleeve's own back wall
+  [ok] right row 1: it slides all the way out touching nothing but its floor  (0.000 mm3)
+  [ok] right row 1: it is carried by the floor under it
+  [ok] right row 1: 0.50 of sideways play and 0.80 up
+  [ok] right row 1: pull screw at x=+98.1 runs clear into its leg
+  [ok] right row 1: pull screw at x=+75.1 runs clear into its leg
+  [ok] right row 2: its front is in the same plane as every other front  (y=1.00)
+  [ok] right row 2: the same 0.8 reveal all four sides  (0.80 / 0.80 / 0.80 / 0.80)
+  [ok] right row 2: closed, it stops on the back wall  (270.41 mm3 at +0.10)
+  [ok] right row 2: on the sleeve's own back wall
+  [ok] right row 2: it slides all the way out touching nothing but its floor  (0.000 mm3)
+  [ok] right row 2: it is carried by the floor under it
+  [ok] right row 2: 0.50 of sideways play and 0.80 up
+  [ok] right row 2: pull screw at x=+98.1 runs clear into its leg
+  [ok] right row 2: pull screw at x=+75.1 runs clear into its leg
+  [ok] left row 1: its front is in the same plane as every other front  (y=1.00)
+  [ok] left row 1: the same 0.8 reveal all four sides  (0.80 / 0.80 / 0.80 / 0.80)
+  [ok] left row 1: closed, it stops on the back wall  (281.59 mm3 at +0.10)
+  [ok] left row 1: on the sleeve's own back wall
+  [ok] left row 1: it slides all the way out touching nothing but its floor  (0.000 mm3)
+  [ok] left row 1: it is carried by the floor under it
+  [ok] left row 1: 0.50 of sideways play and 0.80 up
+  [ok] left row 1: pull screw at x=-75.1 runs clear into its leg
+  [ok] left row 1: pull screw at x=-98.1 runs clear into its leg
+  [ok] left row 2: its front is in the same plane as every other front  (y=1.00)
+  [ok] left row 2: the same 0.8 reveal all four sides  (0.80 / 0.80 / 0.80 / 0.80)
+  [ok] left row 2: closed, it stops on the back wall  (270.41 mm3 at +0.10)
+  [ok] left row 2: on the sleeve's own back wall
+  [ok] left row 2: it slides all the way out touching nothing but its floor  (0.000 mm3)
+  [ok] left row 2: it is carried by the floor under it
+  [ok] left row 2: 0.50 of sideways play and 0.80 up
+  [ok] left row 2: pull screw at x=-75.1 runs clear into its leg
+  [ok] left row 2: pull screw at x=-98.1 runs clear into its leg
+
+7. The ESP32-S3: in along its rails from the back, USB-C out through the panel
+  [ok] board (64 x 30 x 14) / sleeve: no overlap
+  [ok] board (64 x 30 x 14) / hatch: no overlap
+  [ok] it slides in from behind the box along the rails  (0.000 mm3)
+  [ok] the rails locate it across (0.60 total play)
+  [ok] the end stop locates it forward
+  [ok] the hatch locates it rearward (1.60 of play)
+  [ok] a full-size USB-C overmould (12.35 x 6.50) reaches the socket through the window
+
+8. The back: closed over every drawer, one recessed hatch over the clock
+  [ok] the bottom drawer is closed by the sleeve, not by a panel  (100% solid)
+  [ok] side bay r1 is closed by the sleeve, not by a panel  (100% solid)
+  [ok] side bay r2 is closed by the sleeve, not by a panel  (100% solid)
+  [ok] side bay l1 is closed by the sleeve, not by a panel  (100% solid)
+  [ok] side bay l2 is closed by the sleeve, not by a panel  (100% solid)
+  [ok] the clock bay is open at the back, the full size of the hatch
+  [ok] the hatch is recessed 2.0 mm into the back face  (hatch back y=118.00, sleeve back y=120.00)
+  [ok] ...which is a flat face all round it
+  [ok] it wedges into the rebate's taper rather than falling through it  (it bites 0.45 mm in, so it lands 1.55 deep)
+  [ok] it goes straight in from behind, nothing to lift or hook  (0.000 mm3)
+  [ok] hatch hole at (+29.5, 160.3) is open
+  [ok] ...into a 10 mm pilot on the same axis, solid all round  (100%)
+  [ok] ...and the screw reaches it: 23 mm from the hatch face, so M3 x 30
+  [ok] hatch hole at (+29.5, 55.3) is open
+  [ok] ...into a 10 mm pilot on the same axis, solid all round  (100%)
+  [ok] ...and the screw reaches it: 23 mm from the hatch face, so M3 x 30
+  [ok] hatch hole at (-29.5, 160.3) is open
+  [ok] ...into a 10 mm pilot on the same axis, solid all round  (100%)
+  [ok] ...and the screw reaches it: 23 mm from the hatch face, so M3 x 30
+  [ok] hatch hole at (-29.5, 55.3) is open
+  [ok] ...into a 10 mm pilot on the same axis, solid all round  (100%)
+  [ok] ...and the screw reaches it: 23 mm from the hatch face, so M3 x 30
+  [ok] and the clock passes through that opening flat  (opening 113.0 x 113.0, clock 108.0)
+
+9. Printing: no overhang flatter than 45 degrees wider than 3.5 mm, as printed
+  [ok] sleeve: overhangs 394 mm2 in all, the widest patch 3.12 mm across at print xyz 129,54,82
+  [ok] hatch: overhangs 0 mm2 in all, the widest patch 0.00 mm across
+  [ok] drawer: overhangs 13 mm2 in all, the widest patch 2.40 mm across at print xyz 155,1,23
+  [ok] pull: overhangs 0 mm2 in all, the widest patch 0.00 mm across at print xyz 92,9,4
+  [ok] drawer-side-r1: overhangs 13 mm2 in all, the widest patch 2.40 mm across at print xyz 36,1,30
+  [ok] drawer-side-r2: overhangs 13 mm2 in all, the widest patch 2.40 mm across at print xyz 36,1,30
+  [ok] drawer-side-l1: overhangs 13 mm2 in all, the widest patch 2.40 mm across at print xyz 36,1,30
+  [ok] drawer-side-l2: overhangs 13 mm2 in all, the widest patch 2.40 mm across at print xyz 36,1,30
+  [ok] pull-side: overhangs 0 mm2 in all, the widest patch 0.00 mm across at print xyz 4,9,4
+
+10. The Glowforge file is the parts
+  [ok] all 6 fronts are cut at the ply size plus kerf  (6 outlines, nothing else)
+  [ok] and the sheet carries nothing else  (0 unexplained outline(s))
+  [ok] one window, the clock aperture less kerf  (104.16)
+  [ok] 10 pull holes  (10 found)
+  [ok] the main pull's holes are at its own pitch  (pitches [np.float64(0.0), np.float64(23.0), np.float64(0.0), np.float64(31.6), np.float64(87.0), np.float64(31.6), np.float64(0.0), np.float64(23.0), np.float64(0.0)], pull 87.00)
+  [ok] and the side pulls' at theirs  (side pull 23.00)
+  [ok] red cut lines only, no text
+
+=== cabinet-32: 244.4 x 181.0 x 120.0 mm ===
+
+1. The parts are closed solids, and each fits the bed as printed
+  [ok] sleeve: one closed body  (watertight=True, bodies=1)
+  [ok] hatch: one closed body  (watertight=True, bodies=1)
+  [ok] drawer: one closed body  (watertight=True, bodies=1)
+  [ok] pull: one closed body  (watertight=True, bodies=1)
+  [ok] drawer-side-r1: one closed body  (watertight=True, bodies=1)
+  [ok] drawer-side-r2: one closed body  (watertight=True, bodies=1)
+  [ok] drawer-side-l1: one closed body  (watertight=True, bodies=1)
+  [ok] drawer-side-l2: one closed body  (watertight=True, bodies=1)
+  [ok] pull-side-r1: one closed body  (watertight=True, bodies=1)
+  [ok] pull-side-r2: one closed body  (watertight=True, bodies=1)
+  [ok] pull-side-l1: one closed body  (watertight=True, bodies=1)
+  [ok] pull-side-l2: one closed body  (watertight=True, bodies=1)
+  [ok] face-ply: one closed body  (watertight=True, bodies=1)
+  [ok] drawer-ply: one closed body  (watertight=True, bodies=1)
+  [ok] side-ply-r1: one closed body  (watertight=True, bodies=1)
+  [ok] side-ply-r2: one closed body  (watertight=True, bodies=1)
+  [ok] side-ply-l1: one closed body  (watertight=True, bodies=1)
+  [ok] side-ply-l2: one closed body  (watertight=True, bodies=1)
+  [ok] sleeve as printed fits a 256 bed  (244.4 x 182.7 x 120.0)
+  [ok] hatch as printed fits a 256 bed  (127.1 x 127.1 x 2.4)
+  [ok] drawer as printed fits a 256 bed  (238.6 x 113.6 x 43.2)
+  [ok] pull as printed fits a 256 bed  (102.0 x 9.0 x 21.0)
+  [ok] drawer-side-r1 as printed fits a 256 bed  (51.5 x 113.6 x 62.9)
+  [ok] drawer-side-r2 as printed fits a 256 bed  (51.5 x 113.6 x 62.9)
+  [ok] drawer-side-l1 as printed fits a 256 bed  (51.5 x 113.6 x 62.9)
+  [ok] drawer-side-l2 as printed fits a 256 bed  (51.5 x 113.6 x 62.9)
+  [ok] pull-side as printed fits a 256 bed  (32.0 x 9.0 x 21.0)
+       printed solid volume 837 cm3, about 1063 g of PETG
+
+2. Nothing in the box occupies the same space as anything else
+  [ok] sleeve / hatch: no overlap  (0.000 mm3)
+  [ok] sleeve / drawer: no overlap  (0.000 mm3)
+  [ok] sleeve / face ply: no overlap  (0.000 mm3)
+  [ok] sleeve / drawer ply: no overlap  (0.000 mm3)
+  [ok] hatch / drawer: no overlap  (0.000 mm3)
+  [ok] drawer / drawer ply: no overlap  (-0.000 mm3)
+  [ok] drawer ply / pull: no overlap  (0.000 mm3)
+  [ok] drawer / pull: no overlap  (0.000 mm3)
+  [ok] face ply / drawer ply: no overlap  (0.000 mm3)
+  [ok] sleeve / side drawer r1: no overlap  (0.000 mm3)
+  [ok] hatch / side drawer r1: no overlap  (0.000 mm3)
+  [ok] sleeve / side ply r1: no overlap  (0.000 mm3)
+  [ok] sleeve / side pull r1: no overlap  (0.000 mm3)
+  [ok] face ply / side ply r1: no overlap  (0.000 mm3)
+  [ok] side drawer r1 / side ply r1: no overlap  (-0.000 mm3)
+  [ok] side ply r1 / side pull r1: no overlap  (0.000 mm3)
+  [ok] drawer / side drawer r1: no overlap  (0.000 mm3)
+  [ok] drawer ply / side ply r1: no overlap  (0.000 mm3)
+  [ok] sleeve / side drawer r2: no overlap  (0.000 mm3)
+  [ok] hatch / side drawer r2: no overlap  (0.000 mm3)
+  [ok] sleeve / side ply r2: no overlap  (0.000 mm3)
+  [ok] sleeve / side pull r2: no overlap  (0.000 mm3)
+  [ok] face ply / side ply r2: no overlap  (0.000 mm3)
+  [ok] side drawer r2 / side ply r2: no overlap  (-0.000 mm3)
+  [ok] side ply r2 / side pull r2: no overlap  (0.000 mm3)
+  [ok] drawer / side drawer r2: no overlap  (0.000 mm3)
+  [ok] drawer ply / side ply r2: no overlap  (0.000 mm3)
+  [ok] sleeve / side drawer l1: no overlap  (0.000 mm3)
+  [ok] hatch / side drawer l1: no overlap  (0.000 mm3)
+  [ok] sleeve / side ply l1: no overlap  (0.000 mm3)
+  [ok] sleeve / side pull l1: no overlap  (0.000 mm3)
+  [ok] face ply / side ply l1: no overlap  (0.000 mm3)
+  [ok] side drawer l1 / side ply l1: no overlap  (0.000 mm3)
+  [ok] side ply l1 / side pull l1: no overlap  (0.000 mm3)
+  [ok] drawer / side drawer l1: no overlap  (0.000 mm3)
+  [ok] drawer ply / side ply l1: no overlap  (0.000 mm3)
+  [ok] sleeve / side drawer l2: no overlap  (0.000 mm3)
+  [ok] hatch / side drawer l2: no overlap  (0.000 mm3)
+  [ok] sleeve / side ply l2: no overlap  (0.000 mm3)
+  [ok] sleeve / side pull l2: no overlap  (0.000 mm3)
+  [ok] face ply / side ply l2: no overlap  (0.000 mm3)
+  [ok] side drawer l2 / side ply l2: no overlap  (-0.000 mm3)
+  [ok] side ply l2 / side pull l2: no overlap  (0.000 mm3)
+  [ok] drawer / side drawer l2: no overlap  (0.000 mm3)
+  [ok] drawer ply / side ply l2: no overlap  (0.000 mm3)
+  [ok] side drawer r1 / side drawer r2: no overlap  (0.000 mm3)
+  [ok] side ply r1 / side ply r2: no overlap  (0.000 mm3)
+  [ok] side drawer r1 / side drawer l1: no overlap  (0.000 mm3)
+  [ok] side ply r1 / side ply l1: no overlap  (0.000 mm3)
+  [ok] side drawer r1 / side drawer l2: no overlap  (0.000 mm3)
+  [ok] side ply r1 / side ply l2: no overlap  (0.000 mm3)
+  [ok] side drawer r2 / side drawer l1: no overlap  (0.000 mm3)
+  [ok] side ply r2 / side ply l1: no overlap  (0.000 mm3)
+  [ok] side drawer r2 / side drawer l2: no overlap  (0.000 mm3)
+  [ok] side ply r2 / side ply l2: no overlap  (0.000 mm3)
+  [ok] side drawer l1 / side drawer l2: no overlap  (0.000 mm3)
+  [ok] side ply l1 / side ply l2: no overlap  (0.000 mm3)
+
+3. The clock: real base, back cover and flange diffuser, where the box puts them
+  [ok] the placed base is the body the envelope stands for  (119.85 x 119.85)
+  [ok] ...and it is upright and centred  (top z 173.29)
+  [ok] clock / sleeve: no overlap  (0.000 mm3)
+  [ok] clock / hatch: no overlap  (0.000 mm3)
+  [ok] clock / face ply: no overlap  (0.000 mm3)
+  [ok] clock / drawer: no overlap  (0.000 mm3)
+  [ok] it RESTS on the saddle: 0.10 lower and it is in the plastic  (101.075 mm3)
+  [ok] nothing of the clock reaches in front of the panel's back face  (clock front y=4.30, panel back y=4.00)
+  [ok] its back cover stops short of the rear lip  (0.40 mm)
+  [ok] the whole diffuser, flange included, is inside the aperture  (diffuser r 57.63, aperture r 58.12)
+  [ok] and the wood still lands on the base, hiding its rim  (aperture r 58.12, body r 59.92)
+  [ok] the aperture as cut is concentric with the clock at rest
+
+4. The clock goes in from the back, lifted over the rear lip
+  [ok] it goes in flat, from outside the box to just behind the lip  (worst 0.000 mm3 over 41 steps)
+  [ok] there it lifts 2.51 with room to spare  (0.000 mm3)
+  [ok] and carries on over the lip to its seat  (worst 0.000 mm3 over 41 steps)
+  [ok] and the lift fits under the ceiling  (2.85 mm to spare)
+  [ok] then it drops straight down onto the saddle  (0.000 mm3)
+  [ok] seated, it cannot slide back: the rear lip stops it  (34.46 mm3 at +0.70)
+  [ok] and it cannot come forward: the face panel stops it  (134.01 mm3)
+  [ok] a 12 mm lane from the notch, down, and along the floor to the board is clear
+
+5. The face panel
+  [ok] its face sits CAB_RECESS behind the sleeve front  (y=1.00)
+  [ok] pushed, it lands on the stop tabs  (99.13 mm3 at +0.10)
+  [ok] reveal to the sleeve on all four sides  (0.80 / 0.80 / 0.80 / 0.80)
+
+6. The drawer
+  [ok] its front is in the same plane as the face panel  (1.00 / 1.00)
+  [ok] closed, it stops on the sleeve's own back wall  (1006.49 mm3 at +0.10)
+  [ok] ...and never touches the hatch
+  [ok] it slides all the way out touching nothing but the floor  (0.000 mm3)
+  [ok] it is carried by the floor  (1178.42 mm3 at -0.05)
+  [ok] it can move 0.50 sideways before it touches, corners included
+  [ok] and lift 0.80 before it touches the divider
+       inside the drawer: 235 wide x 110 deep x 42 high
+  [ok] pull screw at x=+46.5: clear through ply and drawer front
+  [ok] ...and into a 9 mm pilot in the leg
+  [ok] ...with solid plastic all round the pilot  (100%)
+  [ok] pull screw at x=-46.5: clear through ply and drawer front
+  [ok] ...and into a 9 mm pilot in the leg
+  [ok] ...with solid plastic all round the pilot  (100%)
+       screws: M3 x 12 self-tapping (2.4 front + 3.0 ply + 6.6 into the leg of 9)
+
+6b. The side drawers: 2 rows each side of the clock
+       4 drawers, each 48 wide x 110 deep x 62 high inside
+  [ok] the partition on the right is solid floor to ceiling, front to back  (100%)
+  [ok] the partition on the left is solid floor to ceiling, front to back  (100%)
+  [ok] the shelf over row 1 on the right is solid  (100%)
+  [ok] the shelf over row 1 on the left is solid  (100%)
+  [ok] right row 1: its front is in the same plane as every other front  (y=1.00)
+  [ok] right row 1: the same 0.8 reveal all four sides  (0.80 / 0.80 / 0.80 / 0.80)
+  [ok] right row 1: closed, it stops on the back wall  (323.96 mm3 at +0.10)
+  [ok] right row 1: on the sleeve's own back wall
+  [ok] right row 1: it slides all the way out touching nothing but its floor  (0.000 mm3)
+  [ok] right row 1: it is carried by the floor under it
+  [ok] right row 1: 0.50 of sideways play and 0.80 up
+  [ok] right row 1: pull screw at x=+105.1 runs clear into its leg
+  [ok] right row 1: pull screw at x=+82.1 runs clear into its leg
+  [ok] right row 2: its front is in the same plane as every other front  (y=1.00)
+  [ok] right row 2: the same 0.8 reveal all four sides  (0.80 / 0.80 / 0.80 / 0.80)
+  [ok] right row 2: closed, it stops on the back wall  (312.79 mm3 at +0.10)
+  [ok] right row 2: on the sleeve's own back wall
+  [ok] right row 2: it slides all the way out touching nothing but its floor  (0.000 mm3)
+  [ok] right row 2: it is carried by the floor under it
+  [ok] right row 2: 0.50 of sideways play and 0.80 up
+  [ok] right row 2: pull screw at x=+105.1 runs clear into its leg
+  [ok] right row 2: pull screw at x=+82.1 runs clear into its leg
+  [ok] left row 1: its front is in the same plane as every other front  (y=1.00)
+  [ok] left row 1: the same 0.8 reveal all four sides  (0.80 / 0.80 / 0.80 / 0.80)
+  [ok] left row 1: closed, it stops on the back wall  (323.96 mm3 at +0.10)
+  [ok] left row 1: on the sleeve's own back wall
+  [ok] left row 1: it slides all the way out touching nothing but its floor  (0.000 mm3)
+  [ok] left row 1: it is carried by the floor under it
+  [ok] left row 1: 0.50 of sideways play and 0.80 up
+  [ok] left row 1: pull screw at x=-82.1 runs clear into its leg
+  [ok] left row 1: pull screw at x=-105.1 runs clear into its leg
+  [ok] left row 2: its front is in the same plane as every other front  (y=1.00)
+  [ok] left row 2: the same 0.8 reveal all four sides  (0.80 / 0.80 / 0.80 / 0.80)
+  [ok] left row 2: closed, it stops on the back wall  (312.79 mm3 at +0.10)
+  [ok] left row 2: on the sleeve's own back wall
+  [ok] left row 2: it slides all the way out touching nothing but its floor  (0.000 mm3)
+  [ok] left row 2: it is carried by the floor under it
+  [ok] left row 2: 0.50 of sideways play and 0.80 up
+  [ok] left row 2: pull screw at x=-82.1 runs clear into its leg
+  [ok] left row 2: pull screw at x=-105.1 runs clear into its leg
+
+7. The ESP32-S3: in along its rails from the back, USB-C out through the panel
+  [ok] board (64 x 30 x 14) / sleeve: no overlap
+  [ok] board (64 x 30 x 14) / hatch: no overlap
+  [ok] it slides in from behind the box along the rails  (0.000 mm3)
+  [ok] the rails locate it across (0.60 total play)
+  [ok] the end stop locates it forward
+  [ok] the hatch locates it rearward (1.60 of play)
+  [ok] a full-size USB-C overmould (12.35 x 6.50) reaches the socket through the window
+
+8. The back: closed over every drawer, one recessed hatch over the clock
+  [ok] the bottom drawer is closed by the sleeve, not by a panel  (100% solid)
+  [ok] side bay r1 is closed by the sleeve, not by a panel  (100% solid)
+  [ok] side bay r2 is closed by the sleeve, not by a panel  (100% solid)
+  [ok] side bay l1 is closed by the sleeve, not by a panel  (100% solid)
+  [ok] side bay l2 is closed by the sleeve, not by a panel  (100% solid)
+  [ok] the clock bay is open at the back, the full size of the hatch
+  [ok] the hatch is recessed 2.0 mm into the back face  (hatch back y=118.00, sleeve back y=120.00)
+  [ok] ...which is a flat face all round it
+  [ok] it wedges into the rebate's taper rather than falling through it  (it bites 0.45 mm in, so it lands 1.55 deep)
+  [ok] it goes straight in from behind, nothing to lift or hook  (0.000 mm3)
+  [ok] hatch hole at (+32.5, 172.1) is open
+  [ok] ...into a 10 mm pilot on the same axis, solid all round  (100%)
+  [ok] ...and the screw reaches it: 23 mm from the hatch face, so M3 x 30
+  [ok] hatch hole at (+32.5, 55.3) is open
+  [ok] ...into a 10 mm pilot on the same axis, solid all round  (100%)
+  [ok] ...and the screw reaches it: 23 mm from the hatch face, so M3 x 30
+  [ok] hatch hole at (-32.5, 172.1) is open
+  [ok] ...into a 10 mm pilot on the same axis, solid all round  (100%)
+  [ok] ...and the screw reaches it: 23 mm from the hatch face, so M3 x 30
+  [ok] hatch hole at (-32.5, 55.3) is open
+  [ok] ...into a 10 mm pilot on the same axis, solid all round  (100%)
+  [ok] ...and the screw reaches it: 23 mm from the hatch face, so M3 x 30
+  [ok] and the clock passes through that opening flat  (opening 124.8 x 124.8, clock 119.8)
+
+9. Printing: no overhang flatter than 45 degrees wider than 3.5 mm, as printed
+  [ok] sleeve: overhangs 375 mm2 in all, the widest patch 3.00 mm across at print xyz 186,88,110
+  [ok] hatch: overhangs 0 mm2 in all, the widest patch 0.00 mm across
+  [ok] drawer: overhangs 13 mm2 in all, the widest patch 2.40 mm across at print xyz 166,1,23
+  [ok] pull: overhangs 0 mm2 in all, the widest patch 0.00 mm across at print xyz 98,9,4
+  [ok] drawer-side-r1: overhangs 13 mm2 in all, the widest patch 2.40 mm across at print xyz 37,1,33
+  [ok] drawer-side-r2: overhangs 13 mm2 in all, the widest patch 2.40 mm across at print xyz 37,1,33
+  [ok] drawer-side-l1: overhangs 13 mm2 in all, the widest patch 2.40 mm across at print xyz 37,1,33
+  [ok] drawer-side-l2: overhangs 13 mm2 in all, the widest patch 2.40 mm across at print xyz 37,1,33
+  [ok] pull-side: overhangs 0 mm2 in all, the widest patch 0.00 mm across at print xyz 0,4,4
+
+10. The Glowforge file is the parts
+  [ok] all 6 fronts are cut at the ply size plus kerf  (6 outlines, nothing else)
+  [ok] and the sheet carries nothing else  (0 unexplained outline(s))
+  [ok] one window, the clock aperture less kerf  (116.05)
+  [ok] 10 pull holes  (10 found)
+  [ok] the main pull's holes are at its own pitch  (pitches [np.float64(0.0), np.float64(23.0), np.float64(0.0), np.float64(35.57), np.float64(93.0), np.float64(35.57), np.float64(0.0), np.float64(23.0), np.float64(0.0)], pull 93.00)
+  [ok] and the side pulls' at theirs  (side pull 23.00)
+  [ok] red cut lines only, no text
+
+check11: all passed

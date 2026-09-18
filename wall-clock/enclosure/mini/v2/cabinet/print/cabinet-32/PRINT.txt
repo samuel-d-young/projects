@@ -1,0 +1,34 @@
+mini-round-clock cabinet — 32-LED clock
+=======================================
+Black PETG. No supports on any part. One file per part; copies as noted.
+
+  mini-round-clock-cabinet-32-sleeve.stl          x1   BACK FACE DOWN
+  mini-round-clock-cabinet-32-hatch.stl           x1   OUTSIDE FACE DOWN
+  mini-round-clock-cabinet-32-drawer.stl          x1   OPEN SIDE UP
+  mini-round-clock-cabinet-32-drawer-side-r1.stl  x1   OPEN SIDE UP
+  mini-round-clock-cabinet-32-drawer-side-r2.stl  x1   OPEN SIDE UP
+  mini-round-clock-cabinet-32-drawer-side-l1.stl  x1   OPEN SIDE UP
+  mini-round-clock-cabinet-32-drawer-side-l2.stl  x1   OPEN SIDE UP
+  mini-round-clock-cabinet-32-pull.stl            x1   GRIP FACE DOWN
+  mini-round-clock-cabinet-32-pull-side.stl       x4   GRIP FACE DOWN
+
+Every STL is already in its print orientation and sitting on z = 0. Drop them
+on the plate as they are — do not let the slicer auto-orient them.
+
+LASER (Glowforge, 3 mm plywood)
+  mini-round-clock-cabinet-32-fronts.svg — all six fronts, laid out as they sit
+  on the box so the grain runs on. Red = cut. Cut the holes first, outline last.
+  MEASURE YOUR PLY FIRST. The files assume 3.20 mm. If yours differs, set PLY_T
+  in params.py and run: python cabinet.py
+
+BUY
+  4  x M3 x 30 countersunk self-tapping   (the hatch)
+  10 x M3 x 12 pan head self-tapping      (the five pulls, two each)
+  1 mm double-sided foam tape             (under the S3, and six squares on the
+                                           face panel's stop tabs)
+
+The clock goes in as you already print it: base + flange diffuser + back cover.
+Assembly order is in cabinet/README.md — read step 2 before fitting the clock,
+it goes in FLAT and is lifted once it is inside.
+
+Nothing here has been printed or cut yet.

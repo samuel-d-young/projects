@@ -60,3 +60,11 @@ for t in '' -32 -60; do
         echo '*** FAILED ***'; cat /tmp/wc-check.txt; exit 1
     fi
 done
+# check 13: the cabinet -- the clock in a desk box with drawers under and beside
+# run covers both bodies it is built for (the 60's sleeve does not fit the bed).
+printf '%-22s ' "check13_cabinet.py"
+if python3 check13_cabinet.py > /tmp/wc-check.txt 2>&1; then
+    tail -1 /tmp/wc-check.txt
+else
+    echo '*** FAILED ***'; cat /tmp/wc-check.txt; exit 1
+fi
