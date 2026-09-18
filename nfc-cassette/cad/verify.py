@@ -101,6 +101,19 @@ def invariants(v: dict, D: dict) -> list[str]:
     chk(D["s_d1_top_z"] <= D["s_roof_z"] - 0.5, "slot: Dupont on the D1 mini hits the roof")
     chk(D["s_usb_cz"] + v["usb_h"] / 2 < D["s_plate_bot_z"], "slot: USB cutout runs into the slot floor plate")
     chk(D["y_tail1"] + v["cavity_clr"] <= D["s_W"] / 2 - v["wall"] + 1e-6, "slot: module tails through the back wall")
+    # zip-tie hold-down: the strap has to stand up behind the board, the groove
+    # must not eat the lid, and both stations must miss the corner lips
+    chk(D["s_tie_rise_gap"] >= v["tie_t"] + 0.3, "slot: no room for the zip tie to rise behind the D1 mini")
+    chk(D["s_lid_t"] - D["s_tie_groove_d"] >= 1.2, "slot: the zip-tie groove leaves too little lid under it")
+    chk(v["s_tie_span"] / 2 + D["s_tie_slot_l"] / 2 <= D["s_tie_lip_free"], "slot: a zip-tie slot lands on the D1 mini's corner lips")
+    chk(D["s_tie_y_back"] + D["s_tie_slot_w"] / 2 <= D["s_lid_w"] / 2 - 0.8, "slot: the zip-tie slot runs off the back edge of the lid")
+    chk(D["s_tie_y_back"] + D["s_tie_slot_w"] / 2 - D["y_d1_1"] >= v["tie_t"], "slot: too little of the back zip-tie slot is clear of the board for the strap to stand up")
+    chk(D["s_tie_y_front"] - D["s_tie_slot_w"] / 2 > D["y_pcb0"] - 1e-6 or D["s_tie_y_front"] + D["s_tie_slot_w"] / 2 < D["y_pcb0"], "slot: the front zip-tie slot straddles the slot block's wall")
+    for (x, y) in D["s_posts"]:
+        for tx in D["s_tie_x"]:
+            chk(abs(x - tx) > v["screw_head_d"] / 2 + D["s_tie_slot_l"] / 2 + 0.5
+                or y > D["s_tie_y_back"] + v["screw_head_d"] / 2
+                or y < D["s_tie_y_front"] - v["screw_head_d"] / 2, "slot: the zip-tie groove runs into a screw head recess")
     # posts clear of the slot ends, the D1 mini, the tails and the buzzer
     for (x, y) in D["s_posts"]:
         r = v["post_d"] / 2
@@ -238,7 +251,9 @@ def main() -> int:
     emit(parts["player_top"], "player_top", "bay side up", note="4 x M3 x 16 pan head from the top")
     emit(parts["slot_body"], "slot_body", "upside down, top face on the bed", note="slot floor bridges 13 mm")
     emit(parts["slot_lid"], "slot_lid", "outside face down",
-         note=f"4 x M3 x {D['screw_len']:.0f} pan head from below; the lid recesses into the body")
+         note=f"4 x M3 x {D['screw_len']:.0f} pan head from below; the lid recesses into the body; "
+              f"2 small zip ties ({D['s_tie_slot_l']:.1f} x {D['s_tie_slot_w']:.1f} mm slots) hold the D1 mini down, "
+              f"return run in the groove on the outside face")
     emit(parts["knob_big"], "knob_big", "flat, base down", note="glue into the left recess")
     emit(parts["knob_small"], "knob_small", "flat, base down", note="glue into the right recess")
     write_manifest()

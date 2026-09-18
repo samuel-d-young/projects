@@ -116,6 +116,17 @@ _P: list[Param] = [
     Param("s_lid_ledge", 1.2, 0.8, 1.6, "choice", "width of the body's outer rim that continues down past the recessed lid"),
     Param("s_lid_clr", 0.25, 0.15, 0.4, "choice", "lid to its pocket in the body, per side"),
     Param("s_lid_under_head", 1.2, 1.0, 2.0, "choice", "lid material left under the screw head; sets the lid's thickness"),
+    # ---- zip-tie hold-down for the D1 mini (Samuel, 2026-09-18: "hold down the
+    # d1 mini too, and so the board is fastened when plugging in the cable").
+    # The strap rises in the 2.1 mm gap between the board's back edge and the
+    # cavity wall, crosses the board and drops through a second slot in front of
+    # it; the return run sits in a groove in the lid's OUTSIDE face so the player
+    # still stands flat. Measure a strap before printing: these are off a bag of
+    # "100 mm x 2.5 mm" ties and the bags lie.
+    Param("tie_w", 2.5, 2.0, 3.0, "assumed", "zip-tie strap width; sets the slot's length along X"),
+    Param("tie_t", 1.2, 0.9, 1.3, "assumed", "zip-tie strap thickness; sets the slot's width and the groove's depth. The ceiling is real: the strap stands up in pcb_clr + lip_t + s_mount_gap behind the board, which is 1.8 mm at the tightest corner of the sweep, so a medium (3.6 x 1.6) tie does not fit - small ties only"),
+    Param("tie_clr", 0.4, 0.3, 0.6, "choice", "clearance around the strap in its slot and groove"),
+    Param("s_tie_span", 19.0, 14.0, 24.0, "choice", "distance between the two straps along the board; both must stay clear of the corner lips"),
     # ---- front-face cosmetics (Samuel, 2026-09-16: "fake buttons and knobs")
     Param("k_key_w", 10.0, 8.0, 12.0, "choice", "transport key width"),
     Param("k_key_h", 9.0, 7.0, 11.0, "choice", "transport key height on the face"),
@@ -348,6 +359,21 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     D["s_lid_l"] = D["s_pocket_l"] - 2 * v["s_lid_clr"]
     D["s_lid_w"] = D["s_pocket_w"] - 2 * v["s_lid_clr"]
     D["s_lid_r"] = max(D["s_pocket_r"] - v["s_lid_clr"], 0.4)
+    # two zip-tie stations across the board, inboard of the corner lips. The slot
+    # is tie_w long (X) and tie_t wide (Y), both plus clearance; the back slot is
+    # centred in the gap between the board's edge and the cavity wall, the front
+    # one just outside the lip line where there is room to spare.
+    D["s_tie_slot_l"] = v["tie_w"] + 2 * v["tie_clr"]
+    D["s_tie_slot_w"] = v["tie_t"] + 2 * v["tie_clr"]
+    D["s_tie_groove_d"] = v["tie_t"] + v["tie_clr"]
+    D["s_tie_x"] = [D["s_d1_cx"] - v["s_tie_span"] / 2, D["s_d1_cx"] + v["s_tie_span"] / 2]
+    D["s_tie_y_front"] = (D["y_d1_0"] - v["pcb_clr"] - v["lip_t"] - 0.4 - D["s_tie_slot_w"] / 2)
+    # centred in the rise gap, but pulled inboard if that would crowd the lid's
+    # own edge; the slot may overhang the board, there is d1_standoff under it
+    D["s_tie_y_back"] = min((D["y_d1_1"] + D["s_cavity_w"] / 2) / 2,
+                            D["s_lid_w"] / 2 - 1.0 - D["s_tie_slot_w"] / 2)
+    D["s_tie_rise_gap"] = D["s_cavity_w"] / 2 - D["y_d1_1"]          # room for the strap to stand up
+    D["s_tie_lip_free"] = v["d1_l"] / 2 + v["pcb_clr"] + v["lip_t"] - (v["ledge"] + v["pcb_clr"] + v["lip_t"])
     D["s_screw_in_post"] = v["screw_len"] - (D["s_lid_t"] - v["screw_head_h"])
     D["s_pilot_depth"] = D["s_screw_in_post"] + 2.0
     return D

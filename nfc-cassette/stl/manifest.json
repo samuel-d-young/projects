@@ -101,11 +101,11 @@
  },
  "slot_lid": {
   "name": "slot_lid",
-  "triangles": 5756,
+  "triangles": 5836,
   "watertight": true,
   "winding_ok": true,
-  "volume_mm3": 23436.21,
-  "brep_volume_mm3": 23436.17,
+  "volume_mm3": 23047.61,
+  "brep_volume_mm3": 23047.56,
   "volume_drift": 2e-06,
   "extents_mm": [
    125.0,
@@ -113,10 +113,10 @@
    10.7
   ],
   "fits_build_volume": true,
-  "mass_g_pla": 15.6,
+  "mass_g_pla": 15.3,
   "orientation": "outside face down",
   "supports": "none",
-  "note": "4 x M3 x 16 pan head from below; the lid recesses into the body",
+  "note": "4 x M3 x 16 pan head from below; the lid recesses into the body; 2 small zip ties (3.3 x 2.0 mm slots) hold the D1 mini down, return run in the groove on the outside face",
   "errors": []
  },
  "knob_big": {

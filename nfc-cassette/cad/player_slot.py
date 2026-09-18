@@ -240,6 +240,17 @@ def build_lid(D: dict):
         lid = lid + Pos(cx + sx * D["s_ring_post_dx"], (py0 + py1) / 2, floor) * Box(
             D["s_ring_post_w"], py1 - py0, D["s_ring_post_top"] - floor, align=C)
 
+    # zip-tie hold-down for the D1 mini: two straps across the board. Each is a
+    # pair of through-slots - one in the gap behind the board, one in front of
+    # the lip line - joined by a groove in the OUTSIDE face, so the return run of
+    # the strap is below flush and the player still stands flat. Cutting only,
+    # nothing stands on the lid, so the mount keeps its s_mount_gap.
+    sl, sw = D["s_tie_slot_l"], D["s_tie_slot_w"]
+    yf, yb = D["s_tie_y_front"], D["s_tie_y_back"]
+    for x in D["s_tie_x"]:
+        for y in (yf, yb):
+            lid = lid - Pos(x, y, -0.1) * Box(sl, sw, floor + 0.2, align=C)
+        lid = lid - Pos(x, (yf + yb) / 2, -0.1) * Box(sl, yb - yf, D["s_tie_groove_d"] + 0.1, align=C)
     # buzzer locating ring
     lid = lid + Pos(D["s_buzzer_cx"], D["s_buzzer_cy"], floor) * (
         Cylinder(D["buzzer_d"] / 2 + 0.3 + 1.2, 3.0, align=C) - Cylinder(D["buzzer_d"] / 2 + 0.3, 3.2, align=C))
@@ -257,7 +268,9 @@ if __name__ == "__main__":
     D = params.derive(params.nominal())
     emit(build_body(D), "slot_body", "upside down, top face on the bed", note="slot floor bridges 13 mm")
     emit(build_lid(D), "slot_lid", "outside face down",
-         note=f"4 x M3 x {D['screw_len']:.0f} pan head from below; the lid recesses into the body")
+         note=f"4 x M3 x {D['screw_len']:.0f} pan head from below; the lid recesses into the body; "
+              f"2 small zip ties ({D['s_tie_slot_l']:.1f} x {D['s_tie_slot_w']:.1f} mm slots) hold the D1 mini down, "
+              f"return run in the groove on the outside face")
     emit(build_knob(D, D["k_knob_big_d"]), "knob_big", "flat, base down", note="glue into the left recess")
     emit(build_knob(D, D["k_knob_small_d"]), "knob_small", "flat, base down", note="glue into the right recess")
     write_manifest()

@@ -290,3 +290,50 @@ nine pixels chained on **D8**, ring first, `DO` into the single LED's `DI`.
 
 `docs/nfc-cassette-slot.png` is stale again — it predates both the recessed lid
 and the dial.
+
+---
+
+---
+
+## 2026-09-18 (later still) — Render re-run; zip ties hold the D1 mini down
+
+**The render is current again.** `docs/nfc-cassette-slot.png` was rebuilt from the
+committed STLs on Samuel's machine. The assembled views now show the body's outer
+wall running unbroken to the table with no grey plate under it — the recessed lid
+reads correctly **(verified: the body's cross-section is a 409.6 mm² ring from
+z = 0 to 3.7 and opens out to the floor at 4.0; the lid plate is solid to 3.7 and
+its 125.0 × 45.2 footprint sits inside the body's 127.9 × 48.1 at the table)**.
+
+**Zip-tie hold-down** (Samuel: "hold down the d1 mini too, and so the board is
+fastened when plugging in the cable"). Two small straps cross the board.
+
+- **Why across and not along.** The D1 mini is boxed in. Both short ends have
+  `s_mount_gap` = 0.6 mm to the cavity wall and the module rail, and the back
+  edge has 2.10 mm; only the front has room (15.6 mm to the cavity wall below the
+  slot block) **(verified from `derive()`)**. A strap running along the board
+  would have to anchor at the USB end, which is where the plug goes. Across is
+  the only way, and it only works because the corner lips are 4 mm stubs — the
+  middle 29.2 mm of both long edges is clear.
+- **The detail.** Each strap is a pair of through-slots in the lid — one in the
+  gap behind the board, one just outside the front lip line — joined by a groove
+  in the lid's **outside** face, so the return run sits below flush and the
+  player still stands flat. The groove is `tie_t + tie_clr` = 1.6 mm deep and
+  leaves 2.10 mm of the 3.70 mm lid, which is only affordable because the lid
+  got thicker when it was recessed.
+- **It cuts, it does not add.** Nothing new stands on the lid, so the mount keeps
+  its `s_mount_gap` and the fit check is unchanged: still `RESULT: the reader
+  sits inside`, lid seated 0.00, approach clear **(verified)**.
+- **Small ties only.** The strap stands up in `pcb_clr + lip_t + s_mount_gap`
+  behind the board — 2.10 mm at nominal but **1.80 mm at the tightest corner of
+  the sweep**, so `tie_t` is capped at 1.3 and a medium 3.6 × 1.6 tie does not
+  fit **(verified: the invariant fails at that corner)**. The 2.5 × 1.2 figures
+  are off a bag marked "100 mm × 2.5 mm" and are **(assumed)** until Samuel puts
+  calipers on one.
+- **Assembly consequence, not a CAD collision.** The whole 14 mm above the board
+  is reserved for Dupont plugs, and a strap crossing the board crosses both
+  header rows. Leave the two header positions under each strap unpopulated, or
+  take those wires off the other end. The fit check cannot see this — the strap
+  is not modelled.
+
+**Checks.** `fitcheck_slot.py` passes. The four tie parameters swept against the
+four that move the D1 mini — 256 corners — give **0 failures**.
