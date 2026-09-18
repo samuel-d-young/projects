@@ -90,7 +90,7 @@ def document(body, w, h, title):
 
 
 # ---------------------------------------------------------------- the face
-def face(hours=False, through=False):
+def face(hours=False, through=False, open_bore=False):
     """The plywood face. `through` cuts the sixty lines out instead of
     engraving them, for the version whose lines are filled with printed plugs.
 
@@ -108,6 +108,8 @@ def face(hours=False, through=False):
     are built to, and the reason they are not drawn at 1.80 either.
     """
     r_out = B.r_lip_i - PLY_CLR
+    # 54.0 frames the panel; 61.2 passes over a 60 mm housing instead.
+    r_bore = PLY_BORE_OPEN_R if open_bore else PLY_BORE_R
     parts = []
     for k in range(B.n):
         a = 90.0 - k*(360.0/B.n)          # k = 0 at 12 o'clock, clockwise
@@ -115,13 +117,14 @@ def face(hours=False, through=False):
         pts = stadium(B.tick_ri, B.tick_ro, w, a)
         parts.append(poly(pts, stroke=CUT, layer='cut-ticks') if through
                      else poly(pts, fill=ENG, layer='engrave-ticks'))
-    parts.append(circle(PLY_BORE_R, stroke=CUT, layer='cut-screen'))
+    parts.append(circle(r_bore, stroke=CUT, layer='cut-screen'))
     parts.append(circle(r_out,      stroke=CUT, layer='cut-outline'))
     d = 2*r_out + 2.0
     what = 'lines cut through' if through else 'lines engraved'
+    bore = f'{2*r_bore:.1f} mm centre'
     return document(parts, d, d,
                     f'60-LED clock face - {PLY_T:.0f} mm plywood - '
-                    f'{"hours emphasised" if hours else "plain"} - {what}')
+                    f'{"hours emphasised" if hours else "plain"} - {what} - {bore}')
 
 
 # ---------------------------------------------------------------- the coupon
@@ -301,6 +304,9 @@ def main():
              # the cut-through pair, for the printed-plug build
              'face-60-wood-cut.svg':         face(hours=False, through=True),
              'face-60-wood-cut-hours.svg':   face(hours=True,  through=True),
+             # the OPEN-CENTRE pair: 61.2 mm bore, passes over the housing
+             'face-60-wood-cut-open.svg':       face(hours=False, through=True, open_bore=True),
+             'face-60-wood-cut-open-hours.svg': face(hours=True,  through=True, open_bore=True),
              'face-60-depth-test.svg':       coupon(),
              'face-60-slot-test.svg':        slot_coupon(),
              'centre-hole-gauge.svg':        centre_gauge()}

@@ -259,6 +259,40 @@ bv = (to_manifold(base_c) ^ to_manifold(col)).volume()
 ck(bv < 1.0, 'and it drops into the base bore without fouling it',
    f'{bv:.3f} mm3')
 
+print('\n3d. The OPEN-CENTRE pair -- 61.2 mm, over the housing instead of under it')
+# Sam, 2026-09-18: "the updated SVG file with the larger circle in the middle."
+# The other answer to the same clash: rather than cutting the housing down to
+# pass under the wood, make the hole big enough to pass over it. Two things have
+# to hold, and the second is the one that could quietly fail -- a hole grown far
+# enough walks off its own seat and the face drops through.
+for nm in ('face-60-wood-cut-open.svg', 'face-60-wood-cut-open-hours.svg'):
+    sh, _, _ = load(nm)
+    sc = [x for x in sh if x['layer'] == 'cut-screen']
+    ck(len(sc) == 1, f'{nm}: one centre cut', f'{len(sc)}')
+    rb = max(math.hypot(*p) for p in sc[0]['pts'])
+    ck(2*rb - PLY_KERF > PLY_HOUSING_OD,
+       f'   clears the {PLY_HOUSING_OD:.1f} mm housing, kerf included',
+       f'{2*rb:.2f} bore, {2*rb - PLY_KERF - PLY_HOUSING_OD:+.2f} mm to spare')
+    tk = [x for x in sh if x['layer'] == 'cut-ticks']
+    ck(len(tk) == B.n, '   still sixty lines, still cuts', f'{len(tk)}')
+    ck(rb < min(math.hypot(*p) for t in tk for p in t['pts']),
+       '   and the bore does not eat into the innermost line',
+       f'bore {rb:.2f}, nearest tick {min(math.hypot(*p) for t in tk for p in t["pts"]):.2f}')
+# ...and it still lands on the base's collar. Booleaned at the seated height.
+disc_open = (cyl(r_out, seat, seat + PLY_T, 256)
+             - cyl(PLY_BORE_OPEN_R, seat - 1.0, seat + PLY_T + 1.0, 256))
+t_open = to_manifold(base) ^ disc_open
+ck(t_open.volume() > 0.5, 'the open-centre disc still lands on the collar',
+   f'{t_open.volume():.2f} mm3 of contact film')
+tro = np.hypot(csg.to_trimesh(t_open).vertices[:, 0],
+               csg.to_trimesh(t_open).vertices[:, 1])
+ck(tro.max() - tro.min() > 2.0,
+   'on a real width of it, not an edge -- a bigger hole walks off its seat',
+   f'seat r {tro.min():.2f}..{tro.max():.2f} = {tro.max()-tro.min():.2f} mm')
+ck((to_manifold(base) ^ (cyl(r_out, seat + 0.02, seat + 0.02 + PLY_T, 256)
+    - cyl(PLY_BORE_OPEN_R, seat - 1.0, seat + PLY_T + 1.0, 256))).volume() < 0.01,
+   'and lifted clear, nothing is in its way either')
+
 print('\n4. The lines sit where the light comes out')
 # The printed diffuser is the authority: its pockets are the places the design
 # lets light reach the face. Every tick's centreline is sampled against it.

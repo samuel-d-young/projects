@@ -2216,3 +2216,29 @@ SCREEN_COLLAR_GAP = 0.10                      # above the panel's front face.
                                               # 0.16 mm, so it is located without
                                               # ever pressing on the glass.
 SCREEN_COLLAR_BOT = Z_SEAT + DISP_T + SCREEN_COLLAR_GAP   # 14.30 seated
+
+
+# ---------------------------------------------------------------------------
+# THE OPEN-CENTRE FACE. Sam, 2026-09-18: "the updated SVG file with the larger
+# circle in the middle."
+#
+# Both bores exist now rather than one parameter being flipped back and forth,
+# because they are two real answers to the same clash and the choice is his:
+#
+#   54.0  PLY_BORE_R       frames the panel (0.5 mm of wood over its edge) and
+#                          needs the screen housing to end BELOW the wood --
+#                          i.e. print mini-round-clock-screen-collar-60.
+#   61.2  PLY_BORE_OPEN_R  passes OVER a 60 mm housing instead, so it does not
+#                          care what is in the middle or how tall it is. The
+#                          cost: the hole is wider than the 55 mm active area,
+#                          so the wood no longer frames the panel and the
+#                          housing ring shows.
+#
+# The open bore still lands on the base's screen collar (r 30.30..35.10), with
+# 4.50 mm of annular seat under it -- check11 booleans that rather than assuming
+# it, because a hole grown far enough would walk off its own seat.
+PLY_HOUSING_OD   = 60.00    # the biggest thing this repo knows of in the middle:
+                            # the diffuser collar is 59.90, the display PCB 60.0.
+                            # Measure the real one before cutting -- that is what
+                            # centre-hole-gauge.svg is for.
+PLY_BORE_OPEN_R  = PLY_HOUSING_OD/2.0 + PLY_CENTRE_CLR    # 30.60 -> 61.2 mm
