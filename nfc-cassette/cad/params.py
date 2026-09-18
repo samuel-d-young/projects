@@ -48,11 +48,15 @@ _P: list[Param] = [
     Param("card_t", 0.76, 0.68, 0.84, "datasheet"),
     Param("card_clr", 0.4, 0.2, 0.8, "choice", "card to rib frame, per side"),
     # ---- PN532 V3 module (Elechouse layout)
-    Param("pn532_l", 42.7, 42.5, 43.0, "datasheet", "Elechouse PN532 NFC Module V3 drawing"),
-    Param("pn532_w", 40.4, 40.2, 40.7, "datasheet"),
+    # 2026-09-18: measured off Samuel's own board from a perspective-corrected photo
+    # (calibrated on the 2.54 mm header pitch): 42.6 x 40.3, so the drawing holds.
+    # The 42.7 edges are the ones the 8-pin and 10-pin headers run alongside; the
+    # 4-pin runs alongside a 40.4 edge. The top/bottom lips press on the 42.7 edges.
+    Param("pn532_l", 42.7, 42.5, 43.0, "datasheet", "Elechouse V3 drawing; photo-measured 42.6 (2026-09-18)"),
+    Param("pn532_w", 40.4, 40.2, 40.7, "datasheet", "photo-measured 40.3 (2026-09-18)"),
     Param("pn532_t", 1.6, 1.5, 1.7, "assumed", "standard FR4; gauge: measure with calipers"),
-    Param("pn532_comp_h", 4.5, 4.0, 5.5, "assumed", "tallest part on the component side is the DIP switch"),
-    Param("pin_below", 3.0, 2.5, 3.5, "assumed", "straight header, pins soldered pointing away from the antenna"),
+    Param("pn532_comp_h", 4.5, 4.0, 5.5, "assumed", "tallest part on the component side is the DIP switch - CONFIRMED to be the tallest by photo (2026-09-18); its HEIGHT is still unmeasured"),
+    Param("pin_below", 3.0, 2.5, 3.5, "assumed", "straight header, pins soldered pointing away from the antenna. The photos show BOTH headers unpopulated: this is Samuel's soldering choice, not the board's. It drives s_tail (17 mm) and so the body's whole depth - right-angle headers or wires straight to the pads would save ~14 mm"),
     Param("dupont_h", 14.0, 13.5, 14.5, "datasheet", "2.54 mm Dupont housing length"),
     Param("pcb_clr", 0.3, 0.2, 0.6, "choice", "module to its locating lips, per side"),
     # ---- Wemos D1 mini
@@ -100,12 +104,18 @@ _P: list[Param] = [
     Param("s_keeper", 1.5, 1.2, 2.0, "choice", "thickness of the ribs that hold the PCB against the module wall"),
     Param("s_shelf_h", 1.0, 0.8, 1.5, "choice", "rib on the lid the PCB's bottom edge rests on"),
     Param("s_lip_engage", 1.5, 1.2, 1.8, "choice", "how far the top and bottom lips reach over the PCB's edge strips"),
-    Param("s_edge_free", 2.0, 1.8, 2.5, "assumed", "component-free band along the PCB's top and bottom edges, middle third (from the listing photos: the antenna trace is inset ~2 mm, parts sit inside it)"),
+    Param("s_edge_free", 2.0, 1.8, 2.5, "assumed", "component-free band along the PCB's top and bottom edges, middle third. 2026-09-18, measured on Samuel's board: those are the edges the 8-pin and 10-pin headers run alongside, at 6.3 and 9.5 mm from the edge (hole centres, +-0.5). A 2.54 header body reaches no closer than ~5.1 mm, so a 1.5 mm lip has ~3.6 mm to spare. Still assumed for SMD HEIGHT, measured in plan"),
     Param("s_lip_top_w", 16.0, 12.0, 18.0, "choice", "width of the top lip, centred - clear of the corner zones (holes, headers, DIP switch)"),
     Param("s_lip_bot_w", 16.0, 10.0, 18.0, "choice", "width of the bottom lip, centred - between the I2C header and the DIP switch"),
-    Param("s_corner_zone", 10.0, 8.0, 12.0, "assumed", "band inside each side edge (after a 2 mm margin) where the headers, holes and DIP switch may sit right up to the top/bottom edges"),
+    Param("s_corner_zone", 10.0, 8.0, 12.0, "assumed", "band inside each side edge (after a 2 mm margin) where the headers, holes and DIP switch may sit right up to the top/bottom edges. The DIP switch is the feature that sets this; it sits in a corner on the photos, inside the 10 mm, but it has not been measured"),
     Param("s_slot_r", 0.8, 0.5, 1.2, "choice", "plan-view corner radius of the slot; the tape's thickness edges are square, so keep this small or it pinches"),
     Param("s_end_wall", 2.0, 1.6, 2.6, "choice", "slot block beyond each end of the slot"),
+    # ---- the bottom lid: recessed into the body, not butted against it (Samuel,
+    # 2026-09-18: "the bottom doesn't go in properly... move the mount, it hits the edge")
+    Param("s_mount_gap", 0.6, 0.4, 1.0, "choice", "gap between anything standing on the lid and the cavity wall; the lid drops in vertically, so a zero-gap fit does not assemble"),
+    Param("s_lid_ledge", 1.2, 0.8, 1.6, "choice", "width of the body's outer rim that continues down past the recessed lid"),
+    Param("s_lid_clr", 0.25, 0.15, 0.4, "choice", "lid to its pocket in the body, per side"),
+    Param("s_lid_under_head", 1.2, 1.0, 2.0, "choice", "lid material left under the screw head; sets the lid's thickness"),
     # ---- front-face cosmetics (Samuel, 2026-09-16: "fake buttons and knobs")
     Param("k_key_w", 10.0, 8.0, 12.0, "choice", "transport key width"),
     Param("k_key_h", 9.0, 7.0, 11.0, "choice", "transport key height on the face"),
@@ -214,8 +224,16 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     # a 0.5 mm gap, then the module's side rib), whichever is more - so a thicker
     # wall grows the body instead of squeezing the board against the rib
     rail_outer = v["pn532_l"] / 2 + v["pcb_clr"] + v["s_keeper"]
-    d1_needs = 2 * (v["wall"] + v["lip_t"] + v["pcb_clr"] + v["d1_l"] + v["pcb_clr"] + v["lip_t"] + 0.6 + rail_outer)
+    d1_needs = 2 * (v["wall"] + v["s_mount_gap"] + v["lip_t"] + v["pcb_clr"] + v["d1_l"]
+                    + v["pcb_clr"] + v["lip_t"] + 0.6 + rail_outer)
     D["s_L"] = max(D["s_slot_l"] + 2 * v["s_side_margin"], d1_needs)
+    # the lid carries the screws, so it is as thick as a counterbored head needs,
+    # never the shared `floor`: a 2.4 mm plate with a 2.5 mm head recess is a hole
+    D["s_lid_t"] = max(v["floor"], v["screw_head_h"] + v["s_lid_under_head"])
+    # the lid drops into a pocket in the bottom of the body and finishes flush with
+    # it; the ledge is the rim of wall that continues down past it, and the step
+    # from pocket to cavity is the seat the lid stops against
+    D["s_lid_ledge"] = min(v["s_lid_ledge"], v["wall"] - 0.8)
     D["s_tail"] = max(v["pn532_comp_h"], v["pin_below"] + v["dupont_h"])
     D["f_slot0"] = v["wall"]
     D["f_slot1"] = D["f_slot0"] + D["s_slot_w"]
@@ -224,20 +242,27 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     D["f_tail1"] = D["f_pcb1"] + D["s_tail"]
     D["f_d1_0"] = D["f_pcb0"] + 1.0
     D["f_d1_1"] = D["f_d1_0"] + v["d1_w"]
-    D["f_back_inner"] = max(D["f_tail1"], D["f_d1_1"]) + v["cavity_clr"]
+    # the back wall clears whichever is deeper: the module's tails plus air, or the
+    # D1 mini's lips plus the gap the lid needs to drop past them
+    D["f_back_inner"] = max(D["f_tail1"] + v["cavity_clr"],
+                            D["f_d1_1"] + v["pcb_clr"] + v["lip_t"] + v["s_mount_gap"])
     D["s_W"] = D["f_back_inner"] + v["wall"]
     yof = -D["s_W"] / 2.0
     for k in ("f_slot0", "f_slot1", "f_pcb0", "f_pcb1", "f_tail1", "f_d1_0", "f_d1_1", "f_back_inner"):
         D["y" + k[1:]] = D[k] + yof              # y_slot0, y_slot1, y_pcb0 ...
-    D["s_H"] = v["floor"] + v["s_shelf_h"] + v["pn532_w"] + v["cavity_clr"] + v["s_roof"]
+    D["s_H"] = D["s_lid_t"] + v["s_shelf_h"] + v["pn532_w"] + v["cavity_clr"] + v["s_roof"]
     D["s_plate_top_z"] = D["s_H"] - v["s_slot_depth"]
     D["s_plate_bot_z"] = D["s_plate_top_z"] - v["s_slot_floor"]
     D["s_roof_z"] = D["s_H"] - v["s_roof"]        # underside of the roof
     D["s_proud"] = v["cassette_w"] - v["s_slot_depth"]
     D["s_cavity_l"] = D["s_L"] - 2 * v["wall"]
     D["s_cavity_w"] = D["s_W"] - 2 * v["wall"]
-    D["s_cavity_r"] = max(v["corner_r"] - v["wall"], 0.6)
-    D["s_pcb_bot_z"] = v["floor"] + v["s_shelf_h"]
+    # The cavity's inner fillet is what pinches a lid mount whose corner reaches
+    # the wall: a square corner cannot sit in a round one. Keep the fillet no
+    # bigger than the gap the mounts already stand off by, and the corners stop
+    # being the binding constraint (the wall just gets thicker at the corners).
+    D["s_cavity_r"] = min(max(v["corner_r"] - v["wall"], 0.6), max(v["s_mount_gap"], 0.6))
+    D["s_pcb_bot_z"] = D["s_lid_t"] + v["s_shelf_h"]
     D["s_pcb_top_z"] = D["s_pcb_bot_z"] + v["pn532_w"]
     D["s_rail_x"] = v["pn532_l"] / 2 + v["pcb_clr"] + v["s_keeper"] / 2   # side rib centre
     D["s_rail_y0"] = D["y_slot1"]
@@ -246,20 +271,20 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     # and reach over the top / bottom edge strips only - never over a component
     D["s_lip_y"] = D["y_pcb1"] + v["pcb_clr"] + v["s_keeper"] / 2
     D["s_lip_top_z0"] = D["s_roof_z"] - v["cavity_clr"] - v["s_lip_engage"]     # bottom of the top lip
-    D["s_lip_bot_z1"] = v["floor"] + v["s_shelf_h"] + v["s_lip_engage"]          # top of the bottom lip
+    D["s_lip_bot_z1"] = D["s_lid_t"] + v["s_shelf_h"] + v["s_lip_engage"]          # top of the bottom lip
     D["s_antenna_to_card"] = v["s_module_wall"] + v["pn532_t"] + v["shell_floor"] + v["s_slot_clr"] + v["pcb_clr"]
     # D1 mini: long side along X, against the left wall (USB out through it); the
     # gap to the module's side rib is what the sweep checks
-    D["s_d1_cx"] = -(D["s_cavity_l"] / 2 - v["lip_t"] - v["pcb_clr"] - v["d1_l"] / 2)
+    D["s_d1_cx"] = -(D["s_cavity_l"] / 2 - v["s_mount_gap"] - v["lip_t"] - v["pcb_clr"] - v["d1_l"] / 2)
     D["s_d1_cy"] = (D["y_d1_0"] + D["y_d1_1"]) / 2
     D["s_d1_rib_gap"] = (-D["s_rail_x"] - v["s_keeper"] / 2) - (D["s_d1_cx"] + v["d1_l"] / 2 + v["pcb_clr"] + v["lip_t"])
-    D["s_d1_board_z"] = v["floor"] + v["d1_standoff"]
+    D["s_d1_board_z"] = D["s_lid_t"] + v["d1_standoff"]
     D["s_d1_top_z"] = D["s_d1_board_z"] + v["d1_t"] + v["d1_top_h"]
     D["s_usb_cz"] = D["s_d1_board_z"] + v["d1_t"] / 2 + 1.5
     # buzzer on the lid in the back zone, right of the module; sound holes through the right wall
     D["s_buzzer_cx"] = 40.0
     D["s_buzzer_cy"] = (D["y_pcb0"] + D["y_back_inner"]) / 2
-    D["s_buzzer_top_z"] = v["floor"] + 3.0 + v["buzzer_d"] * 0.8     # ring 3 tall, buzzer ~9.6 tall
+    D["s_buzzer_top_z"] = D["s_lid_t"] + 3.0 + v["buzzer_d"] * 0.8     # ring 3 tall, buzzer ~9.6 tall
     # front face furniture. Through-holes (LED) stay below the slot floor plate;
     # the cosmetics only add material or dent the 2.4 mm wall by k_dimple, so
     # they may sit anywhere on the face.
@@ -275,6 +300,12 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     px = D["s_L"] / 2 - v["wall"] - v["post_d"] / 2 - 0.5
     py = D["s_W"] / 2 - v["wall"] - v["post_d"] / 2 - 0.5
     D["s_posts"] = [(-px, -py), (px, -py), (px, py), (0.0, py)]
-    D["s_screw_in_post"] = v["screw_len"] - (v["floor"] - v["screw_head_h"])
+    D["s_pocket_l"] = D["s_L"] - 2 * D["s_lid_ledge"]
+    D["s_pocket_w"] = D["s_W"] - 2 * D["s_lid_ledge"]
+    D["s_pocket_r"] = max(v["corner_r"] - D["s_lid_ledge"], 0.6)
+    D["s_lid_l"] = D["s_pocket_l"] - 2 * v["s_lid_clr"]
+    D["s_lid_w"] = D["s_pocket_w"] - 2 * v["s_lid_clr"]
+    D["s_lid_r"] = max(D["s_pocket_r"] - v["s_lid_clr"], 0.4)
+    D["s_screw_in_post"] = v["screw_len"] - (D["s_lid_t"] - v["screw_head_h"])
     D["s_pilot_depth"] = D["s_screw_in_post"] + 2.0
     return D

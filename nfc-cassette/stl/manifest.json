@@ -81,19 +81,19 @@
  },
  "slot_body": {
   "name": "slot_body",
-  "triangles": 54844,
+  "triangles": 55372,
   "watertight": true,
   "winding_ok": true,
-  "volume_mm3": 62149.62,
-  "brep_volume_mm3": 62152.72,
-  "volume_drift": 5e-05,
+  "volume_mm3": 64332.32,
+  "brep_volume_mm3": 64335.6,
+  "volume_drift": 5.1e-05,
   "extents_mm": [
-   127.4,
-   50.0,
-   44.8
+   127.9,
+   51.1,
+   48.5
   ],
   "fits_build_volume": true,
-  "mass_g_pla": 41.3,
+  "mass_g_pla": 42.8,
   "orientation": "upside down, top face on the bed",
   "supports": "none",
   "note": "slot floor bridges 13 mm",
@@ -101,22 +101,22 @@
  },
  "slot_lid": {
   "name": "slot_lid",
-  "triangles": 3708,
+  "triangles": 5724,
   "watertight": true,
   "winding_ok": true,
-  "volume_mm3": 14643.57,
-  "brep_volume_mm3": 14643.56,
-  "volume_drift": 1e-06,
+  "volume_mm3": 21134.54,
+  "brep_volume_mm3": 21134.49,
+  "volume_drift": 2e-06,
   "extents_mm": [
-   127.4,
-   47.0,
-   9.4
+   125.0,
+   45.2,
+   10.7
   ],
   "fits_build_volume": true,
-  "mass_g_pla": 9.7,
+  "mass_g_pla": 14.0,
   "orientation": "outside face down",
   "supports": "none",
-  "note": "4 x M3 x 10 pan head from below",
+  "note": "4 x M3 x 16 pan head from below; the lid recesses into the body",
   "errors": []
  },
  "knob_big": {

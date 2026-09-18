@@ -108,8 +108,50 @@ def invariants(v: dict, D: dict) -> list[str]:
         chk(abs(x) > v["pn532_l"] / 2 + r or y - r > D["y_tail1"], "slot: a screw post lands in the module tails")
         chk((x - D["s_buzzer_cx"]) ** 2 + (y - D["s_buzzer_cy"]) ** 2 > (r + v["buzzer_d"] / 2 + 1.5) ** 2, "slot: a screw post hits the buzzer")
         chk(abs(x) + r <= D["s_cavity_l"] / 2 + v["wall"] and abs(y) + r <= D["s_cavity_w"] / 2 + v["wall"], "slot: a screw post outside the body")
+    # ---- the recessed bottom lid, and everything that stands on it
+    # (Samuel, 2026-09-18: the lid fouled the back wall by 0.5 mm and sat flush
+    # against the left one, so it could not drop in; nothing checked for it)
+    chk(D["s_lid_t"] - v["screw_head_h"] >= v["s_lid_under_head"] - 1e-6,
+        "slot: the screw counterbore leaves no material under the head")
+    chk(D["s_lid_ledge"] >= 0.8, "slot: the lid's outer rim is too thin to print")
+    chk(v["wall"] - D["s_lid_ledge"] >= 0.8 - 1e-6, "slot: no seat left for the lid to stop against")
+    chk(D["s_lid_l"] < D["s_pocket_l"] and D["s_lid_w"] < D["s_pocket_w"], "slot: the lid does not fit its pocket")
+    chk(D["s_pocket_l"] > D["s_cavity_l"] and D["s_pocket_w"] > D["s_cavity_w"], "slot: the lid pocket is not wider than the cavity, so there is no seat")
+    chk(D["s_usb_cz"] - v["usb_h"] / 2 > D["s_lid_t"] + 0.5, "slot: the USB cutout notches the lid skirt")
+    chk(D["s_led_cz"] - v["led_d"] / 2 > D["s_lid_t"] + 0.5, "slot: the LED hole notches the lid skirt")
+    # Nothing standing on the lid may touch a cavity wall: the lid goes in
+    # straight down, so a zero-gap fit is an interference fit. Measure against
+    # the ROUNDED cavity, not the flat wall - the first version of this check
+    # used the flat wall and a mount corner still fouled the fillet.
+    A, B, R = D["s_cavity_l"] / 2, D["s_cavity_w"] / 2, D["s_cavity_r"]
+
+    def clear(x: float, y: float) -> float:
+        """Distance from a point to the rounded cavity wall; negative is outside."""
+        dx, dy = abs(x) - (A - R), abs(y) - (B - R)
+        if dx > 0 and dy > 0:
+            return R - (dx * dx + dy * dy) ** 0.5
+        return min(A - abs(x), B - abs(y))
+
+    mount = v["pcb_clr"] + v["lip_t"]
+    feet = [("D1 mini's mount", D["s_d1_cx"], D["s_d1_cy"], v["d1_l"] / 2 + mount, v["d1_w"] / 2 + mount),
+            ("buzzer ring", D["s_buzzer_cx"], D["s_buzzer_cy"], v["buzzer_d"] / 2 + 1.5, v["buzzer_d"] / 2 + 1.5),
+            ("module shelf", 0.0, (D["y_pcb0"] + D["y_pcb1"]) / 2, 15.0, (v["pn532_t"] + v["pcb_clr"]) / 2)]
+    for what, cx, cy, hx, hy in feet:
+        # located by the straight walls...
+        chk(min(A - (abs(cx) + hx), B - (abs(cy) + hy)) >= v["s_mount_gap"] - 1e-6,
+            f"slot: the {what} is not {v['s_mount_gap']} mm clear of the cavity wall; the lid is not located")
+        # ...and it still has to physically pass the filleted corners
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                chk(clear(cx + sx * hx, cy + sy * hy) >= 0.25,
+                    f"slot: a corner of the {what} fouls the cavity; the lid will not drop in")
+    # the screw heads have to land on the lid, which is smaller than the body
+    for (x, y) in D["s_posts"]:
+        chk(abs(x) + v["screw_head_d"] / 2 + 1.0 < D["s_lid_l"] / 2
+            and abs(y) + v["screw_head_d"] / 2 + 1.0 < D["s_lid_w"] / 2,
+            "slot: a screw counterbore runs off the edge of the lid")
     chk(D["s_screw_in_post"] >= v["thread_min"], "slot: not enough thread in the posts")
-    chk(D["s_pilot_depth"] < D["s_roof_z"] - v["floor"] - 1.0, "slot: pilot hole reaches the roof")
+    chk(D["s_pilot_depth"] < D["s_roof_z"] - D["s_lid_t"] - 1.0, "slot: pilot hole reaches the roof")
     chk(D["s_buttons_x0"] + 4 * D["s_buttons_pitch"] + 4.5 < D["s_L"] / 2 - v["corner_r"], "slot: buttons run into the corner radius")
     chk(D["s_led_cx"] - v["led_d"] / 2 > -D["s_L"] / 2 + v["corner_r"], "slot: LED in the corner radius")
     # cosmetics stay on the face: nothing dents deeper than half the wall, nothing
@@ -163,7 +205,8 @@ def main() -> int:
     emit(parts["player_base"], "player_base", "open side up", note="electronics drop in from above")
     emit(parts["player_top"], "player_top", "bay side up", note="4 x M3 x 16 pan head from the top")
     emit(parts["slot_body"], "slot_body", "upside down, top face on the bed", note="slot floor bridges 13 mm")
-    emit(parts["slot_lid"], "slot_lid", "outside face down", note="4 x M3 x 10 pan head from below")
+    emit(parts["slot_lid"], "slot_lid", "outside face down",
+         note=f"4 x M3 x {D['screw_len']:.0f} pan head from below; the lid recesses into the body")
     emit(parts["knob_big"], "knob_big", "flat, base down", note="glue into the left recess")
     emit(parts["knob_small"], "knob_small", "flat, base down", note="glue into the right recess")
     write_manifest()
@@ -172,7 +215,8 @@ def main() -> int:
         return 0
 
     # corner sweep over the parameters that actually move the geometry
-    sweep = ["wall", "bay_clr", "pcb_clr", "pn532_comp_h", "d1_top_h", "card_clr", "cassette_corner_r"]
+    sweep = ["wall", "bay_clr", "pcb_clr", "pn532_comp_h", "d1_top_h", "card_clr",
+             "cassette_corner_r", "s_mount_gap"]
     fails = 0
     n = 0
     t0 = time.time()

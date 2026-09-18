@@ -6,9 +6,12 @@ Builds the electronics as solids at their designed positions - the PN532
 board, the envelope its components may occupy, the header's Dupont tails,
 the D1 mini with its headroom, its USB plug, the buzzer, the LED, and the
 tape in the slot - then intersects each with the slot body and the lid in
-build123d. Any overlap is a real collision and is printed in mm^3. Then it
-slides the module down its insertion path (lid off, straight down out of the
-pocket) in steps and checks the body never touches it on the way.
+build123d. Any overlap is a real collision and is printed in mm^3. It also
+intersects the two PRINTED PARTS with each other, seated and on the way in:
+the lid carries the D1 mini's posts and lips, the buzzer ring and the module
+shelf, and those have to clear the cavity walls. Then it slides the module
+down its insertion path (lid off, straight down out of the pocket) in steps
+and checks the body never touches it on the way.
 
 The component envelope keeps s_edge_free clear of the PCB's top and bottom
 edges in the middle third, which is the one geometric assumption about the
@@ -51,7 +54,7 @@ def parts_inside(D: dict):
         3.0, D["s_tail"], 8 * 2.54 + 1.0, align=C)
     d1 = Pos(D["s_d1_cx"], D["s_d1_cy"], D["s_d1_board_z"]) * Box(v["d1_l"], v["d1_w"], v["d1_t"] + v["d1_top_h"], align=C)
     usb = Pos(D["s_d1_cx"] - v["d1_l"] / 2 - 6.0, D["s_d1_cy"], D["s_usb_cz"]) * Box(12.0, v["usb_w"] - 1.0, v["usb_h"] - 1.0, align=CC)
-    buzzer = Pos(D["s_buzzer_cx"], D["s_buzzer_cy"], v["floor"] + 0.2) * Cylinder(v["buzzer_d"] / 2, v["buzzer_d"] * 0.8, align=C)
+    buzzer = Pos(D["s_buzzer_cx"], D["s_buzzer_cy"], D["s_lid_t"] + 0.2) * Cylinder(v["buzzer_d"] / 2, v["buzzer_d"] * 0.8, align=C)
     led = Pos(D["s_led_cx"], -D["s_W"] / 2 + v["wall"] + 4.3, D["s_led_cz"]) * Rot(90, 0, 0) * Cylinder(v["led_d"] / 2, 8.6, align=CC)
     tape = Pos(0, (D["y_slot0"] + D["y_slot1"]) / 2, D["s_plate_top_z"] + 0.3) * Box(v["cassette_l"], v["cassette_h"], v["cassette_w"], align=C)
     return {"PN532 board": pcb, "PN532 components (middle)": comp, "PN532 corner parts L": corners[0],
@@ -79,13 +82,31 @@ def main() -> int:
         ok = ob < TOL and ol < TOL and inside
         bad += 0 if ok else 1
         print(f"  {name:28} {ob:8.2f} {ol:9.2f}   {'yes' if inside else 'NO':6} {'ok' if ok else 'COLLISION'}")
+    # Does the LID go in? The check that was missing: the electronics were
+    # intersected with both parts, but the two printed parts were never
+    # intersected with each other, so the D1 mini's mount driving 0.5 mm into
+    # the back wall went unseen through a full sweep (Samuel, 2026-09-18:
+    # "the bottom doesn't go in properly").
+    seated = overlap(lid, body)
+    print(f"  {'lid seated in the body':28} {seated:8.2f}   {'ok' if seated < TOL else 'COLLISION'}")
+    bad += 0 if seated < TOL else 1
+    # and it has to get there: straight up into the pocket, nothing catching
+    lid_bad = 0
+    for i in range(1, 5):
+        o = overlap(Pos(0, 0, -i * 1.5) * lid, body)
+        if o > TOL:
+            lid_bad += 1
+            print(f"  lid approach -{i * 1.5:.1f} mm: body overlap {o:.2f} mm^3")
+    print(f"  lid approach: {'clear' if not lid_bad else str(lid_bad) + ' steps blocked'} (4 steps)")
+    bad += lid_bad
+
     # insertion path: the module drops straight down out of its pocket (lid off)
     v = D
     pcb_y = (D["y_pcb0"] + D["y_pcb1"]) / 2
     steps = 6
     path_bad = 0
     for i in range(1, steps + 1):
-        dz = -(D["s_pcb_bot_z"] - v["floor"] + 2.0) * i / steps
+        dz = -(D["s_pcb_bot_z"] - D["s_lid_t"] + 2.0) * i / steps
         moving = Pos(0, pcb_y, D["s_pcb_bot_z"] + dz) * Box(v["pn532_l"], v["pn532_t"], v["pn532_w"], align=C)
         comp_m = Pos(0, D["y_pcb1"] + v["pn532_comp_h"] / 2, D["s_pcb_bot_z"] + v["s_edge_free"] + dz) * Box(
             v["pn532_l"] - 4.0, v["pn532_comp_h"], v["pn532_w"] - 2 * v["s_edge_free"], align=C)

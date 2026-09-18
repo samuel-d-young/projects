@@ -9,7 +9,8 @@ Two printed parts:
                 The slot floor is a 13 mm bridge, nothing else overhangs.
     slot_lid    the bottom plate, printed outside face down: counterbores
                 open at the bed, the D1 mini posts, buzzer ring and the
-                module shelf stand up from it.
+                module shelf stand up from it. It is recessed INTO the body,
+                not butted against it.
 
 Inside: the PN532 stands vertically with its flat back against the wall
 behind the slot (the antenna coil reads through its own PCB), held by two
@@ -50,11 +51,21 @@ def _posts_and_lips(cx, cy, pl, pw, D, top_z, lip_top_z, z0):
 
 
 def build_body(D: dict):
-    L, W, H, floor, wall = D["s_L"], D["s_W"], D["s_H"], D["floor"], D["wall"]
+    L, W, H, wall = D["s_L"], D["s_W"], D["s_H"], D["wall"]
+    floor = D["s_lid_t"]                      # "floor" here is the top of the lid
     body = Pos(0, 0, floor) * _rounded_box(L, W, H - floor, D["corner_r"])
     cavity = Pos(0, 0, floor - 0.01) * _rounded_box(D["s_cavity_l"], D["s_cavity_w"],
                                                      D["s_roof_z"] - floor + 0.01, D["s_cavity_r"])
     body = body - cavity
+    # The skirt: the outer wall carries on down past the lid, so the lid drops into
+    # a pocket and finishes flush instead of butting against the bottom rim with
+    # nothing to locate it (Samuel, 2026-09-18: "the bottom doesn't go in properly").
+    # The step from this pocket to the narrower cavity is the seat it stops against.
+    # Printed top-face-down this rim is the last thing laid, on top of the full
+    # wall beneath it - no overhang.
+    skirt = _rounded_box(L, W, floor, D["corner_r"]) - Pos(0, 0, -0.01) * _rounded_box(
+        D["s_pocket_l"], D["s_pocket_w"], floor + 0.02, D["s_pocket_r"])
+    body = body + skirt
 
     # the slot block: solid from the slot-floor plate up to the roof, spanning the
     # slot plus an end wall each side and the module wall behind; then the slot itself
@@ -167,8 +178,13 @@ def build_knob(D: dict, d: float):
 
 
 def build_lid(D: dict):
-    L, W, floor = D["s_L"], D["s_W"], D["floor"]
-    lid = _rounded_box(L, W, floor, D["corner_r"])
+    """The bottom plate. It is inset from the body's footprint by the ledge plus a
+    clearance so it drops into the pocket in the body's underside and finishes
+    flush, located on all four sides; and it is `s_lid_t` thick rather than the
+    shared `floor`, because a 2.4 mm plate counterbored 2.5 mm for a pan head is
+    not a plate, it is a hole."""
+    floor = D["s_lid_t"]
+    lid = _rounded_box(D["s_lid_l"], D["s_lid_w"], floor, D["s_lid_r"])
     for (x, y) in D["s_posts"]:
         lid = lid - Pos(x, y, -0.1) * Cylinder(D["screw_hole"] / 2, floor + 0.2, align=C)
         lid = lid - Pos(x, y, -0.1) * Cylinder(D["screw_head_d"] / 2, D["screw_head_h"] + 0.1, align=C)
@@ -196,7 +212,8 @@ if __name__ == "__main__":
 
     D = params.derive(params.nominal())
     emit(build_body(D), "slot_body", "upside down, top face on the bed", note="slot floor bridges 13 mm")
-    emit(build_lid(D), "slot_lid", "outside face down", note="4 x M3 x 10 pan head from below")
+    emit(build_lid(D), "slot_lid", "outside face down",
+         note=f"4 x M3 x {D['screw_len']:.0f} pan head from below; the lid recesses into the body")
     emit(build_knob(D, D["k_knob_big_d"]), "knob_big", "flat, base down", note="glue into the left recess")
     emit(build_knob(D, D["k_knob_small_d"]), "knob_small", "flat, base down", note="glue into the right recess")
     write_manifest()

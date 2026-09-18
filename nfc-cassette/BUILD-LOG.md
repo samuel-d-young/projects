@@ -149,3 +149,79 @@ Second run: **0.00 mm³ on every part, insertion path clear.** So "the reader si
 is a computed statement about the exported geometry, resting on two photographed-not-
 measured assumptions that the sweep also carries. Full sweep: eight parts, 128 corners,
 0 failures, 694 s.
+
+## 2026-09-18 — The bottom could not go in, and the board measured
+
+Samuel: "the bottom doesn't go in properly. Make it recessed and move the mount in
+the bottom, it hits the edge." He is right, and it was worse than a tight fit.
+
+**The lid was jammed, not tight.** Intersecting the two printed parts — which
+nothing had ever done — puts **31.85 mm³ of the lid inside the body**. The D1
+mini's mount (corner posts and lips) is derived to stand `pcb_clr + lip_t` =
+1.5 mm outside the board, but the cavity was only sized to clear the *board*:
+`f_back_inner` allowed `cavity_clr` = 1.0 mm behind it, so the mount drove
+**0.5 mm into the back wall**. On the left it was exactly flush — `s_d1_cx` put
+the outer lip face on the cavity wall, 0.00 mm of clearance, which is an
+interference fit once a printer has had its say. **(verified — exact boolean
+volume, not an estimate.)**
+
+Why nothing caught it: `fitcheck_slot.py` intersected the *electronics* with the
+body and with the lid, and never the body with the lid. The invariant that looks
+like it covers this (`slot: D1 mini through the back wall`) checks the board's
+edge plus air, not the mount that holds it. A full 128-corner sweep passed.
+
+**Three fixes, all in params.**
+
+- `s_mount_gap` (0.6, range 0.4–1.0): everything standing on the lid keeps this
+  much off the cavity wall. `f_back_inner` and `d1_needs` now budget for the
+  mount rather than the board, so the **body grows instead of the mount being
+  squeezed** — the same pattern that already stopped a thick wall crushing the
+  D1 against the module's rib. Body 127.4 × 47.0 → **127.9 × 48.1**.
+- **The lid is recessed.** It was a flat plate butted against the bottom rim,
+  located by nothing but four screws through 3.4 mm clearance holes. Now the
+  outer wall carries on down past it (`s_lid_ledge`, 1.2 mm) and the lid drops
+  into that pocket with `s_lid_clr` = 0.25 per side, flush with the bottom and
+  stopped by the step where the pocket meets the narrower cavity. Printed
+  top-face-down that rim is the last thing laid, on top of the full wall — no
+  overhang, still no supports.
+- **The lid is its own thickness.** It was `floor` = 2.4 mm with a 2.5 mm
+  counterbore for the screw head: the counterbore went **through the plate**,
+  leaving a 6.2 mm hole and nothing for the head to pull against. `s_lid_t` =
+  `screw_head_h + s_lid_under_head` = **3.7 mm**. Costs 1.3 mm of height (body
+  47.2 → 48.5) and gives a deeper, better-locating recess.
+
+The cavity's inner fillet then became the binding constraint — a square mount
+corner cannot sit in a round corner, and the first version of the new check
+missed it because it measured the flat wall. `s_cavity_r` is now capped at
+`s_mount_gap`, so the corners stop pinching, and the check measures the true
+rounded boundary. At `s_mount_gap` = 0 the guard fails and the parts overlap;
+at every value in the swept range they are clear. **(verified.)**
+
+`fitcheck_slot.py` now intersects lid against body, seated and on the way in.
+
+**The board, measured at last.** Samuel photographed the PN532, front and back.
+Perspective-corrected and calibrated on the 2.54 mm header pitch, with the
+PN532's 6 × 6 mm QFN as a cross-check, the back gives **40.3 × 42.6 mm** against
+the drawing's 40.4 × 42.7 — **`pn532_l` and `pn532_w` are confirmed (verified,
+±0.5 mm)**; the aspect ratio matches the drawing to 0.2%. (The front photo
+rectified badly — a 207 px² edge residual against the back's 2.4 — and claimed
+32 × 35. Ignore a rectification whose edges do not fit.)
+
+What else the photos settle:
+
+- The **42.7 mm edges are the ones the 8-pin and 10-pin headers run alongside**,
+  at 6.3 and 9.5 mm in; the 4-pin runs alongside a 40.4 edge. The top and bottom
+  lips press on the 42.7 edges, so they share an edge with the 8-pin header — but
+  a 2.54 header body reaches no closer than ~5.1 mm and the lip reaches 1.5 mm,
+  so `s_edge_free` = 2.0 has **~3.6 mm to spare (verified in plan)**.
+- The DIP switch **is** the tallest thing on the component side **(verified)**.
+  Its height is still **(assumed)** — a caliper job.
+- **Both headers are unpopulated.** `pin_below` is Samuel's soldering choice, not
+  the board's, and it sets `s_tail` = 17 mm and so the body's whole depth.
+  Right-angle headers or wires straight to the pads would save ~14 mm.
+
+Still nothing printed. `pn532_t`, `pn532_comp_h`, `usb_w`/`usb_h` and
+`s_corner_zone` remain **(assumed)**; a photo cannot measure a height.
+
+`docs/nfc-cassette-slot.png` is **stale** — it still shows the butted lid. `shots_slot.py`
+imports the render module from the robot repo, so it has to be re-run on Samuel's machine.
