@@ -215,8 +215,14 @@ def main() -> int:
         return 0
 
     # corner sweep over the parameters that actually move the geometry
-    sweep = ["wall", "bay_clr", "pcb_clr", "pn532_comp_h", "d1_top_h", "card_clr",
-             "cassette_corner_r", "s_mount_gap"]
+    # cassette_corner_r is deliberately NOT swept (Samuel, 2026-09-18): adding
+    # s_mount_gap had doubled this to 256 corners. It reaches three places -
+    # the cassette tray's outer radius, tray_inner_r (tray + lid) and bay_r
+    # (the flat player's bay) - and all three belong to parts that have not
+    # moved since they were first swept. It touches nothing in the slot
+    # player, whose slot has its own s_slot_r. Put it back before changing
+    # the cassette shell or the flat bay.
+    sweep = ["wall", "bay_clr", "pcb_clr", "pn532_comp_h", "d1_top_h", "card_clr", "s_mount_gap"]
     fails = 0
     n = 0
     t0 = time.time()

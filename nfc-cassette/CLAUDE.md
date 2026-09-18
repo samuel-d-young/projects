@@ -24,12 +24,15 @@ cad/fitcheck_slot.py "does the reader sit inside?": the electronics as solids, e
 cad/shots_slot.py    docs/nfc-cassette-slot.png; shots.py does the flat version
 cad/_lib.py          export gate (watertight, winding, volume drift, build volume)
 stl/ step/           build output + manifest.json. Regenerating is always safe.
+                     STEP carries an export timestamp in its header, so all eight
+                     files go dirty on every run even when nothing moved. If the
+                     STLs are unchanged, the geometry is unchanged: check out step/.
 ```
 
 ## Run
 
 ```
-K:\Claude\robot\.venv\Scripts\python.exe cad\verify.py          # ~25 min: nominal + 256-corner sweep
+K:\Claude\robot\.venv\Scripts\python.exe cad\verify.py          # ~12 min: nominal + 128-corner sweep
 K:\Claude\robot\.venv\Scripts\python.exe cad\fitcheck_slot.py   # ~20 s: must end "the reader sits inside"
 K:\Claude\robot\.venv\Scripts\python.exe cad\shots_slot.py
 ```
