@@ -124,9 +124,26 @@ _P: list[Param] = [
     Param("k_knob_small_d", 11.0, 9.0, 14.0, "choice", "tuning knob"),
     Param("k_knob_h", 6.0, 4.0, 8.0, "choice", "knob height"),
     Param("k_recess", 0.6, 0.4, 0.8, "choice", "locating recess in the face for a glued knob"),
-    Param("k_grille_pitch", 3.0, 2.5, 3.5, "choice", "speaker grille dimple pitch"),
-    Param("k_grille_d", 1.6, 1.2, 2.0, "choice", "speaker grille dimple diameter"),
-    Param("k_dimple", 0.8, 0.6, 1.0, "choice", "depth of grille dimples and the counter window"),
+    Param("k_dimple", 0.8, 0.6, 1.0, "choice", "depth of the counter window and the REC lamp"),
+    # ---- the VU dial: a WS2812B 8-LED ring behind eight wedge slots, one per
+    # pixel, with the single WS2812B showing through the middle. Samuel,
+    # 2026-09-18: "put the rings behind the grate on the right hand side" and
+    # move the slot back to make room. It replaces the dimpled speaker grille.
+    Param("s_ring_od", 32.0, 31.0, 34.0, "assumed", "WS2812B 8-LED ring board diameter; photo-measured ~32, wants calipers"),
+    Param("s_ring_led_c", 25.5, 24.5, 26.5, "assumed", "diameter of the circle the eight LEDs sit on; photo-measured 25.5"),
+    Param("s_ring_t", 1.6, 1.4, 1.8, "assumed", "ring PCB thickness; standard FR4"),
+    Param("s_ring_led_h", 1.6, 1.2, 2.0, "assumed", "WS2812B 5050 package height above the board"),
+    Param("s_dot_od", 10.0, 8.0, 12.0, "assumed", "the single WS2812B board's diameter"),
+    Param("s_ring_air", 0.6, 0.4, 1.0, "choice", "air between the LED tops and the inside of the front wall"),
+    Param("s_ring_clr", 0.4, 0.3, 0.8, "choice", "ring to its cradle, per side"),
+    Param("s_ring_rib", 2.0, 1.6, 2.6, "choice", "the vertical ribs that hold the ring; vertical so they print on a vertical face"),
+    Param("s_ring_post_w", 5.0, 4.0, 6.0, "choice", "width of each post the ring stands on"),
+    Param("k_vu_bezel_w", 2.5, 2.0, 3.5, "choice", "width of the raised bezel ring"),
+    Param("k_vu_bezel_proud", 1.0, 0.6, 1.4, "choice", "how far the bezel stands off the face - kept shallow, like the counter frame, because a tall boss on a vertical face is a half-cylinder overhang"),
+    Param("k_vu_r0", 8.5, 7.0, 10.0, "choice", "inner radius of the wedge slots"),
+    Param("k_vu_r1", 15.0, 13.5, 15.5, "choice", "outer radius of the wedge slots; has to overlap the LED circle generously, not swallow it"),
+    Param("k_vu_gap_deg", 9.0, 7.0, 14.0, "choice", "web between wedges, degrees"),
+    Param("k_vu_centre_d", 3.5, 2.5, 4.5, "choice", "hole the single LED shows through"),
 ]
 PARAMS: dict[str, Param] = {p.name: p for p in _P}
 
@@ -235,7 +252,12 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     # from pocket to cavity is the seat the lid stops against
     D["s_lid_ledge"] = min(v["s_lid_ledge"], v["wall"] - 0.8)
     D["s_tail"] = max(v["pn532_comp_h"], v["pin_below"] + v["dupont_h"])
-    D["f_slot0"] = v["wall"]
+    # The ring lives between the front wall and the slot block, so the slot -
+    # and everything behind it - moves back by the ring's stack plus the 0.5 mm
+    # the block overlaps the front wall by. The body gets deeper; nothing else
+    # about the face changes.
+    D["s_ring_depth"] = v["s_ring_air"] + v["s_ring_led_h"] + v["s_ring_t"] + v["s_ring_clr"]
+    D["f_slot0"] = v["wall"] + D["s_ring_depth"] + 0.5
     D["f_slot1"] = D["f_slot0"] + D["s_slot_w"]
     D["f_pcb0"] = D["f_slot1"] + v["s_module_wall"]
     D["f_pcb1"] = D["f_pcb0"] + v["pn532_t"]
@@ -262,6 +284,10 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     # bigger than the gap the mounts already stand off by, and the corners stop
     # being the binding constraint (the wall just gets thicker at the corners).
     D["s_cavity_r"] = min(max(v["corner_r"] - v["wall"], 0.6), max(v["s_mount_gap"], 0.6))
+    # the ring, measured back from the inside of the front wall
+    D["s_ring_led_y"] = -D["s_W"] / 2 + v["wall"] + v["s_ring_air"]   # LED tops
+    D["s_ring_y0"] = D["s_ring_led_y"] + v["s_ring_led_h"]            # board, front face
+    D["s_ring_y1"] = D["s_ring_y0"] + v["s_ring_t"]                   # board, back face
     D["s_pcb_bot_z"] = D["s_lid_t"] + v["s_shelf_h"]
     D["s_pcb_top_z"] = D["s_pcb_bot_z"] + v["pn532_w"]
     D["s_rail_x"] = v["pn532_l"] / 2 + v["pcb_clr"] + v["s_keeper"] / 2   # side rib centre
@@ -288,12 +314,25 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     # front face furniture. Through-holes (LED) stay below the slot floor plate;
     # the cosmetics only add material or dent the 2.4 mm wall by k_dimple, so
     # they may sit anywhere on the face.
-    D["s_led_cx"], D["s_led_cz"] = -46.0, 8.0        # clear of the front-left screw post (fit check)
-    D["s_buttons_x0"], D["s_buttons_pitch"], D["s_buttons_cz"] = -36.0, v["k_key_w"] + 2.0, 9.0
+    D["s_led_cx"], D["s_led_cz"] = -51.0, 8.0        # as far left as the front-left screw post allows
+    D["s_buttons_x0"], D["s_buttons_pitch"], D["s_buttons_cz"] = -41.0, v["k_key_w"] + 2.0, 9.0
     D["k_knob_big_c"] = (-48.0, 30.0)            # volume, top-left
     D["k_knob_small_c"] = (-30.0, 30.0)          # tuning, next to it
     D["k_counter_c"], D["k_counter_w"], D["k_counter_h"] = (-8.0, 30.0), 22.0, 8.0   # tape counter window
-    D["k_grille_c"], D["k_grille_w"], D["k_grille_h"] = (44.0, 24.0), 28.0, 30.0    # speaker grille, right
+    # the dial, right of centre: far enough in that the bezel clears the corner radius
+    D["k_vu_c"] = (35.5, 25.0)
+    D["k_vu_bezel_od"] = 2 * v["k_vu_r1"] + 2 * 1.5 + 2 * v["k_vu_bezel_w"]
+    D["s_ring_cx"], D["s_ring_cz"] = D["k_vu_c"]
+    # the lid's two posts sit under the rim, off to each side; their tops follow
+    # the circle, or they would hold the board 2 mm below where it belongs
+    D["s_ring_post_dx"] = v["s_ring_od"] * 0.26
+    # measured at the post's INNER edge: across the post's width the rim is
+    # lowest nearest the middle of the disc, so that edge is what sets the top.
+    # (The centre gives a top 1.2 mm too high, the outer edge 3.1 mm too high;
+    # both drive a corner of the post through the board.)
+    _pe = D["s_ring_post_dx"] - v["s_ring_post_w"] / 2
+    D["s_ring_post_top"] = D["s_ring_cz"] - ((v["s_ring_od"] / 2) ** 2 - _pe ** 2) ** 0.5
+    D["s_ring_rib_x"] = v["s_ring_od"] / 2 + v["s_ring_clr"] + v["s_ring_rib"] / 2
     D["k_rec_c"] = (12.0, 30.0)                  # "REC" lamp recess
     # screw posts: front-left, front-right, back-right, back-middle (x = 0 sits between
     # the module tails and the back wall, which the D1 mini's depth makes deep enough)

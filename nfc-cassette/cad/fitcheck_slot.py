@@ -57,9 +57,17 @@ def parts_inside(D: dict):
     buzzer = Pos(D["s_buzzer_cx"], D["s_buzzer_cy"], D["s_lid_t"] + 0.2) * Cylinder(v["buzzer_d"] / 2, v["buzzer_d"] * 0.8, align=C)
     led = Pos(D["s_led_cx"], -D["s_W"] / 2 + v["wall"] + 4.3, D["s_led_cz"]) * Rot(90, 0, 0) * Cylinder(v["led_d"] / 2, 8.6, align=CC)
     tape = Pos(0, (D["y_slot0"] + D["y_slot1"]) / 2, D["s_plate_top_z"] + 0.3) * Box(v["cassette_l"], v["cassette_h"], v["cassette_w"], align=C)
+    # The VU dial's boards, as one disc each: the ring board (the single LED sits
+    # in its middle, so a full disc is the conservative shape) and the LED
+    # packages standing in front of it, in the air gap behind the front wall.
+    ring = Pos(D["s_ring_cx"], (D["s_ring_y0"] + D["s_ring_y1"]) / 2, D["s_ring_cz"]) * Rot(90, 0, 0) * Cylinder(
+        v["s_ring_od"] / 2, v["s_ring_t"], align=CC)
+    ring_leds = Pos(D["s_ring_cx"], (D["s_ring_led_y"] + D["s_ring_y0"]) / 2, D["s_ring_cz"]) * Rot(90, 0, 0) * Cylinder(
+        v["s_ring_od"] / 2, v["s_ring_led_h"], align=CC)
     return {"PN532 board": pcb, "PN532 components (middle)": comp, "PN532 corner parts L": corners[0],
             "PN532 corner parts R": corners[1], "Dupont tails": tails, "D1 mini + headroom": d1,
-            "USB plug": usb, "buzzer": buzzer, "LED": led, "tape in the slot": tape}
+            "USB plug": usb, "buzzer": buzzer, "LED": led, "tape in the slot": tape,
+            "VU ring board": ring, "VU ring LEDs": ring_leds}
 
 
 def overlap(a, b) -> float:

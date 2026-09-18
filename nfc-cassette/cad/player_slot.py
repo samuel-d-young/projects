@@ -23,6 +23,8 @@ transport buttons on the front face, below the slot.
 """
 from __future__ import annotations
 
+import math
+
 from build123d import Align, Axis, Box, Cylinder, Pos, Rot, fillet
 
 C = (Align.CENTER, Align.CENTER, Align.MIN)
@@ -90,6 +92,21 @@ def build_body(D: dict):
     body = body + Pos(0, D["s_lip_y"], D["s_lip_top_z0"]) * Box(
         D["s_lip_top_w"], D["s_keeper"], D["s_roof_z"] - D["s_lip_top_z0"] + 0.5, align=C)
 
+    # The ring's cradle. It sits in the front of the cavity, between the inside
+    # of the front wall and the front face of the slot block - which is why the
+    # slot moved back. Two VERTICAL ribs locate it across the face (vertical so
+    # they print as fins on a vertical wall rather than as overhangs) and a stop
+    # across the top sets how far up it can go; the lid carries the two posts it
+    # rests on, so it is trapped once the lid is screwed down.
+    cx, cz = D["k_vu_c"]
+    ry = -W / 2 + wall + D["s_ring_depth"] / 2
+    rx = D["s_ring_rib_x"]
+    for sx in (-1, 1):
+        body = body + Pos(cx + sx * rx, ry, cz) * Box(
+            D["s_ring_rib"], D["s_ring_depth"], D["s_ring_od"] + 8.0, align=CC)
+    body = body + Pos(cx, ry, cz + D["s_ring_od"] / 2 + D["s_ring_clr"] + 1.0) * Box(
+        2 * rx, D["s_ring_depth"], 2.0, align=CC)
+
     # screw posts from the roof down to the lid, pilot-drilled from below
     for (x, y) in D["s_posts"]:
         body = body + Pos(x, y, floor) * Cylinder(D["post_d"] / 2, D["s_roof_z"] - floor + 0.5, align=C)
@@ -138,17 +155,34 @@ def _front_cosmetics(body, D: dict):
     # REC lamp: a small recessed disc
     rx, rz = D["k_rec_c"]
     body = body - Pos(rx, face, rz) * Rot(90, 0, 0) * Cylinder(2.0, 2 * D["k_dimple"], align=CC)
-    # speaker grille: a field of shallow dimples
-    gx, gz = D["k_grille_c"]
-    nx = int(D["k_grille_w"] // D["k_grille_pitch"])
-    nz = int(D["k_grille_h"] // D["k_grille_pitch"])
-    dimple = Rot(90, 0, 0) * Cylinder(D["k_grille_d"] / 2, 2 * D["k_dimple"], align=CC)
-    for i in range(nx):
-        for j in range(nz):
-            x = gx - (nx - 1) * D["k_grille_pitch"] / 2 + i * D["k_grille_pitch"]
-            z = gz - (nz - 1) * D["k_grille_pitch"] / 2 + j * D["k_grille_pitch"]
-            body = body - Pos(x, face, z) * dimple
+    # The VU dial, where the speaker grille used to be: a shallow raised bezel,
+    # a dished face inside it, eight wedge slots - one per LED on the ring
+    # behind - and a hole in the middle for the single LED. Only the wedges and
+    # the centre hole go through; the bezel stays shallow because a tall boss on
+    # a vertical face prints as a half-cylinder overhang (see the knobs).
+    cx, cz = D["k_vu_c"]
+    bo, prd = D["k_vu_bezel_od"] / 2, D["k_vu_bezel_proud"]
+    bi = bo - D["k_vu_bezel_w"]
+    body = body + (Pos(cx, face - prd / 2, cz) * Rot(90, 0, 0) * Cylinder(bo, prd, align=CC)
+                   - Pos(cx, face - prd / 2, cz) * Rot(90, 0, 0) * Cylinder(bi, prd + 0.2, align=CC))
+    body = body - Pos(cx, face, cz) * Rot(90, 0, 0) * Cylinder(bi, 2 * D["k_dimple"], align=CC)
+    half = math.radians(360.0 / 8 - D["k_vu_gap_deg"]) / 2
+    for k in range(8):
+        a = math.pi / 2 + 2 * math.pi * k / 8          # one wedge at twelve o'clock
+        body = body - Pos(cx, face, cz) * Rot(90, 0, 0) * _sector(
+            D["k_vu_r0"], D["k_vu_r1"], a - half, a + half, D["wall"] * 3)
+    body = body - Pos(cx, face, cz) * Rot(90, 0, 0) * Cylinder(
+        D["k_vu_centre_d"] / 2, D["wall"] * 3, align=CC)
     return body
+
+
+def _sector(r0: float, r1: float, a0: float, a1: float, t: float, n: int = 16):
+    """An annular sector as a solid `t` thick along its own Z, for cutting a
+    wedge slot. Polygonal, because a 37-degree slot only has to look round."""
+    from build123d import Polygon, extrude, Plane
+    pts = [(r1 * math.cos(a0 + (a1 - a0) * i / n), r1 * math.sin(a0 + (a1 - a0) * i / n)) for i in range(n + 1)]
+    pts += [(r0 * math.cos(a1 + (a0 - a1) * i / n), r0 * math.sin(a1 + (a0 - a1) * i / n)) for i in range(n + 1)]
+    return extrude(Plane.XY * Polygon(*pts, align=None), t / 2, both=True)
 
 
 def _wedge(length: float, size: float):
@@ -196,6 +230,16 @@ def build_lid(D: dict):
     for p in _posts_and_lips(D["s_d1_cx"], D["s_d1_cy"], D["d1_l"], D["d1_w"], D,
                              top_z=D["s_d1_board_z"], lip_top_z=D["s_d1_board_z"] + D["d1_t"] + 3.0, z0=floor):
         lid = lid + p
+    # the two posts the ring stands on. They sit under its rim, between LEDs,
+    # and are pulled back off the cavity wall by s_mount_gap like every other
+    # thing that stands on the lid.
+    cx, cz = D["k_vu_c"]
+    py0 = D["s_ring_y0"] - 0.2
+    py1 = D["s_ring_y1"] + 0.2
+    for sx in (-1, 1):
+        lid = lid + Pos(cx + sx * D["s_ring_post_dx"], (py0 + py1) / 2, floor) * Box(
+            D["s_ring_post_w"], py1 - py0, D["s_ring_post_top"] - floor, align=C)
+
     # buzzer locating ring
     lid = lid + Pos(D["s_buzzer_cx"], D["s_buzzer_cy"], floor) * (
         Cylinder(D["buzzer_d"] / 2 + 0.3 + 1.2, 3.0, align=C) - Cylinder(D["buzzer_d"] / 2 + 0.3, 3.2, align=C))

@@ -11,6 +11,7 @@ that cannot drop between its lips, a Dupont tail with nowhere to go.
 from __future__ import annotations
 
 import itertools
+import math
 import sys
 import time
 from pathlib import Path
@@ -135,7 +136,11 @@ def invariants(v: dict, D: dict) -> list[str]:
     mount = v["pcb_clr"] + v["lip_t"]
     feet = [("D1 mini's mount", D["s_d1_cx"], D["s_d1_cy"], v["d1_l"] / 2 + mount, v["d1_w"] / 2 + mount),
             ("buzzer ring", D["s_buzzer_cx"], D["s_buzzer_cy"], v["buzzer_d"] / 2 + 1.5, v["buzzer_d"] / 2 + 1.5),
-            ("module shelf", 0.0, (D["y_pcb0"] + D["y_pcb1"]) / 2, 15.0, (v["pn532_t"] + v["pcb_clr"]) / 2)]
+            ("module shelf", 0.0, (D["y_pcb0"] + D["y_pcb1"]) / 2, 15.0, (v["pn532_t"] + v["pcb_clr"]) / 2),
+            ("ring posts", D["k_vu_c"][0] + D["s_ring_post_dx"], (D["s_ring_y0"] + D["s_ring_y1"]) / 2, 2.5,
+             (D["s_ring_y1"] - D["s_ring_y0"]) / 2 + 0.2),
+            ("ring posts", D["k_vu_c"][0] - D["s_ring_post_dx"], (D["s_ring_y0"] + D["s_ring_y1"]) / 2, 2.5,
+             (D["s_ring_y1"] - D["s_ring_y0"]) / 2 + 0.2)]
     for what, cx, cy, hx, hy in feet:
         # located by the straight walls...
         chk(min(A - (abs(cx) + hx), B - (abs(cy) + hy)) >= v["s_mount_gap"] - 1e-6,
@@ -163,9 +168,36 @@ def invariants(v: dict, D: dict) -> list[str]:
         chk((cx - D["s_led_cx"]) ** 2 + (cz - D["s_led_cz"]) ** 2 > (d / 2 + v["led_d"] / 2 + 1.5) ** 2, "slot: a knob recess hits the LED hole")
     chk(abs(D["k_knob_big_c"][0] - D["k_knob_small_c"][0]) > (v["k_knob_big_d"] + v["k_knob_small_d"]) / 2 + 2.0, "slot: the two knobs overlap")
     chk(D["s_buttons_x0"] - v["k_key_w"] / 2 > D["s_led_cx"] + v["led_d"] / 2 + 1.0, "slot: first key covers the LED")
-    chk(D["s_buttons_x0"] + 4 * D["s_buttons_pitch"] + v["k_key_w"] / 2 < D["k_grille_c"][0] - D["k_grille_w"] / 2 - 2.0, "slot: keys run into the grille")
+    chk(D["s_buttons_x0"] + 4 * D["s_buttons_pitch"] + v["k_key_w"] / 2 < D["k_vu_c"][0] - D["k_vu_bezel_od"] / 2 - 2.0, "slot: keys run into the dial")
     chk(D["s_buttons_cz"] + v["k_key_h"] / 2 < D["k_counter_c"][1] - D["k_counter_h"] / 2 - 2.0, "slot: keys run into the counter window")
-    chk(D["k_grille_c"][0] + D["k_grille_w"] / 2 < D["s_L"] / 2 - v["corner_r"] and D["k_grille_c"][1] + D["k_grille_h"] / 2 < D["s_H"] - 1.0, "slot: grille runs off the face")
+    # ---- the VU dial and the ring behind it
+    vx, vz = D["k_vu_c"]
+    bo = D["k_vu_bezel_od"] / 2
+    chk(vx + bo < D["s_L"] / 2 - v["corner_r"] and vx - bo > D["s_buttons_x0"], "slot: the dial runs off the face")
+    chk(vz + bo < D["s_H"] - 1.0 and vz - bo > D["s_lid_t"] + 1.0, "slot: the dial runs off the top or into the lid skirt")
+    chk(v["k_vu_r1"] < bo - v["k_vu_bezel_w"] - 0.8, "slot: the wedge slots run under the bezel")
+    chk(v["k_vu_r0"] > v["k_vu_centre_d"] / 2 + 1.5, "slot: the wedges meet the centre hole")
+    chk(D["k_rec_c"][0] + 2.0 + 2.0 < vx - bo, "slot: the REC lamp runs into the dial's bezel")
+    # the wedges have to straddle the LEDs, or the pixels light the wall
+    # the wedge has to overlap the LED generously; it does not have to swallow it
+    # whole, and demanding that made the dial too big for the face
+    led_half = 2.5      # a WS2812B 5050 is 5 mm square
+    chk(v["k_vu_r0"] <= v["s_ring_led_c"] / 2 - 1.0, "slot: wedge slots start outside the LED circle")
+    chk(v["k_vu_r1"] >= v["s_ring_led_c"] / 2 + 1.0, "slot: wedge slots end short of the LED circle")
+    # ...with enough angular slack that the ring does not have to be clocked exactly
+    led_deg = 2 * math.degrees(math.asin(min(1.0, led_half / (v["s_ring_led_c"] / 2))))
+    chk(360.0 / 8 - v["k_vu_gap_deg"] >= led_deg + 8.0, "slot: no rotational slack - the wedge is barely wider than the LED")
+    chk(vz - v["s_ring_od"] / 2 > D["s_lid_t"] + 0.5, "slot: the ring sits in the lid skirt")
+    chk(vz + v["s_ring_od"] / 2 + v["s_ring_clr"] + 3.0 < D["s_roof_z"], "slot: the ring hits the roof")
+    chk(D["s_ring_rib_x"] + v["s_ring_rib"] / 2 < D["s_cavity_l"] / 2, "slot: the ring's ribs run through the side wall")
+    chk(D["s_ring_y1"] <= D["y_slot0"] - 0.5 + 1e-6, "slot: the ring fouls the slot block; the slot has not moved back far enough")
+    chk(D["s_ring_y0"] > -D["s_W"] / 2 + v["wall"] + 1e-6, "slot: the ring is inside the front wall")
+    chk(D["s_ring_post_top"] > D["s_lid_t"] + 1.0, "slot: the ring's posts are too short to print")
+    # the ring is 32 mm of disc in the front-right corner, where a screw post lives
+    for (x, y) in D["s_posts"]:
+        chk(abs(x - D["s_ring_cx"]) > v["s_ring_od"] / 2 + v["s_ring_clr"] + v["post_d"] / 2
+            or y - v["post_d"] / 2 > D["s_ring_y1"] + 0.5,
+            "slot: the VU ring runs into a screw post")
     return bad
 
 

@@ -66,3 +66,8 @@ anything else.
 - **Anything standing on the lid keeps `s_mount_gap` off the cavity wall**, and
   the check measures the ROUNDED cavity: a square mount corner does not fit a
   filleted one, and measuring the flat wall misses it.
+- The front face can only be opened **below the slot floor** unless the slot is
+  moved back: above it, the cassette slot is directly behind the wall. The VU
+  dial exists because `f_slot0` now includes the LED ring's depth.
+- A support whose top meets a curved part sets its height from the **inner**
+  edge of its own footprint — where the curve is lowest across that width.

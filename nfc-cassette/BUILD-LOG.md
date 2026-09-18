@@ -229,3 +229,56 @@ imports the render module from the robot repo, so it has to be re-run on Samuel'
 **Sweep:** `s_mount_gap` joins the swept parameters, so the corner sweep is **256
 corners, not 128** — eight parts rebuilt at each. **0 failures**, 2516 s on the
 machine that ran it; budget roughly double whatever `verify.py` used to take.
+
+## 2026-09-18 (later) — A VU dial: nine pixels behind eight wedges
+
+Samuel has a WS2812B 8-LED ring and a single WS2812B, and wants the player to
+change colour with what it is doing, in a retro register. Shown four ways it
+could read through the right-hand grille, he picked the **VU dial** — a bezel
+with eight wedge slots, one per pixel — and solved the problem that had made me
+rule it out: **"just move the tape insert back."**
+
+**Why that was the unlock.** On the old body the only part of the front face
+with open cavity behind it was the strip between the lid and the underside of
+the slot floor — **9.8 mm**. Everything above that backs onto the cassette slot,
+where a through-hole would open into the tape. A 32 mm ring could not go there.
+Moving the slot back puts the ring in front of it instead: the ring now lives in
+the gap between the inside of the front wall and the front face of the slot
+block. **`f_slot0` = wall + ring stack + 0.5**, so the body goes **48.1 → 52.8 mm
+deep (verified)**; width and height do not move, so the face keeps its shape.
+
+**The dial.** Shallow raised bezel (a tall boss on a vertical face is a
+half-cylinder overhang — the reason the knobs are separate parts), a dished
+face, eight wedge slots and a centre hole for the single LED. My worry that the
+wedges were a print risk was **wrong**: each bridges ~9 mm, in a wall that
+already bridges 13 mm for the slot floor. No supports anywhere, still.
+
+**The ring is held** by two ribs that run vertically — so they print as fins on
+a vertical wall rather than as overhangs — a stop across the top, and two posts
+on the lid. Two things the geometry caught, both about the posts' tops: taking
+the height from the post's **centre** leaves them 1.2 mm proud of the rim, and
+from the **outer** edge 3.1 mm proud. The rim curves away, so across the post's
+width it is lowest at the **inner** edge, and that is what sets the top.
+
+**The face had to be re-laid-out.** A 38 mm dial put the ring straight through
+the front-right screw post. The front LED moves to **x = −51** (as far left as
+the front-left post allows, which the fit check enforces) and the keys to
+**−41**. The dimpled speaker grille is gone; the dial replaced it, and the body
+dropped from 55k triangles to 13k.
+
+**One compromise, written down.** The wedges reach r = 15 and the LEDs' outer
+corners are at 15.25, so **0.25 mm of each pixel sits behind the wall**. Making
+the wedge swallow the LED whole needs r1 ≥ 15.25, which pushes the bezel past
+what the face has room for. The invariant asks the wedge to *overlap* the LED
+generously, not contain it.
+
+**Not keyed.** Nothing clocks the ring's rotation. There is ±6° of slack between
+a wedge and its LED, and the LEDs are visible through the wedges at assembly, so
+it is set by eye. A locating pin would need the ring's mounting-hole positions,
+which have not been measured.
+
+Electronics, firmware and the wiring drawing are in the **home-assistant** repo:
+nine pixels chained on **D8**, ring first, `DO` into the single LED's `DI`.
+
+`docs/nfc-cassette-slot.png` is stale again — it predates both the recessed lid
+and the dial.
