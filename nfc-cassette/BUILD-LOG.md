@@ -225,3 +225,7 @@ Still nothing printed. `pn532_t`, `pn532_comp_h`, `usb_w`/`usb_h` and
 
 `docs/nfc-cassette-slot.png` is **stale** — it still shows the butted lid. `shots_slot.py`
 imports the render module from the robot repo, so it has to be re-run on Samuel's machine.
+
+**Sweep:** `s_mount_gap` joins the swept parameters, so the corner sweep is **256
+corners, not 128** — eight parts rebuilt at each. **0 failures**, 2516 s on the
+machine that ran it; budget roughly double whatever `verify.py` used to take.

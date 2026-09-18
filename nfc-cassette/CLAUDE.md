@@ -29,7 +29,7 @@ stl/ step/           build output + manifest.json. Regenerating is always safe.
 ## Run
 
 ```
-K:\Claude\robot\.venv\Scripts\python.exe cad\verify.py          # ~10 min: nominal + 128-corner sweep
+K:\Claude\robot\.venv\Scripts\python.exe cad\verify.py          # ~25 min: nominal + 256-corner sweep
 K:\Claude\robot\.venv\Scripts\python.exe cad\fitcheck_slot.py   # ~20 s: must end "the reader sits inside"
 K:\Claude\robot\.venv\Scripts\python.exe cad\shots_slot.py
 ```
