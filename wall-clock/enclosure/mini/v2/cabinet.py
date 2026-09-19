@@ -18,7 +18,7 @@ print orientation on the way out to disk.
 Parts, per body (tag "" = 24 LED, "-32" = 32 LED):
 
   cabinet-sleeve     black. BACK FACE DOWN. The whole box: walls, divider,
-                     partitions, shelves, the clock's saddle, the board's rails,
+                     partitions, shelves, the clock's socket, the board's rails,
                      the feet, and the closed back every drawer shuts against.
   cabinet-hatch      black. OUTSIDE FACE DOWN. The one removable panel: the back
                      of the clock's own bay, recessed into the back face.
@@ -128,31 +128,28 @@ class Frame:
         self.z_cf = self.z_dr1 + CAB_DIV_T             # clock bay floor
         self.z_ct = self.z_cf + self.h_clock           # clock bay ceiling
 
-        # the clock: saddle axis, and where the clock actually rests on the arcs
-        self.rs = R + CAB_SADDLE_CLR
-        self.z_saddle = self.z_cf + CAB_GAP + R
-        a0 = math.radians(CAB_SADDLE_A0)
-        # centre drop d so the clock circle passes through the arc at A0:
-        #   rs^2 - 2 d rs cos(a0) + d^2 = R^2
-        c = self.rs * math.cos(a0)
-        self.drop = c - math.sqrt(c * c - (self.rs ** 2 - R ** 2))
-        self.z_clock = self.z_saddle - self.drop
+        # the clock: a socket bore it slides into, centred in its bay
+        self.r_bore = R + CAB_SOCKET_CLR
+        self.r_sock = self.r_bore + CAB_SOCKET_WALL
+        self.r_post = self.r_sock + CAB_RET_POST_OUT
+        self.z_clock = self.z_cf + CAB_GAP + R
 
         # y levels, front to back
         self.y_ply0 = CAB_RECESS
         self.y_ply1 = CAB_RECESS + PLY_T
-        self.y_clock_f = self.y_ply1 + CAB_AIR
-        self.y_clock_b = self.y_clock_f + CLOCK_DEPTH
-        self.y_lip0 = self.y_clock_b + CAB_LIP_CLR
-        self.y_lip1 = self.y_lip0 + CAB_LIP_T
-        # the rear lip's own ramp, which runs back from it down to the floor:
-        # its length is the lip's height, so the slope is 45 degrees
-        self.h_lip = (self.z_saddle + CAB_LIP_V) - math.sqrt(max(
-            self.rs ** 2 - (self.rs * math.sin(math.radians(CAB_SADDLE_A1))) ** 2, 0.0))             - (self.z_cf - 0.6)
-        self.y_ramp1 = self.y_lip1 + self.h_lip + 0.2
-        # the board starts behind the LIP, not behind the ramp: the ramp is cut
-        # away over the board's lane, so the two share that depth
-        self.y_bstop0 = self.y_lip1 + CAB_LEAD_ROOM
+        self.y_shoulder0 = self.y_ply1 + CAB_AIR        # the shoulder's front
+        self.y_shoulder1 = self.y_shoulder0 + CAB_SHOULDER_T
+        self.y_clock_f = self.y_shoulder1              # the clock lands on it
+        self.y_clock_b = self.y_clock_f + CLOCK_DEPTH  # ...and the socket's mouth
+        self.y_ret0 = self.y_clock_b + CAB_RET_GAP     # the retainer bars' front
+        self.y_ret1 = self.y_ret0 + CAB_RET_T
+        # the leads leave the back cover's notch 2.40 in front of its back face
+        self.y_notch1 = self.y_clock_b - BACKCOVER_PLATE
+        self.y_notch0 = self.y_notch1 - BACKCOVER_POCKET
+        # the board starts behind the CLOCK, not behind the retainers: they sit
+        # at 3, 9 and 12 o'clock, out at the socket's rim, and the board's lane
+        # is the middle of the floor
+        self.y_bstop0 = self.y_clock_b + CAB_LEAD_ROOM
         self.y_bstop1 = self.y_bstop0 + CAB_BSTOP_L
         self.y_board0 = self.y_bstop1 + CAB_STOP_GAP
         # Flat, the board spends its 64 mm length on depth. Stood on edge it
@@ -221,20 +218,34 @@ class Frame:
 
 
 # ------------------------------------------------------------------ the sleeve
-def _saddle_profile(F, centre_z, radius, side):
-    """The region under an arc of the clock circle, between A0 and A1, down to
-    below the bay floor -- one side (side = +1 right, -1 left)."""
-    a0, a1 = math.radians(CAB_SADDLE_A0), math.radians(CAB_SADDLE_A1)
-    x0 = F.rs * math.sin(a0)
-    x1 = F.rs * math.sin(a1)
-    zf = F.z_cf - 0.6
-    pts = [(x0, zf)]
-    n = 40
-    for k in range(n + 1):
-        x = x0 + (x1 - x0) * k / n
-        pts.append((x, centre_z - math.sqrt(max(radius * radius - x * x, 0.0))))
-    pts.append((x1, zf))
-    return [(side * x, z) for x, z in pts]
+def _polar(F, a_deg, r):
+    """A point at clock angle a (0 = 12 o'clock, clockwise seen from the front)
+    and radius r, in the front view's (x, z)."""
+    a = math.radians(a_deg)
+    return (r * math.sin(a), F.z_clock + r * math.cos(a))
+
+
+def fin_poly(F, a_deg, r_in, r_out, w):
+    """A radial fin at clock angle a, as an (x, z) point list: it ties the
+    socket to the bay wall and is trimmed to the bay by the caller."""
+    a = math.radians(a_deg)
+    u = (math.sin(a), math.cos(a))
+    t = (math.cos(a), -math.sin(a))
+    pts = []
+    for r, s in ((r_in, 1), (r_out, 1), (r_out, -1), (r_in, -1)):
+        pts.append((r * u[0] + s * w / 2 * t[0],
+                    F.z_clock + r * u[1] + s * w / 2 * t[1]))
+    return pts
+
+
+def retainer_sites(F):
+    """Every retainer: its clock angle, whether it carries the keyhole pin, and
+    the (x, z) of its boss. Read by the sleeve, the parts, and check13."""
+    out = []
+    for a in CAB_RET_ANG:
+        out.append(dict(ang=a, key=False, xz=_polar(F, a, F.r_post)))
+    out.append(dict(ang=CAB_RET_KEY_ANG, key=True, xz=_polar(F, CAB_RET_KEY_ANG, F.r_post)))
+    return out
 
 
 def build_sleeve(F):
@@ -264,42 +275,43 @@ def build_sleeve(F):
             for row in range(F.side_rows):
                 s = s - xz_prism(side_bay_outline(F, sx, row), -1.0, y_wall)
 
-    # ---- the clock saddle
-    # Printed back face down, the saddle's own rear face would be the overhang,
-    # so the 45 degree ramp is BEHIND the lip: material runs back from the lip
-    # and down to the floor. It never stands above the lip, which is the height
-    # the clock passes at on its way in, so it costs nothing on the journey.
-    saddle = None
-    lip = None
-    ramp = None
-    h_lip = F.h_lip
-    for side in (1, -1):
-        p = xz_prism(_saddle_profile(F, F.z_saddle, F.rs, side), F.y_ply1, F.y_lip0)
-        q = xz_prism(_saddle_profile(F, F.z_saddle + CAB_LIP_V, F.rs, side), F.y_lip0, F.y_lip1)
-        # started at the lip's own front face, not its back, so the two solids
-        # OVERLAP: meeting on a plane leaves coincident faces, and float32
-        # turns those into a hundred zero-volume shells
-        w = xz_prism(_saddle_profile(F, F.z_saddle + CAB_LIP_V, F.rs, side),
-                     F.y_lip0, F.y_ramp1)
-        saddle = p if saddle is None else saddle + p
-        lip = q if lip is None else lip + q
-        ramp = w if ramp is None else ramp + w
-    y_r = F.y_ramp1
-    wedge = yz_prism([(F.y_lip0 - 1.0, F.z_cf - 1.0),
-                      (F.y_lip0 - 1.0, F.z_cf - 0.6 + (y_r - F.y_lip0) + 1.0),
-                      (y_r, F.z_cf - 0.6), (y_r, F.z_cf - 1.0)], -W, W)
-    # The lip and its ramp keep out of the board's lane: at 6 o'clock the two
-    # arcs start at |x| 13 and the board is 30 wide. The LIP goes too, not just
-    # the ramp -- leave the lip standing there and its own back face is an
-    # overhang with nothing behind it, which is what check13 measured. It still
-    # runs from |x| 17 out to 41 on both sides, which is all the stop the clock
-    # needs.
-    # 1.50 of clearance each side of the board, not 2.00: the strip of saddle
-    # left standing between the lane and where the arcs start at |x| 13 is the
-    # widest overhang on the part, and on the 24 body 2.00 made it 3.55 mm
-    lane = box_lwh(-BOARD2_W / 2 - 1.5, BOARD2_W / 2 + 1.5, F.y_lip0 - 1.0, y_r + 1.0,
-                   F.z_cf - 1.0, F.z_cf + BOARD2_H + 2.0)
-    s = s + saddle + (lip - lane) + ((ramp ^ wedge) - lane)
+    # ---- the clock's socket: seven pads on the bore, a shoulder tab on each,
+    # and behind every pad a fin that runs back to the hatch's seat. The pads
+    # are what the clock slides into and what stops it lifting or shifting; the
+    # fins are what lets the whole thing print (see CAB_PAD_ANG in params).
+    zc = F.z_clock
+    bay_xz = rrect4(-F.cw / 2, F.cw / 2, F.z_cf, F.z_ct, r_c, 0.0)
+    bay_deep = xz_prism(bay_xz, F.y_shoulder0 - 1.0, F.y_hatch0)
+    half = math.degrees(CAB_PAD_ARC / 2 / F.r_bore)
+    for a in CAB_PAD_ANG:
+        # the pad: an arc of the bore, from the clock's face to the hatch's seat
+        pad = csg.wedge(F.r_bore, F.r_sock, -F.y_hatch0, -F.y_shoulder0,
+                        90.0 - a - half, 90.0 - a + half, 48).rotate([90.0, 0.0, 0.0])
+        s = s + pad.translate([0.0, 0.0, zc])
+        # its shoulder tab, reaching in to the aperture's own edge
+        # out past the pad's own face, not up to it: two solids meeting on a
+        # surface leave coincident faces, and float32 turns those into debris
+        tab = csg.wedge(F.aper_r, F.r_sock + 0.5, -F.y_shoulder1, -F.y_shoulder0,
+                        90.0 - a - half + 0.7, 90.0 - a + half - 0.7, 48).rotate([90.0, 0.0, 0.0])
+        s = s + (tab.translate([0.0, 0.0, zc]) ^ bay_deep)
+        # and the fin behind it, out to the bay wall
+        # starts inside the pad's own band and behind its shoulder tab, so no
+        # face of it lands exactly on a face of theirs
+        # inside the pad's band and INSIDE the shoulder tab's depth, not butted
+        # against either: solids that merely touch leave a self-intersecting
+        # union, which manifold reports and float32 cannot heal
+        fin = xz_prism(fin_poly(F, a, F.r_bore + 0.3, F.r_sock + 40.0, CAB_FIN_T),
+                       F.y_shoulder0 + 0.4, F.y_hatch0)
+        s = s + (fin ^ bay_deep)
+    # the bars need their room back out of the fins behind those pads
+    for site in retainer_sites(F):
+        s = s - retainer_pocket(F, site)
+    # a post behind the clock for each retainer's screw, back to the hatch's seat
+    for site in retainer_sites(F):
+        bx, bz = site['xz']
+        post = ycyl(CAB_BOSS_R, bx, bz, F.y_ret1, F.y_hatch0, 40)
+        s = s + (post ^ bay_deep)
+        s = s - ycyl(CAB_PILOT_D / 2, bx, bz, F.y_ret1 - 1.0, F.y_ret1 + CAB_BOSS_L, 24)
 
     # ---- panel stop tabs: two on each side wall, two on the ceiling
     ys0, ys1 = F.y_ply1, F.y_ply1 + CAB_STOP_L
@@ -461,6 +473,11 @@ def build_hatch(F):
         p = p - ycyl(SCREW_CLEAR / 2 + 0.1, bx, bz, y0 - 1, y1 + 1, 32)
         # 90 degree countersink from the outside face (the bed face as printed)
         p = p - countersink(bx, bz, y1)
+    # the three retainer posts run past it to the back face, so it is notched
+    # for them -- they end up flush in its rebate
+    for site in retainer_sites(F):
+        px, pz = site['xz']
+        p = p - ycyl(CAB_BOSS_R + 0.4, px, pz, y0 - 1.0, y1 + 1.0, 40)
     # The USB-C window, on the board's axis. Flat, the port faces the hatch and
     # this is a plug-in window. On edge the port faces sideways instead - the
     # connector is at one end of the 64 mm axis and that axis is now across the
@@ -525,6 +542,66 @@ def build_drawer(F):
     for sx in (1, -1):
         d = d - ycyl(SCREW_CLEAR / 2 + 0.1, sx * F.pull_x, F.z_pull, y0 - 1, y0 + CAB_DR_FRONT_T + 1, 32)
     return d
+
+
+def retainer_pocket(F, site):
+    """The room the retainer's bar needs, cleared out of whatever the sleeve
+    put there -- the fin behind that pad runs right through it."""
+    a = math.radians(site['ang'])
+    u = (math.sin(a), math.cos(a))
+    bx, bz = site['xz']
+    if site['key']:
+        px, pz = _polar(F, 0.0, HANG_R - KEY_DROP)
+        ends = [(bx, bz, CAB_BOSS_R + 2.9), (px, pz, CAB_RET_PIN_D / 2 + 2.9)]
+    else:
+        ix = F.r_bore - CAB_RET_REACH
+        ends = [(bx, bz, CAB_BOSS_R + 2.9),
+                (ix * u[0], F.z_clock + ix * u[1], CAB_RET_W / 2 + 0.4)]
+    p = None
+    for (ex, ez, er) in ends:
+        d = xz_prism(circle(er, ex, ez, 48), F.y_ret0 - 0.4, F.y_ret1 + 0.4)
+        p = d if p is None else p + d
+    return p.hull()
+
+
+def build_retainer(F, site):
+    """One retainer: a flat bar across the back of the clock, screwed BACKWARD
+    into a post that runs on to the hatch's seat.
+
+    It sits CAB_RET_GAP clear of the clock's back plate and a strip of the 1 mm
+    foam tape closes that, pushing the clock onto its shoulder. A screw pulling
+    the bar backwards could not clamp the clock forwards anyway, and a boss in
+    front of the bar would be an island printing in mid-air -- the post behind
+    it stands on the bed.
+
+    The keyed one carries a pin that drops into the back cover's keyhole. That
+    hole is the wall hanger, unused on a desk, and it is what fixes the dial
+    upright: an 8.60 pin in a 9.00 hole is about half a degree either way.
+    """
+    a = math.radians(site['ang'])
+    u = (math.sin(a), math.cos(a))
+    def at(r, s=0.0):
+        t = (math.cos(a), -math.sin(a))
+        return (r * u[0] + s * t[0], F.z_clock + r * u[1] + s * t[1])
+    bx, bz = site['xz']
+    r_end = CAB_BOSS_R + 2.5
+    if site['key']:
+        # a dogleg: screwed on the diagonal, reaching over to the keyhole at 12
+        px, pz = _polar(F, 0.0, HANG_R - KEY_DROP)
+        ends = [(bx, bz, r_end), (px, pz, CAB_RET_PIN_D / 2 + 2.5)]
+    else:
+        ix, iz = at(F.r_bore - CAB_RET_REACH)
+        ends = [(bx, bz, r_end), (ix, iz, CAB_RET_W / 2)]
+    p = None
+    for (ex, ez, er) in ends:
+        d = xz_prism(circle(er, ex, ez, 48), F.y_ret0, F.y_ret1)
+        p = d if p is None else p + d
+    p = (p).hull()
+    if site['key']:
+        px, pz = _polar(F, 0.0, HANG_R - KEY_DROP)
+        p = p + ycyl(CAB_RET_PIN_D / 2, px, pz, F.y_ret0 - CAB_RET_PIN_H, F.y_ret1, 48)
+    p = p - ycyl(SCREW_CLEAR / 2 + 0.1, bx, bz, F.y_ret0 - 1.0, F.y_ret1 + 1.0, 32)
+    return p - countersink(bx, bz, F.y_ret1)
 
 
 def build_pull(F, L=None, z=None, leg_x=None, xc=0.0):
@@ -665,47 +742,141 @@ def _offset(pts, d):
     return list(g.exterior.coords)[:-1]
 
 
-def write_svg(F, path):
-    """Both fronts on one sheet, stacked as they sit on the box, so the grain
-    runs on from the face panel into the drawer front. Real-world scale,
-    red = cut. Outlines grow by half the kerf, holes shrink by half."""
-    k = PLY_KERF / 2
-    margin = 5.0
-    parts = []
-    # sheet coordinates: x right, y DOWN. World z flips.
-    x_off = F.W / 2 + margin
-    z_top = F.z_ct + margin
-    def tr(pts):
-        return [(x + x_off, z_top - z) for x, z in pts]
-    parts.append(('outline', tr(_offset(face_panel_outline(F), +k))))
-    parts.append(('hole', tr(_offset(circle(F.aper_r, 0.0, F.z_clock, 360), -k))))
-    parts.append(('outline', tr(_offset(drawer_front_outline(F), +k))))
-    for sx in (1, -1):
-        parts.append(('hole', tr(_offset(circle(SCREW_CLEAR / 2 + 0.1, sx * F.pull_x, F.z_pull, 48), -k))))
+def front_parts(F):
+    """Every plywood front, as (name, (x, z) outline, [holes]) in box
+    coordinates -- where each one actually sits on the front of the cabinet."""
+    out = [('face', face_panel_outline(F),
+            [circle(F.aper_r, 0.0, F.z_clock, 360)]),
+           ('drawer', drawer_front_outline(F),
+            [circle(SCREW_CLEAR / 2 + 0.1, sx * F.pull_x, F.z_pull, 48) for sx in (1, -1)])]
     if F.sides:
         for inst in side_instances(F):
-            parts.append(('outline', tr(_offset(
-                side_front_outline(F, inst['sx'], inst['row']), +k))))
-            for s2 in (1, -1):
-                parts.append(('hole', tr(_offset(circle(
-                    SCREW_CLEAR / 2 + 0.1, inst['sx'] * F.x_side_c + s2 * F.side_pull_x,
-                    inst['z_pull'], 48), -k))))
-    w = F.W + 2 * margin
-    h = z_top - (F.z_dr0 - margin)
+            out.append((f'side-{inst["side"]}{inst["row"] + 1}',
+                        side_front_outline(F, inst['sx'], inst['row']),
+                        [circle(SCREW_CLEAR / 2 + 0.1,
+                                inst['sx'] * F.x_side_c + s2 * F.side_pull_x,
+                                inst['z_pull'], 48) for s2 in (1, -1)]))
+    return out
+
+
+def joined_fronts(F):
+    """The fronts butted together, and the cut reduced to the lines that are
+    left when they share their edges.
+
+    Sam, 2026-09-19: "Update the laser file so that it's one joined file instead
+    of smaller parts. That way it reduces cut time."
+
+    Laid out as they sit on the cabinet, the fronts are a reveal and a partition
+    apart, so six fronts are six outlines and the beam runs down the gap between
+    two of them twice. Butted up they share an edge, and a shared edge is ONE
+    cut: the sheet becomes a single outline with a few lines across it.
+
+    The parts come out kerf/2 = 0.10 mm smaller on each shared edge, against a
+    reveal of 0.80. That is the trade, and it is why the holes are still cut
+    with kerf taken off while the shared lines are cut on the true line.
+
+    The arrangement is still the cabinet's: the clock's panel in the middle of
+    the top row, its side fronts stacked either side in the same order, the
+    drawer front along the bottom. Only the gaps are gone, so the grain still
+    runs on from one front to the next.
+
+    Returns (outline, lines across it, holes, mm of cut saved, the parts as
+    placed) -- check13 uses the last of those to prove every front is still
+    fully bounded by a cut.
+    """
+    from shapely.geometry import Polygon
+    from shapely.ops import unary_union, linemerge
+    def bb(pts):
+        xs = [p[0] for p in pts]; zs = [p[1] for p in pts]
+        return min(xs), min(zs), max(xs), max(zs)
+
+    named = {nm: (o, hs) for nm, o, hs in front_parts(F)}
+    placed, apart = [], 0.0
+    def put(nm, x0, z1_top):
+        """Place a front with its left edge at x0 and its TOP edge at z1_top."""
+        nonlocal apart
+        o, hs = named[nm]
+        bx0, bz0, bx1, bz1 = bb(o)
+        dx, dz = x0 - bx0, z1_top - bz1
+        out_o = [(x + dx, z + dz) for x, z in o]
+        out_h = [[(x + dx, z + dz) for x, z in h] for h in hs]
+        apart += Polygon(o).length + sum(Polygon(h).length for h in hs)
+        placed.append((nm, out_o, out_h))
+        return bx1 - bx0, bz1 - bz0
+
+    fo = named['face'][0]
+    fx0, fz0, fx1, fz1 = bb(fo)
+    w_f, h_f = fx1 - fx0, fz1 - fz0
+    if F.sides:
+        so = named['side-r%d' % F.side_rows][0]
+        sx0, sz0, sx1, sz1 = bb(so)
+        w_s = sx1 - sx0
+    else:
+        w_s = 0.0
+    x_face = w_s
+    put('face', x_face, 0.0)
+    if F.sides:
+        for side, x0 in (('l', 0.0), ('r', x_face + w_f)):
+            z_top = 0.0
+            for row in range(F.side_rows, 0, -1):     # top row first, downwards
+                _, h = put(f'side-{side}{row}', x0, z_top)
+                z_top -= h
+    # the drawer front goes under the lot, left edge on the sheet's left edge
+    top = min(bb(o)[1] for _, o, _ in placed)
+    put('drawer', 0.0, top)
+
+    polys = [Polygon(o) for _, o, _ in placed]
+    holes = [h for _, _, hs in placed for h in hs]
+    u = unary_union([p.buffer(1e-4, join_style=2) for p in polys]).buffer(-1e-4, join_style=2)
+    if u.geom_type != 'Polygon':
+        u = max(u.geoms, key=lambda g: g.area)
+    boundary = list(u.exterior.coords)[:-1]
+    inner = unary_union([p.boundary for p in polys]).difference(u.exterior.buffer(0.02))
+    lines = []
+    if not inner.is_empty:
+        merged = linemerge(inner)
+        geoms = merged.geoms if hasattr(merged, 'geoms') else [merged]
+        lines = [list(ls.coords) for ls in geoms if ls.length > 0.5]
+    joined = u.exterior.length + sum(Polygon(h).length for h in holes) + sum(
+        math.dist(a, b) for ls in lines for a, b in zip(ls, ls[1:]))
+    return boundary, lines, holes, apart - joined, placed
+
+
+def write_svg(F, path):
+    """One joined sheet: the six fronts butted up, cut as a single outline with
+    shared lines across it, so no edge is cut twice. Real-world scale, red =
+    cut. Holes shrink by half the kerf; the shared lines are cut on the true
+    line and each part loses kerf/2 on the edges it shares."""
+    k = PLY_KERF / 2
+    margin = 5.0
+    boundary, lines, holes, saved, _ = joined_fronts(F)
+    # the butted sheet has its own origin, so the page is sized from it
+    xs = [p[0] for p in boundary]; zs = [p[1] for p in boundary]
+    x0, z1 = min(xs) - margin, max(zs) + margin
+    def tr(pts):
+        return [(x - x0, z1 - z) for x, z in pts]
+    paths = [('hole', tr(_offset(h, -k))) for h in holes]
+    paths += [('line', tr(ls)) for ls in lines]
+    paths.append(('outline', tr(boundary)))
+    w = max(xs) - min(xs) + 2 * margin
+    h = max(zs) - min(zs) + 2 * margin
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{w:.2f}mm" height="{h:.2f}mm" '
            f'viewBox="0 0 {w:.2f} {h:.2f}">',
-           f'<!-- mini-round-clock cabinet{F.tag} fronts: {PLY_T:.2f} mm ply, kerf {PLY_KERF:.2f}. '
-           f'Red = cut. Holes first, outlines last. -->']
-    # holes first, outlines last: SVG order is only a hint, set it in the UI too
-    for kind in ('hole', 'outline'):
-        for kd, pts in parts:
+           f'<!-- mini-round-clock cabinet{F.tag} fronts: {PLY_T:.2f} mm ply, kerf '
+           f'{PLY_KERF:.2f}. Red = cut. ONE JOINED SHEET: the fronts share their '
+           f'edges, so every line is cut once. Holes first, the lines across, the '
+           f'outline last. {saved:.0f} mm less cut than six separate outlines. -->']
+    for kind in ('hole', 'line', 'outline'):
+        for kd, pts in paths:
             if kd != kind:
                 continue
-            d = 'M ' + ' L '.join(f'{x:.3f} {y:.3f}' for x, y in pts) + ' Z'
-            out.append(f'<path d="{d}" fill="none" stroke="#FF0000" stroke-width="0.1"/>')
+            d = 'M ' + ' L '.join(f'{x:.3f} {y:.3f}' for x, y in pts)
+            z = ' Z' if kd != 'line' else ''
+            out.append(f'<path d="{d}{z}" fill="none" stroke="#FF0000" stroke-width="0.1"/>')
     out.append('</svg>')
     with open(path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(out) + '\n')
+    return saved
 
 
 # ------------------------------------------------------------------ out
@@ -730,6 +901,13 @@ def parts_for(F):
         (build_drawer(F), p('-drawer'), p('-drawer'), OPEN_UP),
         (build_pull(F),   p('-pull'),   p('-pull'),   FRONT_DOWN),
     ]
+    # the retainers that hold the clock in its socket. The two plain ones are
+    # the same print; the keyed one carries the pin for the back cover's keyhole
+    for i, site in enumerate(retainer_sites(F)):
+        nm = '-retainer-key' if site['key'] else '-retainer'
+        first = site['key'] or i == 0
+        out.append((build_retainer(F, site), p(f'-retainer-{site["ang"]:.0f}'),
+                    p(nm) if first else None, BACK_DOWN))
     if F.sides:
         # left and right are mirror images, and both are emitted rather than
         # one being printed mirrored: the slicer can do it, but a file that is

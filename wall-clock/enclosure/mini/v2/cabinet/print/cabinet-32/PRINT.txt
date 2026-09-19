@@ -11,24 +11,35 @@ Black PETG. No supports on any part. One file per part; copies as noted.
   mini-round-clock-cabinet-32-drawer-side-l2.stl  x1   OPEN SIDE UP
   mini-round-clock-cabinet-32-pull.stl            x1   GRIP FACE DOWN
   mini-round-clock-cabinet-32-pull-side.stl       x4   GRIP FACE DOWN
+  mini-round-clock-cabinet-32-retainer.stl        x2   BACK FACE DOWN
+  mini-round-clock-cabinet-32-retainer-key.stl    x1   BACK FACE DOWN
 
 Every STL is already in its print orientation and sitting on z = 0. Drop them
 on the plate as they are — do not let the slicer auto-orient them.
 
+HOW THE CLOCK IS HELD
+  It slides into a socket on the bore, its face lands on a shoulder, and the
+  three retainers screw in behind it. The KEYED retainer's pin drops into the
+  back cover's keyhole (the wall hanger) — that is what fixes the dial upright.
+  Fit it last: turn the clock a hair until the pin drops in, then tighten.
+
 LASER (Glowforge, 3 mm plywood)
-  mini-round-clock-cabinet-32-fronts.svg — all six fronts, laid out as they sit
-  on the box so the grain runs on. Red = cut. Cut the holes first, outline last.
+  mini-round-clock-cabinet-32-fronts.svg — all six fronts as ONE JOINED SHEET.
+  They share their edges, so every line is cut once. Cut the holes first, then
+  the lines across the sheet, then the outline LAST so the parts stay held.
+  Each part comes out 0.10 mm smaller on a shared edge; the reveal is 0.80.
   MEASURE YOUR PLY FIRST. The files assume 3.00 mm. If yours differs, set PLY_T
   in params.py and run: python cabinet.py
 
 BUY
   4  x M3 x 30 countersunk self-tapping   (the hatch)
+  3  x M3 x 12 countersunk self-tapping   (the clock's retainers)
   10 x M3 x 12 pan head self-tapping      (the five pulls, two each)
-  1 mm double-sided foam tape             (under the S3, and six squares on the
-                                           face panel's stop tabs)
+  1 mm double-sided foam tape             (under the S3, a strip on each
+                                           retainer, six squares on the face
+                                           panel's stop tabs)
 
 The clock goes in as you already print it: base + flange diffuser + back cover.
-Assembly order is in cabinet/README.md — read step 2 before fitting the clock,
-it goes in FLAT and is lifted once it is inside.
+Full assembly order is in cabinet/README.md.
 
 Nothing here has been printed or cut yet.

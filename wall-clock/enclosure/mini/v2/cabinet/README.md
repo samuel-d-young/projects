@@ -10,7 +10,7 @@ side of it**, and a full-width drawer runs underneath. Five drawers in all.
 
 ```
 python cabinet.py            # STLs (stl/, 3mf/), world-frame meshes (cabinet/world/), SVGs
-python check13_cabinet.py    # 412 checks on both bodies, measured on the meshes
+python check13_cabinet.py    # 462 checks on both bodies, measured on the meshes
 python render_cabinet.py     # these pictures
 ```
 
@@ -55,6 +55,28 @@ it centres itself and cannot fall through. A straight-edged plate small enough
 to pass the rebate's narrow end has nothing to land on, which check13 caught
 before anything was printed.
 
+## How the clock is held
+
+It slides into a **socket**: nine pads on a bore 0.35 mm over the body, so it
+cannot lift, drop or shift more than that in any direction. Its face lands on a
+**shoulder** whose inner edge is the aperture's own, so the wood carries nothing
+and the diffuser is not shadowed. Three **retainers** screw in behind it.
+
+The one at 315 degrees carries a pin that drops into the back cover's
+**keyhole** -- the wall hanger, which a desk clock never uses -- and that is
+what fixes the dial upright: one degree either way is already into the pin.
+Nothing about the clock changes to get it; the hole is already there.
+
+The retainers sit 0.10 mm clear of the back plate and a strip of the 1 mm foam
+tape closes that, pushing the clock onto its shoulder. They screw BACKWARD into
+posts that run on to the back face -- a screw pulling a bar backwards cannot
+also clamp the clock forwards, and a boss in front of the bar would print in
+mid-air. The posts pass through the hatch, which is notched for them, so they
+finish flush in its rebate.
+
+Take the hatch off and the three screws out and the clock slides straight back
+out of the box.
+
 ## The clock does not change
 
 It goes in as the parts already printed for the stand-box: **base + flange
@@ -73,17 +95,32 @@ fills it edge to edge.
 | `mini-round-clock-cabinet{,-32}-drawer-side-l1`, `-l2` | **open side up** | The left side's. Left and right are mirror images and all four are emitted, so there is nothing to flip in the slicer. |
 | `mini-round-clock-cabinet{,-32}-pull` | grip face down | Pilots open upward. |
 | `mini-round-clock-cabinet{,-32}-pull-side` | grip face down | **Print four** — the same bar serves every side drawer. |
+| `mini-round-clock-cabinet{,-32}-retainer` | back face down | **Print two** — 135 and 225 degrees. Holds the clock in its socket. |
+| `mini-round-clock-cabinet{,-32}-retainer-key` | back face down | The keyed one, with the pin for the back cover's keyhole. |
 
 ## Laser this (3 mm ply, Glowforge)
 
-`mini-round-clock-cabinet{,-32}-fronts.svg`: all six fronts on one sheet — the
-four side fronts, the clock's face panel and the bottom drawer front — **laid
-out exactly as they sit on the box**, so the grain runs on from one front to
-the next. Red = cut. Cut the holes first and the outlines last.
+`mini-round-clock-cabinet{,-32}-fronts.svg`: all six fronts as **ONE JOINED
+SHEET**. They are butted up so they share their edges, and a shared edge is one
+cut, not two: the sheet is a single outline with a few lines across it and the
+holes. That is **476 mm less cut** on the 32 (227 on the 24) than the same six
+fronts as separate outlines.
 
-Only the top row's fronts are handed (round in the corner they share with the
-sleeve, square elsewhere); the lower ones are plain rectangles. Every front is
-drawn where it belongs, so there is nothing to work out at the laser.
+![](laser_sheet-32.png)
+
+The arrangement is still the cabinet's -- the clock's panel in the middle of the
+top row, its side fronts stacked either side in the same order, the drawer front
+along the bottom -- so the grain still runs on from one front to the next. Only
+the gaps are gone.
+
+Each part comes out kerf/2 = 0.10 mm smaller on every edge it shares, against a
+reveal of 0.80. That is the trade, and it is why the holes are still cut with
+the kerf taken off while the shared lines are cut on the true line. Where two
+fronts share a corner the cut runs straight past it, so that corner comes out
+square instead of carrying its 0.30 mm round.
+
+Red = cut. Cut the holes first, then the lines across the sheet, then the
+outline last, so the parts stay held until the end.
 
 **Measure the sheet first.** `PLY_T` = 3.00 sets how far back the clock sits.
 It is the same constant the 60's laser-cut face uses -- one sheet, one number --
@@ -93,10 +130,11 @@ so if yours is not 3.00, set `PLY_T` once in params.py and rebuild both.
 
 - 4 × M3 × 30 countersunk self-tapping screws (the hatch; its bosses start
   23 mm in, behind the cone that carries them)
+- 3 × M3 × 12 countersunk self-tapping screws (the clock's retainers)
 - 10 × M3 × 12 pan-head self-tapping screws (the five pulls, two each, from
   inside their drawers)
-- 1 mm double-sided foam tape: one strip under the ESP32-S3, and six small
-  squares on the face-panel stop tabs
+- 1 mm double-sided foam tape: one strip under the ESP32-S3, a strip on each of
+  the three retainers, and six small squares on the face-panel stop tabs
 - 2 × 10 mm self-adhesive rubber bumpers, optional, if the feet slide
 
 ## Assembly
@@ -104,12 +142,14 @@ so if yours is not 3.00, set `PLY_T` once in params.py and rebuild both.
 1. **Face panel in from the front.** Put tape squares on the six stop tabs
    and press the ply panel in until it lands on them. Its face ends up 1 mm
    behind the sleeve.
-2. **Clock in through the hatch opening, flat.** It will not go in lifted --
-   the rebate takes 2.5 mm off the top of the opening -- so slide it in flat
-   until it is past the lip's ramp, about 60 mm in, THEN lift it 2.5 mm, carry
-   on until the face touches the panel, and let it drop onto the saddle. Leads
-   out of the back cover's 6 o'clock notch, straight down; the saddle and the
-   lip are both cut away over the board's lane for them.
+2. **Clock straight in through the hatch opening**, along its own axis, until
+   its face lands on the shoulder. Get the dial upright: 12 o'clock is where
+   the keyhole is. Leads out of the back cover's 6 o'clock notch -- the socket
+   has no pad at 6 o'clock, so they come straight out and down.
+2b. **The three retainers**, a strip of foam tape on each pad, 3 × M3 × 12 into
+   the posts behind them. Fit the keyed one at 315 degrees last: turn the clock
+   a hair until its pin drops into the keyhole, then tighten. That is the dial
+   set upright for good.
 3. **S3 in from the back**, component side up, USB end last, along the rails
    until it meets the end stop. Tape underneath. Solder or plug the leads.
 4. **Hatch straight in.** It wedges into the rebate's taper and lands 1.55 mm
@@ -129,10 +169,13 @@ so if yours is not 3.00, set `PLY_T` once in params.py and rebuild both.
   saddle (0.10 mm lower is in plastic). Nothing of it reaches in front of the
   panel. The whole flange diffuser is inside the window, and the wood covers
   the base's rim.
-- **Assembly journeys, stepped against the mesh:** the clock goes in flat from
-  outside the box, lifts 2.51 mm once it is behind the lip's ramp, and carries
-  on to its seat before dropping. Seated, it can move neither back (lip) nor
-  forward (panel). The board slides in along its rails. The hatch goes straight
+- **The clock is held:** 0.35 mm of movement up, down or sideways in the bore
+  and no more; its face on the shoulder, not on the wood; stopped forward by
+  the shoulder and backward by the three retainers; and the keyed retainer's
+  pin in the back cover's keyhole stops the dial turning within one degree,
+  measured by spinning the real back cover mesh against the real pin.
+- **Assembly journeys, stepped against the mesh:** the clock slides straight in
+  along its own axis from outside the box to the shoulder. The board slides in along its rails. The hatch goes straight
   into its rebate. Every drawer slides fully out. A 12 mm lead lane runs from
   the notch to the board.
 - **The back really is closed:** every drawer bay is 100% solid behind it, the
@@ -154,8 +197,10 @@ so if yours is not 3.00, set `PLY_T` once in params.py and rebuild both.
 - The pull screws run clear through ply and drawer front, into 9 mm pilots
   with solid plastic all round. The back-panel screws run into pilots on the
   same axis. A full-size USB-C overmould (12.35 × 6.50) reaches the socket.
-- The SVG outlines are the ply parts plus kerf, the window is the clock's
-  aperture minus kerf, and the pull holes are at the pull's pitch.
+- **The joined laser sheet:** one outline, 11 holes, 9 lines across it, and
+  every millimetre of every front's outline sits on a cut line (worst 0.004 mm,
+  measured every 2 mm all the way round each of the six). The window is the
+  clock's aperture less kerf.
 
 ## Not verified
 
@@ -166,3 +211,7 @@ so if yours is not 3.00, set `PLY_T` once in params.py and rebuild both.
 - The face panel is held by tape on the stop tabs. Nothing pulls on it in use,
   but it is not captured.
 - There is no drawer pull-out stop: the drawer comes all the way out.
+- The sleeve carries four overhang patches of 120-180 mm2 at 4.6-4.7 mm across,
+  where the socket's fins end at the hatch's seat. They are 4.4 mm off the bed
+  with the bay wall beside them and should print as they are, but they are the
+  one place on the part that is over the 3.5 mm rule everything else keeps.

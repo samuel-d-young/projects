@@ -2323,24 +2323,65 @@ CAB_RECESS      = 3.00   # the wood's face sits this far behind the sleeve's fro
                          # at 3.00 the sleeve's front wall frames each panel in shadow.
                          # It costs depth 1:1, so CAB_DEPTH has to carry it.
 
-# --- the clock bay ----------------------------------------------------------
+# --- the clock bay: a socket, a shoulder, and three retainers ---------------
+# Sam, 2026-09-18: "Make sure the clocks are properly held in place too."
+#
+# The saddle this replaces held the clock by gravity: two arcs under it, a 2 mm
+# lip behind it and the taped plywood panel in front. It could lift straight
+# out, and it could ROTATE -- nothing set which way was 12 o'clock but friction.
+#
+# Now the clock lives in a socket: a bore 0.35 mm over the body, so it cannot
+# lift or shift; a shoulder at the front it lands on, which is plastic rather
+# than the wood; and three retainers screwed in behind it. The one at 12
+# o'clock carries a pin that drops into the back cover's own keyhole -- the
+# wall hanger, which a desk clock never uses -- and THAT is what fixes the dial
+# upright. Nothing about the clock changes; the pin uses a hole already there.
 CAB_APER_CLR    = 0.20   # the face aperture's radius over the base's lip radius:
                          # the wood lands on the lip and the diffuser is clear
-CAB_AIR         = 0.30   # panel back to the clock's front plane
-CAB_SADDLE_CLR  = 0.35   # radial, saddle arc over the clock body
-CAB_SADDLE_A0   = 14.0   # degrees either side of 6 o'clock: the saddle's gap,
-                         # where the leads come down out of the back cover notch
-CAB_SADDLE_A1   = 50.0   # and where each saddle arc stops
-CAB_SADDLE_FOOT = 2.00   # the saddle's front rises 45 degrees from this height,
-                         # so it prints without support
-CAB_LIP_V       = 2.00   # the rear lip stands this far above the saddle, measured
-                         # VERTICALLY: the clock lifts exactly this much to pass it
-CAB_LIP_T       = 3.00   # rear lip thickness, front to back
-CAB_LIP_CLR     = 0.40   # clock's back face to the lip
-CAB_STOP_T      = 3.00   # the tabs the face panel sits back against: protrusion
-CAB_STOP_W      = 12.00  # width
-CAB_STOP_L      = 6.00   # length, front to back
+CAB_AIR         = 0.30   # panel back to the shoulder's front face
+CAB_SOCKET_CLR  = 0.35   # radial, bore over the clock body
+CAB_SOCKET_WALL = 2.40
+CAB_SHOULDER_T  = 1.60   # the front stop. Its inner edge is the aperture's, so
+                         # the wood hides it and the diffuser is not shadowed
+# THE SOCKET IS PADS ON FINS, NOT A TUBE, and print orientation is why. The
+# sleeve prints back face down, so the socket sits 79 mm up in the air: a full
+# tube's rear mouth is a 2.4 mm annulus printing on nothing, and its fins start
+# in mid-air with it -- 2217 mm2 of overhang, which is what check13 measured.
+# Every pad is instead carried by a fin that runs the whole way back to the
+# hatch's seat, so it grows off the bay wall from the first layer, and the only
+# faces left pointing at the bed are 2.4 mm wide.
+CAB_PAD_ANG     = (0.0, 45.0, 90.0, 135.0, 155.0, 205.0, 225.0, 270.0, 315.0)
+                         # 180 is the leads' way out, so no pad and no fin
+                         # there -- but 155 and 205 flank it, because with the
+                         # nearest pads at 135 and 225 the clock could drop
+                         # 0.35/cos45 = 0.43 rather than 0.35 (check13 measured
+                         # exactly that)
+CAB_PAD_ARC     = 20.00  # each pad's length along the bore
+CAB_FIN_T       = 2.40   # the fin behind it
+CAB_STOP_T      = 3.00   # the tabs the face panel's corners sit back against
+CAB_STOP_W      = 12.00
+CAB_STOP_L      = 6.00
 
+# --- the retainers ----------------------------------------------------------
+# The retainers screw BACKWARD into posts behind them, because that is the
+# direction the print supports: a post running back to the hatch's seat stands
+# on the bed, and a boss in front of the bar would be another island in the air.
+# A screw pulling the bar backwards cannot also clamp the clock forwards, so it
+# does not try: each pad sits CAB_RET_GAP clear of the clock and a strip of the
+# 1 mm foam tape takes that up. The socket, the shoulder and the pin do the
+# holding; the bars stop the clock coming back out.
+CAB_RET_ANG     = (135.0, 225.0)  # the two plain ones, on the lower diagonals
+CAB_RET_KEY_ANG = 315.0           # and the keyed one, reaching over to 12
+CAB_RET_W       = 14.00  # across
+CAB_RET_T       = 3.00   # the plate
+CAB_RET_REACH   = 8.00   # how far its pad reaches in over the clock's back
+CAB_RET_GAP     = 0.10   # air between the bar's pad and the clock's back plate,
+                         # closed by a strip of foam tape
+CAB_RET_PAD_T   = 1.20
+CAB_RET_POST_OUT = 3.00  # post centre, outboard of the socket's outer face
+CAB_RET_PIN_D   = 8.60   # the keyed retainer's pin: the keyhole's entry hole is
+CAB_RET_PIN_H   = 2.00   # 9.00 and its plate is 2.40 thick, so the pin stays
+                         # inside the plate and cannot touch a lead behind it
 # --- the board --------------------------------------------------------------
 CAB_TAPE        = 1.00   # foam tape under the S3: it holds the board down and
                          # keeps pads and wire tails off the floor

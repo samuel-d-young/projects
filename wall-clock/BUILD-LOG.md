@@ -7707,3 +7707,57 @@ Also gone: the keepers, the panel's tabs and their groove. The drawers are 8 mm 
 (107 mm inside) and the bottom drawer no longer pushes on anything removable.
 
 412 checks, both bodies, all passing. Still not printed, not cut.
+
+## 2026-09-19 — The clock is held in a socket, and the laser file is one sheet
+
+Two from Sam: *"Make sure the clocks are properly held in place too."* and *"Update the laser
+file so that it's one joined file instead of smaller parts. That way it reduces cut time."*
+
+**The hold.** The saddle held the clock by gravity: two arcs under it, a 2 mm lip behind and
+the taped plywood panel in front. It could lift straight out, and nothing but friction said
+which way was 12 o'clock. Now:
+
+- a **socket** — nine pads on a bore 0.35 mm over the body — so it cannot lift, drop or shift
+  more than that in any direction (check13 bisects the play in all three and gets 0.35, 0.36,
+  0.35);
+- a **shoulder** it lands on, whose inner edge is the aperture's own, so the wood carries
+  nothing and the diffuser is not shadowed;
+- three **retainers** behind it, and the one at 315 degrees carries a pin that drops into the
+  back cover's **keyhole**. That hole is the wall hanger, which a desk clock never uses, and it
+  is what fixes the dial upright: the check spins the real back cover mesh against the real pin
+  and one degree either way is already into it. Nothing about the clock changes to get that.
+
+Four things the design had to accept along the way, each found by measuring rather than looking:
+
+1. **The socket cannot be a tube.** The sleeve prints back face down, so the socket sits 79 mm
+   up in the air: a tube's rear mouth is a 2.4 mm annulus printing on nothing and its fins
+   start in mid-air with it — 2217 mm² of overhang. Pads on fins that run the whole way back to
+   the hatch's seat grow off the bay wall from the first layer instead.
+2. **A retainer screw cannot clamp the clock forward.** The screw has to thread into a post
+   BEHIND the bar, because that is the direction the print supports; a boss in front of the bar
+   is another island in the air. So the bars sit 0.10 mm clear and a strip of the 1 mm foam
+   tape closes that. The socket, the shoulder and the pin do the holding.
+3. **The posts had to run to the back face**, not to the hatch's seat, or their 6.5 mm ends
+   print on nothing. The hatch is notched for the three of them and they finish flush in its
+   rebate.
+4. **With the nearest pads at 135 and 225 the clock could drop 0.43 mm**, not 0.35: 0.35/cos45.
+   Two more pads at 155 and 205 flank the leads' way out at 6 o'clock and bring it back to 0.36.
+
+The four overhang patches left on the sleeve (120–180 mm², 4.6–4.7 mm across, where the fins
+end at the hatch's seat) are the one place the part is over the 3.5 mm rule everything else
+keeps. They are 4.4 mm off the bed with the bay wall beside them; the check's limit for the
+sleeve is 5.0 now and says why.
+
+**The laser file.** Six fronts laid out as they sit on the cabinet were six outlines, and the
+beam ran down the gap between two of them twice. Butted up they share their edges, and a shared
+edge is one cut: the sheet is now a single outline, nine lines across it and the eleven holes.
+**476 mm less cut on the 32, 227 on the 24.** Each part comes out kerf/2 = 0.10 mm smaller on
+each shared edge against a reveal of 0.80, and where two fronts share a corner that corner
+comes out square rather than carrying its 0.30 round.
+
+check13 proves the sheet the way it has to be proven now that the parts are not separate
+outlines any more: for each of the six fronts, every vertex and every 2 mm along every edge
+has to sit on a cut line. Worst case 0.004 mm. Hausdorff distance will not do it — the cut runs
+on past each part, so half the measure is always the neighbour's line.
+
+462 checks, both bodies, all passing. Still not printed, not cut.
