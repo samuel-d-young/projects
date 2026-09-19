@@ -198,6 +198,27 @@ _P: list[Param] = [
     Param("k_vu_diff_groove_margin", 0.45, 0.40, 0.60, "choice", "web left either side of a groove, in mm, measured at k_vu_r0 where the web is narrowest. In mm and not degrees because the web narrows with radius and the inner end is what pinches"),
     Param("k_vu_diff_groove_min", 0.40, 0.35, 0.60, "choice", "narrowest groove worth cutting - one nozzle width. Below this the disc comes out plain and the wall's webs do the segmenting on their own"),
     Param("k_vu_diff_over", 1.0, 0.5, 2.0, "choice", "how far a groove runs past the wedges at each end, radially"),
+    # ---- the front panel (Samuel, 2026-09-19: "change the front of the
+    # housing so that it can be glued on and be printed in multiple colours.
+    # Similar to the base, but with the details printed with an AMS system").
+    # The face leaves the body and becomes its own flat part that glues into a
+    # rebate, the way the lid drops into its pocket. Everything cosmetic moves
+    # onto it. Printed detail-side UP it has no overhang at all - the keys, the
+    # bezel and the counter frame stand up off the bed, every dent opens
+    # upward - and it comes out as three solids in one coordinate system, so
+    # the slicer gives each a filament instead of the geometry faking a colour.
+    #
+    # The rebate is taken OUT of the wall's outer face, so panel and wall share
+    # the 2.4 mm there: s_face_t of panel in front, s_face_back of wall behind.
+    # Glued over its whole area the two are one laminate again, and the wall
+    # was already being dented k_dimple deep by the cosmetics that used to live
+    # on it.
+    Param("s_face_t", 1.2, 1.0, 1.6, "choice", "panel thickness, and so the depth of its rebate. 1.2 is six layers at 0.2 - enough under the deepest dent, and enough colour layers for the AMS to change cleanly"),
+    Param("s_face_back", 0.8, 0.8, 1.2, "choice", "wall that must be left behind the rebate. 0.8 is two perimeters at 0.4, the same floor s_lid_ledge keeps"),
+    Param("s_face_ledge", 1.2, 0.8, 1.6, "choice", "rim of body wall left around the panel, the front's answer to s_lid_ledge"),
+    Param("s_face_clr", 0.25, 0.15, 0.4, "choice", "panel to its rebate, per side; it is glued, not pressed"),
+    Param("s_face_sill", 0.6, 0.4, 0.8, "choice", "rim of wall below the panel, just above the lid's parting line. It is not only cosmetic: the body is the main box UNIONED to the lid skirt, and a rebate floor that lands exactly on that seam at s_lid_t tessellates into a mesh leak - valid B-rep, unwatertight STL. 0.2 was enough to clear it; 0.6 is three times that (2026-09-19)"),
+    Param("s_face_floor", 0.4, 0.3, 0.8, "choice", "panel left under its deepest dent - the counter window and the dial's dish at k_dimple"),
 ]
 PARAMS: dict[str, Param] = {p.name: p for p in _P}
 
@@ -402,7 +423,10 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     # ...which is set by the WORST sweep corner, not nominal: a thick wall grows
     # s_L through brd_needs but pulls the post inward faster, and at wall 3.0 with
     # the tightest clearances -51.0 left 0.05 mm between the LED body and the post
-    D["s_buttons_x0"], D["s_buttons_pitch"], D["s_buttons_cz"] = -39.5, v["k_key_w"] + 2.0, 9.0
+    # 10.0, not the 9.0 it was while the keys lived on the body: the panel now
+    # stops s_face_sill above the lid's parting line, and at 9.0 a key's bottom
+    # edge stood 0.2 mm off the panel's own bottom edge with no plate under it.
+    D["s_buttons_x0"], D["s_buttons_pitch"], D["s_buttons_cz"] = -39.5, v["k_key_w"] + 2.0, 10.0
     D["k_knob_big_c"] = (-48.0, 30.0)            # volume, top-left
     D["k_knob_small_c"] = (-30.0, 30.0)          # tuning, next to it
     D["k_counter_c"], D["k_counter_w"], D["k_counter_h"] = (-8.0, 30.0), 22.0, 8.0   # tape counter window
@@ -462,6 +486,37 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     D["s_lid_l"] = D["s_pocket_l"] - 2 * v["s_lid_clr"]
     D["s_lid_w"] = D["s_pocket_w"] - 2 * v["s_lid_clr"]
     D["s_lid_r"] = max(D["s_pocket_r"] - v["s_lid_clr"], 0.4)
+    # ---- the front panel, the same idea turned through 90 degrees: a rebate in
+    # the front face, a rim of wall around it, and a plate glued in flush.
+    # The rebate is cut out of the wall's OUTER face, so the two share the wall
+    # and neither may starve the other; both clamps are the ones the lid uses.
+    D["s_face_t"] = min(v["s_face_t"], v["wall"] - v["s_face_back"])
+    D["s_face_ledge"] = min(v["s_face_ledge"], v["wall"] - 0.8)
+    # The bottom edge stops SHORT of the lid's parting line. Below s_lid_t the
+    # "front wall" is the lid skirt, s_lid_ledge thin, with nothing to rebate;
+    # and landing the rebate floor exactly ON s_lid_t puts it on the seam where
+    # the skirt is unioned to the body, which meshes into a leak. s_face_sill
+    # buys clearance from both, and gives the panel a rim on its fourth side.
+    D["s_face_z0"] = D["s_lid_t"] + v["s_face_sill"]
+    D["s_face_z1"] = D["s_H"] - D["s_face_ledge"]
+    D["s_face_h"] = D["s_face_z1"] - D["s_face_z0"]
+    D["s_face_cz"] = (D["s_face_z0"] + D["s_face_z1"]) / 2
+    # The rebate has to stay on the FLAT part of the front face. The lid's pocket
+    # could just be inset by its ledge because it is extruded along the same axis
+    # as the body's corner fillets; this one is extruded along Y, across them, so
+    # an inset in X does not follow the curve. Inset by corner_r first: at
+    # s_L/2 - corner_r the face starts rolling away, and a rebate floor that
+    # meets that roll leaves a 57 micron tangential sliver - a B-rep that is
+    # valid and a mesh that is not watertight (found 2026-09-19).
+    D["s_face_flat_half"] = D["s_L"] / 2 - v["corner_r"]
+    D["s_face_pocket_l"] = D["s_L"] - 2 * (v["corner_r"] + D["s_face_ledge"])
+    D["s_face_pocket_r"] = max(v["corner_r"] - D["s_face_ledge"], 0.6)
+    D["s_face_l"] = D["s_face_pocket_l"] - 2 * v["s_face_clr"]
+    D["s_face_panel_h"] = D["s_face_h"] - 2 * v["s_face_clr"]
+    D["s_face_r"] = max(D["s_face_pocket_r"] - v["s_face_clr"], 0.4)
+    # the deepest dent in the panel, and what is left under it
+    D["s_face_dent"] = max(v["k_dimple"], v["k_recess"])
+    D["s_face_under_dent"] = D["s_face_t"] - D["s_face_dent"]
     # two zip-tie stations across the board, inboard of the corner lips. The slot
     # is tie_w long (X) and tie_t wide (Y), both plus clearance; the back slot is
     # centred in the gap between the board's edge and the cavity wall, the front

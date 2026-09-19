@@ -55,6 +55,9 @@ def tape(D, lift=0.0, dz_extra=0.0):
 
 KNOB = (0.16, 0.16, 0.17)
 DIFF = (0.94, 0.94, 0.96)      # white PLA
+FACE = (0.22, 0.24, 0.27)      # the front panel's plate
+KEYS = (0.82, 0.80, 0.74)      # the transport keys, second filament
+TRIM = (0.72, 0.60, 0.30)      # bezel and counter frame, third filament
 
 
 def knobs(D, out=0.0):
@@ -76,8 +79,19 @@ def diffuser(D, out=0.0):
     return [(load("vu_diffuser", R, dx=cx, dy=-D["s_W"] / 2 + D["k_dimple"] - out, dz=cz), DIFF)]
 
 
+def face(D, out=0.0):
+    """The front panel and its two AMS filaments. Modelled flat as it prints, so
+    it is stood up (+Z -> -Y, like the knobs) and its back face put on the floor
+    of the rebate, s_face_t in from the body's front surface."""
+    R = rotation_matrix(np.pi / 2, [1, 0, 0])
+    y_back = -D["s_W"] / 2 + D["s_face_t"] - out      # the glue face, on the rebate floor
+    return [(load(name, R, dy=y_back, dz=D["s_face_cz"]), colour)
+            for name, colour in (("slot_face", FACE), ("slot_face_keys", KEYS), ("slot_face_trim", TRIM))]
+
+
 def scene(D, explode=0.0):
     items = [(load("slot_lid", dz=-explode), LID), (load("slot_body"), BODY)]
+    items += face(D, out=explode * 0.8)
     items += knobs(D, out=explode * 0.5)
     items += diffuser(D, out=explode * 0.5)
     items += tape(D, lift=explode * 1.6)
@@ -105,9 +119,9 @@ def main():
     frame(axes[0], scene(D), azim=-35, elev=22)
     axes[0].set_title(f"in use - {D['s_L']:.0f} x {D['s_W']:.0f} x {D['s_H']:.0f} mm, tape stands {D['s_proud']:.0f} mm out of the top", fontsize=11)
     frame(axes[1], scene(D), azim=0, elev=8)
-    axes[1].set_title("straight on - knobs, counter window, REC lamp, transport keys, LED, VU dial", fontsize=11)
+    axes[1].set_title("straight on - the front panel: knobs, counter window, REC lamp, transport keys, LED, VU dial", fontsize=11)
     frame(axes[2], scene(D, explode=30.0), azim=-35, elev=22)
-    axes[2].set_title("exploded - lid drops away, tape lifts out, diffuser off the dial", fontsize=11)
+    axes[2].set_title("exploded - lid drops away, tape lifts out, front panel and diffuser off the face", fontsize=11)
     fig.suptitle("NFC cassette player, slot version - PN532 upright behind the slot, ESP32 DevKit on the lid", fontsize=14, fontweight="bold")
     OUT.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT / "nfc-cassette-slot.png", dpi=130, bbox_inches="tight", facecolor="white")

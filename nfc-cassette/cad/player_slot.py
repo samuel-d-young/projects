@@ -2,7 +2,14 @@
 front, and comes out of the top. Samuel, 2026-09-15: "the cassette can go in
 but also be taken out of the top rather than put into the side."
 
-Two printed parts:
+Three printed parts:
+    slot_face   the front panel, printed FLAT, detail side UP. Every cosmetic
+                thing lives here - the transport keys, the knob recesses, the
+                counter window, the REC lamp and the VU dial - and it glues
+                into a rebate in the body's front face the way the lid drops
+                into its pocket. It comes out as three solids on one origin
+                (plate, keys, trim) so an AMS gives each its own filament
+                rather than the geometry pretending to be a colour.
     slot_body   the shell, printed UPSIDE DOWN (top face on the bed): the
                 slot is an open channel from the bed, the module pocket and
                 the cavity open upward, the screw posts grow from the bed.
@@ -19,7 +26,7 @@ Everything on the module's component side - the DIP switch, the header,
 the Dupont tails - faces the back. The D1 mini lies on the lid to the left,
 USB out through the left wall. The buzzer sits under the slot floor on the
 right with three sound holes through the front wall. LED and five cosmetic
-transport buttons on the front face, below the slot.
+transport buttons on the front panel, below the slot.
 """
 from __future__ import annotations
 
@@ -143,53 +150,31 @@ def build_body(D: dict):
     for dy in (-3.0, 0.0, 3.0):
         body = body - Pos(L / 2, D["s_buzzer_cy"] + dy, 6.0) * Rot(0, 90, 0) * Cylinder(1.0, wall * 3, align=CC)
 
-    return _front_cosmetics(body, D)
+    return _front_rebate(body, D)
 
 
-def _front_cosmetics(body, D: dict):
-    """Fake transport keys, two knob recesses, a tape-counter window, a REC lamp
-    and a speaker grille on the front face. None of it opens the wall: keys add
-    material, everything else dents it by k_dimple or k_recess. The body prints
-    top-face-down, so on this vertical face real-world UP is print DOWN; the keys
-    get a 45-degree chamfer on their real-world top edge so that edge is
-    self-supporting, and the knobs are separate flat prints glued into recesses.
+def _front_rebate(body, D: dict):
+    """The front face is no longer a face: it is a rebate that slot_face glues
+    into, plus the two things that still have to reach light through what is
+    left of the wall behind the panel - the dial's eight wedge slots and its
+    centre hole.
+
+    The rebate is cut from the wall's OUTER surface and is s_face_t deep, so
+    s_face_back of wall stays behind it (params clamps both). Everything
+    cosmetic moved to the panel; the LED hole stays in build_body because it
+    is an opening, not a decoration.
+
+    Printed top-face-down the rebate is a pocket in a vertical wall: its sides
+    and its floor are vertical, and only the rim's two horizontal runs face
+    down, s_face_ledge wide, which bridges.
     """
-    W, face = D["s_W"], -D["s_W"] / 2
-    kw, kh, kp = D["k_key_w"], D["k_key_h"], D["k_key_proud"]
-    # transport keys: REW PLAY FF STOP REC
-    for i in range(5):
-        x = D["s_buttons_x0"] + i * D["s_buttons_pitch"]
-        key = Pos(x, face - kp / 2 + 0.3, D["s_buttons_cz"]) * Box(kw, kp + 0.6, kh, align=CC)
-        # chamfer the real-world top front edge (the print overhang) at 45 degrees
-        key = key - Pos(x, face - kp, D["s_buttons_cz"] + kh / 2) * Rot(0, 90, 0) * _wedge(kw + 0.2, kp)
-        body = body + key
-        # a shallow groove across each key face, like a worn piano key
-        body = body - Pos(x, face - kp, D["s_buttons_cz"] - kh / 2 + 2.0) * Box(kw - 3.0, 1.0, 0.6, align=CC)
-    # knob recesses (the knobs themselves are knob_big / knob_small, glued in)
-    for (cx, cz), d in ((D["k_knob_big_c"], D["k_knob_big_d"]), (D["k_knob_small_c"], D["k_knob_small_d"])):
-        body = body - Pos(cx, face, cz) * Rot(90, 0, 0) * Cylinder((d + 0.3) / 2, 2 * D["k_recess"], align=CC)
-    # tape counter window: a recessed rounded rectangle with a raised frame
-    cx, cz = D["k_counter_c"]
-    cw, ch = D["k_counter_w"], D["k_counter_h"]
-    body = body + Pos(cx, face - 0.4, cz) * Box(cw + 2.4, 0.8, ch + 2.4, align=CC)
-    body = body - Pos(cx, face - 0.8, cz) * Box(cw, 1.6 + 2 * D["k_dimple"], ch, align=CC)
-    # three "digit" bars in the window
-    for i in (-1, 0, 1):
-        body = body + Pos(cx + i * 6.0, face - 0.8 + D["k_dimple"] / 2, cz) * Box(4.0, D["k_dimple"], ch - 2.5, align=CC)
-    # REC lamp: a small recessed disc
-    rx, rz = D["k_rec_c"]
-    body = body - Pos(rx, face, rz) * Rot(90, 0, 0) * Cylinder(2.0, 2 * D["k_dimple"], align=CC)
-    # The VU dial, where the speaker grille used to be: a shallow raised bezel,
-    # a dished face inside it, eight wedge slots - one per LED on the ring
-    # behind - and a hole in the middle for the single LED. Only the wedges and
-    # the centre hole go through; the bezel stays shallow because a tall boss on
-    # a vertical face prints as a half-cylinder overhang (see the knobs).
+    face = -D["s_W"] / 2
+    body = body - Pos(0, face + D["s_face_t"], D["s_face_cz"]) * Rot(90, 0, 0) * _rounded_plate(
+        D["s_face_pocket_l"], D["s_face_h"], D["s_face_t"] + 0.5, D["s_face_pocket_r"])
+    # The dial, through the wall that is left. The slot BEHIND the panel is what
+    # collimates each pixel, so its depth is the whole point of it: the panel
+    # spends k_dimple of the face on the dish and this keeps the rest.
     cx, cz = D["k_vu_c"]
-    bo, prd = D["k_vu_bezel_od"] / 2, D["k_vu_bezel_proud"]
-    bi = bo - D["k_vu_bezel_w"]
-    body = body + (Pos(cx, face - prd / 2, cz) * Rot(90, 0, 0) * Cylinder(bo, prd, align=CC)
-                   - Pos(cx, face - prd / 2, cz) * Rot(90, 0, 0) * Cylinder(bi, prd + 0.2, align=CC))
-    body = body - Pos(cx, face, cz) * Rot(90, 0, 0) * Cylinder(bi, 2 * D["k_dimple"], align=CC)
     half = math.radians(360.0 / 8 - D["k_vu_gap_deg"]) / 2
     for k in range(8):
         a = math.pi / 2 + 2 * math.pi * k / 8          # one wedge at twelve o'clock
@@ -198,6 +183,14 @@ def _front_cosmetics(body, D: dict):
     body = body - Pos(cx, face, cz) * Rot(90, 0, 0) * Cylinder(
         D["k_vu_centre_d"] / 2, D["wall"] * 3, align=CC)
     return body
+
+
+def _rounded_plate(l: float, h: float, t: float, r: float):
+    """A plate lying in XY, `l` by `h`, `t` thick along +Z with its back face on
+    the bed, corners rounded `r`: the shape of the front panel, of the rebate it
+    drops into, and the orientation the panel prints in."""
+    b = Box(l, h, t, align=C)
+    return fillet(b.edges().filter_by(Axis.Z), r)
 
 
 def _sector(r0: float, r1: float, a0: float, a1: float, t: float, n: int = 16):
@@ -224,12 +217,102 @@ def _web_groove(r0: float, r1: float, a_mid: float, gap: float, margin: float,
     return extrude(Plane.XY * Polygon(*pts, align=None), t / 2, both=True)
 
 
-def _wedge(length: float, size: float):
-    """A 45-degree triangular prism, `size` on both legs, `length` long along Z
-    (rotate to taste). Used to chamfer the keys' overhanging edge."""
+def _key_chamfer(length: float, size: float):
+    """A 45-degree triangular prism `length` long along X, its right angle on the
+    +Y/+Z corner. Subtracted from a transport key it cuts the key's top edge back
+    at 45 degrees - which on the body was what made that edge printable, and on
+    the flat panel is simply what a moulded key looks like."""
     from build123d import Polygon, extrude, Plane
-    tri = Polygon((0, 0), (size, 0), (0, size), align=None)
-    return extrude(Plane.XY * tri, length / 2, both=True)
+    tri = Polygon((0, 0), (-size, 0), (0, -size), align=None)
+    return extrude(Plane.YZ * tri, length / 2, both=True)
+
+
+def build_face(D: dict):
+    """The front panel's plate: everything that is a hole or a dent. It lies in
+    XY exactly as it prints - back face on the bed, show face up - so a feature
+    the body knows at (x, z) is at (x, z - s_face_cz) here, a dent of depth d is
+    cut down from z = s_face_t, and anything proud stands up from it.
+
+    Nothing overhangs: every dent opens upward, every hole goes through, and the
+    back is flat, which is both the bed side and the glue side. The plate is the
+    body colour; build_face_keys and build_face_trim are the other two filaments
+    and share this origin, so the three load as one object in the slicer.
+    """
+    t, cz0 = D["s_face_t"], D["s_face_cz"]
+    plate = _rounded_plate(D["s_face_l"], D["s_face_panel_h"], t, D["s_face_r"])
+    thru = 4 * t                                   # comfortably through the plate
+
+    # the LED, and the two recesses the glued knobs locate in
+    plate = plate - Pos(D["s_led_cx"], D["s_led_cz"] - cz0, t) * Cylinder(
+        (D["led_d"] + 2 * D["led_clr"]) / 2, thru, align=CC)
+    for (cx, cz), d in ((D["k_knob_big_c"], D["k_knob_big_d"]), (D["k_knob_small_c"], D["k_knob_small_d"])):
+        plate = plate - Pos(cx, cz - cz0, t) * Cylinder((d + 0.3) / 2, 2 * D["k_recess"], align=CC)
+
+    # the tape counter window, with three "digit" bars standing back up out of
+    # its floor to the face. The bars stay on the PLATE rather than joining the
+    # trim: they read as body colour behind the frame, and they print supported.
+    cx, cz = D["k_counter_c"]
+    cw, ch, cy = D["k_counter_w"], D["k_counter_h"], cz - cz0
+    plate = plate - Pos(cx, cy, t + 0.8) * Box(cw, ch, 1.6 + 2 * D["k_dimple"], align=CC)
+    for i in (-1, 0, 1):
+        plate = plate + Pos(cx + i * 6.0, cy, t - D["k_dimple"] / 2) * Box(
+            4.0, ch - 2.5, D["k_dimple"], align=CC)
+
+    # REC lamp
+    rx, rz = D["k_rec_c"]
+    plate = plate - Pos(rx, rz - cz0, t) * Cylinder(2.0, 2 * D["k_dimple"], align=CC)
+
+    # The VU dial: the dish the white diffuser glues into, the eight wedge slots
+    # and the centre hole. The wedges and the hole go through; the wall behind
+    # the panel carries the same cuts, and THAT depth is what keeps one pixel
+    # out of its neighbour's wedge.
+    vx, vz = D["k_vu_c"]
+    vy = vz - cz0
+    bi = D["k_vu_bezel_od"] / 2 - D["k_vu_bezel_w"]
+    plate = plate - Pos(vx, vy, t) * Cylinder(bi, 2 * D["k_dimple"], align=CC)
+    half = math.radians(360.0 / 8 - D["k_vu_gap_deg"]) / 2
+    for k in range(8):
+        a = math.pi / 2 + 2 * math.pi * k / 8          # one wedge at twelve o'clock
+        plate = plate - Pos(vx, vy, t) * _sector(D["k_vu_r0"], D["k_vu_r1"], a - half, a + half, thru)
+    plate = plate - Pos(vx, vy, t) * Cylinder(D["k_vu_centre_d"] / 2, thru, align=CC)
+    return plate
+
+
+def build_face_keys(D: dict):
+    """The five transport keys, as their own solid so the AMS prints them in a
+    second filament. They stand k_key_proud off the plate and share its origin.
+    The 45-degree chamfer on each key's top edge is no longer structural - on
+    the body it was what kept that edge from overhanging - but it is what a
+    moulded key looks like, so it stays."""
+    t, cz0 = D["s_face_t"], D["s_face_cz"]
+    kw, kh, kp = D["k_key_w"], D["k_key_h"], D["k_key_proud"]
+    y = D["s_buttons_cz"] - cz0
+    keys = None
+    for i in range(5):
+        x = D["s_buttons_x0"] + i * D["s_buttons_pitch"]
+        key = Pos(x, y, t) * Box(kw, kh, kp, align=C)
+        key = key - Pos(x, y + kh / 2, t + kp) * _key_chamfer(kw + 0.2, kp)
+        # a shallow groove across each key face, like a worn piano key
+        key = key - Pos(x, y - kh / 2 + 2.0, t + kp) * Box(kw - 3.0, 0.6, 1.0, align=CC)
+        keys = key if keys is None else keys + key
+    return keys
+
+
+def build_face_trim(D: dict):
+    """The bright work in a third filament: the dial's bezel ring and the counter
+    window's frame. Both stand off the plate's face and are opened by the same
+    cuts the plate is, so they sit on it and never into it."""
+    t, cz0 = D["s_face_t"], D["s_face_cz"]
+    vx, vz = D["k_vu_c"]
+    bo, prd = D["k_vu_bezel_od"] / 2, D["k_vu_bezel_proud"]
+    bi = bo - D["k_vu_bezel_w"]
+    bezel = (Pos(vx, vz - cz0, t) * Cylinder(bo, prd, align=C)
+             - Pos(vx, vz - cz0, t - 0.1) * Cylinder(bi, prd + 0.2, align=C))
+    cx, cz = D["k_counter_c"]
+    cw, ch, cy = D["k_counter_w"], D["k_counter_h"], cz - cz0
+    frame = (Pos(cx, cy, t) * Box(cw + 2.4, ch + 2.4, 0.8, align=C)
+             - Pos(cx, cy, t + 0.8) * Box(cw, ch, 1.6 + 2 * D["k_dimple"], align=CC))
+    return bezel + frame
 
 
 def build_knob(D: dict, d: float):
@@ -332,6 +415,14 @@ if __name__ == "__main__":
 
     D = params.derive(params.nominal())
     emit(build_body(D), "slot_body", "upside down, top face on the bed", note="slot floor bridges 13 mm")
+    emit(build_face(D), "slot_face", "flat, detail side up",
+         note="the front panel; glue into the rebate in the body's face. Load it with "
+              "slot_face_keys and slot_face_trim as ONE object (they share this origin) "
+              "and give each its own AMS filament")
+    emit(build_face_keys(D), "slot_face_keys", "flat, with the plate",
+         note="AMS: the transport keys' filament")
+    emit(build_face_trim(D), "slot_face_trim", "flat, with the plate",
+         note="AMS: the dial's bezel and the counter frame")
     emit(build_lid(D), "slot_lid", "outside face down",
          note=f"4 x M3 x {D['screw_len']:.0f} pan head from below; the lid recesses into the body; "
               f"2 small zip ties ({D['s_tie_slot_l']:.1f} x {D['s_tie_slot_w']:.1f} mm slots) hold the D1 mini down, "

@@ -79,26 +79,6 @@
   "note": "4 x M3 x 16 pan head from the top",
   "errors": []
  },
- "slot_body": {
-  "name": "slot_body",
-  "triangles": 13520,
-  "watertight": true,
-  "winding_ok": true,
-  "volume_mm3": 79410.46,
-  "brep_volume_mm3": 79413.55,
-  "volume_drift": 3.9e-05,
-  "extents_mm": [
-   127.4,
-   76.7,
-   48.5
-  ],
-  "fits_build_volume": true,
-  "mass_g_pla": 52.8,
-  "orientation": "upside down, top face on the bed",
-  "supports": "none",
-  "note": "slot floor bridges 13 mm",
-  "errors": []
- },
  "slot_lid": {
   "name": "slot_lid",
   "triangles": 5836,
@@ -177,6 +157,86 @@
   "orientation": "smooth face down, grooves up",
   "supports": "none",
   "note": "WHITE PLA; glue into the dial's dish inside the bezel",
+  "errors": []
+ },
+ "slot_body": {
+  "name": "slot_body",
+  "triangles": 11300,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 73078.1,
+  "brep_volume_mm3": 73081.42,
+  "volume_drift": 4.6e-05,
+  "extents_mm": [
+   127.4,
+   73.7,
+   48.5
+  ],
+  "fits_build_volume": true,
+  "mass_g_pla": 48.6,
+  "orientation": "upside down, top face on the bed",
+  "supports": "none",
+  "note": "slot floor bridges 13 mm",
+  "errors": []
+ },
+ "slot_face": {
+  "name": "slot_face",
+  "triangles": 4740,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 4782.65,
+  "brep_volume_mm3": 4782.28,
+  "volume_drift": 7.7e-05,
+  "extents_mm": [
+   116.5,
+   42.5,
+   1.2
+  ],
+  "fits_build_volume": true,
+  "mass_g_pla": 3.2,
+  "orientation": "flat, detail side up",
+  "supports": "none",
+  "note": "the front panel; glue into the rebate in the body's face. Load it with slot_face_keys and slot_face_trim as ONE object (they share this origin) and give each its own AMS filament",
+  "errors": []
+ },
+ "slot_face_keys": {
+  "name": "slot_face_keys",
+  "triangles": 140,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 1114.5,
+  "brep_volume_mm3": 1114.5,
+  "volume_drift": 0.0,
+  "extents_mm": [
+   58.0,
+   9.0,
+   3.0
+  ],
+  "fits_build_volume": true,
+  "mass_g_pla": 0.7,
+  "orientation": "flat, with the plate",
+  "supports": "none",
+  "note": "AMS: the transport keys' filament",
+  "errors": []
+ },
+ "slot_face_trim": {
+  "name": "slot_face_trim",
+  "triangles": 1040,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 340.91,
+  "brep_volume_mm3": 341.02,
+  "volume_drift": 0.000339,
+  "extents_mm": [
+   75.7,
+   37.99,
+   1.0
+  ],
+  "fits_build_volume": true,
+  "mass_g_pla": 0.2,
+  "orientation": "flat, with the plate",
+  "supports": "none",
+  "note": "AMS: the dial's bezel and the counter frame",
   "errors": []
  }
 }

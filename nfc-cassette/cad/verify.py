@@ -21,7 +21,8 @@ import params  # noqa: E402
 from _lib import emit, write_manifest  # noqa: E402
 from cassette import build_lid, build_tray  # noqa: E402
 from player import build_base, build_top  # noqa: E402
-from player_slot import build_body as build_slot_body, build_lid as build_slot_lid, build_knob, build_diffuser  # noqa: E402
+from player_slot import (build_body as build_slot_body, build_face, build_face_keys,  # noqa: E402
+                         build_face_trim, build_lid as build_slot_lid, build_knob, build_diffuser)
 
 
 def invariants(v: dict, D: dict) -> list[str]:
@@ -186,10 +187,39 @@ def invariants(v: dict, D: dict) -> list[str]:
     chk(D["s_pilot_depth"] < D["s_roof_z"] - D["s_lid_t"] - 1.0, "slot: pilot hole reaches the roof")
     chk(D["s_buttons_x0"] + 4 * D["s_buttons_pitch"] + 4.5 < D["s_L"] / 2 - v["corner_r"], "slot: buttons run into the corner radius")
     chk(D["s_led_cx"] - v["led_d"] / 2 > -D["s_L"] / 2 + v["corner_r"], "slot: LED in the corner radius")
-    # cosmetics stay on the face: nothing dents deeper than half the wall, nothing
-    # runs into the LED hole or off the edge
-    # the cutters are centred on the face, so the depth into the wall is k_dimple / k_recess
-    chk(v["k_dimple"] < v["wall"] / 2 + 0.01 and v["k_recess"] < v["wall"] / 2 + 0.01, "slot: a cosmetic recess goes too deep into the wall")
+    # ---- the front panel. It is cut out of the wall's outer face, so panel and
+    # wall share those 2.4 mm and neither may starve the other. params clamps
+    # both; these are the checks that say the clamps were enough.
+    chk(D["s_face_under_dent"] >= v["s_face_floor"] - 1e-9,
+        "slot: the panel is too thin under its deepest dent (the counter window and the dial's dish)")
+    chk(v["wall"] - D["s_face_t"] >= v["s_face_back"] - 1e-9,
+        "slot: the panel's rebate leaves too little wall behind it")
+    chk(D["s_face_ledge"] >= 0.8, "slot: the panel's outer rim is too thin to print")
+    chk(v["wall"] - D["s_face_ledge"] >= 0.8 - 1e-9, "slot: no seat left for the panel to stop against")
+    chk(D["s_face_l"] < D["s_face_pocket_l"] and D["s_face_panel_h"] < D["s_face_h"],
+        "slot: the panel does not fit its rebate")
+    chk(D["s_face_z0"] - D["s_lid_t"] >= 0.4 - 1e-9,
+        "slot: the panel's rebate sits on the seam where the lid skirt joins the body; "
+        "that meshes into a leak, and below it there is only skirt to cut into")
+    chk(D["s_face_pocket_l"] / 2 <= D["s_face_flat_half"] - D["s_face_ledge"] + 1e-9,
+        "slot: the rebate runs past the flat part of the front face into the corner fillet, "
+        "where its floor goes tangent to the body and leaves a sliver")
+    chk(D["s_face_z1"] <= D["s_H"] - 0.8 + 1e-9, "slot: the panel runs off the top of the body")
+    # and every cosmetic thing has to land ON the panel now, not on the body
+    chk(D["s_led_cz"] - (v["led_d"] + 2 * v["led_clr"]) / 2 > D["s_face_z0"] + 0.6, "slot: the LED hole runs off the bottom of the panel")
+    chk(D["s_buttons_cz"] - v["k_key_h"] / 2 > D["s_face_z0"] + 0.8, "slot: the keys run off the bottom of the panel")
+    chk(D["k_vu_c"][1] + D["k_vu_bezel_od"] / 2 < D["s_face_z1"] - 0.8, "slot: the dial runs off the top of the panel")
+    chk(D["k_vu_c"][1] - D["k_vu_bezel_od"] / 2 > D["s_face_z0"] + 0.8, "slot: the dial runs off the bottom of the panel")
+    for (cx, cz), d in ((D["k_knob_big_c"], v["k_knob_big_d"]), (D["k_knob_small_c"], v["k_knob_small_d"])):
+        chk(cz + d / 2 + 1.0 < D["s_face_z1"], "slot: a knob recess runs off the top of the panel")
+    chk(D["k_counter_c"][1] + D["k_counter_h"] / 2 + 1.2 + 1.0 < D["s_face_z1"],
+        "slot: the counter window's frame runs off the top of the panel")
+    chk(abs(D["k_counter_c"][0]) + D["k_counter_w"] / 2 + 1.2 < D["s_face_l"] / 2,
+        "slot: the counter window's frame runs off the end of the panel")
+    chk(D["k_vu_c"][0] + D["k_vu_bezel_od"] / 2 < D["s_face_l"] / 2,
+        "slot: the dial runs off the end of the panel")
+    chk(D["s_led_cx"] - (v["led_d"] + 2 * v["led_clr"]) / 2 > -D["s_face_l"] / 2,
+        "slot: the LED hole runs off the end of the panel")
     for (cx, cz), d in ((D["k_knob_big_c"], v["k_knob_big_d"]), (D["k_knob_small_c"], v["k_knob_small_d"])):
         chk(abs(cx) + d / 2 + 1.5 < D["s_L"] / 2 - v["corner_r"] and cz + d / 2 + 1.5 < D["s_H"], "slot: a knob recess runs off the face")
         chk((cx - D["s_led_cx"]) ** 2 + (cz - D["s_led_cz"]) ** 2 > (d / 2 + v["led_d"] / 2 + 1.5) ** 2, "slot: a knob recess hits the LED hole")
@@ -241,6 +271,8 @@ def build_all(D: dict):
     return {"cassette_tray": build_tray(D), "cassette_lid": build_lid(D),
             "player_base": build_base(D), "player_top": build_top(D),
             "slot_body": build_slot_body(D), "slot_lid": build_slot_lid(D),
+            "slot_face": build_face(D), "slot_face_keys": build_face_keys(D),
+            "slot_face_trim": build_face_trim(D),
             "vu_diffuser": build_diffuser(D),
             "knob_big": build_knob(D, D["k_knob_big_d"]), "knob_small": build_knob(D, D["k_knob_small_d"])}
 
@@ -259,6 +291,8 @@ def main() -> int:
           f"antenna to card {D['antenna_to_card']:.1f} mm, cavity {D['cavity_h']:.1f} mm")
     print(f"slot player {D['s_L']:.1f} x {D['s_W']:.1f} x {D['s_H']:.1f} mm, tape stands {D['s_proud']:.1f} mm proud, "
           f"antenna to card {D['s_antenna_to_card']:.1f} mm")
+    print(f"front panel {D['s_face_l']:.1f} x {D['s_face_panel_h']:.1f} x {D['s_face_t']:.1f} mm in a "
+          f"{D['s_face_ledge']:.1f} mm rim, {v['wall'] - D['s_face_t']:.1f} mm of wall behind it")
     bad = invariants(v, D)
     if bad:
         print("NOMINAL INVARIANTS FAILED:\n  " + "\n  ".join(bad))
@@ -278,6 +312,14 @@ def main() -> int:
          note=f"4 x M3 x {D['screw_len']:.0f} pan head from below; the lid recesses into the body; "
               f"2 small zip ties ({D['s_tie_slot_l']:.1f} x {D['s_tie_slot_w']:.1f} mm slots) hold the D1 mini down, "
               f"return run in the groove on the outside face")
+    emit(parts["slot_face"], "slot_face", "flat, detail side up",
+         note="the front panel; glue into the rebate in the body's face. Load it with "
+              "slot_face_keys and slot_face_trim as ONE object (they share this origin) "
+              "and give each its own AMS filament")
+    emit(parts["slot_face_keys"], "slot_face_keys", "flat, with the plate",
+         note="AMS: the transport keys' filament")
+    emit(parts["slot_face_trim"], "slot_face_trim", "flat, with the plate",
+         note="AMS: the dial's bezel and the counter frame")
     emit(parts["vu_diffuser"], "vu_diffuser", "smooth face down, grooves up",
          note="WHITE PLA; glue into the dial's dish inside the bezel")
     emit(parts["knob_big"], "knob_big", "flat, base down", note="glue into the left recess")

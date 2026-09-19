@@ -390,3 +390,84 @@ the bed's finish. 951.8 mm³, about 1.2 g.
 **Checks.** The six diffuser parameters swept against the six that move the dial
 and the wall — 4096 corners — give **0 diffuser failures**. `fitcheck_slot.py`
 is unchanged, as it must be: the body did not move.
+
+---
+
+## 2026-09-19 — The face comes off, and prints in three colours
+
+Samuel: "change the front of the housing so that it can be glued on and be
+printed in multiple colours. Similar to the base, but with the details printed
+with an AMS system." So the front face stops being a face and becomes a part.
+Three new solids — `slot_face`, `slot_face_keys`, `slot_face_trim` — twelve
+parts in all.
+
+**Why it could not be coloured where it was.** Every cosmetic thing lived on
+the body's front wall, and the body prints top-face-down, so that wall is
+vertical. A vertical face puts each key across a hundred layers with a sliver
+of it in every one; an AMS changing filament by layer paints stripes, not
+keys. The fix is not a slicer setting — the face has to lie flat on the bed,
+which means it has to be its own part. Everything else follows from that.
+
+**Detail side UP, not down.** The tempting orientation is show-face-down for
+the bed's finish, with the detail as inlays the AMS fills. It is wrong here:
+the keys stand 3 mm proud and the bezel 1 mm, and face-down those are
+overhangs off the bed. Face-up, every raised thing grows upward and every dent
+opens upward — which is the repo's standing rule, arrived at from the other
+direction — and **the 45-degree chamfer on each key's top edge is no longer
+structural.** It was there to keep that edge from overhanging on a vertical
+wall. It stays because it is what a moulded key looks like.
+
+**It is the lid's trick, turned through 90 degrees.** A rebate `s_face_t` deep
+in the front face, a rim of wall `s_face_ledge` wide around it, the plate glued
+in flush — the same shape as the pocket the lid drops into. Two clamps in
+`derive()` keep panel and wall from starving each other: `s_face_t` can never
+leave less than `s_face_back` of wall behind it, and `s_face_ledge` never less
+than 0.8. At `wall` 2.0, the sweep's thin corner, that is 1.2 of panel and 0.8
+of wall. **Glued over its whole area the two are one laminate again**, which is
+the argument for taking the rebate out of the wall rather than growing the body
+forward and moving everything inside it.
+
+**What stayed on the body.** Only what has to reach through it: the LED hole
+and the dial's eight wedge slots and centre hole. The panel spends `k_dimple`
+of its thickness on the dial's dish, the wall behind keeps the rest, and the
+slot depth that collimates each pixel is unchanged at 1.6 mm — so the diffuser
+sits exactly where it sat, 0.40 proud of the face and 0.60 below the bezel rim,
+and its own checks never moved.
+
+**Three solids, one origin.** The plate carries every hole and dent, plus the
+counter window's three digit bars (they rise out of its floor, so they belong
+to the thing that supports them). The keys are one solid, the dial's bezel and
+the counter frame another. They touch the plate at `z = s_face_t` and never
+overlap it, so the slicer loads all three as one object and gives each a
+filament. 3.2 g, 0.7 g, 0.2 g.
+
+**Two leaks, both from the gate, neither visible in the B-rep.** The first
+version built valid solids that exported as a **non-watertight** `slot_body`,
+and `_lib.emit` deleted the STL rather than ship it:
+
+- The rebate was inset from the body's ends by `s_face_ledge` alone, the way
+  the lid's pocket is. That works for the lid because its pocket is extruded
+  along the same axis as the body's corner fillets. This one is extruded along
+  Y, **across** them, so an inset in X does not follow the curve: the rebate
+  reached `|x| = 62.5` where the face is flat only to 59.7, and its floor met
+  the rolling fillet at a **57 micron** tangent. Inset by `corner_r` first.
+- The rebate's bottom edge sat exactly on `s_lid_t`, which is the seam where
+  the lid skirt is unioned to the body. A cut landing precisely on a union seam
+  tessellates into a leak. `s_face_sill` lifts it 0.6 clear — 0.2 was enough —
+  and gives the panel a rim on its fourth side, so it is now captured all
+  round, which is what "similar to the base" should have meant in the first
+  place.
+
+Both now have invariants, so neither can come back quietly.
+
+**The keys moved up 1 mm**, `s_buttons_cz` 9.0 → 10.0. With the sill in, a key
+at 9.0 had its bottom edge 0.2 mm off the panel's own bottom edge with no plate
+under it. Nothing else on the face moved.
+
+**Checks.** `verify.py`: twelve parts built and exported, **128 corners, 0
+failures**, 966 s. `fitcheck_slot.py` passes and is **byte-identical to the
+baseline** — as it must be, because nothing inside the body moved: the rebate
+only takes material off the outer surface of a wall. Renders not re-run: this
+session had no `robot/cad/render.py`, so `shots_slot.py` is updated for the new
+part (it stands the flat panel up and puts its glue face on the rebate floor)
+but unproven. Run it before trusting `docs/nfc-cassette-slot.png`.

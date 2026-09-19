@@ -15,17 +15,18 @@ This repo is only the enclosure. Read `BUILD-LOG.md` last entry first.
 ```
 cad/params.py        every dimension, with provenance (datasheet / derived / choice / assumed)
 cad/cassette.py      tray + lid
-cad/player_slot.py   THE player: body with the slot and the front face, bottom lid, two
-                     knobs, and the VU dial's white-PLA diffuser
+cad/player_slot.py   THE player: body with the slot and the front REBATE, the front panel
+                     (plate + keys + trim, three AMS filaments), bottom lid, two knobs,
+                     and the VU dial's white-PLA diffuser
 cad/player.py        the earlier flat-bay player (base + top slab), kept as an alternative
-cad/verify.py        the gate: build, export, invariants, corner sweep - all nine parts
+cad/verify.py        the gate: build, export, invariants, corner sweep - all twelve parts
 cad/fitcheck_slot.py "does the reader sit inside?": the electronics as solids, exact
                      intersections with body and lid, the two printed parts against
                      each other, and the module's and the lid's insertion paths
 cad/shots_slot.py    docs/nfc-cassette-slot.png; shots.py does the flat version
 cad/_lib.py          export gate (watertight, winding, volume drift, build volume)
 stl/ step/           build output + manifest.json. Regenerating is always safe.
-                     STEP carries an export timestamp in its header, so all nine
+                     STEP carries an export timestamp in its header, so all twelve
                      files go dirty on every run even when nothing moved - and so
                      do the STLs, which re-tessellate. Neither file going dirty
                      means a part moved: diff manifest.json on volume_mm3 and
@@ -72,5 +73,20 @@ anything else.
 - The front face can only be opened **below the slot floor** unless the slot is
   moved back: above it, the cassette slot is directly behind the wall. The VU
   dial exists because `f_slot0` now includes the LED ring's depth.
+- **The front face is its own part now.** `slot_face` (+ `_keys`, `_trim`) is a
+  flat plate glued into a rebate in the body's front, the way the lid drops
+  into its pocket. Put nothing cosmetic back on the body: the body keeps only
+  what has to reach through it — the LED hole and the dial's wedge slots.
+  The panel prints **detail side up**, which is what makes the keys, the bezel
+  and the counter frame printable without the 45-degree chamfer that a vertical
+  face needed, and every dent open upward.
+- **The panel and the wall share the same 2.4 mm.** `s_face_t` of panel in
+  front, `s_face_back` of wall behind, both clamped in `derive()` so a thicker
+  panel eats the rebate, never the wall. Glued over its whole area the two are
+  one laminate again — which is the argument for taking the rebate out of the
+  wall rather than growing the body forward.
+- **Three solids, one origin.** The plate, the keys and the trim are separate
+  parts so the slicer assigns a filament to each; they touch at `z = s_face_t`
+  and never overlap. Anything new on the face belongs to exactly one of them.
 - A support whose top meets a curved part sets its height from the **inner**
   edge of its own footprint — where the curve is lowest across that width.
