@@ -19,7 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import params  # noqa: E402
 from _lib import emit, write_manifest  # noqa: E402
-from cassette import build_lid, build_tray  # noqa: E402
+from cassette import build_hub, build_label, build_lid, build_tray, build_window  # noqa: E402
 from player import build_base, build_top  # noqa: E402
 from player_slot import build_body as build_slot_body, build_lid as build_slot_lid, build_knob, build_diffuser  # noqa: E402
 
@@ -33,6 +33,15 @@ def invariants(v: dict, D: dict) -> list[str]:
 
     # cassette
     chk(D["card_pocket_l"] < D["tray_inner_l"] - 2 * 1.6, "card frame does not fit inside the tray")
+    # the multi-colour face: the recesses have to leave lid behind them, the
+    # inserts have to drop in, and the furniture has to stay on the lid
+    chk(D["lid_t"] - D["cass_insert_t"] >= 0.6, "cassette: the face recesses leave too little lid behind them")
+    chk(D["cass_label_l"] + 2 * 1.0 <= D["lid_l"], "cassette: the label strip runs off the lid")
+    chk(D["cass_label_cz"] + D["cass_label_h"] / 2 <= D["lid_w"] / 2 - 2.0, "cassette: the label strip runs off the top of the lid")
+    chk(D["cass_hub_cy"] - D["cass_hub_r"] >= -D["lid_w"] / 2 + 2.0, "cassette: a hub runs off the bottom of the lid")
+    chk(D["cass_hub_dx"] + D["cass_hub_r"] <= D["lid_l"] / 2 - 2.0, "cassette: a hub runs off the end of the lid")
+    chk(D["cass_window_l"] > 4.0, "cassette: the hubs have closed up the tape window")
+    chk(D["cass_hub_cy"] + D["cass_hub_r"] <= D["cass_label_cz"] - D["cass_label_h"] / 2 - 1.0, "cassette: a hub overlaps the label strip")
     chk(D["card_top_z"] + 0.2 <= D["lid_bottom_z"], "card touches the lid")
     chk(0.2 <= v["card_clr"] <= 0.8, "card clearance out of range")
     chk(D["lid_l"] < D["seat_l"] and D["lid_w"] < D["seat_w"], "lid does not fit its seat")
@@ -230,6 +239,8 @@ def invariants(v: dict, D: dict) -> list[str]:
 
 def build_all(D: dict):
     return {"cassette_tray": build_tray(D), "cassette_lid": build_lid(D),
+            "cassette_label": build_label(D), "cassette_window": build_window(D),
+            "cassette_hub": build_hub(D),
             "player_base": build_base(D), "player_top": build_top(D),
             "slot_body": build_slot_body(D), "slot_lid": build_slot_lid(D),
             "vu_diffuser": build_diffuser(D),
@@ -261,7 +272,10 @@ def main() -> int:
             print(f"  INVALID solid: {name}")
             return 1
     emit(parts["cassette_tray"], "cassette_tray", "open side up", note="glue the lid in")
-    emit(parts["cassette_lid"], "cassette_lid", "dimples up")
+    emit(parts["cassette_lid"], "cassette_lid", "face up", note="the three recesses take the inserts")
+    emit(parts["cassette_label"], "cassette_label", "flat", note="SECOND COLOUR; glue into the label recess")
+    emit(parts["cassette_window"], "cassette_window", "flat", note="THIRD COLOUR (white reads as tape)")
+    emit(parts["cassette_hub"], "cassette_hub", "flat", note="FOURTH COLOUR; print TWO, one per reel")
     emit(parts["player_base"], "player_base", "open side up", note="electronics drop in from above")
     emit(parts["player_top"], "player_top", "bay side up", note="4 x M3 x 16 pan head from the top")
     emit(parts["slot_body"], "slot_body", "upside down, top face on the bed", note="slot floor bridges 13 mm")

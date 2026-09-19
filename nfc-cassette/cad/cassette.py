@@ -36,17 +36,61 @@ def build_tray(D: dict):
     return tray + ribs
 
 
+def _face_seats(D: dict):
+    """The three recesses in the lid's face, as solids to subtract. Each one is
+    also the shape of the insert that fills it, which is the point: one source
+    for the hole and the thing that goes in it."""
+    t, z = D["cass_insert_t"], D["lid_t"] - D["cass_insert_t"]
+    seats = {}
+    seats["label"] = Pos(0, D["cass_label_cz"], z) * Box(
+        D["cass_label_l"], D["cass_label_h"], t + 0.2, align=C)
+    for sx in (-1, 1):
+        seats[f"hub{sx}"] = Pos(sx * D["cass_hub_dx"], D["cass_hub_cy"], z) * Cylinder(
+            D["cass_hub_r"], t + 0.2, align=C)
+    seats["window"] = Pos(0, D["cass_hub_cy"], z) * Box(
+        D["cass_window_l"], D["cass_window_h"], t + 0.2, align=C)
+    return seats
+
+
 def build_lid(D: dict):
+    """The lid, with its face hollowed for the inserts. Printed on its own it is
+    a two-tone tape already - the recesses read as shadow - and with the inserts
+    glued in it is three or four colours off any printer, one extruder or five."""
     lid = _rounded_box(D["lid_l"], D["lid_w"], D["lid_t"], D["tray_inner_r"] + D["lid_seat"])
-    # label strip across the top third, like a real tape's label
-    label = Pos(0, D["lid_w"] / 2 - 4.0 - 12.0, D["lid_t"] - D["label_recess"]) * Box(
-        D["lid_l"] - 12.0, 24.0, D["label_recess"] + 0.2, align=C)
-    lid = lid - label
-    # two reel dimples
-    for x in (-21.0, 21.0):
-        lid = lid - Pos(x, -D["lid_w"] / 2 + 15.0, D["lid_t"] - D["label_recess"]) * Cylinder(
-            8.0, D["label_recess"] + 0.2, align=C)
+    for seat in _face_seats(D).values():
+        lid = lid - seat
     return lid
+
+
+def build_label(D: dict):
+    t, clr = D["cass_insert_t"], D["cass_insert_clr"]
+    return Box(D["cass_label_l"] - 2 * clr, D["cass_label_h"] - 2 * clr, t, align=C)
+
+
+def build_window(D: dict):
+    t, clr = D["cass_insert_t"], D["cass_insert_clr"]
+    return Box(D["cass_window_l"] - 2 * clr, D["cass_window_h"] - 2 * clr, t, align=C)
+
+
+def build_hub(D: dict):
+    """One reel hub: a disc with a bore and the teeth a real cassette drives on.
+    Two per cassette, and the two are identical, so it is printed twice."""
+    import math
+    t, clr = D["cass_insert_t"], D["cass_insert_clr"]
+    hub = Cylinder(D["cass_hub_r"] - clr, t, align=C)
+    hub = hub - Cylinder(D["cass_hub_bore"] / 2, t + 0.2, align=C)
+    n = int(D["cass_hub_teeth"])
+    tooth_w = D["cass_hub_bore"] * 0.45
+    # the tooth centres sit ON the bore circle, not tangent to it. Tangent was
+    # the obvious placement and it exported a mesh that was not watertight:
+    # two surfaces meeting at a line have no thickness to mesh. Overlapping
+    # them by half a tooth is the difference between a scallop and a crack.
+    for i in range(n):
+        a = 2 * math.pi * i / n
+        r = D["cass_hub_bore"] / 2
+        hub = hub - Pos(r * math.cos(a), r * math.sin(a), -0.1) * Cylinder(
+            tooth_w / 2, t + 0.2, align=C)
+    return hub
 
 
 if __name__ == "__main__":
@@ -59,5 +103,8 @@ if __name__ == "__main__":
 
     D = params.derive(params.nominal())
     emit(build_tray(D), "cassette_tray", "open side up", note="glue the lid in")
-    emit(build_lid(D), "cassette_lid", "dimples up")
+    emit(build_lid(D), "cassette_lid", "face up", note="the three recesses take the inserts")
+    emit(build_label(D), "cassette_label", "flat", note="SECOND COLOUR; glue into the label recess")
+    emit(build_window(D), "cassette_window", "flat", note="THIRD COLOUR (white reads as tape); between the hubs")
+    emit(build_hub(D), "cassette_hub", "flat", note="FOURTH COLOUR; print TWO, one per reel")
     write_manifest()

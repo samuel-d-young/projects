@@ -41,6 +41,19 @@ _P: list[Param] = [
     Param("lid_t", 1.6, 1.2, 2.0, "choice", "the lid is a flat plate glued into the tray"),
     Param("lid_seat", 0.9, 0.8, 1.2, "choice", "rebate width the lid drops into"),
     Param("lid_clr", 0.15, 0.1, 0.3, "choice", "lid to rebate, per side"),
+    # ---- the cassette's face, in parts, so it prints in more than one colour
+    # (Samuel, 2026-09-19). The knobs already set the pattern here: a flat print
+    # that glues into a recess. Same trick, so a single-extruder printer gets a
+    # multi-colour tape and an AMS just paints them.
+    Param("cass_insert_t", 0.80, 0.60, 1.20, "choice", "how deep the face recesses are, and so how thick each insert is. Not label_recess (0.50): that was sized for a vinyl sticker, and 0.50 of PLA is two layers - too thin to print flat and lift off the bed in one piece"),
+    Param("cass_insert_clr", 0.25, 0.15, 0.4, "choice", "insert to its recess, per side. Bigger than the knobs' fit: these are wide flat parts and a tight one will not drop in square"),
+    Param("cass_label_h", 24.0, 18.0, 28.0, "choice", "label strip height, like a real tape's"),
+    Param("cass_label_inset", 6.0, 4.0, 9.0, "choice", "label strip in from each end of the lid"),
+    Param("cass_hub_r", 9.0, 7.0, 11.0, "choice", "reel hub radius"),
+    Param("cass_hub_pitch", 42.0, 34.0, 48.0, "choice", "between the two hub centres, as on a real cassette"),
+    Param("cass_hub_bore", 5.0, 4.0, 7.0, "choice", "the square-ish hole in a hub's middle"),
+    Param("cass_hub_teeth", 6, 4, 8, "choice", "teeth around the bore"),
+    Param("cass_window_h", 13.0, 9.0, 17.0, "choice", "the tape window between the hubs"),
     Param("label_recess", 0.5, 0.4, 0.6, "choice", "sticker sits below the surface"),
     Param("rib_h", 1.0, 0.8, 1.2, "choice", "ribs that frame the card"),
     # ---- the NFC card inside the cassette
@@ -209,6 +222,13 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     D["lid_w"] = D["tray_inner_w"] + 2 * v["lid_seat"] - 2 * v["lid_clr"]
     D["seat_l"] = D["tray_inner_l"] + 2 * v["lid_seat"]
     D["seat_w"] = D["tray_inner_w"] + 2 * v["lid_seat"]
+    # the face's furniture, derived so it follows the lid rather than sitting in
+    # the part file as loose numbers
+    D["cass_label_cz"] = D["lid_w"] / 2 - 4.0 - v["cass_label_h"] / 2
+    D["cass_label_l"] = D["lid_l"] - 2 * v["cass_label_inset"]
+    D["cass_hub_cy"] = -D["lid_w"] / 2 + 4.0 + v["cass_hub_r"] + 2.0
+    D["cass_hub_dx"] = v["cass_hub_pitch"] / 2
+    D["cass_window_l"] = v["cass_hub_pitch"] - 2 * v["cass_hub_r"] - 4.0
     D["card_pocket_l"] = v["card_l"] + 2 * v["card_clr"]
     D["card_pocket_w"] = v["card_w"] + 2 * v["card_clr"]
     D["card_top_z"] = v["shell_floor"] + v["card_t"]            # in tray coordinates

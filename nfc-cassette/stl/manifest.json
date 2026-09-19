@@ -21,22 +21,22 @@
  },
  "cassette_lid": {
   "name": "cassette_lid",
-  "triangles": 1548,
+  "triangles": 1564,
   "watertight": true,
   "winding_ok": true,
-  "volume_mm3": 8464.5,
-  "brep_volume_mm3": 8464.42,
-  "volume_drift": 9e-06,
+  "volume_mm3": 7429.14,
+  "brep_volume_mm3": 7428.98,
+  "volume_drift": 2.2e-05,
   "extents_mm": [
    98.3,
    61.7,
    1.6
   ],
   "fits_build_volume": true,
-  "mass_g_pla": 5.6,
-  "orientation": "dimples up",
+  "mass_g_pla": 4.9,
+  "orientation": "face up",
   "supports": "none",
-  "note": "",
+  "note": "the three recesses take the inserts",
   "errors": []
  },
  "player_base": {
@@ -177,6 +177,66 @@
   "orientation": "smooth face down, grooves up",
   "supports": "none",
   "note": "WHITE PLA; glue into the dial's dish inside the bezel",
+  "errors": []
+ },
+ "cassette_label": {
+  "name": "cassette_label",
+  "triangles": 12,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 1613.04,
+  "brep_volume_mm3": 1613.04,
+  "volume_drift": 0.0,
+  "extents_mm": [
+   85.8,
+   23.5,
+   0.8
+  ],
+  "fits_build_volume": true,
+  "mass_g_pla": 1.1,
+  "orientation": "flat",
+  "supports": "none",
+  "note": "SECOND COLOUR; glue into the label recess",
+  "errors": []
+ },
+ "cassette_window": {
+  "name": "cassette_window",
+  "triangles": 12,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 195.0,
+  "brep_volume_mm3": 195.0,
+  "volume_drift": 0.0,
+  "extents_mm": [
+   19.5,
+   12.5,
+   0.8
+  ],
+  "fits_build_volume": true,
+  "mass_g_pla": 0.1,
+  "orientation": "flat",
+  "supports": "none",
+  "note": "THIRD COLOUR (white reads as tape)",
+  "errors": []
+ },
+ "cassette_hub": {
+  "name": "cassette_hub",
+  "triangles": 2304,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 166.18,
+  "brep_volume_mm3": 166.26,
+  "volume_drift": 0.000448,
+  "extents_mm": [
+   17.5,
+   17.49,
+   0.8
+  ],
+  "fits_build_volume": true,
+  "mass_g_pla": 0.1,
+  "orientation": "flat",
+  "supports": "none",
+  "note": "FOURTH COLOUR; print TWO, one per reel",
   "errors": []
  }
 }
