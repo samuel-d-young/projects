@@ -105,7 +105,7 @@ def invariants(v: dict, D: dict) -> list[str]:
     # must not eat the lid, and both stations must miss the corner lips
     chk(D["s_tie_rise_gap"] >= v["tie_t"] + 0.3, "slot: no room for the zip tie to rise behind the D1 mini")
     chk(D["s_lid_t"] - D["s_tie_groove_d"] >= 1.2, "slot: the zip-tie groove leaves too little lid under it")
-    chk(v["s_tie_span"] / 2 + D["s_tie_slot_l"] / 2 <= D["s_tie_lip_free"], "slot: a zip-tie slot lands on the D1 mini's corner lips")
+    chk(D["s_tie_span"] / 2 + D["s_tie_slot_l"] / 2 <= D["s_tie_lip_free"], "slot: a zip-tie slot lands on the D1 mini's corner lips")
     chk(D["s_tie_y_back"] + D["s_tie_slot_w"] / 2 <= D["s_lid_w"] / 2 - 0.8, "slot: the zip-tie slot runs off the back edge of the lid")
     chk(D["s_tie_y_back"] + D["s_tie_slot_w"] / 2 - D["y_brd_1"] >= v["tie_t"], "slot: too little of the back zip-tie slot is clear of the board for the strap to stand up")
     chk(D["s_tie_y_front"] - D["s_tie_slot_w"] / 2 > D["y_pcb0"] - 1e-6 or D["s_tie_y_front"] + D["s_tie_slot_w"] / 2 < D["y_pcb0"], "slot: the front zip-tie slot straddles the slot block's wall")

@@ -138,7 +138,7 @@ _P: list[Param] = [
     Param("tie_w", 2.5, 2.0, 3.0, "assumed", "zip-tie strap width; sets the slot's length along X"),
     Param("tie_t", 1.2, 0.9, 1.3, "assumed", "zip-tie strap thickness; sets the slot's width and the groove's depth. The ceiling is real: the strap stands up in pcb_clr + lip_t + s_mount_gap behind the board, which is 1.8 mm at the tightest corner of the sweep, so a medium (3.6 x 1.6) tie does not fit - small ties only"),
     Param("tie_clr", 0.4, 0.3, 0.6, "choice", "clearance around the strap in its slot and groove"),
-    Param("s_tie_span", 19.0, 14.0, 24.0, "choice", "distance between the two straps along the board; both must stay clear of the corner lips"),
+    Param("s_tie_span_frac", 0.62, 0.45, 0.75, "choice", "distance between the two straps, as a fraction of the board's length. A fraction because the board changed once already: 19 mm was two thirds of a D1 mini and barely a third of an ESP32, which put both straps in the middle where they do least against a cable being pushed in"),
     # ---- front-face cosmetics (Samuel, 2026-09-16: "fake buttons and knobs")
     Param("k_key_w", 10.0, 8.0, 12.0, "choice", "transport key width"),
     Param("k_key_h", 9.0, 7.0, 11.0, "choice", "transport key height on the face"),
@@ -417,7 +417,8 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     D["s_tie_slot_l"] = v["tie_w"] + 2 * v["tie_clr"]
     D["s_tie_slot_w"] = v["tie_t"] + 2 * v["tie_clr"]
     D["s_tie_groove_d"] = v["tie_t"] + v["tie_clr"]
-    D["s_tie_x"] = [D["s_brd_cx"] - v["s_tie_span"] / 2, D["s_brd_cx"] + v["s_tie_span"] / 2]
+    D["s_tie_span"] = v["s_tie_span_frac"] * v["esp_l"]
+    D["s_tie_x"] = [D["s_brd_cx"] - D["s_tie_span"] / 2, D["s_brd_cx"] + D["s_tie_span"] / 2]
     D["s_tie_y_front"] = (D["y_brd_0"] - v["pcb_clr"] - v["lip_t"] - 0.4 - D["s_tie_slot_w"] / 2)
     # centred in the rise gap, but pulled inboard if that would crowd the lid's
     # own edge; the slot may overhang the board, there is d1_standoff under it
