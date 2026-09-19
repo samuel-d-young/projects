@@ -574,7 +574,13 @@ Two exhaustive invariant passes that build nothing, then the geometry sweep:
 |---|---|---|
 | face and mounts — 18 parameters | 262144 | 23 s |
 | cartridge — 14 parameters | 16384 | 1 s |
-| geometry — 10 parameters, 18 solids each | 1024 | the long one |
+| geometry — 10 parameters, 18 solids each | 1024 | **8098 s** |
+
+The split is the whole point. The first two stages cost 24 seconds between
+them and cover 278528 corners; the third costs **two and a quarter hours** and
+covers 1024, because every corner of it rebuilds eighteen solids at 7.9 s a
+time. Exhaustive-by-group on the cheap stage and a narrow product on the
+expensive one buys two orders of magnitude more coverage for nothing.
 
 In groups, exhaustive within each, rather than all twenty-eight parameters at
 once: 2²⁸ is not a stronger check so much as one that never finishes. Each
