@@ -81,12 +81,12 @@
  },
  "slot_body": {
   "name": "slot_body",
-  "triangles": 12816,
+  "triangles": 13444,
   "watertight": true,
   "winding_ok": true,
-  "volume_mm3": 84339.94,
-  "brep_volume_mm3": 84343.1,
-  "volume_drift": 3.7e-05,
+  "volume_mm3": 84368.18,
+  "brep_volume_mm3": 84371.35,
+  "volume_drift": 3.8e-05,
   "extents_mm": [
    169.5,
    58.1,

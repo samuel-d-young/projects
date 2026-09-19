@@ -121,6 +121,15 @@ _P: list[Param] = [
     Param("s_lip_bot_w", 16.0, 10.0, 18.0, "choice", "width of the bottom lip, centred - between the I2C header and the DIP switch"),
     Param("s_corner_zone", 10.0, 8.0, 12.0, "assumed", "band inside each side edge (after a 2 mm margin) where the headers, holes and DIP switch may sit right up to the top/bottom edges. The DIP switch is the feature that sets this; it sits in a corner on the photos, inside the 10 mm, but it has not been measured"),
     Param("s_slot_r", 0.8, 0.5, 1.2, "choice", "plan-view corner radius of the slot; the tape's thickness edges are square, so keep this small or it pinches"),
+    # ---- the detent (Samuel, 2026-09-19: "make the bottom of the cassette area
+    # click or a bump or something so that you know when it goes in"). A ridge
+    # on each long wall of the slot, just above where the tape's bottom edge
+    # comes to rest: the edge rides over it and drops the last few mm, so the
+    # tape announces itself before the LED does. It has to EXCEED s_slot_clr to
+    # touch at all - at 0.50 clearance a 0.45 bump never meets the tape.
+    Param("s_click_r", 0.65, 0.55, 0.80, "choice", "how far the detent ridge stands into the slot. The interference over s_slot_clr is what you feel, and it is taken out of the cassette's shell, which is hollow and flexes - not out of the player, which does not"),
+    Param("s_click_len", 20.0, 12.0, 30.0, "choice", "ridge length along the slot, centred"),
+    Param("s_click_up", 3.0, 2.0, 5.0, "choice", "the ridge sits this far above the tape's seated bottom edge, so the click lands just before home"),
     Param("s_end_wall", 2.0, 1.6, 2.6, "choice", "slot block beyond each end of the slot"),
     # ---- the bottom lid: recessed into the body, not butted against it (Samuel,
     # 2026-09-18: "the bottom doesn't go in properly... move the mount, it hits the edge")
@@ -334,6 +343,15 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     D["s_lip_y"] = D["y_pcb1"] + v["pcb_clr"] + v["s_keeper"] / 2
     D["s_lip_top_z0"] = D["s_roof_z"] - v["cavity_clr"] - v["s_lip_engage"]     # bottom of the top lip
     D["s_lip_bot_z1"] = D["s_lid_t"] + v["s_shelf_h"] + v["s_lip_engage"]          # top of the bottom lip
+    D["s_click_z"] = D["s_plate_top_z"] + 0.3 + v["s_click_up"]
+    D["s_click_bite"] = v["s_click_r"] - v["s_slot_clr"]      # what the tape actually feels
+    # how much of the tape the two ridges displace: a circular segment of depth
+    # s_click_bite on each, twice. The fit check expects exactly this much
+    # overlap and nothing more - the detent is the ONE place the player is
+    # meant to touch the tape, so it is measured, not excused.
+    _d, _r = D["s_click_bite"], v["s_click_r"]
+    _seg = _r ** 2 * math.acos((_r - _d) / _r) - (_r - _d) * math.sqrt(max(2 * _r * _d - _d ** 2, 0.0))
+    D["s_click_volume"] = 2 * _seg * v["s_click_len"]
     D["s_antenna_to_card"] = v["s_module_wall"] + v["pn532_t"] + v["shell_floor"] + v["s_slot_clr"] + v["pcb_clr"]
     # D1 mini: long side along X, against the left wall (USB out through it); the
     # gap to the module's side rib is what the sweep checks

@@ -81,6 +81,14 @@ def build_body(D: dict):
         D["s_slot_l"], D["s_slot_w"], H - D["s_plate_top_z"] + 1.0, D["s_slot_r"])
     body = body - slot
 
+    # the detent: a ridge on each long wall of the slot, its axis ON the wall so
+    # it stands s_click_r into the slot. Printed top-face-down these are small
+    # horizontal beads on a vertical face - the widest point is a 90 degree
+    # overhang, which at this radius bridges without a thought.
+    for yy in (D["y_slot0"], D["y_slot1"]):
+        body = body + Pos(0, yy, D["s_click_z"]) * Rot(0, 90, 0) * Cylinder(
+            D["s_click_r"], D["s_click_len"], align=CC)
+
     # module pocket: two full-height side ribs beside the PCB's side edges, and a
     # top lip hanging from the roof behind the PCB's top edge strip. The PCB's
     # component side faces the back; nothing here touches it except that strip,

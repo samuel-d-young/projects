@@ -95,9 +95,14 @@ def main() -> int:
         ob, ol = overlap(solid, body), overlap(solid, lid)
         # the tape stands out of the top and the USB plug pokes through the wall, by design
         inside = name in ("tape in the slot", "USB plug") or abs(overlap(solid, outer) - float(solid.volume)) < TOL
-        ok = ob < TOL and ol < TOL and inside
+        # The detent is meant to touch the tape - that is the whole point of it -
+        # so the tape is allowed exactly the two ridges' worth of interference
+        # and not a cubic millimetre more. An allowance, not an exemption.
+        allow = D["s_click_volume"] * 1.25 if name == "tape in the slot" else TOL
+        ok = ob < allow and ol < TOL and inside
         bad += 0 if ok else 1
-        print(f"  {name:28} {ob:8.2f} {ol:9.2f}   {'yes' if inside else 'NO':6} {'ok' if ok else 'COLLISION'}")
+        note = "" if name != "tape in the slot" else f"  (detent, expect {D['s_click_volume']:.2f})"
+        print(f"  {name:28} {ob:8.2f} {ol:9.2f}   {'yes' if inside else 'NO':6} {'ok' if ok else 'COLLISION'}{note}")
     # Does the LID go in? The check that was missing: the electronics were
     # intersected with both parts, but the two printed parts were never
     # intersected with each other, so the D1 mini's mount driving 0.5 mm into

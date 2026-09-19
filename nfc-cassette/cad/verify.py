@@ -96,6 +96,11 @@ def invariants(v: dict, D: dict) -> list[str]:
     for (x, y) in D["s_posts"]:
         chk((x - D["s_led_cx"]) ** 2 + (y + D["s_W"] / 2 - v["wall"] - 4.3) ** 2 > (v["post_d"] / 2 + v["led_d"] / 2 + 0.5) ** 2 or abs(x - D["s_led_cx"]) > v["post_d"] / 2 + v["led_d"] / 2 + 0.5,
             "slot: the LED body runs into a screw post")
+    # the detent has to bite, but not so hard the tape needs a shove
+    chk(0.05 <= D["s_click_bite"] <= 0.35, "slot: the detent's bite is outside 0.05-0.35 mm; it either misses the tape or fights it")
+    chk(v["s_click_len"] < D["s_slot_l"] - 10.0, "slot: the detent ridge is nearly as long as the slot")
+    chk(D["s_click_z"] + v["s_click_r"] < D["s_H"], "slot: the detent ridge runs out of the top of the body")
+    chk(D["s_click_z"] - v["s_click_r"] > D["s_plate_top_z"], "slot: the detent ridge digs into the slot floor")
     chk(D["s_brd_rib_gap"] >= 0.5, "slot: the ESP32 is too close to the module's side rib; widen s_side_margin")
     chk(D["y_brd_1"] + v["cavity_clr"] <= D["s_W"] / 2 - v["wall"] + 1e-6, "slot: the ESP32 goes through the back wall")
     chk(D["s_brd_top_z"] <= D["s_roof_z"] - 0.5, "slot: Dupont on the ESP32 hits the roof")
