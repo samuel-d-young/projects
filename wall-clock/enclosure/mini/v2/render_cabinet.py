@@ -72,6 +72,7 @@ def scene(F, drawer_out=0.0, explode=0.0, side_out=0.0):
     add(pre + '-face-ply.stl', 'wood', -explode * 0.8)
     for fn, mat in (('-drawer.stl', 'black'), ('-pull.stl', 'black'), ('-drawer-ply.stl', 'wood')):
         add(pre + fn, mat, -drawer_out - explode * 0.8)
+    add(pre + '-retainer.stl', 'black', explode * 1.3)
     if F.sides:
         # the right side's top drawer is the one pulled out in the pictures
         for inst in side_instances(F):

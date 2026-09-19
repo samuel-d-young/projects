@@ -225,26 +225,26 @@ def _polar(F, a_deg, r):
     return (r * math.sin(a), F.z_clock + r * math.cos(a))
 
 
-def fin_poly(F, a_deg, r_in, r_out, w):
-    """A radial fin at clock angle a, as an (x, z) point list: it ties the
-    socket to the bay wall and is trimmed to the bay by the caller."""
+def fin_rect(F, a_deg, r_in, r_out, w):
+    """A radial box at clock angle a, as an (x, z) point list: from r_in out to
+    r_out, w wide across. The pads are these, cut by the bore."""
     a = math.radians(a_deg)
     u = (math.sin(a), math.cos(a))
     t = (math.cos(a), -math.sin(a))
-    pts = []
-    for r, s in ((r_in, 1), (r_out, 1), (r_out, -1), (r_in, -1)):
-        pts.append((r * u[0] + s * w / 2 * t[0],
-                    F.z_clock + r * u[1] + s * w / 2 * t[1]))
-    return pts
+    return [(r * u[0] + s * w / 2 * t[0], F.z_clock + r * u[1] + s * w / 2 * t[1])
+            for r, s in ((r_in, 1), (r_out, 1), (r_out, -1), (r_in, -1))]
 
 
-def retainer_sites(F):
-    """Every retainer: its clock angle, whether it carries the keyhole pin, and
-    the (x, z) of its boss. Read by the sleeve, the parts, and check13."""
+def post_sites(F):
+    """The two posts the retainer bar screws into. Each one is tangent to the
+    bay's ceiling and merges into it, so it is part of the sleeve and stands on
+    the bed as printed. Read by the sleeve, the bar and check13."""
     out = []
-    for a in CAB_RET_ANG:
-        out.append(dict(ang=a, key=False, xz=_polar(F, a, F.r_post)))
-    out.append(dict(ang=CAB_RET_KEY_ANG, key=True, xz=_polar(F, CAB_RET_KEY_ANG, F.r_post)))
+    for a in CAB_RET_POST_ANG:
+        # 0.8 INTO the ceiling, not tangent to it: tangent is a touch, and a
+        # touching union self-intersects
+        r = (F.z_ct - F.z_clock - CAB_BOSS_R + 0.8) / math.cos(math.radians(a))
+        out.append(dict(ang=a, r=r, xz=_polar(F, a, r)))
     return out
 
 
@@ -275,42 +275,64 @@ def build_sleeve(F):
             for row in range(F.side_rows):
                 s = s - xz_prism(side_bay_outline(F, sx, row), -1.0, y_wall)
 
-    # ---- the clock's socket: seven pads on the bore, a shoulder tab on each,
-    # and behind every pad a fin that runs back to the hatch's seat. The pads
-    # are what the clock slides into and what stops it lifting or shifting; the
-    # fins are what lets the whole thing print (see CAB_PAD_ANG in params).
+    # ---- the clock's socket: five pads cut out of one bore.
+    # Each pad is a plain BOX from the bay's own wall in past the bore, and one
+    # cylinder takes the bore out of all of them at once. Building each pad as
+    # an arc wedge instead put its curved face into the wall at a shallow angle,
+    # and grazing intersections do not survive the float32 round trip -- the
+    # mesh came back with holes in it every time.
+    #
+    # The rear end of every pad runs out to its wall on a 45 degree cone, so a
+    # pad grows off a wall that reaches the bed and needs no fin behind it.
+    # That is the difference between 573 cm3 and 425.
     zc = F.z_clock
     bay_xz = rrect4(-F.cw / 2, F.cw / 2, F.z_cf, F.z_ct, r_c, 0.0)
-    bay_deep = xz_prism(bay_xz, F.y_shoulder0 - 1.0, F.y_hatch0)
-    half = math.degrees(CAB_PAD_ARC / 2 / F.r_bore)
+    def wall_reach(a_deg):
+        """How far it is from the bore to the bay's wall along this radial."""
+        a = math.radians(a_deg)
+        ux, uz = math.sin(a), math.cos(a)
+        ts = []
+        if abs(ux) > 1e-6:
+            ts.append((F.cw / 2) / abs(ux))
+        if uz > 1e-6:
+            ts.append((F.z_ct - F.z_clock) / uz)
+        elif uz < -1e-6:
+            ts.append((F.z_clock - F.z_cf) / -uz)
+        return max(0.5, min(ts) - F.r_bore)
+
+    pads = None
+    tabs = None
     for a in CAB_PAD_ANG:
-        # the pad: an arc of the bore, from the clock's face to the hatch's seat
-        pad = csg.wedge(F.r_bore, F.r_sock, -F.y_hatch0, -F.y_shoulder0,
-                        90.0 - a - half, 90.0 - a + half, 48).rotate([90.0, 0.0, 0.0])
-        s = s + pad.translate([0.0, 0.0, zc])
-        # its shoulder tab, reaching in to the aperture's own edge
-        # out past the pad's own face, not up to it: two solids meeting on a
-        # surface leave coincident faces, and float32 turns those into debris
-        tab = csg.wedge(F.aper_r, F.r_sock + 0.5, -F.y_shoulder1, -F.y_shoulder0,
-                        90.0 - a - half + 0.7, 90.0 - a + half - 0.7, 48).rotate([90.0, 0.0, 0.0])
-        s = s + (tab.translate([0.0, 0.0, zc]) ^ bay_deep)
-        # and the fin behind it, out to the bay wall
-        # starts inside the pad's own band and behind its shoulder tab, so no
-        # face of it lands exactly on a face of theirs
-        # inside the pad's band and INSIDE the shoulder tab's depth, not butted
-        # against either: solids that merely touch leave a self-intersecting
-        # union, which manifold reports and float32 cannot heal
-        fin = xz_prism(fin_poly(F, a, F.r_bore + 0.3, F.r_sock + 40.0, CAB_FIN_T),
-                       F.y_shoulder0 + 0.4, F.y_hatch0)
-        s = s + (fin ^ bay_deep)
-    # the bars need their room back out of the fins behind those pads
-    for site in retainer_sites(F):
-        s = s - retainer_pocket(F, site)
-    # a post behind the clock for each retainer's screw, back to the hatch's seat
-    for site in retainer_sites(F):
+        ch = wall_reach(a)
+        box = xz_prism(fin_rect(F, a, F.r_bore - 3.0, F.r_bore + ch + 1.0, CAB_PAD_ARC),
+                       F.y_shoulder0, F.y_clock_b)
+        pads = box if pads is None else pads + box
+        tab = xz_prism(fin_rect(F, a, F.aper_r - 3.0, F.r_bore + ch + 1.0, CAB_PAD_ARC - 1.4),
+                       F.y_shoulder0, F.y_shoulder1)
+        tabs = tab if tabs is None else tabs + tab
+    bore = ycyl(F.r_bore, 0.0, zc, F.y_shoulder0 - 1.0, F.y_clock_b + 1.0, 288)
+    # the 45 degree run-out: a cone that takes each pad's inner edge back to its
+    # wall over the last stretch of its length. One cone does all five.
+    ch_max = max(wall_reach(a) for a in CAB_PAD_ANG)
+    cone = csg.cone(F.r_bore + ch_max + 1.0, F.r_bore - 0.3, -F.y_clock_b,
+                    -(F.y_clock_b - ch_max - 1.3), 288).rotate([90.0, 0.0, 0.0]).translate([0.0, 0.0, zc])
+    # clipped to the bay grown 1.0 all round: a pad's outer edge is square to
+    # its own radial, so at 160 and 200 its corners would otherwise punch
+    # through the divider into the drawer below (check13 found 23.6 mm3 of it)
+    bay_grown = xz_prism(rrect4(-F.cw / 2 - 1.0, F.cw / 2 + 1.0, F.z_cf - 1.0,
+                                F.z_ct + 1.0, r_c, 0.0), F.y_shoulder0 - 1.0, F.y_clock_b + 1.0)
+    s = s + ((pads - (bore + cone)) ^ bay_grown)
+    s = s + ((tabs - ycyl(F.aper_r, 0.0, zc, F.y_shoulder0 - 1.0, F.y_shoulder1 + 1.0, 288))
+             ^ bay_grown)
+
+    # the bar needs its room out of whatever is behind the clock
+    s = s - retainer_pocket(F)
+    # a post at each side of 12 o'clock for the bar's screws, running to the
+    # back face, each merged 0.8 into the ceiling so it is part of the sleeve
+    for site in post_sites(F):
         bx, bz = site['xz']
-        post = ycyl(CAB_BOSS_R, bx, bz, F.y_ret1, F.y_hatch0, 40)
-        s = s + (post ^ bay_deep)
+        post = ycyl(CAB_BOSS_R, bx, bz, F.y_ret1, D, 40)
+        s = s + (post ^ xz_prism(bay_xz, F.y_ret1, D))
         s = s - ycyl(CAB_PILOT_D / 2, bx, bz, F.y_ret1 - 1.0, F.y_ret1 + CAB_BOSS_L, 24)
 
     # ---- panel stop tabs: two on each side wall, two on the ceiling
@@ -473,9 +495,9 @@ def build_hatch(F):
         p = p - ycyl(SCREW_CLEAR / 2 + 0.1, bx, bz, y0 - 1, y1 + 1, 32)
         # 90 degree countersink from the outside face (the bed face as printed)
         p = p - countersink(bx, bz, y1)
-    # the three retainer posts run past it to the back face, so it is notched
-    # for them -- they end up flush in its rebate
-    for site in retainer_sites(F):
+    # the two posts run past it to the back face, so it is notched for them --
+    # they end up flush in its rebate
+    for site in post_sites(F):
         px, pz = site['xz']
         p = p - ycyl(CAB_BOSS_R + 0.4, px, pz, y0 - 1.0, y1 + 1.0, 40)
     # The USB-C window, on the board's axis. Flat, the port faces the hatch and
@@ -544,64 +566,73 @@ def build_drawer(F):
     return d
 
 
-def retainer_pocket(F, site):
-    """The room the retainer's bar needs, cleared out of whatever the sleeve
-    put there -- the fin behind that pad runs right through it."""
-    a = math.radians(site['ang'])
-    u = (math.sin(a), math.cos(a))
-    bx, bz = site['xz']
-    if site['key']:
-        px, pz = _polar(F, 0.0, HANG_R - KEY_DROP)
-        ends = [(bx, bz, CAB_BOSS_R + 2.9), (px, pz, CAB_RET_PIN_D / 2 + 2.9)]
-    else:
-        ix = F.r_bore - CAB_RET_REACH
-        ends = [(bx, bz, CAB_BOSS_R + 2.9),
-                (ix * u[0], F.z_clock + ix * u[1], CAB_RET_W / 2 + 0.4)]
-    p = None
-    for (ex, ez, er) in ends:
-        d = xz_prism(circle(er, ex, ez, 48), F.y_ret0 - 0.4, F.y_ret1 + 0.4)
-        p = d if p is None else p + d
-    return p.hull()
+def _bar_profile(F, grow=0.0):
+    """The retainer bar seen from the back: an arc over the top of the clock
+    from 9 o'clock to 3, an ear at each end for its screw, and a tongue in to
+    the keyhole at 12. `grow` fattens it for the pocket the sleeve clears."""
+    w = CAB_RET_REACH / 2 + grow
+    r = F.r_bore - CAB_RET_R
+    pts_out, pts_in = [], []
+    for k in range(49):
+        a = math.radians(-90.0 + 180.0 * k / 48.0)      # 9 o'clock round to 3
+        u = (math.sin(a), math.cos(a))
+        pts_out.append(((r + w) * u[0], F.z_clock + (r + w) * u[1]))
+        pts_in.append(((r - w) * u[0], F.z_clock + (r - w) * u[1]))
+    return pts_out + pts_in[::-1]
 
 
-def build_retainer(F, site):
-    """One retainer: a flat bar across the back of the clock, screwed BACKWARD
-    into a post that runs on to the hatch's seat.
-
-    It sits CAB_RET_GAP clear of the clock's back plate and a strip of the 1 mm
-    foam tape closes that, pushing the clock onto its shoulder. A screw pulling
-    the bar backwards could not clamp the clock forwards anyway, and a boss in
-    front of the bar would be an island printing in mid-air -- the post behind
-    it stands on the bed.
-
-    The keyed one carries a pin that drops into the back cover's keyhole. That
-    hole is the wall hanger, unused on a desk, and it is what fixes the dial
-    upright: an 8.60 pin in a 9.00 hole is about half a degree either way.
+def _bar_solid(F, grow=0.0, y0=None, y1=None):
+    """The retainer bar as one solid: the arc over the top, a neck out to each
+    post, and the tongue in to the keyhole. Every piece OVERLAPS the arc rather
+    than meeting it, or the union self-intersects and no amount of float32
+    healing fixes it. `grow` fattens the lot for the pocket the sleeve clears.
     """
-    a = math.radians(site['ang'])
-    u = (math.sin(a), math.cos(a))
-    def at(r, s=0.0):
-        t = (math.cos(a), -math.sin(a))
-        return (r * u[0] + s * t[0], F.z_clock + r * u[1] + s * t[1])
-    bx, bz = site['xz']
-    r_end = CAB_BOSS_R + 2.5
-    if site['key']:
-        # a dogleg: screwed on the diagonal, reaching over to the keyhole at 12
-        px, pz = _polar(F, 0.0, HANG_R - KEY_DROP)
-        ends = [(bx, bz, r_end), (px, pz, CAB_RET_PIN_D / 2 + 2.5)]
-    else:
-        ix, iz = at(F.r_bore - CAB_RET_REACH)
-        ends = [(bx, bz, r_end), (ix, iz, CAB_RET_W / 2)]
-    p = None
-    for (ex, ez, er) in ends:
-        d = xz_prism(circle(er, ex, ez, 48), F.y_ret0, F.y_ret1)
-        p = d if p is None else p + d
-    p = (p).hull()
-    if site['key']:
-        px, pz = _polar(F, 0.0, HANG_R - KEY_DROP)
-        p = p + ycyl(CAB_RET_PIN_D / 2, px, pz, F.y_ret0 - CAB_RET_PIN_H, F.y_ret1, 48)
-    p = p - ycyl(SCREW_CLEAR / 2 + 0.1, bx, bz, F.y_ret0 - 1.0, F.y_ret1 + 1.0, 32)
-    return p - countersink(bx, bz, F.y_ret1)
+    y0 = F.y_ret0 if y0 is None else y0
+    y1 = F.y_ret1 if y1 is None else y1
+    r = F.r_bore - CAB_RET_R
+    band = xz_prism(_bar_profile(F, grow), y0, y1)
+    def disc(x, z, rad):
+        return xz_prism(circle(rad + grow, x, z, 48), y0, y1)
+    out = band
+    for site in post_sites(F):
+        bx, bz = site['xz']
+        a = math.radians(site['ang'])
+        ex, ez = r * math.sin(a), F.z_clock + r * math.cos(a)
+        out = out + (disc(ex, ez, CAB_RET_REACH / 2) + disc(bx, bz, CAB_BOSS_R + 2.5)).hull()
+    px, pz = _polar(F, 0.0, HANG_R - KEY_DROP)
+    out = out + (disc(0.0, F.z_clock + r, CAB_RET_REACH / 2)
+                 + disc(px, pz, CAB_RET_PIN_D / 2 + 2.5)).hull()
+    return out
+
+
+def retainer_pocket(F):
+    """The room the bar needs, cleared out of whatever is behind the clock."""
+    return _bar_solid(F, grow=0.5, y0=F.y_ret0 - 0.4, y1=F.y_ret1 + 0.4)
+
+
+def build_retainer(F):
+    """THE part that holds the clock in: one bar, two screws.
+
+    It arcs over the top of the back cover from 9 o'clock to 3, screws into a
+    post at each end, and carries a tongue in to 12 o'clock with a pin on it.
+    The pin drops into the back cover's keyhole -- the wall hanger, unused on a
+    desk -- and that is what fixes the dial upright: an 8.60 pin in a 9.00 hole
+    is about half a degree either way. There is nothing to line up by eye and
+    nothing that can go in the wrong place.
+
+    It sits CAB_RET_GAP clear of the clock and a strip of the 1 mm foam tape
+    closes that, pushing the clock onto its shoulder. The screws pull it
+    BACKWARD into its posts, which is the direction the print supports: a boss
+    in front of the bar would be an island printing in mid-air.
+    """
+    p = _bar_solid(F)
+    px, pz = _polar(F, 0.0, HANG_R - KEY_DROP)
+    p = p + ycyl(CAB_RET_PIN_D / 2, px, pz, F.y_ret0 - CAB_RET_PIN_H, F.y_ret1, 48)
+    for site in post_sites(F):
+        bx, bz = site['xz']
+        p = p - ycyl(SCREW_CLEAR / 2 + 0.1, bx, bz, F.y_ret0 - 1.0, F.y_ret1 + 1.0, 32)
+        p = p - countersink(bx, bz, F.y_ret1)
+    return p
 
 
 def build_pull(F, L=None, z=None, leg_x=None, xc=0.0):
@@ -901,13 +932,8 @@ def parts_for(F):
         (build_drawer(F), p('-drawer'), p('-drawer'), OPEN_UP),
         (build_pull(F),   p('-pull'),   p('-pull'),   FRONT_DOWN),
     ]
-    # the retainers that hold the clock in its socket. The two plain ones are
-    # the same print; the keyed one carries the pin for the back cover's keyhole
-    for i, site in enumerate(retainer_sites(F)):
-        nm = '-retainer-key' if site['key'] else '-retainer'
-        first = site['key'] or i == 0
-        out.append((build_retainer(F, site), p(f'-retainer-{site["ang"]:.0f}'),
-                    p(nm) if first else None, BACK_DOWN))
+    # the one bar that holds the clock in, with the pin for the keyhole on it
+    out.append((build_retainer(F), p('-retainer'), p('-retainer'), BACK_DOWN))
     if F.sides:
         # left and right are mirror images, and both are emitted rather than
         # one being printed mirrored: the slicer can do it, but a file that is

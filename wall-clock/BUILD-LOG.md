@@ -7761,3 +7761,50 @@ has to sit on a cut line. Worst case 0.004 mm. Hausdorff distance will not do it
 on past each part, so half the measure is always the neighbour's line.
 
 462 checks, both bodies, all passing. Still not printed, not cut.
+
+## 2026-09-19 (later) — 835 g instead of 1 kg, one bar instead of three, and it prints on its back
+
+Sam: *"Make sure that there is the least amount of filament used, not more. Make the system for
+the clock to be secured simple, and make sure the print can be printed on it's back within 3D
+printed constraints."*
+
+| | 32 body |
+|---|---|
+| was | 837 cm³, ~1060 g |
+| now | 657 cm³, ~835 g |
+
+Three cuts, none of which cost anything else:
+
+- **the socket's fins, −148 cm³.** They existed only so the pads had something to print on.
+  Each pad is now a plain BOX from the bay's own wall in past the bore, one cylinder takes the
+  bore out of all five at once, and each pad's rear end runs out to its wall on a 45° cone. A
+  pad grows off a wall that reaches the bed, so nothing needs a fin behind it and nothing
+  floats. The sleeve went 573 → 393 cm³.
+- **walls 2.40 → 2.00 and the back wall → 1.60, −30 cm³.** Five lines off a 0.40 nozzle for
+  the walls; the back is flat on the bed, so four lines is plenty.
+- **three retainers → one bar, −6 cm³** and, more to the point, two screws instead of three
+  and one part instead of three.
+
+**The securing system, simply.** Five pads, a shoulder, and one bar over the back with a pin
+on it. The pin drops into the back cover's keyhole — the wall hanger a desk clock never uses —
+and that is what fixes the dial upright: **half a degree** either way is already into it,
+measured by spinning the real back cover mesh against the real pin. Nothing to line up by eye.
+
+**Printed on its back, honestly.** Every part now keeps one rule: nothing flatter than 45°
+is wider than 3.5 mm. On the sleeve the widest is 3.0. The 4.6–4.7 mm patches the fins used to
+leave are gone with them, and so is the 5.0 exception check13 had been carrying.
+
+Four float32 fights on the way, all the same lesson in different clothes — **two surfaces that
+meet exactly, or graze, do not survive the round trip to STL**:
+
+1. a pad trimmed to the bay leaves its cut face exactly on the wall's surface;
+2. a pad whose own ARC ends inside the wall grazes that surface at a shallow angle — this one
+   cost the most time, and it is why the pads are boxes now rather than arc wedges;
+3. the taper cone ending exactly on the bore's radius;
+4. a post tangent to the ceiling rather than 0.8 mm into it.
+
+And two that were plain geometry: the posts at 45° touched nothing at all and came out as two
+loose sticks inside the box (they sit at ±30° now, merged into the ceiling), and a pad's square
+outer edge at 160°/200° punched its corners through the divider into the drawer below.
+
+442 checks, both bodies, all passing. Still not printed, not cut.

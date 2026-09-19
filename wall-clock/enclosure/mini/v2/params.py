@@ -2271,11 +2271,13 @@ PLY_BORE_OPEN_R  = PLY_HOUSING_OD/2.0 + PLY_CENTRE_CLR    # 30.60 -> 61.2 mm
 # the stand-box -- so nothing about the clock changes. It stands upright,
 # 12 o'clock up, face to the front.
 
-CAB_WALL        = 2.40   # sleeve walls, top, bottom. 3.20 made a 490 g sleeve
+CAB_WALL        = 2.00   # sleeve walls, top, bottom. 3.20 made a 490 g sleeve;
+                         # 2.00 is five lines off a 0.40 nozzle, which is all a
+                         # desk box needs and 60 cm3 less than 2.40
 CAB_R_OUT       = 18.00  # outer corner radius, all four corners, seen from the front
 CAB_EDGE_CHAMF  = 0.80   # 45 degree break on the front and back edges
 CAB_GAP         = 5.00   # clock body to the bay walls, all round
-CAB_DIV_T       = 2.40   # the web between the clock bay and the drawer bay
+CAB_DIV_T       = 2.00   # the web between the clock bay and the drawer bay
 CAB_DRAWER_H    = 44.00  # the drawer bay, clear height
 CAB_ASPECT      = 1.35   # outer width over outer height. The references are
                          # landscape; a bay only as wide as the clock made a
@@ -2289,7 +2291,7 @@ CAB_ASPECT      = 1.35   # outer width over outer height. The references are
 # covers now. Whatever the aspect leaves over is the side bays' width, and if
 # that is under CAB_SIDE_MIN there are no side drawers and no partitions -- the
 # bay goes back to being one box the full width.
-CAB_PART_T      = 2.40   # the partition between the clock and a side drawer
+CAB_PART_T      = 2.00   # the partition between the clock and a side drawer
 CAB_SIDE_MIN    = 30.00  # a side bay narrower than this is not worth a drawer
 CAB_SIDE_PULL   = 0.62   # side pull length, as a fraction of the bay's width
 # Sam, 2026-09-18: "Make two smaller drawers on each side, rather than 1 tall
@@ -2297,7 +2299,7 @@ CAB_SIDE_PULL   = 0.62   # side pull length, as a fraction of the bay's width
 # shelf between them. Only the top row meets the sleeve's rounded corner, so
 # only the top row's drawer is handed; the rest are plain rectangles.
 CAB_SIDE_ROWS   = 2
-CAB_SIDE_SHELF  = 2.40   # the shelf between two side drawers
+CAB_SIDE_SHELF  = 2.00   # the shelf between two side drawers
 CAB_SIDE_ROW_MIN = 25.00 # a row shorter than this is not worth a drawer: the
                          # bay falls back to one tall one
 CAB_DEPTH       = 120.00 # overall, front to back. Asserted against what the
@@ -2343,38 +2345,51 @@ CAB_SOCKET_CLR  = 0.35   # radial, bore over the clock body
 CAB_SOCKET_WALL = 2.40
 CAB_SHOULDER_T  = 1.60   # the front stop. Its inner edge is the aperture's, so
                          # the wood hides it and the diffuser is not shadowed
-# THE SOCKET IS PADS ON FINS, NOT A TUBE, and print orientation is why. The
-# sleeve prints back face down, so the socket sits 79 mm up in the air: a full
-# tube's rear mouth is a 2.4 mm annulus printing on nothing, and its fins start
-# in mid-air with it -- 2217 mm2 of overhang, which is what check13 measured.
-# Every pad is instead carried by a fin that runs the whole way back to the
-# hatch's seat, so it grows off the bay wall from the first layer, and the only
-# faces left pointing at the bed are 2.4 mm wide.
-CAB_PAD_ANG     = (0.0, 45.0, 90.0, 135.0, 155.0, 205.0, 225.0, 270.0, 315.0)
-                         # 180 is the leads' way out, so no pad and no fin
-                         # there -- but 155 and 205 flank it, because with the
-                         # nearest pads at 135 and 225 the clock could drop
-                         # 0.35/cos45 = 0.43 rather than 0.35 (check13 measured
-                         # exactly that)
-CAB_PAD_ARC     = 20.00  # each pad's length along the bore
-CAB_FIN_T       = 2.40   # the fin behind it
+# THE SOCKET IS FIVE PADS, AND NOTHING ELSE. Each one is a small block
+# between the bay's own wall and the bore, over the clock's depth only, and its
+# rear end is chamfered 45 degrees back to that wall -- so it grows out of a
+# wall that runs to the bed and nothing floats. An earlier version carried each
+# pad on a fin running the whole way back to the hatch's seat, which printed
+# but cost 90 cm3 and still left four 4.7 mm overhangs where the fins ended.
+#
+# Five, at the four walls and either side of the leads' way out: three would
+# locate a cylinder, but 0, 90 and 270 alone let it drop 0.35/cos45, and the
+# two at 160 and 200 flank the notch at 6 o'clock and stop that.
+CAB_PAD_ANG     = (0.0, 90.0, 160.0, 200.0, 270.0)
+CAB_PAD_ARC     = 22.00  # each pad's length along the bore
+# the run-out is each pad's OWN depth, so every one of them tapers from the
+# wall at its rear to full depth at the front and no pad leaves a flat face
+# pointing at the bed. A fixed 4.00 left the two by the leads with 4.8 mm of
+# flat, because the floor is further from the bore there than the walls are.
+
 CAB_STOP_T      = 3.00   # the tabs the face panel's corners sit back against
 CAB_STOP_W      = 12.00
 CAB_STOP_L      = 6.00
 
 # --- the retainers ----------------------------------------------------------
-# The retainers screw BACKWARD into posts behind them, because that is the
-# direction the print supports: a post running back to the hatch's seat stands
-# on the bed, and a boss in front of the bar would be another island in the air.
-# A screw pulling the bar backwards cannot also clamp the clock forwards, so it
-# does not try: each pad sits CAB_RET_GAP clear of the clock and a strip of the
-# 1 mm foam tape takes that up. The socket, the shoulder and the pin do the
-# holding; the bars stop the clock coming back out.
-CAB_RET_ANG     = (135.0, 225.0)  # the two plain ones, on the lower diagonals
-CAB_RET_KEY_ANG = 315.0           # and the keyed one, reaching over to 12
+# ONE BAR HOLDS THE CLOCK IN, not three. It arcs over the top of the back
+# cover from 9 o'clock to 3, screws into a post at each end -- both of them
+# thickenings of the partitions, which run to the bed -- and carries a tongue
+# in to 12 o'clock with a pin on it. The pin drops into the back cover's own
+# keyhole, the wall hanger a desk clock never uses, and that is what fixes the
+# dial upright. Two screws, one printed part, nothing to align by eye.
+#
+# It screws BACKWARD into those posts, because that is the direction the print
+# supports. A screw pulling the bar back cannot also clamp the clock forward,
+# so it does not try: the bar sits CAB_RET_GAP clear and a strip of the 1 mm
+# foam tape closes it. The bore and the shoulder do the holding; the bar stops
+# the clock coming back out and the pin stops it turning.
+CAB_RET_POST_ANG = (30.0, 330.0)  # each post sits tangent to the bay's
+                         # CEILING and merges into it, which is what makes it
+                         # part of the sleeve and supported from the bed. At 3
+                         # and 9 o'clock the gap between bore and partition is
+                         # 4.6 mm and an M3 pilot broke out of it; out in the
+                         # corners at 45 the posts touched nothing at all and
+                         # came out as two loose sticks inside the box.
+CAB_RET_R        = 6.00  # the bar's arc, inboard of the bore
 CAB_RET_W       = 14.00  # across
 CAB_RET_T       = 3.00   # the plate
-CAB_RET_REACH   = 8.00   # how far its pad reaches in over the clock's back
+CAB_RET_REACH   = 8.00   # how wide its arc is, over the clock's back
 CAB_RET_GAP     = 0.10   # air between the bar's pad and the clock's back plate,
                          # closed by a strip of foam tape
 CAB_RET_PAD_T   = 1.20
@@ -2403,8 +2418,10 @@ CAB_LEAD_ROOM   = 3.00   # between the saddle's rear lip and the board's end sto
 # bottom drawer. Back down, the wall is the first layer, every bay is a
 # vertical channel, and the only faces left pointing at the bed are the ones
 # listed in check11's overhang pass.
-CAB_BACK_T      = 2.40   # the closed rear wall, part of the sleeve
-CAB_HATCH_T     = 2.40   # the hatch itself
+CAB_BACK_T      = 1.60   # the closed rear wall, part of the sleeve. It is the
+                         # first layers, flat on the bed, so four lines is plenty
+                         # and it is the single cheapest 30 cm3 on the part
+CAB_HATCH_T     = 2.00   # the hatch itself
 CAB_HATCH_INSET = 2.00   # how far its outside face sits inside the rear face
 CAB_HATCH_LEDGE = 2.50   # how far the rebate closes in from the bay, per side:
                          # the seat the hatch lands on, reached by a 45 degree

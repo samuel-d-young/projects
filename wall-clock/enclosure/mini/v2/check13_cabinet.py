@@ -17,7 +17,7 @@ import csg
 from csg import to_manifold, box_lwh, cyl
 from params import *
 from cabinet import (Frame, world_dir, boss_points, boss_axis, side_instances,
-                     hatch_outline, retainer_sites, xz_prism, circle,
+                     hatch_outline, post_sites, xz_prism, circle,
                      CLOCK_Z_FRONT, CLOCK_Z_BACK, HERE)
 
 FAILS = []
@@ -183,58 +183,47 @@ def run(tag):
     ck(min(op) >= 2 * F.r_body + 1.0, 'the hatch opening passes it',
        f'opening {op[0]:.1f} x {op[1]:.1f}, clock {2 * F.r_body:.1f}')
 
-    RET = {}
-    for site in retainer_sites(F):
-        nm = f'retainer-{site["ang"]:.0f}'
-        t = W(f'{pre}-{nm}.stl')
-        ck(t.is_watertight and t.body_count == 1, f'{nm}: one closed body')
-        RET[site['ang']] = (to_manifold(t), site)
-    for a, (R_, site) in RET.items():
-        nm = ('keyed ' if site['key'] else '') + f'retainer at {a:.0f} deg'
-        ck(vol(R_, S) < 1e-3, f'{nm}: clear of the sleeve', f'{vol(R_, S):.3f} mm3')
-        # it sits CAB_RET_GAP clear of the clock -- the foam tape closes that.
-        # The keyed one's pin is inside the keyhole, which the solid envelope
-        # does not have, so that one is measured against the real back cover
-        # further down instead.
-        bar_only = R_ - xz_prism(circle(CAB_RET_PIN_D / 2 + 0.5, *_pin_xz(F), 48),
-                                 F.y_ret0 - 9.0, F.y_ret0) if site['key'] else R_
-        ck(vol(bar_only, ENV) < 1e-3, f'{nm}: clear of the clock as printed')
-        ck(vol(R_.translate([0, -(CAB_RET_GAP + 0.1), 0]), ENV) > 1e-3,
-           f'{nm}: and only {CAB_RET_GAP:.2f} mm clear of it, which the foam tape takes up')
-        # the screw: through the bar, into the boss's pilot, solid all round
+    R_ = to_manifold(W(f'{pre}-retainer.stl'))
+    ck(W(f'{pre}-retainer.stl').is_watertight, 'the retainer bar: one closed body')
+    ck(vol(R_, S) < 1e-3, 'the bar is clear of the sleeve', f'{vol(R_, S):.3f} mm3')
+    # its pin is in the keyhole, which the solid envelope does not have, so the
+    # bar is measured against the clock without it and the pin against the real
+    # back cover below
+    pin_col = xz_prism(circle(CAB_RET_PIN_D / 2 + 0.5, *_pin_xz(F), 48),
+                       F.y_ret0 - 9.0, F.y_ret0)
+    ck(vol(R_ - pin_col, ENV) < 1e-3, 'and clear of the clock as printed')
+    ck(vol((R_ - pin_col).translate([0, -(CAB_RET_GAP + 0.1), 0]), ENV) > 1e-3,
+       f'only {CAB_RET_GAP:.2f} mm clear of it, which the foam tape takes up')
+    ck(vol(ENV.translate([0, 0.4, 0]), R_) > 1e-3,
+       'with it on, the clock cannot slide back out',
+       f'{vol(ENV.translate([0, 0.4, 0]), R_):.1f} mm3 at +0.40')
+    for site in post_sites(F):
         bx, bz = site['xz']
-        # the screw goes in from the BACK: through the bar, on into the post
-        pin = cyl(1.1, -(F.y_ret1 + CAB_BOSS_L - 0.5), -(F.y_ret0 + 0.1), 32).rotate([90, 0, 0]).translate([bx, 0, bz])
-        ck(vol(pin, S) < 1e-3 and vol(pin, R_) < 1e-3, f'{nm}: its screw runs clear into the pilot')
+        nm = f'post at {site["ang"]:.0f} deg'
+        pin = cyl(1.1, -(F.y_ret1 + CAB_BOSS_L - 0.5), -(F.y_ret0 + 0.1), 32)             .rotate([90, 0, 0]).translate([bx, 0, bz])
+        ck(vol(pin, S) < 1e-3 and vol(pin, R_) < 1e-3, f'{nm}: the screw runs clear into it')
         ring = (box_lwh(bx - 2.4, bx + 2.4, F.y_ret1 + 1.0, F.y_ret1 + CAB_BOSS_L - 0.5,
                         bz - 2.4, bz + 2.4)
                 - box_lwh(bx - 1.4, bx + 1.4, 0, F.D + 5, bz - 1.4, bz + 1.4))
         frac = vol(ring, S) / ring.volume()
         ck(frac > 0.90, f'{nm}: solid plastic round that pilot', f'{frac * 100:.0f}%')
-    # with the retainers on, the clock cannot come back out
-    back = None
-    for a, (R_, site) in RET.items():
-        back = R_ if back is None else back + R_
-    ck(vol(ENV.translate([0, 0.4, 0]), back) > 1e-3,
-       'with all three on, it cannot slide back out: 0.40 and it is into them',
-       f'{vol(ENV.translate([0, 0.4, 0]), back):.2f} mm3')
+    print(f'       2 screws, M3 x {int(math.ceil((CAB_RET_T + 8) / 2) * 2)} self-tapping')
 
-    # THE ROTATION LOCK: the keyed retainer's pin in the back cover's keyhole.
-    # Measured on the real back cover mesh, rotated about the clock's own axis.
-    key_R = next(R_ for a, (R_, s) in RET.items() if s['key'])
+    # THE ROTATION LOCK: the bar's pin in the back cover's keyhole, measured on
+    # the real back cover mesh, spun about the clock's own axis
     cover_m = to_manifold(cover_t)
-    ck(vol(cover_m, key_R) < 1e-3, 'the pin drops into the keyhole with the dial upright',
-       f'{vol(cover_m, key_R):.3f} mm3')
+    ck(vol(cover_m, R_) < 1e-3, 'the pin drops into the keyhole with the dial upright',
+       f'{vol(cover_m, R_):.3f} mm3')
     def spun(deg):
-        ax = M[:3, 1]                      # the clock's own axis, in world
+        ax = M[:3, 1]
         Rm = trimesh.transformations.rotation_matrix(
             math.radians(deg), ax, [0.0, F.y_clock_f, F.z_clock])
         t = cover_t.copy(); t.apply_transform(Rm)
         return to_manifold(t)
-    hits = [d for d in (1.0, 1.5, 2.0, 3.0) if vol(spun(d), key_R) > 1e-3
-            and vol(spun(-d), key_R) > 1e-3]
-    ck(bool(hits), f'and it stops the dial turning: {min(hits) if hits else "-"} degrees either '
-                   f'way is already into the pin')
+    hits = [dg for dg in (0.5, 1.0, 1.5, 2.0, 3.0)
+            if vol(spun(dg), R_) > 1e-3 and vol(spun(-dg), R_) > 1e-3]
+    ck(bool(hits), f'and it stops the dial turning: {min(hits) if hits else "-"} degrees '
+                   f'either way is already into the pin')
 
     # the leads: out of the notch at 6 o'clock, through the socket's slot, and back
     lane = box_lwh(-CABLE_W / 2 + 0.5, CABLE_W / 2 - 0.5, F.y_notch0 + 0.2, F.y_clock_b - 0.2,
@@ -446,7 +435,7 @@ def run(tag):
 
 
     # ------------------------------------------------------------------ 9
-    print('\n9. Printing: no overhang flatter than 45 degrees wider than 5.0 mm, as printed')
+    print('\n9. Printing: no overhang flatter than 45 degrees wider than 3.5 mm, as printed')
     for k, nm in on_disk.items():
         t = trimesh.load(csg.part(f'{pre}-{nm}.stl'), process=False)
         t.merge_vertices()
@@ -465,10 +454,8 @@ def run(tag):
                 if w > worst_w:
                     worst_w, worst_at = w, comp.bounds.mean(axis=0)
         where = '' if worst_at is None else f' at print xyz {worst_at[0]:.0f},{worst_at[1]:.0f},{worst_at[2]:.0f}'
-        # 5.0 for the sleeve, 3.5 for everything else: its widest patches are the
-        # rear ends of the socket's fins where they meet the hatch's seat -- each
-        # under 200 mm2, 4.4 mm off the bed, hanging off the bay wall beside them
-        lim = 5.0 if nm.endswith('sleeve') else 3.5
+        # one rule for every part now: the fins that needed 5.0 are gone
+        lim = 3.5
         ck(worst_w <= lim + 1e-6, f'{nm}: overhangs {area:.0f} mm2 in all, the widest patch '
                                   f'{worst_w:.2f} mm across{where}')
 

@@ -1,6 +1,7 @@
 mini-round-clock cabinet — 32-LED clock
 =======================================
-Black PETG. No supports on any part. One file per part; copies as noted.
+Black PETG. No supports on any part, and nothing on any part overhangs flatter
+than 45 degrees by more than 3.5 mm. One file per part; copies as noted.
 
   mini-round-clock-cabinet-32-sleeve.stl          x1   BACK FACE DOWN
   mini-round-clock-cabinet-32-hatch.stl           x1   OUTSIDE FACE DOWN
@@ -11,17 +12,17 @@ Black PETG. No supports on any part. One file per part; copies as noted.
   mini-round-clock-cabinet-32-drawer-side-l2.stl  x1   OPEN SIDE UP
   mini-round-clock-cabinet-32-pull.stl            x1   GRIP FACE DOWN
   mini-round-clock-cabinet-32-pull-side.stl       x4   GRIP FACE DOWN
-  mini-round-clock-cabinet-32-retainer.stl        x2   BACK FACE DOWN
-  mini-round-clock-cabinet-32-retainer-key.stl    x1   BACK FACE DOWN
+  mini-round-clock-cabinet-32-retainer.stl        x1   BACK FACE DOWN
 
 Every STL is already in its print orientation and sitting on z = 0. Drop them
 on the plate as they are — do not let the slicer auto-orient them.
 
-HOW THE CLOCK IS HELD
-  It slides into a socket on the bore, its face lands on a shoulder, and the
-  three retainers screw in behind it. The KEYED retainer's pin drops into the
-  back cover's keyhole (the wall hanger) — that is what fixes the dial upright.
-  Fit it last: turn the clock a hair until the pin drops in, then tighten.
+HOW THE CLOCK IS HELD — one bar, two screws
+  It slides into a socket (five pads on the bore) and its face lands on a
+  shoulder. One bar goes over the back of it, two M3 x 12 into the posts either
+  side of 12 o'clock, and the pin on that bar drops into the back cover's
+  keyhole — the wall hanger. That pin is what fixes the dial upright. Turn the
+  clock a hair until the pin drops in, then tighten.
 
 LASER (Glowforge, 3 mm plywood)
   mini-round-clock-cabinet-32-fronts.svg — all six fronts as ONE JOINED SHEET.
@@ -33,11 +34,11 @@ LASER (Glowforge, 3 mm plywood)
 
 BUY
   4  x M3 x 30 countersunk self-tapping   (the hatch)
-  3  x M3 x 12 countersunk self-tapping   (the clock's retainers)
+  2  x M3 x 12 countersunk self-tapping   (the clock's retainer bar)
   10 x M3 x 12 pan head self-tapping      (the five pulls, two each)
-  1 mm double-sided foam tape             (under the S3, a strip on each
-                                           retainer, six squares on the face
-                                           panel's stop tabs)
+  1 mm double-sided foam tape             (under the S3, one strip on the
+                                           retainer bar, six squares on the
+                                           face panel's stop tabs)
 
 The clock goes in as you already print it: base + flange diffuser + back cover.
 Full assembly order is in cabinet/README.md.
