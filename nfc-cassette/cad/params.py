@@ -377,7 +377,13 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     D["s_antenna_to_card"] = v["s_module_wall"] + v["pn532_t"] + v["shell_floor"] + v["s_slot_clr"] + v["pcb_clr"]
     # D1 mini: long side along X, against the left wall (USB out through it); the
     # gap to the module's side rib is what the sweep checks
-    D["s_brd_cx"] = 0.0                      # centred: it sits behind the module
+    # Hard against the left wall, not centred. Centred, the board's USB socket
+    # sat 22 mm inside the wall its cutout is in - the hole was there and the
+    # plug could not reach it (Samuel, 2026-09-19: "move the location of the
+    # Node MCU to the edge so that it can be plugged in easier"). Behind the
+    # module it can sit anywhere across the width, so it sits where the cable
+    # can get to it.
+    D["s_brd_cx"] = -(D["s_cavity_l"] / 2 - v["s_mount_gap"] - v["pcb_clr"] - v["lip_t"] - v["esp_l"] / 2)
     D["s_brd_cy"] = (D["y_brd_0"] + D["y_brd_1"]) / 2
     # Beside the module, the number that mattered was the gap to its side rib.
     # Behind it, the board may sit over those ribs in X and what matters instead
@@ -454,7 +460,7 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     # The fourth post used to sit at the middle of the back, which was empty
     # while the board lay beside the module. The board is across the back now,
     # so the post moves out past its mount rather than standing through it.
-    D["s_post4_x"] = -(D["s_brd_mount_l"] / 2 + v["post_d"] / 2 + 1.0)
+    D["s_post4_x"] = D["s_brd_cx"] + D["s_brd_mount_l"] / 2 + v["post_d"] / 2 + 1.0
     D["s_posts"] = [(-px, -py), (px, -py), (px, py), (D["s_post4_x"], py)]
     D["s_pocket_l"] = D["s_L"] - 2 * D["s_lid_ledge"]
     D["s_pocket_w"] = D["s_W"] - 2 * D["s_lid_ledge"]

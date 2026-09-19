@@ -81,11 +81,11 @@
  },
  "slot_body": {
   "name": "slot_body",
-  "triangles": 13520,
+  "triangles": 13412,
   "watertight": true,
   "winding_ok": true,
-  "volume_mm3": 79410.46,
-  "brep_volume_mm3": 79413.55,
+  "volume_mm3": 79150.91,
+  "brep_volume_mm3": 79154.0,
   "volume_drift": 3.9e-05,
   "extents_mm": [
    127.4,
@@ -93,7 +93,7 @@
    48.5
   ],
   "fits_build_volume": true,
-  "mass_g_pla": 52.8,
+  "mass_g_pla": 52.6,
   "orientation": "upside down, top face on the bed",
   "supports": "none",
   "note": "slot floor bridges 13 mm",

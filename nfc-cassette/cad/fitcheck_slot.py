@@ -140,6 +140,24 @@ def main() -> int:
             path_bad += 1
             print(f"  insertion step {i}/{steps} (dz {dz:.1f}): body overlap {o:.2f} mm^3")
     print(f"  insertion path: {'clear' if not path_bad else str(path_bad) + ' steps blocked'} ({steps} steps)")
+
+    # The ring's own way in, which nothing checked until Samuel asked how it
+    # gets past a cradle that is closed at the top. It does not go in from the
+    # top: with the lid off, the ring rises into its cradle through the lid
+    # opening and the lid's two posts then hold it up. So the path to test is
+    # straight DOWN and out, the reverse of fitting it.
+    ring_bad = 0
+    ring_solid = parts_inside(D)["VU ring board"]
+    led_solid = parts_inside(D)["VU ring LEDs"]
+    drop = D["s_ring_cz"] + v["s_ring_od"] / 2 - D["s_lid_t"] + 2.0
+    for i in range(1, steps + 1):
+        dz = -drop * i / steps
+        o = overlap(Pos(0, 0, dz) * ring_solid, body) + overlap(Pos(0, 0, dz) * led_solid, body)
+        if o > TOL:
+            ring_bad += 1
+            print(f"  ring step {i}/{steps} (dz {dz:.1f}): body overlap {o:.2f} mm^3")
+    print(f"  ring drops out: {'clear' if not ring_bad else str(ring_bad) + ' steps blocked'} ({steps} steps)")
+    path_bad += ring_bad
     print("RESULT:", "the reader sits inside" if not bad and not path_bad else f"{bad} collisions, {path_bad} blocked steps")
     return 0 if not bad and not path_bad else 1
 

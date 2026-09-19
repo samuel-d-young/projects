@@ -115,21 +115,14 @@ def build_body(D: dict):
     body = body + Pos(cx, ry, cz + D["s_ring_od"] / 2 + D["s_ring_clr"] + 1.0) * Box(
         2 * rx, D["s_ring_depth"], 2.0, align=CC)
 
-    # The single WS2812B, in the ring's middle. s_dot_od was declared when the
-    # dial was designed and never used - the pixel showed through the centre
-    # hole with nothing holding it. Two fins either side and a ledge under it,
-    # the same idea as the ring's own cradle and for the same reason: a fin on
-    # a vertical wall prints, a boss on one is a half-cylinder overhang.
-    dr = D["s_dot_od"] / 2 + D["s_ring_clr"]
-    body = body + Pos(cx, ry, cz - dr - D["s_dot_ledge"] / 2) * Box(
-        D["s_dot_od"], D["s_ring_depth"], D["s_dot_ledge"], align=CC)
-    # the fins' far corners have to stay inside the ring's own hole, so their
-    # height comes from that circle rather than from a guess
-    x_out = dr + D["s_ring_rib"]
-    fin_h = 2 * math.sqrt(max(D["s_dot_fin_r"] ** 2 - x_out ** 2, 1.0))
-    for sx in (-1, 1):
-        body = body + Pos(cx + sx * (dr + D["s_ring_rib"] / 2), ry, cz) * Box(
-            D["s_ring_rib"], D["s_ring_depth"], fin_h, align=CC)
+    # The single WS2812B is NOT held by the body. It was, briefly - a ledge and
+    # two fins standing in the ring's centre hole - and that mount made the ring
+    # impossible to fit: the ring goes in from below, its hole travels up past
+    # anything standing in it, and the fins caught the board every time. Three
+    # of six steps blocked, once the check existed to say so.
+    # It does not need one. Samuel solders the single pixel to the ring (it is
+    # already chained to it electrically, ring DO to single DI), so the ring
+    # carries it and the centre hole in the face is just a window.
 
     # screw posts from the roof down to the lid, pilot-drilled from below
     for (x, y) in D["s_posts"]:
