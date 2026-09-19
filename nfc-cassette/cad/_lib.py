@@ -4,7 +4,16 @@
     winding           consistent normals
     volume agreement  mesh volume within 1% of the B-rep volume - catches a
                       tessellation that silently dropped a face
+    one body          the part is a single connected solid
     build volume      fits the P1S bed with a margin
+
+The one-body check was added after the cartridge's back plate came out in two
+disconnected pieces - a plate and, 1.6 mm away with air in between, its spigot.
+Mirroring the outline had reversed the polygon's winding, so the plate extruded
+downward from the sketch plane while the spigot was added above it. Nothing
+else here noticed: two closed shells are still watertight, their windings are
+still consistent, and their volumes still add up to what the B-rep says. It
+would have sliced, printed as two parts, and only then made sense.
 
 Every part records its print orientation. On this project every part prints
 flat-face-down with no supports; "needs supports" is a design failure.
@@ -38,6 +47,7 @@ class PartRecord:
     volume_drift: float
     extents_mm: list
     fits_build_volume: bool
+    bodies: int
     mass_g_pla: float
     orientation: str = ""
     supports: str = "none"
@@ -71,11 +81,13 @@ def emit(part: Shape, name: str, orientation: str = "", supports: str = "none",
     lim = [b - 2 * EDGE_MARGIN for b in BUILD_VOLUME]
     fits = all(e <= l for e, l in zip(sorted(ext, reverse=True), sorted(lim, reverse=True)))
     mass = mesh_v / 1000.0 * 1.24 * (0.42 + 0.58 * infill)
+    bodies = len(mesh.split(only_watertight=False))
 
     rec = PartRecord(name=name, triangles=int(len(mesh.faces)),
                      watertight=bool(mesh.is_watertight), winding_ok=bool(mesh.is_winding_consistent),
                      volume_mm3=round(mesh_v, 2), brep_volume_mm3=round(brep_v, 2),
                      volume_drift=round(drift, 6), extents_mm=ext, fits_build_volume=fits,
+                     bodies=int(bodies),
                      mass_g_pla=round(mass, 1), orientation=orientation, supports=supports, note=note)
     if not rec.watertight:
         rec.errors.append("not watertight")
@@ -83,6 +95,8 @@ def emit(part: Shape, name: str, orientation: str = "", supports: str = "none",
         rec.errors.append("inconsistent winding")
     if drift > VOLUME_DRIFT_MAX:
         rec.errors.append(f"volume drift {drift*100:.2f}% > {VOLUME_DRIFT_MAX*100:.0f}%")
+    if bodies != 1:
+        rec.errors.append(f"{bodies} disconnected bodies, not 1")
     if not fits:
         rec.errors.append(f"does not fit build volume: {ext}")
     if rec.errors:

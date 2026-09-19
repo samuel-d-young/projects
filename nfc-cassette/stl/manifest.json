@@ -13,6 +13,7 @@
    10.4
   ],
   "fits_build_volume": true,
+  "bodies": 1,
   "mass_g_pla": 10.2,
   "orientation": "open side up",
   "supports": "none",
@@ -33,6 +34,7 @@
    1.6
   ],
   "fits_build_volume": true,
+  "bodies": 1,
   "mass_g_pla": 5.4,
   "orientation": "face up",
   "supports": "none",
@@ -53,6 +55,7 @@
    22.0
   ],
   "fits_build_volume": true,
+  "bodies": 1,
   "mass_g_pla": 32.4,
   "orientation": "open side up",
   "supports": "none",
@@ -73,46 +76,28 @@
    8.6
   ],
   "fits_build_volume": true,
+  "bodies": 1,
   "mass_g_pla": 28.1,
   "orientation": "bay side up",
   "supports": "none",
   "note": "4 x M3 x 16 pan head from the top",
   "errors": []
  },
- "slot_body": {
-  "name": "slot_body",
-  "triangles": 13412,
-  "watertight": true,
-  "winding_ok": true,
-  "volume_mm3": 79150.91,
-  "brep_volume_mm3": 79154.0,
-  "volume_drift": 3.9e-05,
-  "extents_mm": [
-   127.4,
-   76.7,
-   48.5
-  ],
-  "fits_build_volume": true,
-  "mass_g_pla": 52.6,
-  "orientation": "upside down, top face on the bed",
-  "supports": "none",
-  "note": "slot floor bridges 13 mm",
-  "errors": []
- },
  "slot_lid": {
   "name": "slot_lid",
-  "triangles": 5836,
+  "triangles": 6876,
   "watertight": true,
   "winding_ok": true,
-  "volume_mm3": 32578.17,
-  "brep_volume_mm3": 32578.12,
-  "volume_drift": 2e-06,
+  "volume_mm3": 32619.97,
+  "brep_volume_mm3": 32619.94,
+  "volume_drift": 1e-06,
   "extents_mm": [
    124.5,
    70.8,
    11.3
   ],
   "fits_build_volume": true,
+  "bodies": 1,
   "mass_g_pla": 21.7,
   "orientation": "outside face down",
   "supports": "none",
@@ -133,6 +118,7 @@
    6.0
   ],
   "fits_build_volume": true,
+  "bodies": 1,
   "mass_g_pla": 0.8,
   "orientation": "flat, base down",
   "supports": "none",
@@ -153,6 +139,7 @@
    6.0
   ],
   "fits_build_volume": true,
+  "bodies": 1,
   "mass_g_pla": 0.3,
   "orientation": "flat, base down",
   "supports": "none",
@@ -173,10 +160,221 @@
    1.2
   ],
   "fits_build_volume": true,
+  "bodies": 1,
   "mass_g_pla": 0.6,
   "orientation": "smooth face down, grooves up",
   "supports": "none",
   "note": "WHITE PLA; glue into the dial's dish inside the bezel",
+  "errors": []
+ },
+ "cart_shell": {
+  "name": "cart_shell",
+  "triangles": 4136,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 7203.82,
+  "brep_volume_mm3": 7203.98,
+  "volume_drift": 2.2e-05,
+  "extents_mm": [
+   57.0,
+   65.0,
+   8.0
+  ],
+  "fits_build_volume": true,
+  "bodies": 1,
+  "mass_g_pla": 4.8,
+  "orientation": "face down, open side up",
+  "supports": "none",
+  "note": "pocket takes a 25 mm NTAG215 disc; label recess in the face",
+  "errors": []
+ },
+ "cart_back": {
+  "name": "cart_back",
+  "triangles": 1534,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 7197.15,
+  "brep_volume_mm3": 7197.88,
+  "volume_drift": 0.000101,
+  "extents_mm": [
+   55.2,
+   63.2,
+   5.1
+  ],
+  "fits_build_volume": true,
+  "bodies": 1,
+  "mass_g_pla": 4.8,
+  "orientation": "flat, spigot UP",
+  "supports": "none",
+  "note": "installs turned over - spigot down onto the tag; the outline is mirrored to suit",
+  "errors": []
+ },
+ "tap_body": {
+  "name": "tap_body",
+  "triangles": 8668,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 60907.37,
+  "brep_volume_mm3": 60910.68,
+  "volume_drift": 5.4e-05,
+  "extents_mm": [
+   127.4,
+   73.7,
+   48.5
+  ],
+  "fits_build_volume": true,
+  "bodies": 1,
+  "mass_g_pla": 40.5,
+  "orientation": "upside down, top face on the bed",
+  "supports": "none",
+  "note": "tap pad on the top; PN532 flat under it, antenna up",
+  "errors": []
+ },
+ "tap_lid": {
+  "name": "tap_lid",
+  "triangles": 6844,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 32502.97,
+  "brep_volume_mm3": 32502.94,
+  "volume_drift": 1e-06,
+  "extents_mm": [
+   124.5,
+   70.8,
+   11.3
+  ],
+  "fits_build_volume": true,
+  "bodies": 1,
+  "mass_g_pla": 21.6,
+  "orientation": "outside face down",
+  "supports": "none",
+  "note": "4 x M3 pan head from below; ESP32, ring posts, buzzer, zip ties",
+  "errors": []
+ },
+ "tap_mark_1": {
+  "name": "tap_mark_1",
+  "triangles": 132,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 16.38,
+  "brep_volume_mm3": 16.38,
+  "volume_drift": 0.0,
+  "extents_mm": [
+   3.78,
+   10.12,
+   0.8
+  ],
+  "fits_build_volume": true,
+  "bodies": 1,
+  "mass_g_pla": 0.0,
+  "orientation": "flat",
+  "supports": "none",
+  "note": "arc 1 of the contactless mark; glue into its recess on the top",
+  "errors": []
+ },
+ "tap_mark_2": {
+  "name": "tap_mark_2",
+  "triangles": 132,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 32.4,
+  "brep_volume_mm3": 32.4,
+  "volume_drift": 0.0,
+  "extents_mm": [
+   5.88,
+   18.31,
+   0.8
+  ],
+  "fits_build_volume": true,
+  "bodies": 1,
+  "mass_g_pla": 0.0,
+  "orientation": "flat",
+  "supports": "none",
+  "note": "arc 2 of the contactless mark; glue into its recess on the top",
+  "errors": []
+ },
+ "tap_mark_3": {
+  "name": "tap_mark_3",
+  "triangles": 132,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 48.46,
+  "brep_volume_mm3": 48.46,
+  "volume_drift": 0.0,
+  "extents_mm": [
+   8.0,
+   26.5,
+   0.8
+  ],
+  "fits_build_volume": true,
+  "bodies": 1,
+  "mass_g_pla": 0.0,
+  "orientation": "flat",
+  "supports": "none",
+  "note": "arc 3 of the contactless mark; glue into its recess on the top",
+  "errors": []
+ },
+ "tap_mark_4": {
+  "name": "tap_mark_4",
+  "triangles": 132,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 64.53,
+  "brep_volume_mm3": 64.53,
+  "volume_drift": 0.0,
+  "extents_mm": [
+   10.13,
+   34.69,
+   0.8
+  ],
+  "fits_build_volume": true,
+  "bodies": 1,
+  "mass_g_pla": 0.0,
+  "orientation": "flat",
+  "supports": "none",
+  "note": "arc 4 of the contactless mark; glue into its recess on the top",
+  "errors": []
+ },
+ "slot_body": {
+  "name": "slot_body",
+  "triangles": 14432,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 79009.01,
+  "brep_volume_mm3": 79012.13,
+  "volume_drift": 4e-05,
+  "extents_mm": [
+   127.4,
+   76.7,
+   48.5
+  ],
+  "fits_build_volume": true,
+  "bodies": 1,
+  "mass_g_pla": 52.5,
+  "orientation": "upside down, top face on the bed",
+  "supports": "none",
+  "note": "slot floor bridges 13 mm",
+  "errors": []
+ },
+ "tap_fascia": {
+  "name": "tap_fascia",
+  "triangles": 4936,
+  "watertight": true,
+  "winding_ok": true,
+  "volume_mm3": 12364.06,
+  "brep_volume_mm3": 12363.79,
+  "volume_drift": 2.2e-05,
+  "extents_mm": [
+   123.9,
+   5.4,
+   45.85
+  ],
+  "fits_build_volume": true,
+  "bodies": 1,
+  "mass_g_pla": 8.2,
+  "orientation": "face down",
+  "supports": "none",
+  "note": "the swappable face; slides UP into the body, the lid holds it there",
   "errors": []
  }
 }

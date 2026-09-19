@@ -14,38 +14,61 @@ This repo is only the enclosure. Read `BUILD-LOG.md` last entry first.
 
 ```
 cad/params.py        every dimension, with provenance (datasheet / derived / choice / assumed)
-cad/cassette.py      tray + lid
-cad/player_slot.py   THE player: body with the slot and the front face, bottom lid, two
-                     knobs, and the VU dial's white-PLA diffuser
+cad/cassette.py      tray + lid, compact-cassette size
+cad/cartridge.py     THE cartridge: Game Boy silhouette, one 25 mm NTAG215 disc + back plate
+cad/player_tap.py    THE player: tapped, not slotted. Body, the removable fascia, the lid,
+                     and the four arcs of the contactless mark on the top
+cad/player_slot.py   the slot player it replaced. Still built, and still the home of
+                     _front_cosmetics, _rounded_box, _posts_and_lips and break_outer_edges
 cad/player.py        the earlier flat-bay player (base + top slab), kept as an alternative
-cad/verify.py        the gate: build, export, invariants, corner sweep - all nine parts
-cad/fitcheck_slot.py "does the reader sit inside?": the electronics as solids, exact
-                     intersections with body and lid, the two printed parts against
-                     each other, and the module's and the lid's insertion paths
+cad/verify.py        the gate: nominal build + export, then two exhaustive invariant
+                     passes that build nothing, then the geometry sweep - all 18 parts
+cad/fitcheck_tap.py  "does it go together, and does it read?" - the electronics as solids,
+                     exact intersections with body and lid, and the path every hand-fitted
+                     part has to travel: the fascia out of the bottom of its channel, the
+                     module out the front, the ring down through the lid opening
+cad/fitcheck_slot.py the same for the slot player
 cad/shots_slot.py    docs/nfc-cassette-slot.png; shots.py does the flat version
 cad/_lib.py          export gate (watertight, winding, volume drift, build volume)
 stl/ step/           build output + manifest.json. Regenerating is always safe.
-                     STEP carries an export timestamp in its header, so all nine
+                     STEP carries an export timestamp in its header, so all eighteen
                      files go dirty on every run even when nothing moved - and so
                      do the STLs, which re-tessellate. Neither file going dirty
                      means a part moved: diff manifest.json on volume_mm3 and
-                     extents_mm, and check out whatever reads 0.000.
+                     extents_mm, and check out whatever reads 0.000. Diff `bodies`
+                     too - a part can come apart into pieces without its volume or
+                     its extents moving at all, which is exactly what the counter
+                     window's digit bars did.
 ```
 
 ## Run
 
 ```
-K:\Claude\robot\.venv\Scripts\python.exe cad\verify.py          # ~12 min: nominal + 128-corner sweep
-K:\Claude\robot\.venv\Scripts\python.exe cad\fitcheck_slot.py   # ~20 s: must end "the reader sits inside"
-K:\Claude\robot\.venv\Scripts\python.exe cad\shots_slot.py
+K:\Claude\robot\.venv\Scripts\python.exe cad\verify.py          # the gate: nominal + 278528 invariant corners + 1024-corner geometry sweep
+K:\Claude\robot\.venv\Scripts\python.exe cad\verify.py --quick  # nominal only, ~15 s
+K:\Claude\robot\.venv\Scripts\python.exe cad\fitcheck_tap.py    # must end "the tap player goes together and reads"
+K:\Claude\robot\.venv\Scripts\python.exe cad\fitcheck_slot.py   # must end "the reader sits inside"
 ```
 
-Run the fit check after any change near the module pocket, the slot, the
-front face or the lid: it found three real collisions the invariants missed,
-and a fourth once it started intersecting the body with the lid — the D1
-mini's mount was 0.5 mm inside the back wall, so the bottom could not go on.
-**Two printed parts that touch must be intersected with each other.** Checking
-each of them against the electronics is not the same check.
+Before the first print, read `docs/MEASURE-FIRST.md`: four of the numbers
+this design is built on have never been near a pair of calipers.
+
+`docs/ASSEMBLY.md` is the order it goes together in, which on this machine
+is load-bearing: the fascia is held by the lid and the module is held by the
+fascia, so two of the steps only work in one direction.
+
+Run the fit check after any change near the module's rails, the front
+opening, the fascia or the lid. It has now found six real problems the
+invariants missed, and every one of them was a part that **fitted where it
+sat and could not be got there**: a mount 0.5 mm inside the back wall, a VU
+ring with something standing in its centre hole, a module whose components
+stood 0.75 mm above the opening it slides through, and two complete fascia
+designs that seated perfectly and could never have been assembled.
+
+**A sweep checks that numbers stay sane. Only a path check asks whether a
+person can put it together.** And **two printed parts that touch must be
+intersected with each other** — checking each against the electronics is
+not the same check.
 
 The robot venv is the one with build123d and trimesh. Nothing here needs
 anything else.
@@ -74,3 +97,11 @@ anything else.
   dial exists because `f_slot0` now includes the LED ring's depth.
 - A support whose top meets a curved part sets its height from the **inner**
   edge of its own footprint — where the curve is lowest across that width.
+- **A part that passes the export gate can still be in pieces.** Watertight,
+  consistent winding and correct volume are all true of two closed shells
+  sitting next to each other. `_lib.py` counts bodies for exactly this reason;
+  if you add a feature by union, check it actually touches something.
+- **A part that is printed one way up and fitted another is handed.** The flip
+  moves any asymmetry — a bevel, a keyed corner — to the other side. Build it
+  in print orientation and mirror the outline so it lands right when turned
+  over; do not print a mirrored copy.

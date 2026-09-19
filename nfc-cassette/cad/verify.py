@@ -19,9 +19,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import params  # noqa: E402
 from _lib import emit, write_manifest  # noqa: E402
+from cartridge import build_back as build_cart_back, build_shell as build_cart_shell  # noqa: E402
 from cassette import build_lid, build_tray  # noqa: E402
 from player import build_base, build_top  # noqa: E402
 from player_slot import build_body as build_slot_body, build_lid as build_slot_lid, build_knob, build_diffuser  # noqa: E402
+from player_tap import (build_body as build_tap_body, build_fascia as build_tap_fascia,  # noqa: E402
+                        build_lid as build_tap_lid, build_mark_arc)
 
 
 def invariants(v: dict, D: dict) -> list[str]:
@@ -234,6 +237,80 @@ def invariants(v: dict, D: dict) -> list[str]:
     chk(not D["k_vu_diff_grooved"] or D["k_vu_diff_groove_half"] < math.radians(v["k_vu_gap_deg"]) / 2, "slot: a diffuser groove opens into a wedge")
     chk(D["k_vu_diff_groove_r1"] <= D["k_vu_diff_r"] - 0.2, "slot: a diffuser groove runs off the edge of the disc")
     chk(D["k_vu_diff_groove_r0"] > 0.5, "slot: a diffuser groove reaches the centre of the disc")
+    # ---- the tap player ----
+    chk(D["t_pad_l"] <= D["s_L"] - 2 * v["wall"] - 1e-6, "tap: the pad cuts through the end walls")
+    chk(D["t_pad_w"] <= D["s_W"] - 2 * v["wall"] - 1e-6, "tap: the pad cuts through the front or back wall")
+    chk(D["t_antenna_to_tag"] <= 12.0, "tap: the antenna is too far from a tapped tag")
+    chk(D["t_pn_board_z"] > D["s_brd_top_z"] + 1.0, "tap: the module hangs into the ESP32's headroom")
+    chk(D["t_pn_air"] >= v["t_pn_air"] - 1e-9, "tap: the module's components touch the top wall")
+    chk(v["pn532_l"] <= D["t_pad_l"] and v["pn532_w"] <= D["t_pad_w"], "tap: the module is bigger than the pad it sits under")
+    # the tag lands over the coil, not merely near it. Nothing checked this:
+    # t_antenna_to_tag measures the gap and says nothing about the offset.
+    chk(abs(D["t_pad_cx"] - D["t_pn_cx"]) + v["tag_d"] / 2 <= v["pn532_l"] / 2 + 1e-6
+        and abs(D["t_pad_cy"] - D["t_pn_cy"]) + v["tag_d"] / 2 <= v["pn532_w"] / 2 + 1e-6,
+        "tap: a tapped tag does not land inside the module's footprint")
+    chk(abs(D["t_pad_cx"]) + D["t_pad_l"] / 2 <= D["s_L"] / 2 - v["wall"] + 1e-6
+        and abs(D["t_pad_cy"]) + D["t_pad_w"] / 2 <= D["s_W"] / 2 - v["wall"] + 1e-6,
+        "tap: the pad has moved off the top of the body")
+    # ---- the cartridge, which had no invariants at all ----
+    chk(D["cart_pocket_d"] + 2 * v["cart_tag_ring_t"]
+        <= min(D["cart_inner_l"], D["cart_inner_w"]) - 2.0,
+        "cartridge: the tag's locating ring does not fit the cavity")
+    chk(v["tag_t"] + 0.6 <= D["cart_cavity_h"] + 1e-9, "cartridge: the tag is thicker than the cavity")
+    chk(D["cart_tag_ring_h"] <= D["cart_cavity_h"] - 0.4 + 1e-9, "cartridge: the locating ring is taller than the cavity")
+    chk(not D["cart_pressed"] or D["cart_tag_press_h"] >= 0.8,
+        "cartridge: the back plate's spigot is too short to print")
+    chk(D["cart_tag_ring_h"] >= 0.6, "cartridge: the locating ring is too short to locate anything")
+    chk(D["cart_sticker_t"] >= 0.15, "cartridge: the label recess has been squeezed to nothing")
+    chk(D["cart_sticker_l"] <= v["cart_l"] - 2 * v["cart_corner_r"] + 1e-9
+        and D["cart_sticker_w"] <= v["cart_w"] - 2 * v["cart_corner_r"] + 1e-9,
+        "cartridge: the label recess runs into the corner radius")
+    chk(v["cart_wall"] - D["cart_sticker_t"] >= 0.9 - 1e-9, "cartridge: the label recess leaves too little shell behind it")
+    chk(v["cart_seat"] > v["cart_back_clr"] + 0.2, "cartridge: the back plate's rebate is smaller than its own clearance")
+    chk(D["cart_break"] > 0.0, "cartridge: the edge break has gone negative")
+    chk(v["cart_bevel"] < min(v["cart_l"], v["cart_w"]) / 2, "cartridge: the bevel has eaten half the cartridge")
+    # the mark is an instruction - tap HERE - so it has to stay on the surface
+    # the cartridge actually lands on, in both directions
+    _r_in, _r_out = D["t_mark_r"][-1]
+    _half = (D["t_mark_a1"] - D["t_mark_a0"]) / 2
+    _wide = _half >= math.pi / 2
+    _mx1 = D["t_pn_cx"] + _r_out
+    _mx0 = D["t_pn_cx"] + (-_r_out if _wide else _r_in * math.cos(_half))
+    _my = _r_out * (1.0 if _wide else math.sin(_half))
+    chk(_mx1 <= D["t_pad_l"] / 2 + 1e-6 and _mx0 >= -D["t_pad_l"] / 2 - 1e-6
+        and _my <= D["t_pad_w"] / 2 + 1e-6,
+        "tap: the contactless mark runs off the pad it is telling you to tap")
+    # the module goes in through the front opening, so the opening is its
+    # ceiling, not the roof. It fitted under the roof and could not be got in.
+    chk(D["t_pn_comp_z"] <= D["t_ap_z1"] - v["t_pn_slide_clr"] + 1e-9,
+        "tap: the module stands above the opening it has to slide through")
+    chk(v["pn532_l"] + 2 * v["t_pn_clr"] + 2 * v["t_pn_rail_t"] <= D["t_ap_l"],
+        "tap: the module and its rails are wider than the opening")
+    # ---- the fascia, and how it gets in and out ----
+    # Everything here is scar tissue. Two earlier versions of this face seated
+    # perfectly and could not be assembled - once because the flange was wider
+    # than the cavity it had to retreat into, once because the dial left no
+    # frame at the top to hook on to. Neither showed up until the fit check
+    # tried to move it.
+    chk(D["t_face_band"] >= v["t_face_band_min"] - 1e-9,
+        "tap: no frame left above the opening for the fascia to bear on")
+    chk(D["t_face_dial_top"] <= D["t_ap_z1"] - v["t_face_clr"] + 1e-9,
+        "tap: the fascia's own edge cuts through the top of the dial")
+    chk(D["t_face_dial_bot"] >= D["s_lid_t"] + 1e-9, "tap: the dial runs into the lid")
+    chk(D["t_face_z0"] >= D["s_lid_t"] - 1e-9,
+        "tap: the fascia's flange hangs below the lid that is meant to hold it up")
+    chk(abs(D["t_face_z1"] - D["t_roof_z"]) < 1e-9,
+        "tap: the fascia's flange does not reach the roof, so nothing stops it sliding up")
+    chk(v["t_face_inset"] - D["t_face_ledge"] >= 0.8 - 1e-9,
+        "tap: too little body left outside the channel to hold the fascia sideways")
+    chk(v["wall"] - D["t_face_rebate"] >= 0.8 - 1e-9,
+        "tap: the channel leaves the front wall thinner than two perimeters")
+    chk(D["t_face_chamfer"] > 0.0, "tap: the fascia's lead-in chamfer has gone negative")
+    chk(D["t_face_chamfer"] <= D["t_face_rebate"] - 0.3 + 1e-9
+        and D["t_face_chamfer"] <= D["t_face_ledge"] - 0.4 + 1e-9,
+        "tap: the fascia's chamfer eats the flange it is chamfering")
+    chk(D["k_vu_c"][0] + D["k_vu_bezel_od"] / 2 <= D["t_ap_l"] / 2 - v["t_face_clr"],
+        "tap: the dial runs off the end of the fascia")
     return bad
 
 
@@ -242,6 +319,10 @@ def build_all(D: dict):
             "player_base": build_base(D), "player_top": build_top(D),
             "slot_body": build_slot_body(D), "slot_lid": build_slot_lid(D),
             "vu_diffuser": build_diffuser(D),
+            "tap_body": build_tap_body(D), "tap_fascia": build_tap_fascia(D),
+            "tap_lid": build_tap_lid(D),
+            **{f"tap_mark_{i + 1}": build_mark_arc(D, i) for i in range(len(D["t_mark_r"]))},
+            "cart_shell": build_cart_shell(D), "cart_back": build_cart_back(D),
             "knob_big": build_knob(D, D["k_knob_big_d"]), "knob_small": build_knob(D, D["k_knob_small_d"])}
 
 
@@ -280,6 +361,19 @@ def main() -> int:
               f"return run in the groove on the outside face")
     emit(parts["vu_diffuser"], "vu_diffuser", "smooth face down, grooves up",
          note="WHITE PLA; glue into the dial's dish inside the bezel")
+    emit(parts["tap_body"], "tap_body", "upside down, top face on the bed",
+         note="tap pad on the top; PN532 flat under it, antenna up")
+    emit(parts["tap_fascia"], "tap_fascia", "face down",
+         note="the swappable face; slides UP into the body, the lid holds it there")
+    emit(parts["tap_lid"], "tap_lid", "outside face down",
+         note="4 x M3 pan head from below; ESP32, ring posts, buzzer, zip ties")
+    for i in range(len(D["t_mark_r"])):
+        emit(parts[f"tap_mark_{i + 1}"], f"tap_mark_{i + 1}", "flat",
+             note=f"arc {i + 1} of the contactless mark; glue into its recess on the top")
+    emit(parts["cart_shell"], "cart_shell", "face down, open side up",
+         note="pocket takes a 25 mm NTAG215 disc; label recess in the face")
+    emit(parts["cart_back"], "cart_back", "flat, spigot UP",
+         note="installs turned over - spigot down onto the tag; the outline is mirrored to suit")
     emit(parts["knob_big"], "knob_big", "flat, base down", note="glue into the left recess")
     emit(parts["knob_small"], "knob_small", "flat, base down", note="glue into the right recess")
     write_manifest()
@@ -295,7 +389,55 @@ def main() -> int:
     # moved since they were first swept. It touches nothing in the slot
     # player, whose slot has its own s_slot_r. Put it back before changing
     # the cassette shell or the flat bay.
-    sweep = ["wall", "bay_clr", "pcb_clr", "pn532_comp_h", "esp_top_h", "card_clr", "s_mount_gap"]
+    # First, sweeps that build nothing. The geometry sweep can only afford a
+    # handful of parameters because every corner rebuilds eighteen solids; the
+    # invariants cost microseconds, so they get their own passes over
+    # everything the tap player's face, its mounts and the cartridge depend on.
+    #
+    # In GROUPS, and exhaustive within each one, rather than all of them at
+    # once: twenty-eight parameters together is 2**28 corners, which is not a
+    # stronger check than two exhaustive passes so much as one that never
+    # finishes. Each group holds the parameters that actually reach each
+    # other; the rest sit at nominal.
+    #
+    # This is where every range fault in this design has been caught. Each of
+    # them satisfied nominal perfectly and broke somewhere in here.
+    groups = {
+        "face and mounts": [
+            "t_face_ledge", "t_face_rebate", "t_face_clr", "t_face_band_min",
+            "t_face_dial_bot_pad", "t_face_chamfer", "t_pn_slide_clr",
+            "t_pn_slot_clr", "t_pn_top_ledge", "k_vu_r1", "k_vu_bezel_w",
+            "t_face_inset", "edge_break", "wall", "t_mark_r0", "t_mark_pitch",
+            "t_mark_w", "t_mark_half_deg"],
+        "cartridge": [
+            "cart_wall", "cart_lid_t", "cart_tag_ring_t", "cart_tag_press_clr",
+            "tag_d", "tag_t", "tag_clr", "cart_h", "cart_l", "cart_w",
+            "cart_sticker_margin", "cart_seat", "cart_corner_r", "cart_bevel"],
+    }
+    t0 = time.time()
+    fails = 0
+    for label, names in groups.items():
+        g_fail = 0
+        for corner in itertools.product(*[(params.PARAMS[k].lo, params.PARAMS[k].hi)
+                                          for k in names]):
+            vv = dict(v)
+            vv.update(dict(zip(names, corner)))
+            bad = invariants(vv, params.derive(vv))
+            if bad:
+                g_fail += 1
+                if g_fail <= 3:
+                    print(f"  {label} corner {dict(zip(names, corner))}: " + "; ".join(bad))
+        print(f"  {label}: {2 ** len(names)} corners, {g_fail} failures")
+        fails += g_fail
+    print(f"  invariant groups: {fails} failures, {time.time() - t0:.0f} s")
+    if fails:
+        return 1
+
+    # tag_t is in here for one reason: it is what decides whether the back
+    # plate gets its hold-down spigot, and a conditional feature that is only
+    # ever built at nominal is a feature nobody has checked.
+    sweep = ["wall", "bay_clr", "pcb_clr", "pn532_comp_h", "esp_top_h", "card_clr",
+             "s_mount_gap", "t_face_ledge", "esp_l", "tag_t"]
     fails = 0
     n = 0
     t0 = time.time()

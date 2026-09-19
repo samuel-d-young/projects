@@ -390,3 +390,257 @@ the bed's finish. 951.8 mm³, about 1.2 g.
 **Checks.** The six diffuser parameters swept against the six that move the dial
 and the wall — 4096 corners — give **0 diffuser failures**. `fitcheck_slot.py`
 is unchanged, as it must be: the body did not move.
+
+---
+
+## 2026-09-19 — Tapped, not slotted: the cartridge format, and a face that comes off
+
+**The brief changed twice in one sitting.** First: the compact cassette is too
+big, give me four retro sizes that still read as retro, build the Game Boy one.
+Then, mid-answer: *"it will no longer be a slot to put the cards into, they
+will be tapped. So that light is really important here."* And then two more: no
+indent on the top, a multicoloured contactless symbol instead; and the front
+face has to come off so it can be printed in other colours.
+
+Those are four different machines' worth of change, and they all land on the
+same body.
+
+### Why tapping makes the light the whole interface
+
+A slot gave three confirmations for free: a detent you can feel, a thunk you
+can hear, and a tape standing 30 mm proud that you can see across the room.
+Tapping gives none of them. The dial going amber and then white is now the
+*only* signal that anything happened, which is why the dial stays on the
+**front** — visible from where you are standing — rather than moving to the
+top, under the hand that is doing the tapping. **(decision, Samuel confirmed:
+"Still the front.")**
+
+### The body barely moved, which was the surprise
+
+Take the slot out and the box stays 127.4 x 73.7 x 48.5. The slot was never
+what set the size: the face has to carry a 38 mm dial, which is what makes the
+body ~48 tall, and the ESP32 plus the face's furniture is what makes it ~127
+long. What changed is the inside — the PN532 stops standing upright behind a
+slot and lies **flat under the top, antenna up**, 5.95 mm from a tapped
+cartridge's tag **(derived; the limit is 12)**.
+
+### The face took three designs, and only the fit check could tell
+
+Each of the first two seated perfectly. Each satisfied every invariant. Each
+was impossible to assemble, and the sweep said nothing, because a sweep checks
+that numbers stay sane and only a path check asks whether a person can put the
+thing together.
+
+1. **Flange behind the opening.** The flange is wider than the hole, so the
+   only way out is backwards into the cavity — past the VU ring, the module's
+   rails and the ESP32. Measured: the flange was **124.4 wide against a 122.6
+   cavity**. It could not have been fitted in the first place.
+2. **Hook or tilt in over a top lip.** Killed by the dial. The bezel is 38 mm
+   tall in a cavity 42.4 mm tall, which leaves **2.1 mm of frame above the
+   opening**. There is nothing up there to grab.
+3. **Slide up into a channel, open at the bottom.** Left, right and the roof
+   hold the flange; the lid, screwed on underneath, is what stops it sliding
+   back down. Taking the lid off is already the way into this machine, so a
+   face change costs four screws and no new parts. The fascia is a flat plate:
+   no hooks, no undercuts, nothing that prints badly face down. The step
+   between plate and flange is chamfered 1.0 mm, which is both the lead-in that
+   finds the channel and the thing that turns a 1.5 mm unsupported ledge into a
+   45-degree wall.
+
+The strip of front wall above the opening — **1.55 mm** — is the entire
+retention at the top, so `params.py` sizes it from the dial rather than from a
+typed number, and the sweep guards it.
+
+### The dial can outgrow the body, and always could
+
+Deriving the opening's top edge from the dial turned up a fault that predates
+all of this: **`k_vu_r1` at the top of its range makes a bezel that does not fit
+the cavity at all**, fascia or no fascia. The old sweep never touched
+`k_vu_r1`, so it had never been asked. `s_H` is now `max(module stack, what the
+dial needs)` — at nominal the stack wins by 2 mm and nothing moves, and the
+term only binds where the dial would otherwise be cut. Three more range faults
+fell out of the same pass:
+
+| Found | Why it never showed | Fix |
+|---|---|---|
+| `k_vu_r1` low end puts the wedge slots inside the LED circle | `k_vu_r1` was not swept | low end raised to 14.3, the floor for the widest ring in range |
+| REC lamp hard-coded at x 12.0, collides with a grown bezel | same | placed from the bezel's edge instead of from a number |
+| a 1.8 mm channel in a 2.0 mm wall leaves 0.2 mm of front | new relationship | the choice is a ceiling: `min(choice, wall - 0.8)` |
+| a 2.5 mm ledge inside a 2.0 mm frame leaves nothing | new relationship | `min(choice, inset - 0.8)` |
+
+And one real coupling: **the slot player's top lip hangs off the roof** while
+its PCB sits on the lid's shelf. That only worked while the module's stack was
+what set the body height. The moment anything else could make the body taller,
+the lip rose away from the board it is meant to hold down. It is now set from
+the PCB.
+
+### The three mounts, which were all located and none held
+
+Samuel asked for the best dimensions for mounting the LEDs, the Node MCU and
+the NFC module. Measuring what was actually there first:
+
+| | Was | Now |
+|---|---|---|
+| **PN532** | rested on two ledges with **1.95 mm of daylight** to the roof — and that daylight *is* the read distance, so the same tap read differently depending on how the board settled | a **slot**: a second ledge over the top turns two rails into a channel, 0.35 mm of play on a 1.6 mm board. The upper ledge reaches in 1.0 mm, less than the lower one, so it stays on the board's edge margin and off the antenna coil |
+| **VU ring** | located in X and Z by two ribs and two lid posts, held in Y by **nothing** — 64 mm of cavity to fall back into | a back stop 2.5 mm deep x 12 tall on each rib, so the ring is trapped between the stop and the fascia and cannot rock |
+| **ESP32** | four corner lips, sized to the length keyed into `params.py` | plus **two lips at the middle of each long edge**. The board is sold at 48.2, 51.5 and 55 mm under the same name; on a short one the corner lips hold nothing at all, and the middle is where every variant has board. `esp_l`'s swept range now covers all three |
+
+The board is datumed from its **USB end**, so being wrong about the length
+loses grip at the far end but never moves the USB out of its cutout. That was
+worth getting right — a centred board once put the USB 22.3 mm from its hole.
+
+`docs/MEASURE-FIRST.md` is the ten-minute calipers card: which four numbers are
+critical, what each one breaks, and what is already known from datasheets and
+does not need measuring at all.
+
+### Edges
+
+Every printed body now has its outline broken top and bottom, 0.6 mm. Not only
+cosmetic: these bodies print top face down, so the break at the top of the part
+is the first layer and takes the elephant's foot that a square edge shows as a
+lip you can feel, and the break at the bottom is the last layer, sloping inward
+as it rises, so it is self-supporting.
+
+It is done by **subtracting a tapered ring**, not with `chamfer()`, because
+`chamfer()` could not do it. A chamfer propagates along tangent-continuous
+edges, so asking for the tap body's back edge asks for the whole loop, and the
+loop runs through the junction where the front opening, the skirt and a corner
+fillet all meet at z = 0. OCC refuses that junction, and refusing it fails the
+whole operation — **all seven bottom edges failed individually, for the same
+reason**. A boolean has no opinion about junctions. The cartridge is a clean
+bevelled prism with no such junction, so it keeps `chamfer()`.
+
+### Checks
+
+`cad/fitcheck_tap.py` is new and is the reason any of this is trustworthy. On
+the real built solids, never on the numbers that made them: every board
+intersected with body and lid, everything inside the envelope, the lid's
+approach, **the fascia sliding out of the bottom of its channel**, the module
+sliding out the front, the ring dropping out, and a tapped cartridge sitting
+clear with its tag in range.
+
+The gate now runs in two stages. The geometry sweep can only afford a handful
+of parameters because every corner rebuilds eighteen solids; the invariants
+cost microseconds, so they get their own exhaustive pass first, over the
+eighteen that drive the face and the mounts — **262144 corners**. That pass is
+where all five range faults above were caught, and it is where the fascia's two
+impossible designs would have been caught if the relationships had existed to
+catch them.
+
+### The cartridge had no invariants, and both of its features were broken
+
+Grepping the gate for cartridge checks returned nothing: the newest part in the
+repo had never been guarded. Writing the checks found two faults immediately,
+and neither would have shown up on a print — both parts would have come off the
+bed looking right.
+
+**The tag's pocket did nothing.** It was cut as a cylinder starting at
+`cart_wall`, which is exactly the z the cavity floor already starts at, so it
+removed material that was already gone. Every cartridge would have had a 25 mm
+disc loose in a 54 × 62 box, which is the precise failure the comment above it
+said it was preventing. Cutting the pocket any lower is not the fix either: the
+floor is 1.6 mm and the tag is most of that. It is now a **ring that adds
+material** — ID `tag_d + 2 × tag_clr`, 1.2 wall — plus a **spigot on the back
+plate** that holds the disc down on the floor. The ring stops it sliding; the
+spigot stops it floating, and floating is read distance. The spigot is derived,
+not assumed: at the thin end of the cartridge with the thick end of the tag
+there is no room for one, and it comes out without rather than with a 0.45 mm
+boss the slicer would drop. **15360 of 16384 corners get it; nominal does.**
+
+**The tag did not land on the antenna.** `t_pad_cx` was 0 and the module sits
+at −6.65, so a cartridge tapped in the middle of the pad put its tag 6.65 mm to
+the side of the coil. Nothing said so, because `t_antenna_to_tag` only ever
+measured the **gap** and never the **offset**. The pad now follows the module —
+the mark, the pad and the antenna are the same place by construction — and
+there is an invariant that a tapped tag lands inside the module's footprint in
+both directions.
+
+Four more range faults fell out of the cartridge's first invariant pass, all
+the same shape as the fascia's: a choice whose range does not fit the thing it
+is cut into.
+
+| Found | Fix |
+|---|---|
+| a 0.60 recess in a 1.2 wall leaves 0.6 mm of shell | depth is `min(choice, wall − 0.9)` |
+| a 2.0 label margin inside a 4.0 corner radius cuts through the rounded corner | margin is `max(choice, corner_r)` |
+| the locating ring taller than the cavity it stands in | height is `min(tag + clearance + 0.4, cavity − 0.4)` |
+| a 0.45 mm spigot | derived away, as above |
+
+### The gate, final shape
+
+Two exhaustive invariant passes that build nothing, then the geometry sweep:
+
+| Stage | Corners | Cost |
+|---|---|---|
+| face and mounts — 18 parameters | 262144 | 23 s |
+| cartridge — 14 parameters | 16384 | 1 s |
+| geometry — 10 parameters, 18 solids each | 1024 | the long one |
+
+In groups, exhaustive within each, rather than all twenty-eight parameters at
+once: 2²⁸ is not a stronger check so much as one that never finishes. Each
+group holds the parameters that actually reach each other and the rest sit at
+nominal. `tag_t` is in the **geometry** sweep for one reason — it is what
+decides whether the back plate gets its spigot, and a conditional feature only
+ever built at nominal is a feature nobody has checked.
+
+Every range fault in this design was found in those first two stages. Each of
+them satisfied nominal perfectly.
+
+### One part in two pieces, and what that found
+
+The back plate is handed now, and it was not before. It was a flat bevelled
+prism, symmetrical top to bottom, so it did not matter which way up it went in.
+The spigot made it matter: it is **built in its print orientation, spigot up**,
+and it **installs turned over**, and that flip swings the bevelled corner across
+to the other side of a bevelled seat. The outline is mirrored to suit, so it
+lands the right way round once it is turned over.
+
+This came to light in the render, of all places — the spigot was sitting on top
+of the cartridge like a doorknob, because the render placed the part the way it
+was built rather than the way it is fitted.
+
+**And mirroring it broke it in a way nothing could see.** Reversing the
+polygon's points reverses its winding, `extrude` follows the face normal, so
+the plate extruded *downward* from the sketch plane while the spigot was added
+*above* it. The part came out as two solids with 1.6 mm of air between them.
+
+It exported clean. Two closed shells are still watertight. Their windings are
+still consistent. Their volumes still add up to exactly what the B-rep says,
+because the B-rep is also two solids. Every check in `_lib.py` passed, and the
+file would have sliced, printed as two loose parts, and only then made sense.
+
+So `_lib.py` now counts bodies, and refuses anything that is not exactly one.
+Running every part back through it found the bug I was looking for — and two
+more I was not:
+
+> **`slot_body`: 4 disconnected bodies, not 1**
+> **`tap_fascia`: 4 disconnected bodies, not 1**
+
+The three loose pieces in each are the **tape counter's digit bars**. The
+window recess is cut from `face − 1.6 − k_dimple` back to `face + k_dimple`, so
+its floor is at `face + k_dimple`; the bars were centred at `face − 0.4`,
+0.8 mm in front of that floor, touching nothing. Three 4 × 0.8 × 5.5 slivers
+floating in a hole — in **every build of this face since the counter window was
+first drawn**, on a part that has been through the sweep 128 corners at a time
+and come back clean every single run.
+
+Watertight. Consistent winding. Volume exactly as the B-rep said. They would
+have come off the bed loose and nobody would have known what they were.
+
+The bars now stand on the window's floor, derived from it rather than from a
+number that happened to be right once.
+
+### What the checks actually catch, in order of what they have found
+
+| Check | What only it can see |
+|---|---|
+| invariants | a relationship between two numbers going wrong at the edge of a range |
+| **one body** | a part in pieces. Watertight, correct volume, correct winding - and in pieces |
+| fit check | a part that fits where it sits and cannot be got there |
+| volume drift | a tessellation that quietly dropped a face |
+| corner sweep | a boolean that fails somewhere other than nominal |
+
+Three of the five have now found something the other four could not.
+
+**Parts: 18.** Tap player = body, fascia, lid, four mark arcs; cartridge =
+shell + back. Everything prints flat or recessed side up, no supports.

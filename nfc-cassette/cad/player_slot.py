@@ -25,7 +25,8 @@ from __future__ import annotations
 
 import math
 
-from build123d import Align, Axis, Box, Cylinder, Pos, Rot, fillet
+from build123d import (Align, Axis, Box, Cylinder, Plane, Pos, RectangleRounded,
+                       Rot, extrude, fillet)
 
 C = (Align.CENTER, Align.CENTER, Align.MIN)
 CC = (Align.CENTER, Align.CENTER, Align.CENTER)
@@ -34,6 +35,44 @@ CC = (Align.CENTER, Align.CENTER, Align.CENTER)
 def _rounded_box(l: float, w: float, h: float, r: float):
     b = Box(l, w, h, align=C)
     return fillet(b.edges().filter_by(Axis.Z), r)
+
+
+def break_outer_edges(solid, L: float, W: float, r: float, c: float,
+                      z0: float, z1: float, bottom=True, top=True):
+    """Chamfer the horizontal edges around a body's outline, by subtraction.
+
+    This is the difference between a part that looks printed and a part that
+    looks made, and it is not only cosmetic. These bodies print top face down,
+    so the break at the top of the part is the first layer - it takes the
+    elephant's foot that a square edge shows as a lip you can feel - and the
+    break at the bottom is the last layer, sloping inward as it rises, so it is
+    self-supporting. 45 degrees prints at both ends.
+
+    Done with a boolean and not with chamfer(), which could not do it. A
+    chamfer propagates along tangent-continuous edges, so asking for the tap
+    player's back edge asks for the whole loop, and the loop runs through the
+    junction where the front opening, the skirt and a corner fillet all meet at
+    z = 0. OCC refuses that junction, and refusing it fails the entire
+    operation - every one of the seven bottom edges failed on its own for the
+    same reason. Subtracting a tapered ring has no opinion about junctions: it
+    removes the outer corner wherever there is material and does nothing where
+    there is not.
+    """
+    def ring(base_z, grow_up: bool):
+        outer = Pos(0, 0, base_z) * _rounded_box(L, W, c, r)
+        small = max(r - c, 0.2)
+        if grow_up:      # full size at the top of the band, inset at the bottom
+            core = extrude(Plane.XY.offset(base_z) * RectangleRounded(L - 2 * c, W - 2 * c, small),
+                           c, taper=-45)
+        else:            # full size at the bottom of the band, inset at the top
+            core = extrude(Plane.XY.offset(base_z) * RectangleRounded(L, W, r), c, taper=45)
+        return outer - core
+
+    if bottom:
+        solid = solid - ring(z0, True)
+    if top:
+        solid = solid - ring(z1 - c, False)
+    return solid
 
 
 def _posts_and_lips(cx, cy, pl, pw, D, top_z, lip_top_z, z0):
@@ -49,6 +88,14 @@ def _posts_and_lips(cx, cy, pl, pw, D, top_z, lip_top_z, z0):
             ly = cy + sy * (pw / 2 + D["pcb_clr"] + D["lip_t"] / 2)
             parts.append(Pos(lx, py, z0) * Box(D["lip_t"], post, lip_top_z - z0, align=C))
             parts.append(Pos(px, ly, z0) * Box(post, D["lip_t"], lip_top_z - z0, align=C))
+    # A lip halfway along each long edge as well. The corner lips grip a board
+    # exactly as long as the number in params; the ESP32 is sold at 48.2, 51.5
+    # and 55 mm under the same name, and on a short one the far corners hold
+    # nothing at all. These two sit at the middle, where every variant has
+    # board, so the hold-down survives being wrong about the length.
+    for sy in (-1, 1):
+        ly = cy + sy * (pw / 2 + D["pcb_clr"] + D["lip_t"] / 2)
+        parts.append(Pos(cx, ly, z0) * Box(D["s_mid_lip_l"], D["lip_t"], lip_top_z - z0, align=C))
     return parts
 
 
@@ -136,7 +183,11 @@ def build_body(D: dict):
     for dy in (-3.0, 0.0, 3.0):
         body = body - Pos(L / 2, D["s_buzzer_cy"] + dy, 6.0) * Rot(0, 90, 0) * Cylinder(1.0, wall * 3, align=CC)
 
-    return _front_cosmetics(body, D)
+    body = _front_cosmetics(body, D)
+    # break the outline top and bottom, last, so it catches every edge the
+    # features above have left on it
+    return break_outer_edges(body, D["s_L"], D["s_W"], D["corner_r"],
+                             D["edge_break"], 0.0, D["s_H"])
 
 
 def _front_cosmetics(body, D: dict):
@@ -166,9 +217,17 @@ def _front_cosmetics(body, D: dict):
     cw, ch = D["k_counter_w"], D["k_counter_h"]
     body = body + Pos(cx, face - 0.4, cz) * Box(cw + 2.4, 0.8, ch + 2.4, align=CC)
     body = body - Pos(cx, face - 0.8, cz) * Box(cw, 1.6 + 2 * D["k_dimple"], ch, align=CC)
-    # three "digit" bars in the window
+    # Three "digit" bars in the window, standing ON its floor. They used to
+    # stand 0.8 mm in FRONT of it, touching nothing: the recess is cut from
+    # face - 1.6 - k_dimple back to face + k_dimple, so its floor is at
+    # face + k_dimple, and the bars were centred at face - 0.4. Three 4 x 0.8 x
+    # 5.5 slivers, floating in a hole, in every build of this face since the
+    # counter window was drawn. Watertight, consistent winding, volume exactly
+    # as the B-rep said - and they would have come off the bed loose.
+    w_floor = face + D["k_dimple"]
     for i in (-1, 0, 1):
-        body = body + Pos(cx + i * 6.0, face - 0.8 + D["k_dimple"] / 2, cz) * Box(4.0, D["k_dimple"], ch - 2.5, align=CC)
+        body = body + Pos(cx + i * 6.0, w_floor - D["k_dimple"] / 2, cz) * Box(
+            4.0, D["k_dimple"], ch - 2.5, align=CC)
     # REC lamp: a small recessed disc
     rx, rz = D["k_rec_c"]
     body = body - Pos(rx, face, rz) * Rot(90, 0, 0) * Cylinder(2.0, 2 * D["k_dimple"], align=CC)
@@ -312,7 +371,8 @@ def build_lid(D: dict):
     # buzzer locating ring
     lid = lid + Pos(D["s_buzzer_cx"], D["s_buzzer_cy"], floor) * (
         Cylinder(D["buzzer_d"] / 2 + 0.3 + 1.2, 3.0, align=C) - Cylinder(D["buzzer_d"] / 2 + 0.3, 3.2, align=C))
-    return lid
+    return break_outer_edges(lid, D["s_lid_l"], D["s_lid_w"], D["s_lid_r"],
+                             D["edge_break"], 0.0, D["s_lid_t"])
 
 
 if __name__ == "__main__":
