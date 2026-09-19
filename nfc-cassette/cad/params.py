@@ -65,6 +65,17 @@ _P: list[Param] = [
     Param("d1_w", 25.6, 25.4, 25.8, "datasheet"),
     Param("d1_t", 1.0, 0.9, 1.2, "datasheet"),
     Param("d1_standoff", 3.0, 2.5, 4.0, "choice", "board underside above the base floor"),
+    # ---- the ESP32-WROOM-32 DevKit, which is the board that actually works.
+    # Two D1 minis never answered esptool on any cable; the ESP32 did first try
+    # (2026-09-19), so the slot player houses this now. It is 20.8 mm longer
+    # than a D1 mini and that lands straight on the body: 127.9 -> 169.5.
+    Param("esp_l", 55.0, 54.0, 56.5, "assumed", "ESP32 DevKit board length, 38-pin. WANTS CALIPERS: the 30-pin and 38-pin boards differ, and clones vary along this axis more than any other"),
+    Param("esp_w", 27.9, 25.4, 28.5, "assumed", "and its width, across the two header rows"),
+    Param("esp_t", 1.6, 1.4, 1.8, "assumed", "PCB thickness"),
+    Param("esp_standoff", 3.0, 2.5, 4.0, "choice", "board underside above the lid"),
+    Param("esp_top_h", 14.0, 3.0, 14.5, "choice", "headroom above the board: 14 for Dupont on the headers, 3 for soldered wires"),
+    Param("esp_usb_w", 13.0, 12.0, 14.5, "assumed", "micro-USB plug boot on the DevKit"),
+    Param("esp_usb_h", 8.0, 7.0, 9.5, "assumed"),
     Param("d1_top_h", 14.0, 3.0, 14.5, "choice", "headroom above the board: 14 for Dupont on headers, 3 for soldered wires"),
     Param("usb_w", 13.0, 12.0, 14.0, "assumed", "micro-USB plug boot"),
     Param("usb_h", 8.0, 7.0, 9.0, "assumed"),
@@ -143,9 +154,11 @@ _P: list[Param] = [
     # move the slot back to make room. It replaces the dimpled speaker grille.
     Param("s_ring_od", 32.0, 31.0, 34.0, "assumed", "WS2812B 8-LED ring board diameter; photo-measured ~32, wants calipers"),
     Param("s_ring_led_c", 25.5, 24.5, 26.5, "assumed", "diameter of the circle the eight LEDs sit on; photo-measured 25.5"),
+    Param("s_ring_id", 19.0, 16.0, 21.0, "assumed", "the ring board's centre hole. The 5050 packages reach in to r 10.25, so the hole cannot exceed 20.5 - and the single WS2812B lives in it, which is why this is modelled at last"),
     Param("s_ring_t", 1.6, 1.4, 1.8, "assumed", "ring PCB thickness; standard FR4"),
     Param("s_ring_led_h", 1.6, 1.2, 2.0, "assumed", "WS2812B 5050 package height above the board"),
     Param("s_dot_od", 10.0, 8.0, 12.0, "assumed", "the single WS2812B board's diameter"),
+    Param("s_dot_ledge", 2.0, 1.5, 3.0, "choice", "the ledge the single WS2812B stands on, and how far its fins run past it"),
     Param("s_ring_air", 0.6, 0.4, 1.0, "choice", "air between the LED tops and the inside of the front wall"),
     Param("s_ring_clr", 0.4, 0.3, 0.8, "choice", "ring to its cradle, per side"),
     Param("s_ring_rib", 2.0, 1.6, 2.6, "choice", "the vertical ribs that hold the ring; vertical so they print on a vertical face"),
@@ -264,9 +277,9 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     # a 0.5 mm gap, then the module's side rib), whichever is more - so a thicker
     # wall grows the body instead of squeezing the board against the rib
     rail_outer = v["pn532_l"] / 2 + v["pcb_clr"] + v["s_keeper"]
-    d1_needs = 2 * (v["wall"] + v["s_mount_gap"] + v["lip_t"] + v["pcb_clr"] + v["d1_l"]
+    brd_needs = 2 * (v["wall"] + v["s_mount_gap"] + v["lip_t"] + v["pcb_clr"] + v["esp_l"]
                     + v["pcb_clr"] + v["lip_t"] + 0.6 + rail_outer)
-    D["s_L"] = max(D["s_slot_l"] + 2 * v["s_side_margin"], d1_needs)
+    D["s_L"] = max(D["s_slot_l"] + 2 * v["s_side_margin"], brd_needs)
     # the lid carries the screws, so it is as thick as a counterbored head needs,
     # never the shared `floor`: a 2.4 mm plate with a 2.5 mm head recess is a hole
     D["s_lid_t"] = max(v["floor"], v["screw_head_h"] + v["s_lid_under_head"])
@@ -285,15 +298,15 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     D["f_pcb0"] = D["f_slot1"] + v["s_module_wall"]
     D["f_pcb1"] = D["f_pcb0"] + v["pn532_t"]
     D["f_tail1"] = D["f_pcb1"] + D["s_tail"]
-    D["f_d1_0"] = D["f_pcb0"] + 1.0
-    D["f_d1_1"] = D["f_d1_0"] + v["d1_w"]
+    D["f_brd_0"] = D["f_pcb0"] + 1.0
+    D["f_brd_1"] = D["f_brd_0"] + v["esp_w"]
     # the back wall clears whichever is deeper: the module's tails plus air, or the
     # D1 mini's lips plus the gap the lid needs to drop past them
     D["f_back_inner"] = max(D["f_tail1"] + v["cavity_clr"],
-                            D["f_d1_1"] + v["pcb_clr"] + v["lip_t"] + v["s_mount_gap"])
+                            D["f_brd_1"] + v["pcb_clr"] + v["lip_t"] + v["s_mount_gap"])
     D["s_W"] = D["f_back_inner"] + v["wall"]
     yof = -D["s_W"] / 2.0
-    for k in ("f_slot0", "f_slot1", "f_pcb0", "f_pcb1", "f_tail1", "f_d1_0", "f_d1_1", "f_back_inner"):
+    for k in ("f_slot0", "f_slot1", "f_pcb0", "f_pcb1", "f_tail1", "f_brd_0", "f_brd_1", "f_back_inner"):
         D["y" + k[1:]] = D[k] + yof              # y_slot0, y_slot1, y_pcb0 ...
     D["s_H"] = D["s_lid_t"] + v["s_shelf_h"] + v["pn532_w"] + v["cavity_clr"] + v["s_roof"]
     D["s_plate_top_z"] = D["s_H"] - v["s_slot_depth"]
@@ -324,12 +337,12 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     D["s_antenna_to_card"] = v["s_module_wall"] + v["pn532_t"] + v["shell_floor"] + v["s_slot_clr"] + v["pcb_clr"]
     # D1 mini: long side along X, against the left wall (USB out through it); the
     # gap to the module's side rib is what the sweep checks
-    D["s_d1_cx"] = -(D["s_cavity_l"] / 2 - v["s_mount_gap"] - v["lip_t"] - v["pcb_clr"] - v["d1_l"] / 2)
-    D["s_d1_cy"] = (D["y_d1_0"] + D["y_d1_1"]) / 2
-    D["s_d1_rib_gap"] = (-D["s_rail_x"] - v["s_keeper"] / 2) - (D["s_d1_cx"] + v["d1_l"] / 2 + v["pcb_clr"] + v["lip_t"])
-    D["s_d1_board_z"] = D["s_lid_t"] + v["d1_standoff"]
-    D["s_d1_top_z"] = D["s_d1_board_z"] + v["d1_t"] + v["d1_top_h"]
-    D["s_usb_cz"] = D["s_d1_board_z"] + v["d1_t"] / 2 + 1.5
+    D["s_brd_cx"] = -(D["s_cavity_l"] / 2 - v["s_mount_gap"] - v["lip_t"] - v["pcb_clr"] - v["esp_l"] / 2)
+    D["s_brd_cy"] = (D["y_brd_0"] + D["y_brd_1"]) / 2
+    D["s_brd_rib_gap"] = (-D["s_rail_x"] - v["s_keeper"] / 2) - (D["s_brd_cx"] + v["esp_l"] / 2 + v["pcb_clr"] + v["lip_t"])
+    D["s_brd_board_z"] = D["s_lid_t"] + v["esp_standoff"]
+    D["s_brd_top_z"] = D["s_brd_board_z"] + v["esp_t"] + v["esp_top_h"]
+    D["s_usb_cz"] = D["s_brd_board_z"] + v["esp_t"] / 2 + 1.5
     # buzzer on the lid in the back zone, right of the module; sound holes through the right wall
     D["s_buzzer_cx"] = 40.0
     D["s_buzzer_cy"] = (D["y_pcb0"] + D["y_back_inner"]) / 2
@@ -339,7 +352,7 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     # they may sit anywhere on the face.
     D["s_led_cx"], D["s_led_cz"] = -49.5, 8.0        # as far left as the front-left screw post allows
     # ...which is set by the WORST sweep corner, not nominal: a thick wall grows
-    # s_L through d1_needs but pulls the post inward faster, and at wall 3.0 with
+    # s_L through brd_needs but pulls the post inward faster, and at wall 3.0 with
     # the tightest clearances -51.0 left 0.05 mm between the LED body and the post
     D["s_buttons_x0"], D["s_buttons_pitch"], D["s_buttons_cz"] = -39.5, v["k_key_w"] + 2.0, 9.0
     D["k_knob_big_c"] = (-48.0, 30.0)            # volume, top-left
@@ -373,6 +386,8 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     D["k_vu_diff_groove_r1"] = min(v["k_vu_r1"] + v["k_vu_diff_over"], D["k_vu_diff_r"] - 0.4)
     # the tightest place on a groove: the web is narrowest at the inner radius
     D["s_ring_cx"], D["s_ring_cz"] = D["k_vu_c"]
+    # anything standing in the ring's hole stays inside this radius
+    D["s_dot_fin_r"] = v["s_ring_id"] / 2 - v["s_ring_clr"]
     # the lid's two posts sit under the rim, off to each side; their tops follow
     # the circle, or they would hold the board 2 mm below where it belongs
     D["s_ring_post_dx"] = v["s_ring_od"] * 0.26
@@ -402,14 +417,14 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     D["s_tie_slot_l"] = v["tie_w"] + 2 * v["tie_clr"]
     D["s_tie_slot_w"] = v["tie_t"] + 2 * v["tie_clr"]
     D["s_tie_groove_d"] = v["tie_t"] + v["tie_clr"]
-    D["s_tie_x"] = [D["s_d1_cx"] - v["s_tie_span"] / 2, D["s_d1_cx"] + v["s_tie_span"] / 2]
-    D["s_tie_y_front"] = (D["y_d1_0"] - v["pcb_clr"] - v["lip_t"] - 0.4 - D["s_tie_slot_w"] / 2)
+    D["s_tie_x"] = [D["s_brd_cx"] - v["s_tie_span"] / 2, D["s_brd_cx"] + v["s_tie_span"] / 2]
+    D["s_tie_y_front"] = (D["y_brd_0"] - v["pcb_clr"] - v["lip_t"] - 0.4 - D["s_tie_slot_w"] / 2)
     # centred in the rise gap, but pulled inboard if that would crowd the lid's
     # own edge; the slot may overhang the board, there is d1_standoff under it
-    D["s_tie_y_back"] = min((D["y_d1_1"] + D["s_cavity_w"] / 2) / 2,
+    D["s_tie_y_back"] = min((D["y_brd_1"] + D["s_cavity_w"] / 2) / 2,
                             D["s_lid_w"] / 2 - 1.0 - D["s_tie_slot_w"] / 2)
-    D["s_tie_rise_gap"] = D["s_cavity_w"] / 2 - D["y_d1_1"]          # room for the strap to stand up
-    D["s_tie_lip_free"] = v["d1_l"] / 2 + v["pcb_clr"] + v["lip_t"] - (v["ledge"] + v["pcb_clr"] + v["lip_t"])
+    D["s_tie_rise_gap"] = D["s_cavity_w"] / 2 - D["y_brd_1"]          # room for the strap to stand up
+    D["s_tie_lip_free"] = v["esp_l"] / 2 + v["pcb_clr"] + v["lip_t"] - (v["ledge"] + v["pcb_clr"] + v["lip_t"])
     D["s_screw_in_post"] = v["screw_len"] - (D["s_lid_t"] - v["screw_head_h"])
     D["s_pilot_depth"] = D["s_screw_in_post"] + 2.0
     return D

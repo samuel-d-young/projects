@@ -108,7 +108,7 @@ def main():
     axes[1].set_title("straight on - knobs, counter window, REC lamp, transport keys, LED, VU dial", fontsize=11)
     frame(axes[2], scene(D, explode=30.0), azim=-35, elev=22)
     axes[2].set_title("exploded - lid drops away, tape lifts out, diffuser off the dial", fontsize=11)
-    fig.suptitle("NFC cassette player, slot version - PN532 upright behind the slot, D1 mini on the lid", fontsize=14, fontweight="bold")
+    fig.suptitle("NFC cassette player, slot version - PN532 upright behind the slot, ESP32 DevKit on the lid", fontsize=14, fontweight="bold")
     OUT.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT / "nfc-cassette-slot.png", dpi=130, bbox_inches="tight", facecolor="white")
     print(f"wrote {OUT / 'nfc-cassette-slot.png'}")

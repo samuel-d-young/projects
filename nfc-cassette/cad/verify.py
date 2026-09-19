@@ -96,9 +96,9 @@ def invariants(v: dict, D: dict) -> list[str]:
     for (x, y) in D["s_posts"]:
         chk((x - D["s_led_cx"]) ** 2 + (y + D["s_W"] / 2 - v["wall"] - 4.3) ** 2 > (v["post_d"] / 2 + v["led_d"] / 2 + 0.5) ** 2 or abs(x - D["s_led_cx"]) > v["post_d"] / 2 + v["led_d"] / 2 + 0.5,
             "slot: the LED body runs into a screw post")
-    chk(D["s_d1_rib_gap"] >= 0.5, "slot: D1 mini too close to the module's side rib; widen s_side_margin")
-    chk(D["y_d1_1"] + v["cavity_clr"] <= D["s_W"] / 2 - v["wall"] + 1e-6, "slot: D1 mini through the back wall")
-    chk(D["s_d1_top_z"] <= D["s_roof_z"] - 0.5, "slot: Dupont on the D1 mini hits the roof")
+    chk(D["s_brd_rib_gap"] >= 0.5, "slot: the ESP32 is too close to the module's side rib; widen s_side_margin")
+    chk(D["y_brd_1"] + v["cavity_clr"] <= D["s_W"] / 2 - v["wall"] + 1e-6, "slot: the ESP32 goes through the back wall")
+    chk(D["s_brd_top_z"] <= D["s_roof_z"] - 0.5, "slot: Dupont on the ESP32 hits the roof")
     chk(D["s_usb_cz"] + v["usb_h"] / 2 < D["s_plate_bot_z"], "slot: USB cutout runs into the slot floor plate")
     chk(D["y_tail1"] + v["cavity_clr"] <= D["s_W"] / 2 - v["wall"] + 1e-6, "slot: module tails through the back wall")
     # zip-tie hold-down: the strap has to stand up behind the board, the groove
@@ -107,7 +107,7 @@ def invariants(v: dict, D: dict) -> list[str]:
     chk(D["s_lid_t"] - D["s_tie_groove_d"] >= 1.2, "slot: the zip-tie groove leaves too little lid under it")
     chk(v["s_tie_span"] / 2 + D["s_tie_slot_l"] / 2 <= D["s_tie_lip_free"], "slot: a zip-tie slot lands on the D1 mini's corner lips")
     chk(D["s_tie_y_back"] + D["s_tie_slot_w"] / 2 <= D["s_lid_w"] / 2 - 0.8, "slot: the zip-tie slot runs off the back edge of the lid")
-    chk(D["s_tie_y_back"] + D["s_tie_slot_w"] / 2 - D["y_d1_1"] >= v["tie_t"], "slot: too little of the back zip-tie slot is clear of the board for the strap to stand up")
+    chk(D["s_tie_y_back"] + D["s_tie_slot_w"] / 2 - D["y_brd_1"] >= v["tie_t"], "slot: too little of the back zip-tie slot is clear of the board for the strap to stand up")
     chk(D["s_tie_y_front"] - D["s_tie_slot_w"] / 2 > D["y_pcb0"] - 1e-6 or D["s_tie_y_front"] + D["s_tie_slot_w"] / 2 < D["y_pcb0"], "slot: the front zip-tie slot straddles the slot block's wall")
     for (x, y) in D["s_posts"]:
         for tx in D["s_tie_x"]:
@@ -118,7 +118,7 @@ def invariants(v: dict, D: dict) -> list[str]:
     for (x, y) in D["s_posts"]:
         r = v["post_d"] / 2
         chk(abs(x) - r > D["s_slot_l"] / 2 + v["s_end_wall"] or y - r > D["y_pcb0"], "slot: a screw post lands in the slot block")
-        chk(abs(x - D["s_d1_cx"]) > v["d1_l"] / 2 + r + v["lip_t"] or abs(y - D["s_d1_cy"]) > v["d1_w"] / 2 + r + v["lip_t"], "slot: a screw post hits the D1 mini")
+        chk(abs(x - D["s_brd_cx"]) > v["esp_l"] / 2 + r + v["lip_t"] or abs(y - D["s_brd_cy"]) > v["esp_w"] / 2 + r + v["lip_t"], "slot: a screw post hits the ESP32")
         chk(abs(x) > v["pn532_l"] / 2 + r or y - r > D["y_tail1"], "slot: a screw post lands in the module tails")
         chk((x - D["s_buzzer_cx"]) ** 2 + (y - D["s_buzzer_cy"]) ** 2 > (r + v["buzzer_d"] / 2 + 1.5) ** 2, "slot: a screw post hits the buzzer")
         chk(abs(x) + r <= D["s_cavity_l"] / 2 + v["wall"] and abs(y) + r <= D["s_cavity_w"] / 2 + v["wall"], "slot: a screw post outside the body")
@@ -147,7 +147,7 @@ def invariants(v: dict, D: dict) -> list[str]:
         return min(A - abs(x), B - abs(y))
 
     mount = v["pcb_clr"] + v["lip_t"]
-    feet = [("D1 mini's mount", D["s_d1_cx"], D["s_d1_cy"], v["d1_l"] / 2 + mount, v["d1_w"] / 2 + mount),
+    feet = [("the ESP32's mount", D["s_brd_cx"], D["s_brd_cy"], v["esp_l"] / 2 + mount, v["esp_w"] / 2 + mount),
             ("buzzer ring", D["s_buzzer_cx"], D["s_buzzer_cy"], v["buzzer_d"] / 2 + 1.5, v["buzzer_d"] / 2 + 1.5),
             ("module shelf", 0.0, (D["y_pcb0"] + D["y_pcb1"]) / 2, 15.0, (v["pn532_t"] + v["pcb_clr"]) / 2),
             ("ring posts", D["k_vu_c"][0] + D["s_ring_post_dx"], (D["s_ring_y0"] + D["s_ring_y1"]) / 2, 2.5,
@@ -281,7 +281,7 @@ def main() -> int:
     # moved since they were first swept. It touches nothing in the slot
     # player, whose slot has its own s_slot_r. Put it back before changing
     # the cassette shell or the flat bay.
-    sweep = ["wall", "bay_clr", "pcb_clr", "pn532_comp_h", "d1_top_h", "card_clr", "s_mount_gap"]
+    sweep = ["wall", "bay_clr", "pcb_clr", "pn532_comp_h", "esp_top_h", "card_clr", "s_mount_gap"]
     fails = 0
     n = 0
     t0 = time.time()

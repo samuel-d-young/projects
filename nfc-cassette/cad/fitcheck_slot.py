@@ -52,22 +52,30 @@ def parts_inside(D: dict):
     # Dupont tails off the 8-pin header along the left edge: 2.54 pitch, 8 pins
     tails = Pos(-(v["pn532_l"] / 2 - 2.5), D["y_pcb1"] + D["s_tail"] / 2, D["s_pcb_bot_z"] + 8.0) * Box(
         3.0, D["s_tail"], 8 * 2.54 + 1.0, align=C)
-    d1 = Pos(D["s_d1_cx"], D["s_d1_cy"], D["s_d1_board_z"]) * Box(v["d1_l"], v["d1_w"], v["d1_t"] + v["d1_top_h"], align=C)
-    usb = Pos(D["s_d1_cx"] - v["d1_l"] / 2 - 6.0, D["s_d1_cy"], D["s_usb_cz"]) * Box(12.0, v["usb_w"] - 1.0, v["usb_h"] - 1.0, align=CC)
+    d1 = Pos(D["s_brd_cx"], D["s_brd_cy"], D["s_brd_board_z"]) * Box(v["esp_l"], v["esp_w"], v["esp_t"] + v["esp_top_h"], align=C)
+    usb = Pos(D["s_brd_cx"] - v["esp_l"] / 2 - 6.0, D["s_brd_cy"], D["s_usb_cz"]) * Box(12.0, v["esp_usb_w"] - 1.0, v["esp_usb_h"] - 1.0, align=CC)
     buzzer = Pos(D["s_buzzer_cx"], D["s_buzzer_cy"], D["s_lid_t"] + 0.2) * Cylinder(v["buzzer_d"] / 2, v["buzzer_d"] * 0.8, align=C)
     led = Pos(D["s_led_cx"], -D["s_W"] / 2 + v["wall"] + 4.3, D["s_led_cz"]) * Rot(90, 0, 0) * Cylinder(v["led_d"] / 2, 8.6, align=CC)
     tape = Pos(0, (D["y_slot0"] + D["y_slot1"]) / 2, D["s_plate_top_z"] + 0.3) * Box(v["cassette_l"], v["cassette_h"], v["cassette_w"], align=C)
     # The VU dial's boards, as one disc each: the ring board (the single LED sits
     # in its middle, so a full disc is the conservative shape) and the LED
     # packages standing in front of it, in the air gap behind the front wall.
-    ring = Pos(D["s_ring_cx"], (D["s_ring_y0"] + D["s_ring_y1"]) / 2, D["s_ring_cz"]) * Rot(90, 0, 0) * Cylinder(
-        v["s_ring_od"] / 2, v["s_ring_t"], align=CC)
-    ring_leds = Pos(D["s_ring_cx"], (D["s_ring_led_y"] + D["s_ring_y0"]) / 2, D["s_ring_cz"]) * Rot(90, 0, 0) * Cylinder(
-        v["s_ring_od"] / 2, v["s_ring_led_h"], align=CC)
+    # The ring is an ANNULUS, not a disc. It was modelled as a full disc while
+    # nothing sat in the middle; the single WS2812B now has a mount there, so
+    # the hole has to be real or the mount reads as a collision with a board
+    # that is not there.
+    def _ring(y, t):
+        return Pos(D["s_ring_cx"], y, D["s_ring_cz"]) * Rot(90, 0, 0) * (
+            Cylinder(v["s_ring_od"] / 2, t, align=CC)
+            - Cylinder(v["s_ring_id"] / 2, t + 1.0, align=CC))
+    ring = _ring((D["s_ring_y0"] + D["s_ring_y1"]) / 2, v["s_ring_t"])
+    ring_leds = _ring((D["s_ring_led_y"] + D["s_ring_y0"]) / 2, v["s_ring_led_h"])
+    dot = Pos(D["s_ring_cx"], (D["s_ring_led_y"] + D["s_ring_y1"]) / 2, D["s_ring_cz"]) * Rot(90, 0, 0) * Cylinder(
+        v["s_dot_od"] / 2, v["s_ring_led_h"] + v["s_ring_t"], align=CC)
     return {"PN532 board": pcb, "PN532 components (middle)": comp, "PN532 corner parts L": corners[0],
             "PN532 corner parts R": corners[1], "Dupont tails": tails, "D1 mini + headroom": d1,
             "USB plug": usb, "buzzer": buzzer, "LED": led, "tape in the slot": tape,
-            "VU ring board": ring, "VU ring LEDs": ring_leds}
+            "VU ring board": ring, "VU ring LEDs": ring_leds, "the single WS2812B": dot}
 
 
 def overlap(a, b) -> float:

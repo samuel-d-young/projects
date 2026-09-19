@@ -107,13 +107,29 @@ def build_body(D: dict):
     body = body + Pos(cx, ry, cz + D["s_ring_od"] / 2 + D["s_ring_clr"] + 1.0) * Box(
         2 * rx, D["s_ring_depth"], 2.0, align=CC)
 
+    # The single WS2812B, in the ring's middle. s_dot_od was declared when the
+    # dial was designed and never used - the pixel showed through the centre
+    # hole with nothing holding it. Two fins either side and a ledge under it,
+    # the same idea as the ring's own cradle and for the same reason: a fin on
+    # a vertical wall prints, a boss on one is a half-cylinder overhang.
+    dr = D["s_dot_od"] / 2 + D["s_ring_clr"]
+    body = body + Pos(cx, ry, cz - dr - D["s_dot_ledge"] / 2) * Box(
+        D["s_dot_od"], D["s_ring_depth"], D["s_dot_ledge"], align=CC)
+    # the fins' far corners have to stay inside the ring's own hole, so their
+    # height comes from that circle rather than from a guess
+    x_out = dr + D["s_ring_rib"]
+    fin_h = 2 * math.sqrt(max(D["s_dot_fin_r"] ** 2 - x_out ** 2, 1.0))
+    for sx in (-1, 1):
+        body = body + Pos(cx + sx * (dr + D["s_ring_rib"] / 2), ry, cz) * Box(
+            D["s_ring_rib"], D["s_ring_depth"], fin_h, align=CC)
+
     # screw posts from the roof down to the lid, pilot-drilled from below
     for (x, y) in D["s_posts"]:
         body = body + Pos(x, y, floor) * Cylinder(D["post_d"] / 2, D["s_roof_z"] - floor + 0.5, align=C)
         body = body - Pos(x, y, floor - 0.1) * Cylinder(D["screw_pilot"] / 2, D["s_pilot_depth"] + 0.1, align=C)
 
     # openings: USB through the left wall, LED and buzzer holes through the front wall
-    body = body - Pos(-L / 2, D["s_d1_cy"], D["s_usb_cz"]) * Box(wall * 3, D["usb_w"], D["usb_h"], align=CC)
+    body = body - Pos(-L / 2, D["s_brd_cy"], D["s_usb_cz"]) * Box(wall * 3, D["esp_usb_w"], D["esp_usb_h"], align=CC)
     body = body - Pos(D["s_led_cx"], -W / 2, D["s_led_cz"]) * Rot(90, 0, 0) * Cylinder(
         (D["led_d"] + 2 * D["led_clr"]) / 2, wall * 3, align=CC)
     for dy in (-3.0, 0.0, 3.0):
@@ -267,8 +283,8 @@ def build_lid(D: dict):
     lid = lid + Pos(0, (D["y_pcb0"] + D["y_pcb1"]) / 2, floor) * Box(30.0, D["pn532_t"] + D["pcb_clr"], D["s_shelf_h"], align=C)
     lid = lid + Pos(0, D["s_lip_y"], floor) * Box(D["s_lip_bot_w"], D["s_keeper"], D["s_lip_bot_z1"] - floor, align=C)
     # D1 mini posts + lips
-    for p in _posts_and_lips(D["s_d1_cx"], D["s_d1_cy"], D["d1_l"], D["d1_w"], D,
-                             top_z=D["s_d1_board_z"], lip_top_z=D["s_d1_board_z"] + D["d1_t"] + 3.0, z0=floor):
+    for p in _posts_and_lips(D["s_brd_cx"], D["s_brd_cy"], D["esp_l"], D["esp_w"], D,
+                             top_z=D["s_brd_board_z"], lip_top_z=D["s_brd_board_z"] + D["esp_t"] + 3.0, z0=floor):
         lid = lid + p
     # the two posts the ring stands on. They sit under its rim, between LEDs,
     # and are pulled back off the cavity wall by s_mount_gap like every other
