@@ -52,7 +52,11 @@ def parts_inside(D: dict):
     # Dupont tails off the 8-pin header along the left edge: 2.54 pitch, 8 pins
     tails = Pos(-(v["pn532_l"] / 2 - 2.5), D["y_pcb1"] + D["s_tail"] / 2, D["s_pcb_bot_z"] + 8.0) * Box(
         3.0, D["s_tail"], 8 * 2.54 + 1.0, align=C)
-    d1 = Pos(D["s_brd_cx"], D["s_brd_cy"], D["s_brd_board_z"]) * Box(v["esp_l"], v["esp_w"], v["esp_t"] + v["esp_top_h"], align=C)
+    # The board stands on edge: 55 across, its thickness plus the Dupont headroom
+    # front to back, and its 27.9 width going UP. Modelled flat it read as a
+    # 2586 mm3 collision with the roof and the lid - the solid, not the board.
+    esp = Pos(D["s_brd_cx"], D["s_brd_cy"], D["s_brd_board_z"]) * Box(
+        v["esp_l"], v["esp_w"], v["esp_t"] + v["esp_top_h"], align=C)
     usb = Pos(D["s_brd_cx"] - v["esp_l"] / 2 - 6.0, D["s_brd_cy"], D["s_usb_cz"]) * Box(12.0, v["esp_usb_w"] - 1.0, v["esp_usb_h"] - 1.0, align=CC)
     buzzer = Pos(D["s_buzzer_cx"], D["s_buzzer_cy"], D["s_lid_t"] + 0.2) * Cylinder(v["buzzer_d"] / 2, v["buzzer_d"] * 0.8, align=C)
     led = Pos(D["s_led_cx"], -D["s_W"] / 2 + v["wall"] + 4.3, D["s_led_cz"]) * Rot(90, 0, 0) * Cylinder(v["led_d"] / 2, 8.6, align=CC)
@@ -73,7 +77,7 @@ def parts_inside(D: dict):
     dot = Pos(D["s_ring_cx"], (D["s_ring_led_y"] + D["s_ring_y1"]) / 2, D["s_ring_cz"]) * Rot(90, 0, 0) * Cylinder(
         v["s_dot_od"] / 2, v["s_ring_led_h"] + v["s_ring_t"], align=CC)
     return {"PN532 board": pcb, "PN532 components (middle)": comp, "PN532 corner parts L": corners[0],
-            "PN532 corner parts R": corners[1], "Dupont tails": tails, "D1 mini + headroom": d1,
+            "PN532 corner parts R": corners[1], "Dupont tails": tails, "ESP32 + headroom": esp,
             "USB plug": usb, "buzzer": buzzer, "LED": led, "tape in the slot": tape,
             "VU ring board": ring, "VU ring LEDs": ring_leds, "the single WS2812B": dot}
 

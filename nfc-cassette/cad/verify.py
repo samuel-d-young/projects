@@ -104,10 +104,14 @@ def invariants(v: dict, D: dict) -> list[str]:
     chk(v["s_click_len"] < D["s_slot_l"] - 10.0, "slot: the detent ridge is nearly as long as the slot")
     chk(D["s_click_z"] + v["s_click_r"] < D["s_H"], "slot: the detent ridge runs out of the top of the body")
     chk(D["s_click_z"] - v["s_click_r"] > D["s_plate_top_z"], "slot: the detent ridge digs into the slot floor")
-    chk(D["s_brd_rib_gap"] >= 0.5, "slot: the ESP32 is too close to the module's side rib; widen s_side_margin")
+    chk(D["s_brd_tail_gap"] >= 0.0, "slot: the ESP32 runs into the module's Dupont tails")
+    chk(D["s_brd_end_gap"] >= v["s_mount_gap"], "slot: the ESP32's end blocks hit the cavity wall")
+    chk(D["s_brd_top_edge_z"] + v["cavity_clr"] <= D["s_roof_z"], "slot: the ESP32 stands into the roof")
     chk(D["y_brd_1"] + v["cavity_clr"] <= D["s_W"] / 2 - v["wall"] + 1e-6, "slot: the ESP32 goes through the back wall")
     chk(D["s_brd_top_z"] <= D["s_roof_z"] - 0.5, "slot: Dupont on the ESP32 hits the roof")
-    chk(D["s_usb_cz"] + v["usb_h"] / 2 < D["s_plate_bot_z"], "slot: USB cutout runs into the slot floor plate")
+    # the USB window is high now, at the standing board's mid-height, so what
+    # keeps it out of the slot block is being BEHIND it, not below it
+    chk(D["s_brd_cy"] - v["esp_usb_w"] / 2 > D["y_pcb0"], "slot: the USB window opens into the slot block")
     chk(D["y_tail1"] + v["cavity_clr"] <= D["s_W"] / 2 - v["wall"] + 1e-6, "slot: module tails through the back wall")
     # zip-tie hold-down: the strap has to stand up behind the board, the groove
     # must not eat the lid, and both stations must miss the corner lips
@@ -126,7 +130,7 @@ def invariants(v: dict, D: dict) -> list[str]:
     for (x, y) in D["s_posts"]:
         r = v["post_d"] / 2
         chk(abs(x) - r > D["s_slot_l"] / 2 + v["s_end_wall"] or y - r > D["y_pcb0"], "slot: a screw post lands in the slot block")
-        chk(abs(x - D["s_brd_cx"]) > v["esp_l"] / 2 + r + v["lip_t"] or abs(y - D["s_brd_cy"]) > v["esp_w"] / 2 + r + v["lip_t"], "slot: a screw post hits the ESP32")
+        chk(abs(x - D["s_brd_cx"]) > D["s_brd_mount_l"] / 2 + r or abs(y - D["s_brd_cy"]) > D["s_brd_mount_w"] / 2 + r, "slot: a screw post hits the ESP32's mount")
         chk(abs(x) > v["pn532_l"] / 2 + r or y - r > D["y_tail1"], "slot: a screw post lands in the module tails")
         chk((x - D["s_buzzer_cx"]) ** 2 + (y - D["s_buzzer_cy"]) ** 2 > (r + v["buzzer_d"] / 2 + 1.5) ** 2, "slot: a screw post hits the buzzer")
         chk(abs(x) + r <= D["s_cavity_l"] / 2 + v["wall"] and abs(y) + r <= D["s_cavity_w"] / 2 + v["wall"], "slot: a screw post outside the body")
@@ -155,7 +159,9 @@ def invariants(v: dict, D: dict) -> list[str]:
         return min(A - abs(x), B - abs(y))
 
     mount = v["pcb_clr"] + v["lip_t"]
-    feet = [("the ESP32's mount", D["s_brd_cx"], D["s_brd_cy"], v["esp_l"] / 2 + mount, v["esp_w"] / 2 + mount),
+    # s_brd_mount_l already carries the lips; adding `mount` here counted them
+    # twice and reported a mount 0.6 too big for a cavity that in fact fits it
+    feet = [("the ESP32's mount", D["s_brd_cx"], D["s_brd_cy"], D["s_brd_mount_l"] / 2, D["s_brd_mount_w"] / 2),
             ("buzzer ring", D["s_buzzer_cx"], D["s_buzzer_cy"], v["buzzer_d"] / 2 + 1.5, v["buzzer_d"] / 2 + 1.5),
             ("module shelf", 0.0, (D["y_pcb0"] + D["y_pcb1"]) / 2, 15.0, (v["pn532_t"] + v["pcb_clr"]) / 2),
             ("ring posts", D["k_vu_c"][0] + D["s_ring_post_dx"], (D["s_ring_y0"] + D["s_ring_y1"]) / 2, 2.5,

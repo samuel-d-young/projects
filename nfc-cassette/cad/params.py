@@ -82,6 +82,9 @@ _P: list[Param] = [
     Param("esp_top_h", 14.0, 3.0, 14.5, "choice", "headroom above the board: 14 for Dupont on the headers, 3 for soldered wires"),
     Param("esp_usb_w", 13.0, 12.0, 14.5, "assumed", "micro-USB plug boot on the DevKit"),
     Param("esp_usb_h", 8.0, 7.0, 9.5, "assumed"),
+    Param("esp_slot_clr", 0.40, 0.30, 0.60, "choice", "the board's edge slot, over esp_t"),
+    Param("esp_slot_h", 6.00, 4.00, 9.00, "choice", "how far the slot walls stand off the lid: enough to hold a 27.9 mm board upright, short enough to print as a fin"),
+    Param("esp_end_block", 2.40, 1.60, 3.20, "choice", "the blocks past each end of the board, which is what a cable being pushed in actually pushes against"),
     Param("d1_top_h", 14.0, 3.0, 14.5, "choice", "headroom above the board: 14 for Dupont on headers, 3 for soldered wires"),
     Param("usb_w", 13.0, 12.0, 14.0, "assumed", "micro-USB plug boot"),
     Param("usb_h", 8.0, 7.0, 9.0, "assumed"),
@@ -296,9 +299,13 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     # beside the module pocket needs (wall, lip, clearance, board, clearance, lip,
     # a 0.5 mm gap, then the module's side rib), whichever is more - so a thicker
     # wall grows the body instead of squeezing the board against the rib
-    rail_outer = v["pn532_l"] / 2 + v["pcb_clr"] + v["s_keeper"]
-    brd_needs = 2 * (v["wall"] + v["s_mount_gap"] + v["lip_t"] + v["pcb_clr"] + v["esp_l"]
-                    + v["pcb_clr"] + v["lip_t"] + 0.6 + rail_outer)
+    # The board stands UPRIGHT BEHIND the module, not flat beside it. Beside it,
+    # a 55 mm ESP32 had to clear the module's half-width as well as its own
+    # length, and that drove s_L to 169.5 - a body 41.6 mm longer than the slot
+    # needs, to house one board. Behind the module it may overlap it in X, so
+    # all it asks of the length is its own 55 plus the walls, and the slot gets
+    # the body back at 127.9 (Samuel, 2026-09-19: "keep the width at 127.9").
+    brd_needs = 2 * (v["wall"] + v["s_mount_gap"] + v["lip_t"] + v["pcb_clr"]) + v["esp_l"]
     D["s_L"] = max(D["s_slot_l"] + 2 * v["s_side_margin"], brd_needs)
     # the lid carries the screws, so it is as thick as a counterbored head needs,
     # never the shared `floor`: a 2.4 mm plate with a 2.5 mm head recess is a hole
@@ -318,7 +325,11 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     D["f_pcb0"] = D["f_slot1"] + v["s_module_wall"]
     D["f_pcb1"] = D["f_pcb0"] + v["pn532_t"]
     D["f_tail1"] = D["f_pcb1"] + D["s_tail"]
-    D["f_brd_0"] = D["f_pcb0"] + 1.0
+    # Behind the tails, lying flat. Standing it on edge was 12 mm shallower and
+    # wrong: the DevKit's header rows run along its two LONG edges, so on edge
+    # one whole row points down into whatever holds it. Flat, the board keeps
+    # the posts-and-lips mount that already works and the pins face up.
+    D["f_brd_0"] = D["f_tail1"] + v["cavity_clr"]
     D["f_brd_1"] = D["f_brd_0"] + v["esp_w"]
     # the back wall clears whichever is deeper: the module's tails plus air, or the
     # D1 mini's lips plus the gap the lid needs to drop past them
@@ -366,10 +377,18 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     D["s_antenna_to_card"] = v["s_module_wall"] + v["pn532_t"] + v["shell_floor"] + v["s_slot_clr"] + v["pcb_clr"]
     # D1 mini: long side along X, against the left wall (USB out through it); the
     # gap to the module's side rib is what the sweep checks
-    D["s_brd_cx"] = -(D["s_cavity_l"] / 2 - v["s_mount_gap"] - v["lip_t"] - v["pcb_clr"] - v["esp_l"] / 2)
+    D["s_brd_cx"] = 0.0                      # centred: it sits behind the module
     D["s_brd_cy"] = (D["y_brd_0"] + D["y_brd_1"]) / 2
-    D["s_brd_rib_gap"] = (-D["s_rail_x"] - v["s_keeper"] / 2) - (D["s_brd_cx"] + v["esp_l"] / 2 + v["pcb_clr"] + v["lip_t"])
+    # Beside the module, the number that mattered was the gap to its side rib.
+    # Behind it, the board may sit over those ribs in X and what matters instead
+    # is that it clears the tails in Y and stays inside the cavity in X.
+    D["s_brd_tail_gap"] = D["y_brd_0"] - D["y_tail1"]
+    D["s_brd_end_gap"] = D["s_cavity_l"] / 2 - (v["esp_l"] / 2 + v["esp_end_block"])
     D["s_brd_board_z"] = D["s_lid_t"] + v["esp_standoff"]
+    D["s_brd_top_edge_z"] = D["s_brd_board_z"] + v["esp_t"]
+    mount = v["pcb_clr"] + v["lip_t"]
+    D["s_brd_mount_l"] = v["esp_l"] + 2 * mount
+    D["s_brd_mount_w"] = v["esp_w"] + 2 * mount
     D["s_brd_top_z"] = D["s_brd_board_z"] + v["esp_t"] + v["esp_top_h"]
     D["s_usb_cz"] = D["s_brd_board_z"] + v["esp_t"] / 2 + 1.5
     # buzzer on the lid in the back zone, right of the module; sound holes through the right wall
@@ -432,7 +451,11 @@ def derive(v: dict[str, float]) -> dict[str, float]:
     # the module tails and the back wall, which the D1 mini's depth makes deep enough)
     px = D["s_L"] / 2 - v["wall"] - v["post_d"] / 2 - 0.5
     py = D["s_W"] / 2 - v["wall"] - v["post_d"] / 2 - 0.5
-    D["s_posts"] = [(-px, -py), (px, -py), (px, py), (0.0, py)]
+    # The fourth post used to sit at the middle of the back, which was empty
+    # while the board lay beside the module. The board is across the back now,
+    # so the post moves out past its mount rather than standing through it.
+    D["s_post4_x"] = -(D["s_brd_mount_l"] / 2 + v["post_d"] / 2 + 1.0)
+    D["s_posts"] = [(-px, -py), (px, -py), (px, py), (D["s_post4_x"], py)]
     D["s_pocket_l"] = D["s_L"] - 2 * D["s_lid_ledge"]
     D["s_pocket_w"] = D["s_W"] - 2 * D["s_lid_ledge"]
     D["s_pocket_r"] = max(v["corner_r"] - D["s_lid_ledge"], 0.6)

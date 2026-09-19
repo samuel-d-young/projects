@@ -294,6 +294,7 @@ def build_lid(D: dict):
     for p in _posts_and_lips(D["s_brd_cx"], D["s_brd_cy"], D["esp_l"], D["esp_w"], D,
                              top_z=D["s_brd_board_z"], lip_top_z=D["s_brd_board_z"] + D["esp_t"] + 3.0, z0=floor):
         lid = lid + p
+
     # the two posts the ring stands on. They sit under its rim, between LEDs,
     # and are pulled back off the cavity wall by s_mount_gap like every other
     # thing that stands on the lid.
