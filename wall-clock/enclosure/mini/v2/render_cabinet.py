@@ -14,7 +14,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import csg
-from params import *
+from params import *  # noqa: F403
 from cabinet import Frame, world_dir, HERE, CLOCK_Z_FRONT, side_instances
 
 SCREEN_PNG = os.path.join(HERE, '..', '..', '..', 'esphome', 'preview', 'shape-round.png')
@@ -36,7 +36,9 @@ def load_world(fn):
 
 def clock_parts(F):
     """The real clock parts, placed where the cabinet puts them."""
-    tg = F.tag
+    # the CLOCK does not change with the cabinet's depth, so these are named by
+    # the body, not by the cabinet variant
+    tg = F.body_tag
     M = F.clock_matrix()
     out = []
     def put(fn, pre=None):
@@ -248,21 +250,26 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('--only', default=None)
     ap.add_argument('--px', type=int, default=900)
+    ap.add_argument('--depth', type=float, default=None,
+                    help='render a depth variant, e.g. 70 or 150')
     args = ap.parse_args()
+    # a depth variant is the same body under another name; 70 only exists with
+    # the board on edge, which is what gets it under the 119.30 the flat one needs
+    flat = None if args.depth is None else args.depth >= CAB_DEPTH
     for tag in ('', '-32'):
         if args.only is not None and tag != args.only:
             continue
-        F = Frame(tag)
+        F = Frame(tag, args.depth, flat)
         vs = views(F)
         fig, axes = plt.subplots(2, 2, figsize=(15, 12.5))
         for ax, (key, title, parts, eye, tgt, sec) in zip(axes.ravel(), vs):
             img = render(parts, F, eye, tgt, px=(int(args.px * 1.2), args.px), section_x=sec)
             ax.imshow(img); ax.axis('off'); ax.set_title(title, fontsize=12)
             if key == 'hero':
-                plt.imsave(os.path.join(HERE, 'cabinet', f'render_cabinet{tag}_hero.png'), img)
-        fig.suptitle(f'mini-round-clock cabinet{tag}  --  {F.n}-LED clock, sleeve '
+                plt.imsave(os.path.join(HERE, 'cabinet', f'render_cabinet{F.tag}_hero.png'), img)
+        fig.suptitle(f'mini-round-clock cabinet{F.tag}  --  {F.n}-LED clock, sleeve '
                      f'{F.W:.0f} x {F.H:.0f} x {F.D:.0f} mm', fontsize=14)
         fig.patch.set_facecolor('#f4f3f0'); fig.tight_layout()
-        out = os.path.join(HERE, 'cabinet', f'render_cabinet{tag}.png')
+        out = os.path.join(HERE, 'cabinet', f'render_cabinet{F.tag}.png')
         fig.savefig(out, dpi=90)
         print('wrote', os.path.relpath(out, HERE))

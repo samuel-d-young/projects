@@ -103,9 +103,16 @@ class Frame:
     """Every number the parts have to agree on, worked out once. Parts are built
     from this and never from each other."""
 
-    def __init__(self, tag):
+    def __init__(self, tag, depth=None, flat_board=None):
         b = BODIES[tag]
-        self.tag, self.n = tag, b['n']
+        # `tag` picks the clock body; `depth` and `flat_board` are variants of the
+        # same body, so they only change the NAME the parts are written under.
+        self.body_tag, self.n = tag, b['n']
+        self.tag = tag if depth is None else '%s-d%g' % (tag, depth)
+        self.depth_req = depth
+        # The board lies flat front-to-back by default, which is 64 mm of depth.
+        # Stood on edge it is 14 mm, and that is the only way under ~70 mm.
+        self.flat_board = (depth is None or depth >= CAB_DEPTH) if flat_board is None else flat_board
         self.r_body, self.r_lip_i = b['r_body'], b['r_lip_i']
         T, R = CAB_WALL, self.r_body
 
@@ -148,9 +155,15 @@ class Frame:
         self.y_bstop0 = self.y_lip1 + CAB_LEAD_ROOM
         self.y_bstop1 = self.y_bstop0 + CAB_BSTOP_L
         self.y_board0 = self.y_bstop1 + CAB_STOP_GAP
-        self.y_board1 = self.y_board0 + BOARD2_L
+        # Flat, the board spends its 64 mm length on depth. Stood on edge it
+        # spends its 14 mm height instead, which is the whole reason a ~70 mm
+        # cabinet is possible at all: 119.30 - 64 + 14 = 69.30.
+        self.board_dy = BOARD2_L if self.flat_board else BOARD2_H
+        self.board_dx = BOARD2_W if self.flat_board else BOARD2_L
+        self.board_dz = BOARD2_H if self.flat_board else BOARD2_W
+        self.y_board1 = self.y_board0 + self.board_dy
 
-        self.D = CAB_DEPTH
+        self.D = CAB_DEPTH if self.depth_req is None else self.depth_req
         self.y_wall = self.D - CAB_BACK_T               # inside of the closed back
         self.y_hatch1 = self.D - CAB_HATCH_INSET        # the hatch, outside face
         self.y_hatch0 = self.y_hatch1 - CAB_HATCH_T     # ...and its seat
@@ -301,13 +314,30 @@ def build_sleeve(F):
         s = s + box_lwh(xc - hw, xc + hw, ys0, ys1, F.z_ct - CAB_STOP_T, F.z_ct + 0.5)
 
     # ---- board rails and end stop, on the clock bay floor
-    rail_h = CAB_TAPE + BOARD_T + CAB_RAIL_OVER
-    sw = HOUSING_S3_SLOT_W / 2
-    for sx in (1, -1):
-        x0, x1 = sorted((sx * sw, sx * (sw + CAB_RAIL_T)))
-        s = s + box_lwh(x0, x1, F.y_board0, F.y_board1, F.z_cf - 0.5, F.z_cf + rail_h)
-    s = s + box_lwh(-sw - CAB_RAIL_T, sw + CAB_RAIL_T, F.y_bstop0, F.y_bstop1,
-                    F.z_cf - 0.5, F.z_cf + rail_h)
+    if F.flat_board:
+        rail_h = CAB_TAPE + BOARD_T + CAB_RAIL_OVER
+        sw = HOUSING_S3_SLOT_W / 2
+        for sx in (1, -1):
+            x0, x1 = sorted((sx * sw, sx * (sw + CAB_RAIL_T)))
+            s = s + box_lwh(x0, x1, F.y_board0, F.y_board1, F.z_cf - 0.5, F.z_cf + rail_h)
+        s = s + box_lwh(-sw - CAB_RAIL_T, sw + CAB_RAIL_T, F.y_bstop0, F.y_bstop1,
+                        F.z_cf - 0.5, F.z_cf + rail_h)
+    else:
+        # On edge: the board stands across the bay, 64 along X and 30 up Z, and
+        # only its PCB edge is gripped - the components sit above the slot, on
+        # the +y side. Two walls along X make the slot; two blocks past each end
+        # stop it sliding. The walls print as fins standing off the bay floor,
+        # which is the same overhang the rails already were.
+        slot = BOARD_T + CAB_EDGE_SLOT_CLR
+        y_pcb = F.y_board0 + BOARD_T / 2          # the PCB plane
+        hx = F.board_dx / 2
+        for yy in (y_pcb - slot / 2 - CAB_RAIL_T, y_pcb + slot / 2):
+            s = s + box_lwh(-hx - CAB_RAIL_T, hx + CAB_RAIL_T, yy, yy + CAB_RAIL_T,
+                            F.z_cf - 0.5, F.z_cf + CAB_EDGE_SLOT_H)
+        for sx in (1, -1):
+            x0, x1 = sorted((sx * hx, sx * (hx + CAB_RAIL_T)))
+            s = s + box_lwh(x0, x1, y_pcb - slot / 2 - CAB_RAIL_T, y_pcb + slot / 2 + CAB_RAIL_T,
+                            F.z_cf - 0.5, F.z_cf + CAB_EDGE_SLOT_H)
 
 
     # ---- the hatch's rebate: a 45 degree funnel from the back face in to the
@@ -431,10 +461,18 @@ def build_hatch(F):
         p = p - ycyl(SCREW_CLEAR / 2 + 0.1, bx, bz, y0 - 1, y1 + 1, 32)
         # 90 degree countersink from the outside face (the bed face as printed)
         p = p - countersink(bx, bz, y1)
-    # the USB-C window, on the board's axis
+    # The USB-C window, on the board's axis. Flat, the port faces the hatch and
+    # this is a plug-in window. On edge the port faces sideways instead - the
+    # connector is at one end of the 64 mm axis and that axis is now across the
+    # bay - so there is nothing to plug into through the back, and the opening
+    # becomes a cable slot: fit the lead at assembly and run it out here.
     zc = F.z_cf + 0.2
-    p = p - box_lwh(-HOUSING_S3_USB_W / 2, HOUSING_S3_USB_W / 2, y0 - 1, y1 + 1,
-                    zc, zc + HOUSING_S3_USB_H)
+    if F.flat_board:
+        p = p - box_lwh(-HOUSING_S3_USB_W / 2, HOUSING_S3_USB_W / 2, y0 - 1, y1 + 1,
+                        zc, zc + HOUSING_S3_USB_H)
+    else:
+        p = p - box_lwh(-CAB_CABLE_W / 2, CAB_CABLE_W / 2, y0 - 1, y1 + 1,
+                        zc, zc + CAB_CABLE_H)
     # vents, high in the clock bay
     vw = 0.30 * F.cw
     for i in range(CAB_VENTS):
@@ -716,40 +754,45 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='mini-round-clock cabinet')
     ap.add_argument('--only', default=None, help='"" or -32')
     args = ap.parse_args()
+    # (depth, flat board). 120 is the standard box; 150 is the deep one, for more
+    # drawer; 70 exists only because the board stands on edge there.
+    VARIANTS = [(None, True), (150.0, True), (70.0, False)]
     for tag in ('', '-32', '-60'):
         if args.only is not None and tag != args.only:
             continue
-        F = Frame(tag)
-        print(f'body {tag or "24"}: sleeve {F.W:.1f} W x {F.H:.1f} H (+{CAB_FEET_H:.1f} feet) x '
-              f'{F.D:.1f} D; stack needs {F.depth_needed:.1f} deep')
-        if not F.fits_bed():
-            print(f'  cabinet{tag} SKIPPED: {F.W:.1f} x {F.H:.1f} x {F.D:.1f} does not fit a '
-                  f'{CAB_BED:.0f} mm bed')
-            continue
-        for man, fn, pn, M in parts_for(F):
-            t = csg.finalise(man, fn)
-            t.export(os.path.join(world_dir(), fn + '.stl'))
-            if pn is None:
+        for depth, flat in VARIANTS:
+            F = Frame(tag, depth, flat)
+            print(f'body {F.tag or "24"}: sleeve {F.W:.1f} W x {F.H:.1f} H '
+                  f'(+{CAB_FEET_H:.1f} feet) x {F.D:.1f} D; stack needs '
+                  f'{F.depth_needed:.1f}; board {"flat" if F.flat_board else "on edge"}')
+            if not F.fits_bed():
+                print(f'  cabinet{F.tag} SKIPPED: {F.W:.1f} x {F.H:.1f} x {F.D:.1f} '
+                      f'does not fit a {CAB_BED:.0f} mm bed')
                 continue
-            tp = t.copy()
-            tp.apply_transform(M)
-            tp.apply_translation(-tp.bounds[0])
-            tp.export(csg.part_out(pn + '.stl'))
-            tp.export(csg.part_out(pn + '.3mf'))
-        plys = [(build_face_panel(F), f'mini-round-clock-cabinet{tag}-face-ply'),
-                (build_drawer_front(F), f'mini-round-clock-cabinet{tag}-drawer-ply')]
-        if F.sides:
-            print(f'  side drawers: {2 * F.side_rows} of them, {F.side_w:.1f} wide x '
-                  f'{F.side_row_h:.1f} high, {F.side_rows} rows a side')
-            plys += [(build_side_front(F, i['sx'], i['row']),
-                      f'mini-round-clock-cabinet{tag}{i["ply"]}')
-                     for i in side_instances(F)]
-        else:
-            print(f'  no side drawers: the bay leaves {F.side_w:.1f} each side and '
-                  f'CAB_SIDE_MIN is {CAB_SIDE_MIN:.0f}')
-        for man, fn in plys:
-            csg.finalise(man, fn).export(os.path.join(world_dir(), fn + '.stl'))
-        svg = os.path.join(HERE, 'cabinet', f'mini-round-clock-cabinet{tag}-fronts.svg')
-        write_svg(F, svg)
-        print(f'  wrote {os.path.relpath(svg, HERE)}')
+            for man, fn, pn, M in parts_for(F):
+                t = csg.finalise(man, fn)
+                t.export(os.path.join(world_dir(), fn + '.stl'))
+                if pn is None:
+                    continue
+                tp = t.copy()
+                tp.apply_transform(M)
+                tp.apply_translation(-tp.bounds[0])
+                tp.export(csg.part_out(pn + '.stl'))
+                tp.export(csg.part_out(pn + '.3mf'))
+            plys = [(build_face_panel(F), f'mini-round-clock-cabinet{F.tag}-face-ply'),
+                    (build_drawer_front(F), f'mini-round-clock-cabinet{F.tag}-drawer-ply')]
+            if F.sides:
+                print(f'  side drawers: {2 * F.side_rows} of them, {F.side_w:.1f} wide x '
+                      f'{F.side_row_h:.1f} high, {F.side_rows} rows a side')
+                plys += [(build_side_front(F, i['sx'], i['row']),
+                          f'mini-round-clock-cabinet{F.tag}{i["ply"]}')
+                         for i in side_instances(F)]
+            else:
+                print(f'  no side drawers: the bay leaves {F.side_w:.1f} each side and '
+                      f'CAB_SIDE_MIN is {CAB_SIDE_MIN:.0f}')
+            for man, fn in plys:
+                csg.finalise(man, fn).export(os.path.join(world_dir(), fn + '.stl'))
+            svg = os.path.join(HERE, 'cabinet', f'mini-round-clock-cabinet{F.tag}-fronts.svg')
+            write_svg(F, svg)
+            print(f'  wrote {os.path.relpath(svg, HERE)}')
     print('done')

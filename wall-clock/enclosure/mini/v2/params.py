@@ -2312,7 +2312,16 @@ CAB_BED         = 256.00 # the printer's bed, square. A sleeve that will not fit
 # the kind of thing a duplicate constant does quietly. MEASURE THE SHEET and
 # set it once, up there.
 CAB_REVEAL      = 0.80   # gap between each wood front and the sleeve, per side
-CAB_RECESS      = 1.00   # the wood's face sits this far behind the sleeve's front
+CAB_EDGE_SLOT_CLR = 0.40 # the on-edge board's slot, over the PCB thickness
+CAB_EDGE_SLOT_H = 6.00   # how far the slot walls stand off the bay floor: enough
+                         # to hold a 30 mm board upright, short enough to print
+                         # as a fin rather than a wall
+CAB_CABLE_W     = 10.00  # the cable slot in the hatch when the board is on edge
+CAB_CABLE_H     = 6.00   # - the USB lead is fitted at assembly and run out here
+CAB_RECESS      = 3.00   # the wood's face sits this far behind the sleeve's front.
+                         # 1.00 was too subtle to read as a rebate (Samuel, 2026-09-19):
+                         # at 3.00 the sleeve's front wall frames each panel in shadow.
+                         # It costs depth 1:1, so CAB_DEPTH has to carry it.
 
 # --- the clock bay ----------------------------------------------------------
 CAB_APER_CLR    = 0.20   # the face aperture's radius over the base's lip radius:
